@@ -1,23 +1,25 @@
-import { useState } from 'react'
-import './App.css'
+import type React from "react"
 
-function App() {
-  const [count, numCount] = useState(0)
-
+// 使用function定义
+const Article: React.FC<{ title: string; content: string; active: boolean }> = ({
+  title,
+  content,
+  active,
+}) => {
   return (
-    <>
-      <h1>Vite + React</h1>
-      <div className="card">
-        {/* numCount 接收一个数，返回更新状态，重新渲染，不能 count = count + 1 */}
-        <button onClick={() => numCount((count) => count + 1)}>
-          porn is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-    </>
-  )
-}
+    <div>
+      <h1>{title}</h1>
+      <p>{content}</p>
+      <p>status: {active ? 'active' : 'inactive'}</p>
+    </div>
+  );
+};
 
-export default App
+export default function App() {
+    return (
+        <>
+            <Article title="hello world" content="hello world content" active></Article>
+            <Article title="hello world 2" content="hello world content 2" active></Article>
+        </>
+    )
+}
