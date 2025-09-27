@@ -1,25 +1,31 @@
-import type React from "react"
+// 子组件给父组件传递信息
 
-// 使用function定义
-const Article: React.FC<{ title: string; content: string; active: boolean }> = ({
-  title,
-  content,
-  active,
-}) => {
-  return (
-    <div>
-      <h1>{title}</h1>
-      <p>{content}</p>
-      <p>status: {active ? 'active' : 'inactive'}</p>
-    </div>
-  );
-};
+import { useState } from "react";
+
+function Test({onActive}: {onActive: (status: boolean) => void}) {
+    const [status, setStatus] = useState(true)
+
+    function handleClick() {
+        setStatus(!status)
+        onActive(status)
+    }
+
+    return (
+        <div>
+            <p style={{ display: status ? 'block' : 'none' }}>content</p>
+            <button onClick={handleClick}>button</button>
+        </div>
+    )
+}
+
 
 export default function App() {
+    function handleStatus(status: boolean) {
+        console.log(status);
+    }
     return (
         <>
-            <Article title="hello world" content="hello world content" active></Article>
-            <Article title="hello world 2" content="hello world content 2" active></Article>
+            <Test onActive={handleStatus}></Test>
         </>
-    )
+    );
 }
