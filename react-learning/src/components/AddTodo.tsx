@@ -1,4 +1,4 @@
-import React, { useState, type FormEvent } from "react";
+import React, { useState } from "react";
 
 interface AddTodoProps {
     addTodo: (text: string) => void
