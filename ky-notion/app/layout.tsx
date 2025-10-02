@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   //todo notes: 这里更改了图标
 
-  title: "ky-notion",
+  title: "Lotion",
   description: "The connected workspace where better faster work happens",
   icons: {
     icon: [
