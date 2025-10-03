@@ -6,7 +6,6 @@ This repository contains various frontend learning projects and experiments.
 
 - `ky-notion`: A Notion-like application built with Next.js
 - `react-learning`: Basic React learning projects and examples
-- `algorithm-learning`: Algorithm practice and implementations
 
 ## Projects
 
