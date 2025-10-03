@@ -16,6 +16,13 @@ const Logo = () => {
             width="30"
             alt="Logo"
             />
+            {/* <Image 
+            src="/logo.svg"
+            height="30"
+            width="30"
+            alt="Logo"
+            className="hidden dark:block"
+            /> */}
             <p className={cn("font-semibold", font.className)}>Lotion</p>
         </div>
      );
