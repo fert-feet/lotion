@@ -15,14 +15,15 @@ const Logo = () => {
             height="30"
             width="30"
             alt="Logo"
+            className="dark:hidden"
             />
-            {/* <Image 
-            src="/logo.svg"
+            <Image 
+            src="/logo-dark.svg"
             height="30"
             width="30"
             alt="Logo"
             className="hidden dark:block"
-            /> */}
+            />
             <p className={cn("font-semibold", font.className)}>Lotion</p>
         </div>
      );

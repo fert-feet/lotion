@@ -15,7 +15,7 @@ const Navbar = () => {
             <Logo />
             <div className="flex md:ml-auto md:justify-end justify-between w-full items-center gap-x-2">
                 <ModeToggle />
-                <Button variant="secondary">Login</Button>
+                <Button variant="default">Login</Button>
             </div>
         </div>
     );
