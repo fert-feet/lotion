@@ -2,7 +2,7 @@
 
 import { ChevronsLeft, MenuIcon, Rewind } from "lucide-react";
 import { usePathname } from "next/navigation";
-import React, { ElementRef, useRef, useState } from "react";
+import React, { ElementRef, useEffect, useRef, useState } from "react";
 import { useMediaQuery } from "usehooks-ts";
 import { cn } from "../../../lib/utils";
 
@@ -16,6 +16,20 @@ const Navigation = () => {
 
     const [isResetting, setIsResetting] = useState(false)
     const [isCollapsed, setIsCollapsed] = useState(isMobile)
+
+    useEffect(() => {
+        if (isMobile) {
+            collapse();
+        }
+    }, [isMobile, pathName]) // 负责处理导航之后的行为，并且只关心移动端的体验
+
+    useEffect(() => {
+        if (isMobile) {
+            collapse();
+        } else {
+            resetWidth()
+        }
+    }, [isMobile]) // 负责不同尺寸设备的切换，并且总体只分为手机和其他
 
     const handleMouseDown = (
         event: React.MouseEvent<HTMLDivElement, MouseEvent>
