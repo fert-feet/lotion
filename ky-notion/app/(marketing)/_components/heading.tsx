@@ -37,7 +37,7 @@ const Heading = () => {
                     <Button variant="default" size="sm" asChild>
                         <Link href="/documents">
                             Enter Lotion
-                            <ArrowRight className="h-4 w-4 ml-2"/>
+                            <ArrowRight className="h-5 w-5 ml-2"/>
                         </Link>
                     </Button>
                 </>
