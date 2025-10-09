@@ -1,95 +1,112 @@
-"use client"
+"use client";
 
-import { ChevronsLeft, MenuIcon, Rewind } from "lucide-react";
+import { ChevronsLeft, MenuIcon, PlusCircle, Rewind, Search, Settings } from "lucide-react";
 import { usePathname } from "next/navigation";
 import React, { ElementRef, useEffect, useRef, useState } from "react";
 import { useMediaQuery } from "usehooks-ts";
 import { cn } from "../../../lib/utils";
 import UserItem from "./user-item";
+import { useMutation, useQuery } from "convex/react";
+import { api } from "../../../convex/_generated/api";
+import Item from "./item";
+import { toast } from "sonner";
+import DocumentList from "./document-list";
 
 const Navigation = () => {
-    const pathName = usePathname()
-    const isMobile = useMediaQuery("(max-width: 768px)")
+    const pathName = usePathname();
+    const isMobile = useMediaQuery("(max-width: 768px)");
+    const create = useMutation(api.documents.create);
 
-    const isResizingRef = useRef(false)
-    const sidebarRef = useRef<ElementRef<"aside">>(null)
-    const navbarRef = useRef<ElementRef<"div">>(null)
 
-    const [isResetting, setIsResetting] = useState(false)
-    const [isCollapsed, setIsCollapsed] = useState(isMobile)
+    const isResizingRef = useRef(false);
+    const sidebarRef = useRef<ElementRef<"aside">>(null);
+    const navbarRef = useRef<ElementRef<"div">>(null);
+
+    const [isResetting, setIsResetting] = useState(false);
+    const [isCollapsed, setIsCollapsed] = useState(isMobile);
 
     useEffect(() => {
         if (isMobile) {
             collapse();
         }
-    }, [isMobile, pathName]) // 负责处理导航之后的行为，并且只关心移动端的体验
+    }, [isMobile, pathName]); // 负责处理导航之后的行为，并且只关心移动端的体验
 
     useEffect(() => {
         if (isMobile) {
             collapse();
         } else {
-            resetWidth()
+            resetWidth();
         }
-    }, [isMobile]) // 负责不同尺寸设备的切换，并且总体只分为手机和其他
+    }, [isMobile]); // 负责不同尺寸设备的切换，并且总体只分为手机和其他
+
+    const onCreate = () => {
+        const promise = create({ title: "Untitled" });
+
+        toast.promise(promise, {
+            loading: "Creating a new note...",
+            success: "New note created",
+            error: "Failed to create a new note."
+        });
+    };
 
     const handleMouseDown = (
         event: React.MouseEvent<HTMLDivElement, MouseEvent>
     ) => {
-        event.preventDefault()
-        event.stopPropagation()
+        event.preventDefault();
+        event.stopPropagation();
 
-        isResizingRef.current = true
-        document.addEventListener("mousemove", handleMouseMove)
-        document.addEventListener("mouseup", handleMouseUp)
-    }
+        isResizingRef.current = true;
+        document.addEventListener("mousemove", handleMouseMove);
+        document.addEventListener("mouseup", handleMouseUp);
+    };
 
     const handleMouseMove = (e: MouseEvent) => {
         if (!isResizingRef.current) return;
-        let newWidth = e.clientX
+        let newWidth = e.clientX;
 
-        if (newWidth < 240) newWidth = 240
-        if (newWidth > 480) newWidth = 480
+        if (newWidth < 240) newWidth = 240;
+        if (newWidth > 480) newWidth = 480;
 
         if (sidebarRef.current && navbarRef.current) {
-            sidebarRef.current.style.width = `${newWidth}px`
-            navbarRef.current.style.setProperty("left", `${newWidth}px`)
-            navbarRef.current.style.setProperty("width", `calc(100% - ${newWidth}px)`)
+            sidebarRef.current.style.width = `${newWidth}px`;
+            navbarRef.current.style.setProperty("left", `${newWidth}px`);
+            navbarRef.current.style.setProperty("width", `calc(100% - ${newWidth}px)`);
         }
-    }
+    };
 
     const handleMouseUp = () => {
-        isResizingRef.current = false
-        document.removeEventListener("mousemove", handleMouseMove)
-        document.removeEventListener("mouseup", handleMouseUp)
-    }
+        isResizingRef.current = false;
+        document.removeEventListener("mousemove", handleMouseMove);
+        document.removeEventListener("mouseup", handleMouseUp);
+    };
 
     const resetWidth = () => {
         if (sidebarRef.current && navbarRef.current) {
-            setIsCollapsed(false)
-            setIsResetting(true)
+            setIsCollapsed(false);
+            setIsResetting(true);
 
-            sidebarRef.current.style.width = isMobile ? "100%" : "240px"
+            sidebarRef.current.style.width = isMobile ? "100%" : "240px";
 
             navbarRef.current.style.setProperty(
                 "width",
                 isMobile ? "0" : "calc(100% - 240px)"
-            )
-            setTimeout(() => setIsResetting(false), 300)
+            );
+            setTimeout(() => setIsResetting(false), 300);
         }
-    }
+    };
 
     const collapse = () => {
         if (sidebarRef.current && navbarRef.current) {
-            setIsCollapsed(true)
-            setIsResetting(true)
+            setIsCollapsed(true);
+            setIsResetting(true);
 
-            sidebarRef.current.style.width = "0"
-            navbarRef.current.style.setProperty("width", "100%")
-            navbarRef.current.style.setProperty("left", "0")
+            sidebarRef.current.style.width = "0";
+            navbarRef.current.style.setProperty("width", "100%");
+            navbarRef.current.style.setProperty("left", "0");
 
-            setTimeout(() => setIsResetting(false), 300)
+            setTimeout(() => setIsResetting(false), 300);
         }
-    }
+    };
 
     return (
         <>
@@ -112,14 +129,30 @@ const Navigation = () => {
                 </div>
                 <div>
                     <UserItem />
+                    <Item
+                        label="Search"
+                        icon={Search}
+                        isSearch
+                        onClick={() => { }}
+                    />
+                    <Item
+                        label="Settings"
+                        icon={Settings}
+                        onClick={() => { }}
+                    />
+                    <Item
+                        onClick={onCreate}
+                        label="New Page"
+                        icon={PlusCircle}
+                    />
                 </div>
 
                 <div className="mt-4">
-                    <p>Documents</p>
+                    <DocumentList />
                 </div>
 
                 <div
-                    onMouseDown={(e) => { handleMouseDown(e) }}
+                    onMouseDown={(e) => { handleMouseDown(e); }}
                     onClick={resetWidth}
                     className="opacity-0 group-hover/sidebar:opacity-100 transition cursor-ew-resize absolute h-full w-1 bg-primary/10 right-0 top-0" />
             </aside>
@@ -138,6 +171,6 @@ const Navigation = () => {
             </div>
         </>
     );
-}
+};
 
 export default Navigation;

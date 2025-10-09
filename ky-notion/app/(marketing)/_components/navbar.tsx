@@ -28,7 +28,7 @@ const Navbar = () => {
                 {!isAuthenticated && !isLoading && (
                     <>
                         <SignInButton mode="modal">
-                            <Button variant="ghost">Login</Button>
+                            <Button variant="ghost" className="cursor-pointer">Login</Button>
                         </SignInButton>
                         <SignInButton mode="modal">
                             <Button variant="default">Get Lotion free!</Button>
