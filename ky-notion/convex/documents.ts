@@ -32,14 +32,20 @@ export const archive = mutation({
                 ))
                 .collect();
 
-                for (const child of children) [
+            for (const child of children) {
+                await ctx.db.patch(child._id, {
+                    isArchived: true
+                });
 
-                ]
+                await recursiveDocument(child._id);
+            };
         };
 
         const document = await ctx.db.patch(args.id, {
             isArchived: true
         });
+
+        return document;
     }
 });
 
