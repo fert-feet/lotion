@@ -12,12 +12,13 @@ import Item from "./item";
 import { toast } from "sonner";
 import DocumentList from "./document-list";
 import { Popover, PopoverContent, PopoverTrigger } from "../../../components/ui/popover";
+import TrashBox from "./trash-box";
 
 const Navigation = () => {
     const pathName = usePathname();
     const isMobile = useMediaQuery("(max-width: 768px)");
     const create = useMutation(api.documents.create);
-
+    const trashDocuments = useQuery(api.documents.getTrash, {});
 
     const isResizingRef = useRef(false);
     const sidebarRef = useRef<ElementRef<"aside">>(null);
@@ -164,10 +165,10 @@ const Navigation = () => {
                         </PopoverTrigger>
 
                         <PopoverContent
-                        className="p-0 w-72"
-                        side={isMobile ? "bottom" : "right"}
+                            className="p-0 w-72"
+                            side={isMobile ? "bottom" : "right"}
                         >
-                            <p>Trash box</p>
+                            <TrashBox />
                         </PopoverContent>
                     </Popover>
                 </div>
