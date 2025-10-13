@@ -93,10 +93,10 @@ const Navigation = () => {
             setIsResetting(true);
 
             sidebarRef.current.style.width = isMobile ? "100%" : "240px";
-
+            navbarRef.current.style.setProperty("left", isMobile ? "0" : "240px");
             navbarRef.current.style.setProperty(
                 "width",
-                isMobile ? "0" : "calc(100% - 240px)"
+                isMobile ? "100%" : "calc(100% - 240px)"
             );
             setTimeout(() => setIsResetting(false), 300);
         }
@@ -186,7 +186,9 @@ const Navigation = () => {
 
             {/* navbar 会随着 sidebar 改变大小 */}
             <div ref={navbarRef} className={cn(
-                "absolute top-0 z-[99999] left-60 w-[calc(100%-240px)]",
+                "absolute top-0 z-[99999]",
+                !isCollapsed && !isMobile && "left-60 w-[calc(100%-240px)]",
+                isCollapsed && !isMobile && "left-0 w-full",
                 isResetting && "transition-all ease-in-out duration-300",
                 isMobile && "left-0 w-full"
             )}>
