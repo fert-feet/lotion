@@ -248,3 +248,38 @@ export const getSearch = query({
         return documents;
     }
 });
+
+export const getById = query({
+    args: {
+        documentId: v.id("documents")
+    },
+    handler: async (ctx, args) => {
+        const identity = await ctx.auth.getUserIdentity();
+
+        const document = await ctx.db.get(args.documentId)
+
+        if (!document) {
+            throw new Error("Not found") 
+        }
+
+        // 发布并未归档则随便访问，登不登陆都行
+        if (document.isPublished && !document.isArchived) {
+            return document 
+        }
+
+        // 不是发布或，已归档，严格检查身份，若未登录则不允许
+        if (!identity) {
+            throw new Error("Not authenticated");
+        }
+
+        const userId = identity.subject;
+
+        // 登录但不是作者也不允许
+        if (document.userId !== userId) {
+            throw new Error("Unauthorized") 
+        }
+
+        // 是作者，允许
+        return document
+    }
+});
