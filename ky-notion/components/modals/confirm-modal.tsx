@@ -34,10 +34,10 @@ const ConfirmModal = ({
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                    <AlertDialogCancel onClick={(e) => e.stopPropagation()}>
+                    <AlertDialogCancel onClick={(e) => e.stopPropagation()} className="cursor-pointer">
                         Cancel
                     </AlertDialogCancel>
-                    <AlertDialogAction onClick={handleConfirm}>
+                    <AlertDialogAction onClick={handleConfirm} className="cursor-pointer">
                         Confirm
                     </AlertDialogAction>
                 </AlertDialogFooter>

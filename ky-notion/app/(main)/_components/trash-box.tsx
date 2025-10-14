@@ -40,9 +40,7 @@ const TrashBox = () => {
             error: "Failed to remove"
         });
 
-        if (params.documentId === documentId) {
-            router.push(`/documents/${documentId}`);
-        }
+        router.push("/documents/");
     };
 
     const onRestore = (

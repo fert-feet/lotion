@@ -7,6 +7,7 @@ import { Id } from "../../../convex/_generated/dataModel";
 import { MenuIcon } from "lucide-react";
 import { Spinner } from "../../../components/ui/spinner";
 import Title from "./title";
+import Banner from "./banner";
 
 interface NavbarProps {
     isCollapsed: boolean;
@@ -49,6 +50,10 @@ const Navbar = ({
                     <Title initialData={document} />
                 </div>
             </nav>
+
+            {document.isArchived && (
+                <Banner documentId={document._id} />
+            )}
         </>
     );
 };
