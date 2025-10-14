@@ -29,7 +29,6 @@ const SearchCommand = () => {
                 e.preventDefault();
                 toggle();
             }
-
         };
 
         document.addEventListener("keydown", down);

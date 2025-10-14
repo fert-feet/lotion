@@ -1,7 +1,7 @@
 const DocumentIdPage = () => {
     return ( 
         <div>
-            documentid
+            
         </div>
      );
 }

@@ -256,15 +256,15 @@ export const getById = query({
     handler: async (ctx, args) => {
         const identity = await ctx.auth.getUserIdentity();
 
-        const document = await ctx.db.get(args.documentId)
+        const document = await ctx.db.get(args.documentId);
 
         if (!document) {
-            throw new Error("Not found") 
+            throw new Error("Not found");
         }
 
         // 发布并未归档则随便访问，登不登陆都行
         if (document.isPublished && !document.isArchived) {
-            return document 
+            return document;
         }
 
         // 不是发布或，已归档，严格检查身份，若未登录则不允许
@@ -276,10 +276,48 @@ export const getById = query({
 
         // 登录但不是作者也不允许
         if (document.userId !== userId) {
-            throw new Error("Unauthorized") 
+            throw new Error("Unauthorized");
         }
 
         // 是作者，允许
-        return document
+        return document;
+    }
+});
+
+export const update = mutation({
+    args: {
+        id: v.id("documents"),
+        title: v.optional(v.string()),
+        content: v.optional(v.string()),
+        coverImage: v.optional(v.string()),
+        icon: v.optional(v.string()),
+        isPublished: v.optional(v.boolean()),
+    },
+    handler: async (ctx, args) => {
+        const identity = await ctx.auth.getUserIdentity();
+
+        if (!identity) {
+            throw new Error("Not authenticat");
+        }
+
+        const userId = identity.subject;
+
+        const { id, ...rest } = args;
+
+        const existingDocument = await ctx.db.get(args.id);
+
+        if (!existingDocument) {
+            throw new Error("Not found");
+        }
+
+        if (existingDocument?.userId !== userId) {
+            throw new Error("Unauthorized");
+        }
+
+        const document = await ctx.db.patch(id, {
+            ...rest
+        });
+
+        return document;
     }
 });
