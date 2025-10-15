@@ -7,6 +7,7 @@ import { useMutation } from "convex/react";
 import { api } from "../convex/_generated/api";
 
 import TextareaAutosize from "react-textarea-autosize";
+import useCoverImage from "../hooks/use-cover-image";
 
 interface ToolbarProps {
     initialData: Doc<"documents"> | undefined;
@@ -20,6 +21,8 @@ const Toolbar = ({
     if (!initialData) {
         return null;
     }
+
+    const coverImage = useCoverImage();
 
     const inputRef = useRef<ElementRef<"textarea">>(null);
     const update = useMutation(api.documents.update);
@@ -57,14 +60,14 @@ const Toolbar = ({
         update({
             id: initialData._id,
             icon: icon
-        })
-    }
+        });
+    };
 
     const onRemoveIcon = () => {
         removeIcon({
             id: initialData._id
-        })
-    }
+        });
+    };
 
     const onKeyDown = (
         e: React.KeyboardEvent<HTMLTextAreaElement>
@@ -80,7 +83,7 @@ const Toolbar = ({
             {!!initialData.icon && !preview && (
                 <div className="flex items-center gap-x-2 group/icon pt-6">
                     <IconPicker onChange={onSeleteIcon}>
-                        <p className="text-6xl hover:opacity-75 transition">
+                        <p className="text-6xl hover:opacity-75 transition cursor-pointer">
                             {initialData.icon}
                         </p>
                     </IconPicker>
@@ -101,20 +104,23 @@ const Toolbar = ({
             )}
             <div className="flex items-center gap-x-1 group-hover:opacity-100 opacity-0 py-4">
                 {!initialData.icon && !preview && (
-                    <IconPicker asChild onChange={onSeleteIcon}>
+                    <IconPicker onChange={onSeleteIcon}>
                         <Button
+                            asChild
                             className="text-muted-foreground text-xs cursor-pointer"
                             variant={"outline"}
                             size={"sm"}
                         >
-                            <Smile className="h-4 w-4 mr-2" />
-                            Add icon
+                            <div>
+                                <Smile className="h-4 w-4 mr-2" />
+                                Add icon
+                            </div>
                         </Button>
                     </IconPicker>
                 )}
                 {!initialData.coverImage && !preview && (
                     <Button
-                        onClick={() => { }}
+                        onClick={coverImage.onOpen}
                         className="text-muted-foreground text-xs cursor-pointer"
                         variant={"outline"}
                         size={"sm"}
