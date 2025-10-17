@@ -10,6 +10,7 @@ import { Id } from "../../convex/_generated/dataModel";
 import { UploaderProvider, UploadFn } from "../upload/uploader-provider";
 import { SingleImageDropzoneUsage } from "../single-image-dropzone";
 import React from "react";
+import { log } from "console";
 
 const CoverImageModal = () => {
     const [file, setFile] = useState<File>();
@@ -26,23 +27,23 @@ const CoverImageModal = () => {
         coverImage.onClose();
     };
 
-    const uploadFn: UploadFn = React.useCallback(
-        async ({ file }) => {
-            const res = await edgestore.publicFiles.upload({
-                file,
-            });
+    const uploadFn: UploadFn = async ({ file }) => {
+        const res = await edgestore.publicFiles.upload({
+            file,
+            options: {
+                replaceTargetUrl: coverImage.url
+            }
+        });
 
-            await update({
-                id: params.documentId as Id<"documents">,
-                coverImage: res.url
-            });
+        await update({
+            id: params.documentId as Id<"documents">,
+            coverImage: res.url
+        });
 
-            onClose();
+        onClose();
 
-            return res;
-        },
-        [edgestore],
-    );
+        return res;
+    };
 
     return (
         <Dialog open={coverImage.isOpen} onOpenChange={coverImage.onClose}>

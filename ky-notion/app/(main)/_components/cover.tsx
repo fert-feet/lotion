@@ -9,6 +9,8 @@ import { useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { useParams } from "next/navigation";
 import { Id } from "../../../convex/_generated/dataModel";
+import { useEdgeStore } from "../../../lib/edgestore";
+import { Skeleton } from "../../../components/ui/skeleton";
 
 interface CoverProps {
     url?: string,
@@ -21,14 +23,20 @@ const Cover = ({
 }: CoverProps) => {
     const params = useParams();
     const coverImage = useCoverImage();
+    const { edgestore } = useEdgeStore();
     const removeCoverImage = useMutation(api.documents.removeCoverImage);
 
-    const onRemove = () => {
+    const onRemove = async () => {
+        if (url) {
+            await edgestore.publicFiles.delete({
+                url: url
+            });
+        }
+
         removeCoverImage({
             id: params.documentId as Id<"documents">
         });
     };
-
 
     return (
         <div className={cn(
@@ -47,7 +55,7 @@ const Cover = ({
             {url && !preview && (
                 <div className="opacity-0 transition group-hover:opacity-100 absolute bottom-2 right-3 flex items-center gap-x-2">
                     <Button
-                        onClick={() => { }}
+                        onClick={() => coverImage.onReplace(url)}
                         className="text-muted-foreground text-xs cursor-pointer"
                         variant={"outline"}
                         size={"sm"}
@@ -67,6 +75,12 @@ const Cover = ({
                 </div>
             )}
         </div>
+    );
+};
+
+Cover.Skeleton = function CoverSkeleton() {
+    return (
+        <Skeleton className="w-full h-[12vh]" />
     );
 };
 

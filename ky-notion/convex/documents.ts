@@ -369,7 +369,7 @@ export const removeCoverImage = mutation({
         const existingDocument = await ctx.db.get(args.id);
 
         if (!existingDocument) {
-            throw new Error("Not found");
+            
         }
 
         if (existingDocument?.userId !== userId) {
