@@ -8,6 +8,7 @@ import { useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { useUser } from "@clerk/nextjs";
 import { Skeleton } from "../../../components/ui/skeleton";
+import { useRouter } from "next/navigation";
 
 interface MenuProps {
     documentId: Id<"documents">;
@@ -19,6 +20,7 @@ const Menu = ({
     isArchive
 }: MenuProps) => {
     const archive = useMutation(api.documents.archive);
+    const router = useRouter()
 
     const { user } = useUser();
 
@@ -28,9 +30,8 @@ const Menu = ({
             return;
         }
 
-        const promise = archive({
-            id: documentId
-        });
+        const promise = archive({ id: documentId })
+            .then(() => router.push("/documents"))
 
         toast.promise(promise, {
             loading: "Moving to trash...",

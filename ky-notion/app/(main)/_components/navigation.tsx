@@ -1,7 +1,7 @@
 "use client";
 
 import { ChevronsLeft, MenuIcon, Plus, PlusCircle, Rewind, Search, Settings, Trash } from "lucide-react";
-import { useParams, usePathname } from "next/navigation";
+import { useParams, usePathname, useRouter } from "next/navigation";
 import React, { ElementRef, useEffect, useRef, useState } from "react";
 import { useMediaQuery } from "usehooks-ts";
 import { cn } from "../../../lib/utils";
@@ -24,6 +24,7 @@ const Navigation = () => {
     const create = useMutation(api.documents.create);
     const toggle = useSearch((store) => store.toggle);
     const settings = useSettings();
+    const router = useRouter();
 
     const isResizingRef = useRef(false);
     const sidebarRef = useRef<ElementRef<"aside">>(null);
@@ -47,7 +48,8 @@ const Navigation = () => {
     }, [isMobile]); // 负责不同尺寸设备的切换，并且总体只分为手机和其他
 
     const onCreate = () => {
-        const promise = create({ title: "Untitled" });
+        const promise = create({ title: "Untitled" })
+            .then((documentId) => { router.push(`/documents/${documentId}`); });
 
         toast.promise(promise, {
             loading: "Creating a new note...",
