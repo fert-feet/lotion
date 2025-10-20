@@ -9,7 +9,7 @@ Lotion is a Notion-inspired note-taking and knowledge management application bui
 - **Real-time Collaboration**: Built with Convex for real-time data synchronization
 - **User Authentication**: Secure authentication with Clerk
 - **Trash Management**: Archive and restore documents with full trash functionality
-- **Rich Text Editing**: Block-based editor for creating rich content
+- **Rich Text Editing**: Block-based editor for creating rich content using BlockNote
 - **Cover Images & Icons**: Customize documents with cover images and icons
 - **Search Functionality**: Quickly find documents with search
 - **Responsive Design**: Works seamlessly across desktop and mobile devices
@@ -43,7 +43,7 @@ Lotion is a Notion-inspired note-taking and knowledge management application bui
 1. Clone the repository:
    ```bash
    git clone <repository-url>
-   cd front-end-learning/ky-notion
+   cd front-end-learning
    ```
 
 2. Install dependencies:
@@ -71,7 +71,7 @@ Lotion is a Notion-inspired note-taking and knowledge management application bui
 ## Project Structure
 
 ```
-ky-notion/
+front-end-learning/
 ├── app/                     # Next.js app router
 │   ├── (main)/             # Main application (authenticated users)
 │   │   ├── _components/    # Main layout components
