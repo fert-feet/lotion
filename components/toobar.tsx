@@ -18,10 +18,6 @@ const Toolbar = ({
     initialData,
     preview
 }: ToolbarProps) => {
-    if (!initialData) {
-        return null;
-    }
-
     const coverImage = useCoverImage();
 
     const inputRef = useRef<ElementRef<"textarea">>(null);
@@ -29,7 +25,11 @@ const Toolbar = ({
     const removeIcon = useMutation(api.documents.removeIcon);
 
     const [isEditing, setIsEditing] = useState<boolean>(false);
-    const [value, setValue] = useState(initialData.title);
+    const [value, setValue] = useState(initialData?.title || "");
+
+    if (!initialData) {
+        return null;
+    }
 
     const enableInput = () => {
         if (preview) {
