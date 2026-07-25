@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Popover, PopoverContent, PopoverTrigger } from "../../../components/ui/popover";
 import { Check, Copy, Globe } from "lucide-react";
 import { update, type Document } from "@/lib/db";
+import { useRefresh } from "@/hooks/use-refresh";
 
 interface publishProps {
     initialData: Document;
@@ -18,12 +19,14 @@ const Publish = ({
     const origin = useOrigin();
     const [copied, setCopied] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const triggerDocument = useRefresh((s) => s.triggerDocument);
 
     const url = `${origin}/preview/${initialData.id}`;
 
     const onPublish = () => {
         setIsSubmitting(true);
         const promise = update(initialData.id, { isPublished: true })
+            .then(() => triggerDocument(initialData.id))
             .finally(() => setIsSubmitting(false));
 
         toast.promise(promise, {
@@ -36,6 +39,7 @@ const Publish = ({
     const onUnpublish = () => {
         setIsSubmitting(true);
         const promise = update(initialData.id, { isPublished: false })
+            .then(() => triggerDocument(initialData.id))
             .finally(() => setIsSubmitting(false));
 
         toast.promise(promise, {

@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "../../../components/ui/dropdown-menu";
 import { useSupabaseUser } from "@/hooks/use-supabase-user";
+import { useRefresh } from "@/hooks/use-refresh";
 import { create, archive } from "@/lib/db";
 
 interface ItemProps {
@@ -35,6 +36,7 @@ const Item = ({
     expanded,
 }: ItemProps) => {
     const { user } = useSupabaseUser();
+    const triggerSidebar = useRefresh((s) => s.triggerSidebar);
     const router = useRouter();
 
     if (!user) return null;
@@ -49,7 +51,10 @@ const Item = ({
         }
 
         const promise = archive(user.id, id)
-            .then(() => router.push("/documents"))
+            .then(() => {
+                triggerSidebar();
+                router.push("/documents");
+            })
 
         toast.promise(promise, {
             loading: "Moving to trash...",
@@ -72,6 +77,7 @@ const Item = ({
                 if (!expanded) {
                     onExpand?.();
                 }
+                triggerSidebar();
                 router.push(`/documents/${documentId}`);
             });
 

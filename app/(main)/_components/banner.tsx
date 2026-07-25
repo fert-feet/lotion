@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "../../../components/ui/button";
 import ConfirmModal from "../../../components/modals/confirm-modal";
 import { useSupabaseUser } from "@/hooks/use-supabase-user";
+import { useRefresh } from "@/hooks/use-refresh";
 import { remove, restore } from "@/lib/db";
 
 interface BannerProps {
@@ -16,22 +17,26 @@ const Banner = ({
 }: BannerProps) => {
     const router = useRouter();
     const { user } = useSupabaseUser();
+    const triggerSidebar = useRefresh((s) => s.triggerSidebar);
 
     const onRemove = () => {
-        const promise = remove(documentId);
+        const promise = remove(documentId).then(() => {
+            triggerSidebar();
+            router.push("/documents");
+        });
 
         toast.promise(promise, {
             loading: "Removing note...",
             success: "Note removed",
             error: "Failed to remove"
         });
-
-        router.push("/documents");
     };
 
     const onRestore = () => {
         if (!user) return;
-        const promise = restore(user.id, documentId);
+        const promise = restore(user.id, documentId).then(() => {
+            triggerSidebar();
+        });
 
         toast.promise(promise, {
             loading: "Restoring note...",

@@ -6,11 +6,13 @@ import { Search, Trash, Undo } from "lucide-react";
 import { Input } from "../../../components/ui/input";
 import ConfirmModal from "../../../components/modals/confirm-modal";
 import { useSupabaseUser } from "@/hooks/use-supabase-user";
+import { useRefresh } from "@/hooks/use-refresh";
 import { getTrash, restore, remove, type Document } from "@/lib/db";
 
 const TrashBox = () => {
     const router = useRouter();
     const { user } = useSupabaseUser();
+    const triggerSidebar = useRefresh((s) => s.triggerSidebar);
 
     const [documents, setDocuments] = useState<Document[] | undefined>(undefined);
     const [search, setSearch] = useState("");
@@ -32,7 +34,10 @@ const TrashBox = () => {
     };
 
     const onRemove = (documentId: string) => {
-        const promise = remove(documentId).then(() => loadTrash());
+        const promise = remove(documentId).then(() => {
+            triggerSidebar();
+            loadTrash();
+        });
 
         toast.promise(promise, {
             loading: "Removing note...",
@@ -48,7 +53,10 @@ const TrashBox = () => {
         event.stopPropagation();
 
         if (!user) return;
-        const promise = restore(user.id, documentId).then(() => loadTrash());
+        const promise = restore(user.id, documentId).then(() => {
+            triggerSidebar();
+            loadTrash();
+        });
 
         toast.promise(promise, {
             loading: "Restoring note...",

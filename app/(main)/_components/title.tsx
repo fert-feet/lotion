@@ -1,6 +1,7 @@
 "use client";
 
 import { update, type Document } from "@/lib/db";
+import { useRefresh } from "@/hooks/use-refresh";
 import React, { useRef, useState } from "react";
 import { Input } from "../../../components/ui/input";
 import { Button } from "../../../components/ui/button";
@@ -14,6 +15,7 @@ const Title = ({
     initialData
 }: TitleProps) => {
     const inputRef = useRef<HTMLInputElement>(null);
+    const triggerDocument = useRefresh((s) => s.triggerDocument);
 
     const [isEditing, setIsEditing] = useState<boolean>(false);
     const [title, setTitle] = useState(initialData.title || "Untitled");
@@ -30,6 +32,11 @@ const Title = ({
 
     const disableInput = () => {
         setIsEditing(false);
+        // Wait for the final update to complete before triggering refresh,
+        // so the re-fetch gets the latest title from DB.
+        update(initialData.id, { title: title || "Untitled" }).then(() => {
+            triggerDocument(initialData.id);
+        });
     };
 
     const onChange = (

@@ -8,6 +8,7 @@ import { cn } from "../../../lib/utils";
 import UserItem from "./user-item";
 import { create } from "@/lib/db";
 import { useSupabaseUser } from "@/hooks/use-supabase-user";
+import { useRefresh } from "@/hooks/use-refresh";
 import Item from "./item";
 import { toast } from "sonner";
 import DocumentList from "./document-list";
@@ -26,6 +27,7 @@ const Navigation = () => {
     const toggle = useSearch((store) => store.toggle);
     const settings = useSettings();
     const aiPanel = useAiPanel();
+    const triggerSidebar = useRefresh((s) => s.triggerSidebar);
     const router = useRouter();
 
     const isResizingRef = useRef(false);
@@ -46,7 +48,10 @@ const Navigation = () => {
     const onCreate = () => {
         if (!user) return;
         const promise = create(user.id, "Untitled")
-            .then((documentId) => { router.push(`/documents/${documentId}`); });
+            .then((documentId) => {
+                triggerSidebar();
+                router.push(`/documents/${documentId}`);
+            });
 
         toast.promise(promise, {
             loading: "Creating a new note...",

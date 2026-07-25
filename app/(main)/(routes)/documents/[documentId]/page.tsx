@@ -1,27 +1,30 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useParams } from "next/navigation";
-import { getById, update, type Document } from "@/lib/db";
-import { Skeleton } from "../../../../../components/ui/skeleton";
-import { useMemo } from "react";
 import dynamic from "next/dynamic";
+import { getById, update, type Document } from "@/lib/db";
+import { useRefresh } from "@/hooks/use-refresh";
+import { Skeleton } from "../../../../../components/ui/skeleton";
 import Toolbar from "../../../../../components/toobar";
 import Cover from "../../../_components/cover";
 
 const DocumentIdPage = () => {
     const params = useParams();
     const Editor = useMemo(() => dynamic(() => import("../../../_components/editor"), { ssr: false }), []);
+    const documentKeys = useRefresh((s) => s.documentKeys);
 
     const [document, setDocument] = useState<Document | null | undefined>(undefined);
+    const documentId = params.documentId as string;
+    const refreshKey = documentKeys[documentId] || 0;
 
     useEffect(() => {
-        if (params.documentId) {
-            getById(params.documentId as string)
+        if (documentId) {
+            getById(documentId)
                 .then(setDocument)
                 .catch(() => setDocument(null));
         }
-    }, [params.documentId]);
+    }, [documentId, refreshKey]);
 
     const onChange = (content: string) => {
         if (document) {

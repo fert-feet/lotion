@@ -4,6 +4,7 @@ import { MoreHorizontal, Trash } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "../../../components/ui/dropdown-menu";
 import { toast } from "sonner";
 import { archive } from "@/lib/db";
+import { useRefresh } from "@/hooks/use-refresh";
 import { useSupabaseUser } from "@/hooks/use-supabase-user";
 import { Skeleton } from "../../../components/ui/skeleton";
 import { useRouter } from "next/navigation";
@@ -19,6 +20,7 @@ const Menu = ({
 }: MenuProps) => {
     const router = useRouter()
     const { user } = useSupabaseUser();
+    const triggerSidebar = useRefresh((s) => s.triggerSidebar);
 
     if (!user) return null;
 
@@ -28,7 +30,10 @@ const Menu = ({
         }
 
         const promise = archive(user.id, documentId)
-            .then(() => router.push("/documents"))
+            .then(() => {
+                triggerSidebar();
+                router.push("/documents");
+            })
 
         toast.promise(promise, {
             loading: "Moving to trash...",

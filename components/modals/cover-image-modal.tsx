@@ -5,10 +5,12 @@ import { useParams } from "next/navigation";
 import { UploaderProvider, UploadFn } from "../upload/uploader-provider";
 import { createClient } from "@/lib/supabase/client";
 import { update } from "@/lib/db";
+import { useRefresh } from "@/hooks/use-refresh";
 
 const CoverImageModal = () => {
     const params = useParams();
     const coverImage = useCoverImage();
+    const triggerDocument = useRefresh((s) => s.triggerDocument);
 
     const onClose = () => {
         coverImage.onClose();
@@ -29,6 +31,7 @@ const CoverImageModal = () => {
         const { data: urlData } = supabase.storage.from("lotion").getPublicUrl(path);
 
         await update(params.documentId as string, { coverImage: urlData.publicUrl });
+        triggerDocument(params.documentId as string);
 
         onClose();
 

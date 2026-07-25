@@ -9,6 +9,7 @@ import Menu from "./menu";
 import Publish from "./publish";
 import { useEffect, useState } from "react";
 import { getById, type Document } from "@/lib/db";
+import { useRefresh } from "@/hooks/use-refresh";
 import { Skeleton } from "../../../components/ui/skeleton";
 
 interface NavbarProps {
@@ -21,15 +22,18 @@ const Navbar = ({
     onResetWidth
 }: NavbarProps) => {
     const params = useParams();
+    const documentKeys = useRefresh((s) => s.documentKeys);
     const [document, setDocument] = useState<Document | null | undefined>(undefined);
+    const documentId = params.documentId as string;
+    const refreshKey = documentKeys[documentId] || 0;
 
     useEffect(() => {
-        if (params.documentId) {
-            getById(params.documentId as string)
+        if (documentId) {
+            getById(documentId)
                 .then(setDocument)
                 .catch(() => setDocument(null));
         }
-    }, [params.documentId]);
+    }, [documentId, refreshKey]);
 
     if (document === undefined) {
         return (

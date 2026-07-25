@@ -22,7 +22,7 @@ const DocumentList = ({
     const params = useParams();
     const router = useRouter();
     const { user } = useSupabaseUser();
-    const { key: refreshKey } = useRefresh();
+    const sidebarKey = useRefresh((s) => s.sidebarKey);
     const [expanded, setExpanded] = useState<Record<string, boolean>>({});
     const [documents, setDocuments] = useState<Document[] | undefined>(undefined);
 
@@ -32,7 +32,7 @@ const DocumentList = ({
                 .then(setDocuments)
                 .catch(() => setDocuments([]));
         }
-    }, [user, parentDocumentId, refreshKey]);
+    }, [user, parentDocumentId, sidebarKey]);
 
     const onExpand = (documentId: string) => {
         setExpanded(prevExpanded => ({

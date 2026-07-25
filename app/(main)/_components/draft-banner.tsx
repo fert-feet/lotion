@@ -3,6 +3,7 @@
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { Button } from "../../../components/ui/button";
+import { useRefresh } from "@/hooks/use-refresh";
 import { update, remove } from "@/lib/db";
 
 interface DraftBannerProps {
@@ -11,9 +12,11 @@ interface DraftBannerProps {
 
 const DraftBanner = ({ documentId }: DraftBannerProps) => {
   const router = useRouter();
+  const triggerSidebar = useRefresh((s) => s.triggerSidebar);
 
   const onConfirm = () => {
     const promise = update(documentId, { isDraft: false }).then(() => {
+      triggerSidebar();
       toast.success("草稿已保存");
     });
 
@@ -26,6 +29,7 @@ const DraftBanner = ({ documentId }: DraftBannerProps) => {
 
   const onDiscard = () => {
     const promise = remove(documentId).then(() => {
+      triggerSidebar();
       router.push("/documents");
     });
 

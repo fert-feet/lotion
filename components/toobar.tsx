@@ -4,6 +4,7 @@ import IconPicker from "./icon-picker";
 import { Button } from "./ui/button";
 import { ElementRef, useRef, useState } from "react";
 import { update, removeIcon } from "@/lib/db";
+import { useRefresh } from "@/hooks/use-refresh";
 import TextareaAutosize from "react-textarea-autosize";
 import useCoverImage from "../hooks/use-cover-image";
 
@@ -17,6 +18,7 @@ const Toolbar = ({
     preview
 }: ToolbarProps) => {
     const coverImage = useCoverImage();
+    const triggerDocument = useRefresh((s) => s.triggerDocument);
     const inputRef = useRef<ElementRef<"textarea">>(null);
     const [isEditing, setIsEditing] = useState<boolean>(false);
     const [value, setValue] = useState(initialData?.title || "");
@@ -40,6 +42,9 @@ const Toolbar = ({
 
     const disableInput = () => {
         setIsEditing(false);
+        update(initialData.id, { title: value || "Untitled" }).then(() => {
+            triggerDocument(initialData.id);
+        });
     };
 
     const onInput = (value: string) => {
@@ -48,11 +53,11 @@ const Toolbar = ({
     };
 
     const onSelectIcon = (icon: string) => {
-        update(initialData.id, { icon });
+        update(initialData.id, { icon }).then(() => triggerDocument(initialData.id));
     };
 
     const onRemoveIcon = () => {
-        removeIcon(initialData.id);
+        removeIcon(initialData.id).then(() => triggerDocument(initialData.id));
     };
 
     const onKeyDown = (

@@ -8,6 +8,7 @@ import useCoverImage from "../../../hooks/use-cover-image";
 import { useParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { removeCoverImage } from "@/lib/db";
+import { useRefresh } from "@/hooks/use-refresh";
 import { Skeleton } from "../../../components/ui/skeleton";
 
 interface CoverProps {
@@ -21,6 +22,7 @@ const Cover = ({
 }: CoverProps) => {
     const params = useParams();
     const coverImage = useCoverImage();
+    const triggerDocument = useRefresh((s) => s.triggerDocument);
 
     const onRemove = async () => {
         if (url) {
@@ -31,7 +33,9 @@ const Cover = ({
             }
         }
 
-        removeCoverImage(params.documentId as string).catch(console.error);
+        removeCoverImage(params.documentId as string)
+            .then(() => triggerDocument(params.documentId as string))
+            .catch(console.error);
     };
 
     return (
