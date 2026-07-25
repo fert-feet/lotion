@@ -1,7 +1,6 @@
 "use client";
 
 import {
-    Block,
     BlockNoteEditor,
     PartialBlock
 } from "@blocknote/core";
@@ -9,8 +8,9 @@ import {
 import { BlockNoteView } from "@blocknote/shadcn";
 
 import "@blocknote/core/style.css";
-import { useCreateBlockNote, useEditorChange } from "@blocknote/react";
+import { useCreateBlockNote } from "@blocknote/react";
 import { useTheme } from "next-themes";
+import { useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 interface EditorProps {
@@ -46,12 +46,13 @@ const Editor = ({
         uploadFile: handleUpload
     });
 
+    const onEditorChange = useCallback((editor: BlockNoteEditor) => {
+        onChange(JSON.stringify(editor.document, null, 2));
+    }, [onChange]);
 
     return (
         <BlockNoteView
-            onChange={(editor: BlockNoteEditor) => {
-                onChange(JSON.stringify(editor.document, null, 2));
-            }}
+            onChange={onEditorChange}
             editable={editable}
             editor={editor}
             theme={resolvedTheme == "dark" ? "dark" : "light"}

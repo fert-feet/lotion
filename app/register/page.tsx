@@ -24,6 +24,7 @@ export default function RegisterPage() {
       setError(error.message);
       setLoading(false);
     } else {
+      setLoading(false);
       router.push("/documents");
       router.refresh();
     }

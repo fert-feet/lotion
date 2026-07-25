@@ -47,7 +47,7 @@ const Toolbar = ({
         update(initialData.id, { title: value || "Untitled" });
     };
 
-    const onSeleteIcon = (icon: string) => {
+    const onSelectIcon = (icon: string) => {
         update(initialData.id, { icon });
     };
 
@@ -68,7 +68,7 @@ const Toolbar = ({
         <div className="pl-[54px] group relative">
             {!!initialData.icon && !preview && (
                 <div className="flex items-center gap-x-2 group/icon pt-6">
-                    <IconPicker onChange={onSeleteIcon}>
+                    <IconPicker onChange={onSelectIcon}>
                         <p className="text-6xl hover:opacity-75 transition cursor-pointer">
                             {initialData.icon}
                         </p>
@@ -90,7 +90,7 @@ const Toolbar = ({
             )}
             <div className="flex items-center gap-x-1 group-hover:opacity-100 opacity-0 py-4">
                 {!initialData.icon && !preview && (
-                    <IconPicker onChange={onSeleteIcon}>
+                    <IconPicker onChange={onSelectIcon}>
                         <Button
                             asChild
                             className="text-muted-foreground text-xs cursor-pointer"

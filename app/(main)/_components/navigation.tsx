@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronsLeft, MenuIcon, Plus, PlusCircle, Rewind, Search, Settings, Sparkles, Trash } from "lucide-react";
+import { ChevronsLeft, MenuIcon, Plus, PlusCircle, Search, Settings, Sparkles, Trash } from "lucide-react";
 import { useParams, usePathname, useRouter } from "next/navigation";
 import React, { ElementRef, useEffect, useRef, useState } from "react";
 import { useMediaQuery } from "usehooks-ts";
@@ -38,16 +38,10 @@ const Navigation = () => {
     useEffect(() => {
         if (isMobile) {
             collapse();
-        }
-    }, [isMobile, pathName]);
-
-    useEffect(() => {
-        if (isMobile) {
-            collapse();
         } else {
             resetWidth();
         }
-    }, [isMobile]);
+    }, [isMobile, pathName]);
 
     const onCreate = () => {
         if (!user) return;

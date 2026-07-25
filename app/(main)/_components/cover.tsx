@@ -31,7 +31,7 @@ const Cover = ({
             }
         }
 
-        removeCoverImage(params.documentId as string);
+        removeCoverImage(params.documentId as string).catch(console.error);
     };
 
     return (

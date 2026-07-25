@@ -2,7 +2,7 @@
 
 import { useAiPanel } from "@/hooks/use-ai-panel";
 import { cn } from "@/lib/utils";
-import { create, type Document } from "@/lib/db";
+import { create, update } from "@/lib/db";
 import { useSupabaseUser } from "@/hooks/use-supabase-user";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -78,13 +78,15 @@ const AiPanel = () => {
     }
   };
 
-  const handleSaveAsNote = async () => {
+  const handleSaveAsNote = () => {
     const lastAssistant = [...messages].reverse().find((m) => m.role === "assistant");
     if (!lastAssistant || !user) return;
 
     const promise = create(user.id, "AI 生成的笔记")
       .then((docId) => {
-        router.push(`/documents/${docId}`);
+        return update(docId, { content: lastAssistant.content });
+      })
+      .then(() => {
         onClose();
       });
 

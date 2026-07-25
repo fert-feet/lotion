@@ -1,4 +1,4 @@
-import { useParams, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useState, useEffect } from "react";
 import { Spinner } from "../../../components/ui/spinner";
@@ -9,7 +9,6 @@ import { useSupabaseUser } from "@/hooks/use-supabase-user";
 import { getTrash, restore, remove, type Document } from "@/lib/db";
 
 const TrashBox = () => {
-    const params = useParams();
     const router = useRouter();
     const { user } = useSupabaseUser();
 
@@ -79,7 +78,7 @@ const TrashBox = () => {
 
             </div>
             <div className="mt-2 px-1 pb-1">
-                <p className="hidden last:block text-xs text-center text-muted-foreground pb-2k">
+                <p className="hidden last:block text-xs text-center text-muted-foreground pb-2">
                     No document Found
                 </p>
                 {filterDocuments?.map((document) => (

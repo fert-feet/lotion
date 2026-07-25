@@ -5,7 +5,6 @@ import { useParams } from "next/navigation";
 import { UploaderProvider, UploadFn } from "../upload/uploader-provider";
 import { createClient } from "@/lib/supabase/client";
 import { update } from "@/lib/db";
-import React from "react";
 
 const CoverImageModal = () => {
     const params = useParams();

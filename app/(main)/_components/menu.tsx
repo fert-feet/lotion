@@ -3,7 +3,7 @@
 import { MoreHorizontal, Trash } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "../../../components/ui/dropdown-menu";
 import { toast } from "sonner";
-import { archive, type Document } from "@/lib/db";
+import { archive } from "@/lib/db";
 import { useSupabaseUser } from "@/hooks/use-supabase-user";
 import { Skeleton } from "../../../components/ui/skeleton";
 import { useRouter } from "next/navigation";

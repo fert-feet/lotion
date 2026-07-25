@@ -7,11 +7,11 @@ type SearchStore = {
     toggle: () => void;
 };
 
-const useSearch = create<SearchStore>((set, get) => ({
+const useSearch = create<SearchStore>((set) => ({
     isOpen: false,
     onOpen: () => set({isOpen: true}),
     onClose: () => set({isOpen: false}),
-    toggle: () => set({isOpen: !get().isOpen}),
+    toggle: () => set((state) => ({isOpen: !state.isOpen})),
 }))
 
 export default useSearch;
