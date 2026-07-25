@@ -2,14 +2,11 @@
 
 import { useAiPanel } from "@/hooks/use-ai-panel";
 import { cn } from "@/lib/utils";
-import { create, update } from "@/lib/db";
-import { useRefresh } from "@/hooks/use-refresh";
 import { useSupabaseUser } from "@/hooks/use-supabase-user";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { Bot, Send, Sparkles, X, FileText, Loader2 } from "lucide-react";
+import { Bot, Send, Sparkles, X, Loader2 } from "lucide-react";
 import { Button } from "../../../components/ui/button";
-import { Skeleton } from "../../../components/ui/skeleton";
 import { toast } from "sonner";
 
 interface Message {
@@ -20,7 +17,6 @@ interface Message {
 const AiPanel = () => {
   const { isOpen, onClose } = useAiPanel();
   const { user } = useSupabaseUser();
-  const { trigger: refresh } = useRefresh();
   const params = useParams();
   const router = useRouter();
 
@@ -70,13 +66,11 @@ const AiPanel = () => {
 
         fullText += decoder.decode(value, { stream: true });
 
-        // 检测 createNote marker，自动跳转到文档
         if (!hasNavigated) {
           const match = fullText.match(/\[NOTE_CREATED:([^\]]+)\]/);
           if (match) {
             hasNavigated = true;
             const docId = match[1];
-            // 过滤掉标记再显示
             fullText = fullText.replace(/\[NOTE_CREATED:[^\]]+\]/, "");
             setTimeout(() => {
               onClose();
@@ -97,69 +91,12 @@ const AiPanel = () => {
     }
   };
 
-  const handleFillDocument = () => {
-    const lastAssistant = [...messages].reverse().find((m) => m.role === "assistant");
-    if (!lastAssistant || !params.documentId) return;
-
-    const docId = params.documentId as string;
-    // 将纯文本转为 BlockNote JSON 格式，确保编辑器能解析
-    const blocks = lastAssistant.content.split("\n").map((line, i) => ({
-      id: `ai-${i}`,
-      type: "paragraph" as const,
-      content: line ? [{ type: "text" as const, text: line }] : [],
-    }));
-    const promise = update(docId, { content: JSON.stringify(blocks) });
-
-    toast.promise(promise, {
-      loading: "填充中...",
-      success: "已填充到当前笔记",
-      error: "填充失败",
-    });
-  };
-
-  const handleSaveAsNote = () => {
-    // 取最长的 assistant 消息作为笔记内容（跳过短的元信息）
-    const assistantMsgs = messages.filter((m) => m.role === "assistant");
-    const contentMsg = assistantMsgs.reduce((longest, m) =>
-      m.content.length > (longest?.content.length ?? 0) ? m : longest,
-      assistantMsgs[0]
-    );
-    if (!contentMsg || !user) return;
-
-    const blocks = contentMsg.content.split("\n").map((line, i) => ({
-      id: `ai-${i}`,
-      type: "paragraph" as const,
-      content: line ? [{ type: "text" as const, text: line }] : [],
-    }));
-
-    let newDocId: string;
-    const promise = create(user.id, "AI 生成的笔记")
-      .then((docId) => {
-        newDocId = docId;
-        return update(docId, { content: JSON.stringify(blocks) });
-      })
-      .then(() => {
-        refresh();
-        onClose();
-        router.push(`/documents/${newDocId}`);
-      });
-
-    toast.promise(promise, {
-      loading: "创建笔记中...",
-      success: "笔记已创建",
-      error: "创建失败",
-    });
-  };
-
-  const hasAiResponse = messages.some((m) => m.role === "assistant");
-
   return (
     <>
       <div className="fixed inset-0 z-[100]" onClick={onClose} />
       <aside className={cn(
         "fixed right-0 top-0 h-full w-96 border-l bg-white dark:bg-neutral-900 dark:border-neutral-800 z-[101] flex flex-col shadow-xl"
       )}>
-        {/* Header */}
         <div className="flex items-center justify-between gap-2 border-b px-4 py-3 dark:border-neutral-800">
           <div className="flex items-center gap-2">
             <Sparkles className="h-4 w-4 text-blue-500" />
@@ -170,7 +107,6 @@ const AiPanel = () => {
           </Button>
         </div>
 
-        {/* Messages */}
         <div ref={messagesRef} className="flex-1 overflow-y-auto p-4 space-y-4">
           {messages.length === 0 && !loading && (
             <div className="flex flex-col items-center justify-center h-full text-center gap-3 text-neutral-400">
@@ -182,7 +118,7 @@ const AiPanel = () => {
                 <p className="text-xs">
                   帮你总结文档、改进写作、回答问题。
                   <br />
-                  打开一个文档后，我可以帮你分析内容。
+                  写新笔记时我会直接创建，你确认或丢弃即可。
                 </p>
               </div>
             </div>
@@ -234,33 +170,6 @@ const AiPanel = () => {
           )}
         </div>
 
-        {/* Save actions */}
-        {hasAiResponse && (
-          <div className="px-4 py-2 border-t dark:border-neutral-800 space-y-2">
-            {params.documentId && (
-              <Button
-                variant="default"
-                size="sm"
-                className="w-full text-xs cursor-pointer"
-                onClick={handleFillDocument}
-              >
-                <FileText className="h-3 w-3 mr-1.5" />
-                填充到当前笔记
-              </Button>
-            )}
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full text-xs cursor-pointer"
-              onClick={handleSaveAsNote}
-            >
-              <FileText className="h-3 w-3 mr-1.5" />
-              保存为新笔记
-            </Button>
-          </div>
-        )}
-
-        {/* Input */}
         <div className="border-t dark:border-neutral-800 p-4">
           <div className="flex gap-2">
             <input
