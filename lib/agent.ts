@@ -60,13 +60,23 @@ export async function runNoteAgent(
   });
 
   // 包装流：每次读取时检查是否有待注入的 noteId
+  // 使用 TextEncoder 确保产出 Uint8Array（Response 构造函数要求）
   const textStream = result.textStream;
   const reader = textStream.getReader();
+  const encoder = new TextEncoder();
 
-  const wrapped = new ReadableStream<string>({
+  const wrapped = new ReadableStream<Uint8Array>({
     async pull(controller) {
       const { done, value } = await reader.read();
+
       if (done) {
+        // 流结束时如果还有待注入的标记，先注入再关闭
+        if (pendingNoteId.current) {
+          const marker = `[NOTE_CREATED:${pendingNoteId.current}]`;
+          logger.agent.info("流结束前注入标记", { noteId: pendingNoteId.current });
+          controller.enqueue(encoder.encode(marker));
+          pendingNoteId.current = null;
+        }
         controller.close();
         return;
       }
@@ -75,10 +85,10 @@ export async function runNoteAgent(
       if (pendingNoteId.current) {
         const marker = `[NOTE_CREATED:${pendingNoteId.current}]`;
         logger.agent.info("流注入标记", { noteId: pendingNoteId.current });
-        controller.enqueue(marker + value);
+        controller.enqueue(encoder.encode(marker + value));
         pendingNoteId.current = null;
       } else {
-        controller.enqueue(value);
+        controller.enqueue(encoder.encode(value));
       }
     },
   });
