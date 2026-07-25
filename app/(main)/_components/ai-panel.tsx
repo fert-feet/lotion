@@ -78,13 +78,39 @@ const AiPanel = () => {
     }
   };
 
+  const handleFillDocument = () => {
+    const lastAssistant = [...messages].reverse().find((m) => m.role === "assistant");
+    if (!lastAssistant || !params.documentId) return;
+
+    const docId = params.documentId as string;
+    // 将纯文本转为 BlockNote JSON 格式，确保编辑器能解析
+    const blocks = lastAssistant.content.split("\n").map((line, i) => ({
+      id: `ai-${i}`,
+      type: "paragraph" as const,
+      content: line ? [{ type: "text" as const, text: line }] : [],
+    }));
+    const promise = update(docId, { content: JSON.stringify(blocks) });
+
+    toast.promise(promise, {
+      loading: "填充中...",
+      success: "已填充到当前笔记",
+      error: "填充失败",
+    });
+  };
+
   const handleSaveAsNote = () => {
     const lastAssistant = [...messages].reverse().find((m) => m.role === "assistant");
     if (!lastAssistant || !user) return;
 
+    const blocks = lastAssistant.content.split("\n").map((line, i) => ({
+      id: `ai-${i}`,
+      type: "paragraph" as const,
+      content: line ? [{ type: "text" as const, text: line }] : [],
+    }));
+
     const promise = create(user.id, "AI 生成的笔记")
       .then((docId) => {
-        return update(docId, { content: lastAssistant.content });
+        return update(docId, { content: JSON.stringify(blocks) });
       })
       .then(() => {
         onClose();
@@ -180,9 +206,20 @@ const AiPanel = () => {
           )}
         </div>
 
-        {/* Save as note */}
+        {/* Save actions */}
         {hasAiResponse && (
-          <div className="px-4 py-2 border-t dark:border-neutral-800">
+          <div className="px-4 py-2 border-t dark:border-neutral-800 space-y-2">
+            {params.documentId && (
+              <Button
+                variant="default"
+                size="sm"
+                className="w-full text-xs cursor-pointer"
+                onClick={handleFillDocument}
+              >
+                <FileText className="h-3 w-3 mr-1.5" />
+                填充到当前笔记
+              </Button>
+            )}
             <Button
               variant="outline"
               size="sm"
