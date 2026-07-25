@@ -2,7 +2,7 @@
 
 import { update, type Document } from "@/lib/db";
 import { useRefresh } from "@/hooks/use-refresh";
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Input } from "../../../components/ui/input";
 import { Button } from "../../../components/ui/button";
 import { Skeleton } from "../../../components/ui/skeleton";
@@ -19,6 +19,15 @@ const Title = ({
 
     const [isEditing, setIsEditing] = useState<boolean>(false);
     const [title, setTitle] = useState(initialData.title || "Untitled");
+    // 本地显示的标题：编辑中用自己的 state，失焦立即同步避免闪烁
+    const [displayTitle, setDisplayTitle] = useState(initialData.title || "Untitled");
+
+    // 非编辑状态下，外部 props 变化时同步显示标题
+    useEffect(() => {
+        if (!isEditing && initialData.title) {
+            setDisplayTitle(initialData.title);
+        }
+    }, [initialData.title, isEditing]);
 
     const enableInput = () => {
         setTitle(initialData.title);
@@ -32,6 +41,7 @@ const Title = ({
 
     const disableInput = () => {
         setIsEditing(false);
+        setDisplayTitle(title); // 立即显示用户输入的新标题，不等远端刷新
         // Wait for the final update to complete before triggering refresh,
         // so the re-fetch gets the latest title from DB.
         update(initialData.id, { title: title || "Untitled" }).then(() => {
@@ -77,7 +87,7 @@ const Title = ({
                     className="font-normal h-auto p-1 cursor-pointer"
                 >
                     <span className="truncate">
-                        {initialData?.title}
+                        {displayTitle}
                     </span>
                 </Button>
             )}

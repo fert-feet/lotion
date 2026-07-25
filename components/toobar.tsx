@@ -2,7 +2,7 @@ import { ImageIcon, Smile, X } from "lucide-react";
 import { type Document } from "@/lib/db";
 import IconPicker from "./icon-picker";
 import { Button } from "./ui/button";
-import { ElementRef, useRef, useState } from "react";
+import { ElementRef, useEffect, useRef, useState } from "react";
 import { update, removeIcon } from "@/lib/db";
 import { useRefresh } from "@/hooks/use-refresh";
 import TextareaAutosize from "react-textarea-autosize";
@@ -22,6 +22,13 @@ const Toolbar = ({
     const inputRef = useRef<ElementRef<"textarea">>(null);
     const [isEditing, setIsEditing] = useState<boolean>(false);
     const [value, setValue] = useState(initialData?.title || "");
+    const [displayValue, setDisplayValue] = useState(initialData?.title || "");
+
+    useEffect(() => {
+        if (!isEditing && initialData?.title) {
+            setDisplayValue(initialData.title);
+        }
+    }, [initialData?.title, isEditing]);
 
     if (!initialData) {
         return null;
@@ -42,6 +49,7 @@ const Toolbar = ({
 
     const disableInput = () => {
         setIsEditing(false);
+        setDisplayValue(value); // 立即显示新标题
         update(initialData.id, { title: value || "Untitled" }).then(() => {
             triggerDocument(initialData.id);
         });
@@ -135,7 +143,7 @@ const Toolbar = ({
                     onClick={enableInput}
                     className="pb-[11.5px] text-5xl font-bold break-words outline-none text-[#3f3f3f] dark:text-[#cfcfcf] resize-none"
                 >
-                    {initialData.title}
+                    {displayValue}
                 </div>
             )}
         </div>
