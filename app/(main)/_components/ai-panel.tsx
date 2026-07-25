@@ -117,6 +117,10 @@ const AiPanel = () => {
   const handleConfirmDelete = (msgIndex: number, noteId: string, title: string) => {
     const promise = remove(noteId).then(() => {
       triggerSidebar();
+      // 如果当前正在查看被删除的文档，跳转到文档列表
+      if (params.documentId === noteId) {
+        router.push("/documents");
+      }
       // 清除该消息的 pendingAction
       setMessages((prev) =>
         prev.map((m, i) => (i === msgIndex ? { ...m, pendingAction: undefined } : m))
