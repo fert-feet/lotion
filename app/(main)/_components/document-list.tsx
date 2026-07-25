@@ -90,14 +90,18 @@ const DocumentListRoot = () => {
     const { user } = useSupabaseUser();
     const sidebarKey = useRefresh((s) => s.sidebarKey);
     const [allDocs, setAllDocs] = useState<SidebarDocument[] | undefined>(undefined);
+    const [visible, setVisible] = useState(false);
     const initialLoaded = useRef(false);
 
     useEffect(() => {
         if (user) {
+            setVisible(false);
             getSidebarAll(user.id)
                 .then((data) => {
                     setAllDocs(data);
                     initialLoaded.current = true;
+                    // 下一帧整体淡入，避免浏览器逐条绘制
+                    requestAnimationFrame(() => setVisible(true));
                 })
                 .catch(() => {
                     if (!initialLoaded.current) setAllDocs([]);
@@ -105,18 +109,24 @@ const DocumentListRoot = () => {
         }
     }, [user, sidebarKey]);
 
-    // 仅首次加载显示骨架屏，后续刷新保留旧数据避免闪烁
     if (!initialLoaded.current && allDocs === undefined) {
         return (
-            <>
-                <Item.Skeleton level={0} />
-                <Item.Skeleton level={0} />
-                <Item.Skeleton level={0} />
-            </>
+            <div className="px-3 py-2 space-y-1.5">
+                <div className="h-4 w-3/4 rounded bg-neutral-200 dark:bg-neutral-700 animate-pulse" />
+                <div className="h-4 w-1/2 rounded bg-neutral-200 dark:bg-neutral-700 animate-pulse" />
+                <div className="h-4 w-2/3 rounded bg-neutral-200 dark:bg-neutral-700 animate-pulse" />
+            </div>
         );
     }
 
-    return <DocumentList allDocs={allDocs ?? []} />;
+    return (
+        <div
+            className="transition-opacity duration-150"
+            style={{ opacity: visible ? 1 : 0 }}
+        >
+            <DocumentList allDocs={allDocs ?? []} />
+        </div>
+    );
 };
 
 export default DocumentListRoot;

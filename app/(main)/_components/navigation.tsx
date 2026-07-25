@@ -125,7 +125,7 @@ const Navigation = () => {
                 ref={sidebarRef}
                 className={cn(
                     "group/sidebar h-full bg-secondary overflow-y-auto relative flex w-60 flex-col z-[99999]",
-                    isResetting && "transition-all ease-in-out duration-300",
+                    isResetting && "transition-[width] ease-in-out duration-300",
                     isMobile && "w-0"
                 )}>
                 <div
@@ -197,7 +197,7 @@ const Navigation = () => {
                 "absolute top-0 z-[99999]",
                 !isCollapsed && !isMobile && "left-60 w-[calc(100%-240px)]",
                 isCollapsed && !isMobile && "left-0 w-full",
-                isResetting && "transition-all ease-in-out duration-300",
+                isResetting && "transition-[left,width] ease-in-out duration-300",
                 isMobile && "left-0 w-full"
             )}>
                 {!!params.documentId ? (
