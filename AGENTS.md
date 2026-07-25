@@ -52,6 +52,7 @@ components/                 # shadcn/ui + Toolbar + SearchCommand
 
 ## 约定
 
+- **禁止启动开发服务器**：不要执行 `pnpm dev` 或 `npm run dev`。用户自行管理服务进程。验证编译用静态检查即可。
 - 提交消息格式：`feature: <中文描述>` 或 `fix: <中文描述>`，每次变更必须提交
 - 所有组件目前都是 `"use client"`（项目尚未使用 React Server Components）
 - Zustand store 模式：`isOpen / onOpen / onClose / toggle`
