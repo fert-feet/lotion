@@ -3,21 +3,31 @@
 import { useAiPanel } from "@/hooks/use-ai-panel";
 import { cn } from "@/lib/utils";
 import { useSupabaseUser } from "@/hooks/use-supabase-user";
+import { useRefresh } from "@/hooks/use-refresh";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { Bot, Send, Sparkles, X, Loader2 } from "lucide-react";
+import { Bot, Send, Sparkles, X, Loader2, AlertTriangle, Check, Ban } from "lucide-react";
 import { Button } from "../../../components/ui/button";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
+import { remove } from "@/lib/db";
+
+interface PendingAction {
+  type: "delete";
+  noteId: string;
+  title: string;
+}
 
 interface Message {
   role: "user" | "assistant";
   content: string;
+  pendingAction?: PendingAction;
 }
 
 const AiPanel = () => {
   const { isOpen, onClose } = useAiPanel();
   const { user } = useSupabaseUser();
+  const triggerSidebar = useRefresh((s) => s.triggerSidebar);
   const params = useParams();
   const router = useRouter();
 
@@ -60,6 +70,7 @@ const AiPanel = () => {
       const decoder = new TextDecoder();
       let fullText = "";
       let hasNavigated = false;
+      let pendingAction: PendingAction | undefined;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -68,10 +79,10 @@ const AiPanel = () => {
         fullText += decoder.decode(value, { stream: true });
 
         if (!hasNavigated) {
-          const match = fullText.match(/\[NOTE_CREATED:([^\]]+)\]/);
-          if (match) {
+          const noteMatch = fullText.match(/\[NOTE_CREATED:([^\]]+)\]/);
+          if (noteMatch) {
             hasNavigated = true;
-            const docId = match[1];
+            const docId = noteMatch[1];
             fullText = fullText.replace(/\[NOTE_CREATED:[^\]]+\]/, "");
             setTimeout(() => {
               router.push(`/documents/${docId}`);
@@ -79,16 +90,51 @@ const AiPanel = () => {
           }
         }
 
+        // 检测删除确认标记
+        if (!pendingAction) {
+          const confirmMatch = fullText.match(/\[CONFIRM_DELETE:([^:]+):([^\]]+)\]/);
+          if (confirmMatch) {
+            const noteId = confirmMatch[1];
+            const title = decodeURIComponent(confirmMatch[2]);
+            pendingAction = { type: "delete", noteId, title };
+            fullText = fullText.replace(/\[CONFIRM_DELETE:[^\]]+\]/, "");
+          }
+        }
+
         setStreaming(fullText);
       }
 
-      setMessages((prev) => [...prev, { role: "assistant", content: fullText }]);
+      const newMsg: Message = { role: "assistant", content: fullText, pendingAction };
+      setMessages((prev) => [...prev, newMsg]);
       setStreaming("");
     } catch (err) {
       toast.error("AI 请求失败，请稍后再试");
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleConfirmDelete = (msgIndex: number, noteId: string, title: string) => {
+    const promise = remove(noteId).then(() => {
+      triggerSidebar();
+      // 清除该消息的 pendingAction
+      setMessages((prev) =>
+        prev.map((m, i) => (i === msgIndex ? { ...m, pendingAction: undefined } : m))
+      );
+    });
+
+    toast.promise(promise, {
+      loading: `正在删除「${title}」...`,
+      success: `「${title}」已永久删除`,
+      error: "删除失败",
+    });
+  };
+
+  const handleCancelDelete = (msgIndex: number) => {
+    setMessages((prev) =>
+      prev.map((m, i) => (i === msgIndex ? { ...m, pendingAction: undefined } : m))
+    );
+    toast.info("已取消删除");
   };
 
   return (
@@ -125,47 +171,89 @@ const AiPanel = () => {
           )}
 
           {messages.map((msg, i) => (
-            <div
-              key={i}
-              className={cn(
-                "flex gap-2",
-                msg.role === "user" ? "justify-end" : "justify-start"
-              )}
-            >
-              {msg.role === "assistant" && (
-                <div className="flex-shrink-0 mt-0.5">
-                  <Sparkles className="h-4 w-4 text-blue-500" />
-                </div>
-              )}
+            <div key={i} className="space-y-2">
               <div
                 className={cn(
-                  "rounded-lg px-3 py-2 text-sm max-w-[85%]",
-                  msg.role === "user"
-                    ? "bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900 whitespace-pre-wrap"
-                    : "bg-neutral-100 dark:bg-neutral-800 prose prose-sm dark:prose-invert max-w-none prose-headings:my-1 prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-code:bg-neutral-200 dark:prose-code:bg-neutral-700 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-xs prose-pre:bg-neutral-200 dark:prose-pre:bg-neutral-800 prose-pre:text-xs"
+                  "flex gap-2",
+                  msg.role === "user" ? "justify-end" : "justify-start"
                 )}
               >
-                {msg.role === "assistant" ? (
-                  <ReactMarkdown
-                    components={{
-                      a: ({ href, children }) => (
-                        <a
-                          href={href}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-500 underline"
-                        >
-                          {children}
-                        </a>
-                      ),
-                    }}
-                  >
-                    {msg.content}
-                  </ReactMarkdown>
-                ) : (
-                  msg.content
+                {msg.role === "assistant" && (
+                  <div className="flex-shrink-0 mt-0.5">
+                    <Sparkles className="h-4 w-4 text-blue-500" />
+                  </div>
                 )}
+                <div
+                  className={cn(
+                    "rounded-lg px-3 py-2 text-sm max-w-[85%]",
+                    msg.role === "user"
+                      ? "bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900 whitespace-pre-wrap"
+                      : "bg-neutral-100 dark:bg-neutral-800 prose prose-sm dark:prose-invert max-w-none prose-headings:my-1 prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-code:bg-neutral-200 dark:prose-code:bg-neutral-700 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-xs prose-pre:bg-neutral-200 dark:prose-pre:bg-neutral-800 prose-pre:text-xs"
+                  )}
+                >
+                  {msg.role === "assistant" && msg.content ? (
+                    <ReactMarkdown
+                      components={{
+                        a: ({ href, children }) => (
+                          <a
+                            href={href}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-500 underline"
+                          >
+                            {children}
+                          </a>
+                        ),
+                      }}
+                    >
+                      {msg.content}
+                    </ReactMarkdown>
+                  ) : msg.role === "assistant" ? (
+                    <span className="text-muted-foreground italic">（空回复）</span>
+                  ) : (
+                    msg.content
+                  )}
+                </div>
               </div>
+
+              {/* 删除确认按钮 */}
+              {msg.pendingAction?.type === "delete" && (
+                <div className="flex gap-2 justify-start pl-6">
+                  <div className="rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/30 px-3 py-2.5 flex items-center gap-3">
+                    <AlertTriangle className="h-4 w-4 text-red-500 shrink-0" />
+                    <div className="text-sm">
+                      <p className="font-medium text-red-800 dark:text-red-200">
+                        确认永久删除「{msg.pendingAction.title}」？
+                      </p>
+                      <p className="text-xs text-red-600 dark:text-red-400 mt-0.5">
+                        此操作不可撤销
+                      </p>
+                    </div>
+                    <div className="flex gap-1.5 ml-2">
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        className="h-7 text-xs cursor-pointer"
+                        onClick={() =>
+                          handleConfirmDelete(i, msg.pendingAction!.noteId, msg.pendingAction!.title)
+                        }
+                      >
+                        <Check className="h-3.5 w-3.5 mr-1" />
+                        确认删除
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs cursor-pointer"
+                        onClick={() => handleCancelDelete(i)}
+                      >
+                        <Ban className="h-3.5 w-3.5 mr-1" />
+                        取消
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           ))}
 

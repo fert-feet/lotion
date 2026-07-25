@@ -46,16 +46,22 @@ export async function runNoteAgent(
   let stepCount = 0;
   // 共享变量：createNote tool 创建后写入 ID，流读取时检测并注入标记
   const pendingNoteId: { current: string | null } = { current: null };
+  // 共享变量：deleteNote tool 触发确认，等待用户在前端确认
+  const pendingConfirmDelete: { current: { noteId: string; title: string } | null } = { current: null };
 
   const result = streamText({
     model: deepSeek("deepseek-v4-flash"),
     system: NOTE_ASSISTANT_PROMPT,
     messages,
-    tools: createTools(supabase, userId, pendingNoteId),
+    tools: createTools(supabase, userId, pendingNoteId, pendingConfirmDelete),
     stopWhen: stepCountIs(10),
     onStepFinish: ({ finishReason }) => {
       stepCount++;
-      logger.agent.info(`Step ${stepCount} 完成`, { finishReason, pendingNoteId: pendingNoteId.current });
+      logger.agent.info(`Step ${stepCount} 完成`, {
+        finishReason,
+        pendingNoteId: pendingNoteId.current,
+        pendingConfirmDelete: pendingConfirmDelete.current?.noteId,
+      });
     },
   });
 
@@ -73,23 +79,35 @@ export async function runNoteAgent(
         // 流结束时如果还有待注入的标记，先注入再关闭
         if (pendingNoteId.current) {
           const marker = `[NOTE_CREATED:${pendingNoteId.current}]`;
-          logger.agent.info("流结束前注入标记", { noteId: pendingNoteId.current });
+          logger.agent.info("流结束前注入 NOTE_CREATED 标记", { noteId: pendingNoteId.current });
           controller.enqueue(encoder.encode(marker));
           pendingNoteId.current = null;
+        }
+        if (pendingConfirmDelete.current) {
+          const marker = `[CONFIRM_DELETE:${pendingConfirmDelete.current.noteId}:${encodeURIComponent(pendingConfirmDelete.current.title)}]`;
+          logger.agent.info("流结束前注入 CONFIRM_DELETE 标记", { noteId: pendingConfirmDelete.current.noteId });
+          controller.enqueue(encoder.encode(marker));
+          pendingConfirmDelete.current = null;
         }
         controller.close();
         return;
       }
 
-      // tool 执行中产生了 noteId，注入到当前 chunk 前面
+      // tool 执行中产生了 noteId / confirmDelete，注入到当前 chunk 前面
+      let chunk = value;
       if (pendingNoteId.current) {
         const marker = `[NOTE_CREATED:${pendingNoteId.current}]`;
-        logger.agent.info("流注入标记", { noteId: pendingNoteId.current });
-        controller.enqueue(encoder.encode(marker + value));
+        logger.agent.info("流注入 NOTE_CREATED 标记", { noteId: pendingNoteId.current });
+        chunk = marker + chunk;
         pendingNoteId.current = null;
-      } else {
-        controller.enqueue(encoder.encode(value));
       }
+      if (pendingConfirmDelete.current) {
+        const marker = `[CONFIRM_DELETE:${pendingConfirmDelete.current.noteId}:${encodeURIComponent(pendingConfirmDelete.current.title)}]`;
+        logger.agent.info("流注入 CONFIRM_DELETE 标记", { noteId: pendingConfirmDelete.current.noteId });
+        chunk = marker + chunk;
+        pendingConfirmDelete.current = null;
+      }
+      controller.enqueue(encoder.encode(chunk));
     },
   });
 
