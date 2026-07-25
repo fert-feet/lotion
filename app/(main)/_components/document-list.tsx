@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useSupabaseUser } from "@/hooks/use-supabase-user";
 import { useRefresh } from "@/hooks/use-refresh";
 import { getSidebarAll, type SidebarDocument } from "@/lib/db";
@@ -90,16 +90,23 @@ const DocumentListRoot = () => {
     const { user } = useSupabaseUser();
     const sidebarKey = useRefresh((s) => s.sidebarKey);
     const [allDocs, setAllDocs] = useState<SidebarDocument[] | undefined>(undefined);
+    const initialLoaded = useRef(false);
 
     useEffect(() => {
         if (user) {
             getSidebarAll(user.id)
-                .then(setAllDocs)
-                .catch(() => setAllDocs([]));
+                .then((data) => {
+                    setAllDocs(data);
+                    initialLoaded.current = true;
+                })
+                .catch(() => {
+                    if (!initialLoaded.current) setAllDocs([]);
+                });
         }
     }, [user, sidebarKey]);
 
-    if (allDocs === undefined) {
+    // 仅首次加载显示骨架屏，后续刷新保留旧数据避免闪烁
+    if (!initialLoaded.current && allDocs === undefined) {
         return (
             <>
                 <Item.Skeleton level={0} />
@@ -109,7 +116,7 @@ const DocumentListRoot = () => {
         );
     }
 
-    return <DocumentList allDocs={allDocs} />;
+    return <DocumentList allDocs={allDocs ?? []} />;
 };
 
 export default DocumentListRoot;
