@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useSupabaseUser } from "@/hooks/use-supabase-user";
 import { useRefresh } from "@/hooks/use-refresh";
 import { getSidebarAll, type SidebarDocument } from "@/lib/db";
@@ -32,15 +32,33 @@ const DocumentList = ({
         });
     }, [allDocs, parentDocumentId]);
 
-    const onExpand = (documentId: string) => {
+    const onExpand = useCallback((documentId: string) => {
         setExpanded(prevExpanded => ({
             ...prevExpanded,
             [documentId]: !prevExpanded[documentId]
         }));
+    }, []);
+
+    const onRedirect = useCallback((documentId: string) => {
+        router.push(`/documents/${documentId}`);
+    }, [router]);
+
+    // 稳定引用：每个文档的 onClick/onExpand 函数引用不变，React.memo 才能生效
+    const clickHandlers = useRef<Record<string, () => void>>({});
+    const expandHandlers = useRef<Record<string, () => void>>({});
+
+    const getClickHandler = (docId: string) => {
+        if (!clickHandlers.current[docId]) {
+            clickHandlers.current[docId] = () => onRedirect(docId);
+        }
+        return clickHandlers.current[docId];
     };
 
-    const onRedirect = (documentId: string) => {
-        router.push(`/documents/${documentId}`);
+    const getExpandHandler = (docId: string) => {
+        if (!expandHandlers.current[docId]) {
+            expandHandlers.current[docId] = () => onExpand(docId);
+        }
+        return expandHandlers.current[docId];
     };
 
     return (
@@ -61,13 +79,13 @@ const DocumentList = ({
                 <div key={document.id}>
                     <Item
                         id={document.id}
-                        onClick={() => onRedirect(document.id)}
+                        onClick={getClickHandler(document.id)}
                         label={document.title}
                         icon={FileIcon}
                         documentIcon={document.icon || undefined}
                         active={params.documentId === document.id}
                         level={level}
-                        onExpand={() => onExpand(document.id)}
+                        onExpand={getExpandHandler(document.id)}
                         expanded={expanded[document.id]}
                     />
                     {expanded[document.id] && (

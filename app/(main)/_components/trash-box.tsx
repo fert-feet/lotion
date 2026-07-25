@@ -7,14 +7,14 @@ import { Input } from "../../../components/ui/input";
 import ConfirmModal from "../../../components/modals/confirm-modal";
 import { useSupabaseUser } from "@/hooks/use-supabase-user";
 import { useRefresh } from "@/hooks/use-refresh";
-import { getTrash, restore, remove, type Document } from "@/lib/db";
+import { getTrash, restore, remove, type SidebarDocument } from "@/lib/db";
 
 const TrashBox = () => {
     const router = useRouter();
     const { user } = useSupabaseUser();
     const triggerSidebar = useRefresh((s) => s.triggerSidebar);
 
-    const [documents, setDocuments] = useState<Document[] | undefined>(undefined);
+    const [documents, setDocuments] = useState<SidebarDocument[] | undefined>(undefined);
     const [search, setSearch] = useState("");
 
     const loadTrash = () => {

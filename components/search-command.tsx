@@ -4,14 +4,14 @@ import { useSupabaseUser } from "@/hooks/use-supabase-user";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import useSearch from "@/hooks/use-search";
-import { getSearch, type Document } from "@/lib/db";
+import { getSearch, type SidebarDocument } from "@/lib/db";
 import { CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "./ui/command";
 import { File } from "lucide-react";
 
 const SearchCommand = () => {
     const { user } = useSupabaseUser();
     const router = useRouter();
-    const [documents, setDocuments] = useState<Document[]>([]);
+    const [documents, setDocuments] = useState<SidebarDocument[]>([]);
     const [isMounted, setIsMounted] = useState(false);
 
     const toggle = useSearch((store) => store.toggle);

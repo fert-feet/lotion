@@ -58,7 +58,7 @@ export async function getSidebar(userId: string, parentDocument?: string | null)
 export async function getTrash(userId: string) {
   const { data } = await supabase()
     .from("documents")
-    .select("*")
+    .select("id, title, userId, isArchived, isDraft, parentDocument, icon, isPublished, createdAt, updatedAt")
     .eq("userId", userId)
     .eq("isArchived", true)
     .order("createdAt", { ascending: false });
@@ -69,7 +69,7 @@ export async function getTrash(userId: string) {
 export async function getSearch(userId: string) {
   const { data } = await supabase()
     .from("documents")
-    .select("*")
+    .select("id, title, userId, isArchived, isDraft, parentDocument, icon, isPublished, createdAt, updatedAt")
     .eq("userId", userId)
     .eq("isArchived", false)
     .order("createdAt", { ascending: false });
@@ -79,13 +79,24 @@ export async function getSearch(userId: string) {
 
 // 请求去重：Navbar 和 Page 同时请求同一个文档时共用同一个 promise
 const pendingById = new Map<string, Promise<Document>>();
+// 内存缓存：已加载过的文档不再重复请求
+const docCache = new Map<string, Document>();
 
 export async function getById(documentId: string) {
+  if (docCache.has(documentId)) return docCache.get(documentId)!;
   if (pendingById.has(documentId)) return pendingById.get(documentId)!;
-  const promise = _getById(documentId);
+  const promise = _getById(documentId).then((doc) => {
+    docCache.set(documentId, doc);
+    return doc;
+  });
   pendingById.set(documentId, promise);
   promise.finally(() => pendingById.delete(documentId));
   return promise;
+}
+
+/** 鼠标悬停预加载：后台静默拉取文档内容到缓存 */
+export function prefetchById(documentId: string) {
+  getById(documentId).catch(() => {});
 }
 
 async function _getById(documentId: string) {

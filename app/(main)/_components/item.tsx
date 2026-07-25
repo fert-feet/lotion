@@ -4,11 +4,12 @@ import { ChevronDown, ChevronRight, LucideIcon, MoreHorizontal, Plus, Trash } fr
 import { Skeleton } from "../../../components/ui/skeleton";
 import { cn } from "../../../lib/utils";
 import { useRouter } from "next/navigation";
+import { memo, useCallback } from "react";
 import { toast } from "sonner";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "../../../components/ui/dropdown-menu";
 import { useSupabaseUser } from "@/hooks/use-supabase-user";
 import { useRefresh } from "@/hooks/use-refresh";
-import { create, archive } from "@/lib/db";
+import { create, archive, prefetchById } from "@/lib/db";
 
 interface ItemProps {
     id?: string;
@@ -23,7 +24,7 @@ interface ItemProps {
     icon: LucideIcon;
 }
 
-const Item = ({
+const Item = memo(({
     id,
     label,
     onClick,
@@ -100,6 +101,12 @@ const Item = ({
     return (
         <div
             onClick={onClick}
+            onMouseEnter={() => {
+                if (id) {
+                    prefetchById(id);
+                    router.prefetch(`/documents/${id}`);
+                }
+            }}
             role="button"
             style={{
                 paddingLeft: level ? `${(level * 12) + 12}px` : "12px"
@@ -168,9 +175,11 @@ const Item = ({
             )}
         </div>
     );
-};
+});
 
-Item.Skeleton = function ItemSkeleton({ level }: { level?: number; }) {
+Item.displayName = "Item";
+
+const ItemSkeleton = function ItemSkeleton({ level }: { level?: number; }) {
     return (
         <div
             style={{
@@ -184,4 +193,5 @@ Item.Skeleton = function ItemSkeleton({ level }: { level?: number; }) {
     );
 };
 
-export default Item;
+const ItemWithSkeleton = Object.assign(Item, { Skeleton: ItemSkeleton });
+export default ItemWithSkeleton;
