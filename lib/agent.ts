@@ -62,6 +62,8 @@ export async function runNoteAgent(
   const pendingModifiedNoteId: { current: string | null } = { current: null };
   // 进度队列：onStepFinish 写入，流 pull 时清空并注入
   const progressQueue: string[] = [];
+  // 流 controller 引用：onStepFinish 直接 enqueue 进度，不等文本 chunk
+  let streamController: ReadableStreamDefaultController<Uint8Array> | null = null;
 
   const result = streamText({
     model: deepSeek("deepseek-v4-flash"),
@@ -76,7 +78,13 @@ export async function runNoteAgent(
           const label = TOOL_LABELS[tc.toolName] || tc.toolName;
           return label;
         }).join(" → ");
-        progressQueue.push(`[PROGRESS:${names}]`);
+        const marker = `[PROGRESS:${names}]`;
+        // 直接通过 controller 发送进度，不等待下一个文本 chunk
+        if (streamController) {
+          try { streamController.enqueue(encoder.encode(marker)); } catch {}
+        } else {
+          progressQueue.push(marker);
+        }
       }
       logger.agent.info(`Step ${stepCount} 完成`, {
         finishReason,
@@ -96,6 +104,9 @@ export async function runNoteAgent(
   const STREAM_TIMEOUT_MS = 120_000; // 单次读取超时 120 秒
 
   const wrapped = new ReadableStream<Uint8Array>({
+    start(controller) {
+      streamController = controller;
+    },
     async pull(controller) {
       let done: boolean | undefined;
       let value: string | undefined;
