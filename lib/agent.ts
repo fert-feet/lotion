@@ -1,6 +1,7 @@
 import { streamText } from "ai";
 import { deepSeek } from "@ai-sdk/deepseek";
 import { stepCountIs } from "ai";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { NOTE_ASSISTANT_PROMPT } from "./ai-prompts";
 import { createTools } from "./ai/tools";
 import { logger } from "./logger";
@@ -19,6 +20,7 @@ function extractText(content: string): string {
 }
 
 export async function runNoteAgent(
+  supabase: SupabaseClient,
   userId: string,
   prompt: string,
   docContext?: { title: string; content: string },
@@ -47,22 +49,18 @@ export async function runNoteAgent(
     model: deepSeek("deepseek-v4-flash"),
     system: NOTE_ASSISTANT_PROMPT,
     messages,
-    tools: createTools(userId),
+    tools: createTools(supabase, userId),
     stopWhen: stepCountIs(10),
     onStepFinish: ({ text, toolCalls, toolResults, finishReason }) => {
       stepCount++;
       logger.agent.info(`Step ${stepCount} 完成`, {
         finishReason,
         textLen: text?.length ?? 0,
-        toolCalls: toolCalls?.map((tc: any) => tc.toolName),
-        toolResults: toolResults?.map((tr: any) => ({
-          tool: tr.toolName,
-          resultLen: String(tr ? (tr as any).result : "").length,
-        })),
+        toolCalls: toolCalls?.map((tc: any) => tc.toolName) ?? [],
+        toolResults: Array.isArray(toolResults)
+          ? toolResults.map((tr: any) => ({ tool: tr.toolName, ok: !tr.error }))
+          : [],
       });
-    },
-    onError: ({ error }) => {
-      logger.agent.error("Agent 执行错误", { message: String(error) });
     },
   });
 }

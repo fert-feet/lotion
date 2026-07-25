@@ -1,20 +1,28 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { tool } from "ai";
 import z from "zod";
-import { getSearch } from "@/lib/db";
 import { logger } from "@/lib/logger";
 
-export function createSearchNotesTool(userId: string) {
+export function createSearchNotesTool(supabase: SupabaseClient, userId: string) {
   return tool({
     description: "按标题关键词搜索当前用户的所有笔记，返回匹配的笔记 ID 和标题。用于发现和定位笔记。",
-    parameters: z.object({
+    inputSchema: z.object({
       query: z.string().describe("搜索关键词，会匹配标题"),
     }),
-    execute: async ({ query }) => {
+    execute: async ({ query }: { query: string }) => {
       logger.tools.info("[searchNotes] 搜索", { query });
-      const docs = await getSearch(userId);
-      const matches = docs.filter((d) => d.title.toLowerCase().includes(query.toLowerCase()));
+      const { data: docs } = await supabase
+        .from("documents")
+        .select("id, title, content")
+        .eq("userId", userId)
+        .eq("isArchived", false)
+        .order("createdAt", { ascending: false });
 
-      logger.tools.info("[searchNotes] 完成", { total: docs.length, matched: matches.length });
+      const matches = (docs || []).filter((d) =>
+        d.title.toLowerCase().includes(query.toLowerCase())
+      );
+
+      logger.tools.info("[searchNotes] 完成", { total: docs?.length ?? 0, matched: matches.length });
 
       if (matches.length === 0) {
         return `未找到标题包含「${query}」的笔记。`;
@@ -22,7 +30,9 @@ export function createSearchNotesTool(userId: string) {
 
       return (
         `找到 ${matches.length} 篇笔记：\n` +
-        matches.map((d) => `- ${d.title} (id: ${d.id})${d.content ? ` | 内容摘要: ${d.content.slice(0, 80)}...` : ""}`).join("\n")
+        matches
+          .map((d) => `- ${d.title} (id: ${d.id})${d.content ? ` | 摘要: ${d.content.slice(0, 80)}...` : ""}`)
+          .join("\n")
       );
     },
   });

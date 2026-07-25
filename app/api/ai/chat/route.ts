@@ -16,7 +16,6 @@ export async function POST(request: Request) {
   const { prompt, documentId } = await request.json();
   logger.api.info("收到 AI 请求", { userId: user.id, promptLen: prompt.length, documentId });
 
-  // 服务端查文档（用 server client，有 cookie 认证）
   let docContext: { title: string; content: string } | undefined;
   if (documentId) {
     const { data: doc } = await supabase
@@ -31,7 +30,7 @@ export async function POST(request: Request) {
     }
   }
 
-  const result = await runNoteAgent(user.id, prompt, docContext);
+  const result = await runNoteAgent(supabase, user.id, prompt, docContext);
 
   return new Response(result.textStream, {
     headers: {
