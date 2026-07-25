@@ -136,6 +136,7 @@ export async function update(id: string, fields: Partial<Pick<Document, "title" 
     .eq("id", id);
 
   if (error) throw error;
+  docCache.delete(id); // 使缓存失效，下次 getById 重新拉取
 }
 
 export async function archive(userId: string, id: string) {
@@ -158,6 +159,7 @@ export async function archive(userId: string, id: string) {
     .eq("id", id);
 
   if (error) throw error;
+  docCache.delete(id);
 }
 
 export async function restore(userId: string, id: string) {
@@ -199,6 +201,7 @@ export async function restore(userId: string, id: string) {
     .eq("id", id);
 
   if (error) throw error;
+  docCache.delete(id);
 }
 
 export async function remove(id: string) {
@@ -208,6 +211,7 @@ export async function remove(id: string) {
     .eq("id", id);
 
   if (error) throw error;
+  docCache.delete(id);
 }
 
 export async function removeIcon(id: string) {
@@ -217,6 +221,7 @@ export async function removeIcon(id: string) {
     .eq("id", id);
 
   if (error) throw error;
+  docCache.delete(id);
 }
 
 export async function removeCoverImage(id: string) {
@@ -226,4 +231,5 @@ export async function removeCoverImage(id: string) {
     .eq("id", id);
 
   if (error) throw error;
+  docCache.delete(id);
 }
