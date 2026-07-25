@@ -101,11 +101,11 @@ const AiPanel = () => {
   };
 
   const handleSaveAsNote = () => {
-    // 从后往前找第一条有实质内容的 assistant 消息（跳过"已创建"等元信息）
-    const contentMsg = [...messages].reverse().find(
-      (m) =>
-        m.role === "assistant" &&
-        !/^(好的|已创建|点击下方|找到了|搜索)/.test(m.content)
+    // 取最长的 assistant 消息作为笔记内容（跳过短的元信息）
+    const assistantMsgs = messages.filter((m) => m.role === "assistant");
+    const contentMsg = assistantMsgs.reduce((longest, m) =>
+      m.content.length > (longest?.content.length ?? 0) ? m : longest,
+      assistantMsgs[0]
     );
     if (!contentMsg || !user) return;
 
