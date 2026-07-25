@@ -12,13 +12,14 @@ export function createTools(
   userId: string,
   pendingNoteId: { current: string | null } = { current: null },
   pendingConfirmDelete: { current: { noteId: string; title: string } | null } = { current: null },
+  pendingModifiedNoteId: { current: string | null } = { current: null },
 ) {
   return {
     searchNotes: createSearchNotesTool(supabase, userId),
     readNote: createReadNoteTool(supabase),
     createNote: createCreateNoteTool(supabase, userId, pendingNoteId),
-    updateNote: createUpdateNoteTool(supabase),
-    renameNote: createRenameNoteTool(supabase),
+    updateNote: createUpdateNoteTool(supabase, pendingModifiedNoteId),
+    renameNote: createRenameNoteTool(supabase, pendingModifiedNoteId),
     archiveNote: createArchiveNoteTool(supabase, userId),
     deleteNote: createDeleteNoteTool(supabase, userId, pendingConfirmDelete),
   };

@@ -28,6 +28,7 @@ const AiPanel = () => {
   const { isOpen, onClose } = useAiPanel();
   const { user } = useSupabaseUser();
   const triggerSidebar = useRefresh((s) => s.triggerSidebar);
+  const triggerDocument = useRefresh((s) => s.triggerDocument);
   const params = useParams();
   const router = useRouter();
 
@@ -99,6 +100,15 @@ const AiPanel = () => {
             pendingAction = { type: "delete", noteId, title };
             fullText = fullText.replace(/\[CONFIRM_DELETE:[^\]]+\]/, "");
           }
+        }
+
+        // 检测文档修改标记（updateNote / renameNote 触发的刷新）
+        const modMatch = fullText.match(/\[NOTE_MODIFIED:([^\]]+)\]/);
+        if (modMatch) {
+          const modifiedId = modMatch[1];
+          fullText = fullText.replace(/\[NOTE_MODIFIED:[^\]]+\]/, "");
+          triggerDocument(modifiedId);
+          triggerSidebar();
         }
 
         setStreaming(fullText);

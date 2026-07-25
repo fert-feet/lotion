@@ -48,12 +48,14 @@ export async function runNoteAgent(
   const pendingNoteId: { current: string | null } = { current: null };
   // 共享变量：deleteNote tool 触发确认，等待用户在前端确认
   const pendingConfirmDelete: { current: { noteId: string; title: string } | null } = { current: null };
+  // 共享变量：updateNote / renameNote 修改了文档，前端需要刷新
+  const pendingModifiedNoteId: { current: string | null } = { current: null };
 
   const result = streamText({
     model: deepSeek("deepseek-v4-flash"),
     system: NOTE_ASSISTANT_PROMPT,
     messages,
-    tools: createTools(supabase, userId, pendingNoteId, pendingConfirmDelete),
+    tools: createTools(supabase, userId, pendingNoteId, pendingConfirmDelete, pendingModifiedNoteId),
     stopWhen: stepCountIs(10),
     onStepFinish: ({ finishReason }) => {
       stepCount++;
@@ -61,6 +63,7 @@ export async function runNoteAgent(
         finishReason,
         pendingNoteId: pendingNoteId.current,
         pendingConfirmDelete: pendingConfirmDelete.current?.noteId,
+        pendingModifiedNoteId: pendingModifiedNoteId.current,
       });
     },
   });
@@ -108,11 +111,17 @@ export async function runNoteAgent(
           controller.enqueue(encoder.encode(marker));
           pendingConfirmDelete.current = null;
         }
+        if (pendingModifiedNoteId.current) {
+          const marker = `[NOTE_MODIFIED:${pendingModifiedNoteId.current}]`;
+          logger.agent.info("流结束前注入 NOTE_MODIFIED 标记", { noteId: pendingModifiedNoteId.current });
+          controller.enqueue(encoder.encode(marker));
+          pendingModifiedNoteId.current = null;
+        }
         controller.close();
         return;
       }
 
-      // tool 执行中产生了 noteId / confirmDelete，注入到当前 chunk 前面
+      // tool 执行中产生了 noteId / confirmDelete / modifiedNoteId，注入到当前 chunk 前面
       let chunk = value;
       if (pendingNoteId.current) {
         const marker = `[NOTE_CREATED:${pendingNoteId.current}]`;
@@ -125,6 +134,12 @@ export async function runNoteAgent(
         logger.agent.info("流注入 CONFIRM_DELETE 标记", { noteId: pendingConfirmDelete.current.noteId });
         chunk = marker + chunk;
         pendingConfirmDelete.current = null;
+      }
+      if (pendingModifiedNoteId.current) {
+        const marker = `[NOTE_MODIFIED:${pendingModifiedNoteId.current}]`;
+        logger.agent.info("流注入 NOTE_MODIFIED 标记", { noteId: pendingModifiedNoteId.current });
+        chunk = marker + chunk;
+        pendingModifiedNoteId.current = null;
       }
       controller.enqueue(encoder.encode(chunk));
     },

@@ -4,7 +4,10 @@ import z from "zod";
 import { logger } from "@/lib/logger";
 import { markdownToBlocks } from "@/lib/markdown-to-blocks";
 
-export function createUpdateNoteTool(supabase: SupabaseClient) {
+export function createUpdateNoteTool(
+  supabase: SupabaseClient,
+  pendingModifiedNoteId: { current: string | null } = { current: null },
+) {
   return tool({
     description: "修改已有笔记的内容。先通过 readNote 读取当前内容，再调用此工具更新。",
     inputSchema: z.object({
@@ -26,6 +29,7 @@ export function createUpdateNoteTool(supabase: SupabaseClient) {
         return `更新失败：${error.message}`;
       }
 
+      pendingModifiedNoteId.current = noteId;
       logger.tools.info("[updateNote] 更新成功", { noteId, blockCount: blocks.length });
       return `笔记内容已更新。`;
     },

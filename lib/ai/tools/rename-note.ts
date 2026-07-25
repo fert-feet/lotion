@@ -3,7 +3,10 @@ import { tool } from "ai";
 import z from "zod";
 import { logger } from "@/lib/logger";
 
-export function createRenameNoteTool(supabase: SupabaseClient) {
+export function createRenameNoteTool(
+  supabase: SupabaseClient,
+  pendingModifiedNoteId: { current: string | null } = { current: null },
+) {
   return tool({
     description: "重命名已有笔记的标题。",
     inputSchema: z.object({
@@ -23,6 +26,7 @@ export function createRenameNoteTool(supabase: SupabaseClient) {
         return `重命名失败：${error.message}`;
       }
 
+      pendingModifiedNoteId.current = noteId;
       logger.tools.info("[renameNote] 重命名成功");
       return `标题已更新为「${title}」。`;
     },
