@@ -6,6 +6,16 @@ import { NOTE_ASSISTANT_PROMPT } from "./ai-prompts";
 import { createTools } from "./ai/tools";
 import { logger } from "./logger";
 
+const TOOL_LABELS: Record<string, string> = {
+  searchNotes: "🔍 搜索笔记",
+  readNote: "📖 读取笔记",
+  createNote: "✍️ 创建笔记",
+  updateNote: "📝 更新内容",
+  renameNote: "🏷️ 重命名",
+  archiveNote: "📦 归档",
+  deleteNote: "🗑️ 删除",
+};
+
 function extractText(content: string): string {
   try {
     const blocks = JSON.parse(content);
@@ -50,6 +60,8 @@ export async function runNoteAgent(
   const pendingConfirmDelete: { current: { noteId: string; title: string } | null } = { current: null };
   // 共享变量：updateNote / renameNote 修改了文档，前端需要刷新
   const pendingModifiedNoteId: { current: string | null } = { current: null };
+  // 进度队列：onStepFinish 写入，流 pull 时清空并注入
+  const progressQueue: string[] = [];
 
   const result = streamText({
     model: deepSeek("deepseek-v4-flash"),
@@ -57,13 +69,21 @@ export async function runNoteAgent(
     messages,
     tools: createTools(supabase, userId, pendingNoteId, pendingConfirmDelete, pendingModifiedNoteId),
     stopWhen: stepCountIs(10),
-    onStepFinish: ({ finishReason }) => {
+    onStepFinish: ({ finishReason, toolCalls }) => {
       stepCount++;
+      if (toolCalls?.length) {
+        const names = toolCalls.map((tc: any) => {
+          const label = TOOL_LABELS[tc.toolName] || tc.toolName;
+          return label;
+        }).join(" → ");
+        progressQueue.push(`[PROGRESS:${names}]`);
+      }
       logger.agent.info(`Step ${stepCount} 完成`, {
         finishReason,
         pendingNoteId: pendingNoteId.current,
         pendingConfirmDelete: pendingConfirmDelete.current?.noteId,
         pendingModifiedNoteId: pendingModifiedNoteId.current,
+        toolCalls: toolCalls?.map((tc: any) => tc.toolName),
       });
     },
   });
@@ -73,7 +93,7 @@ export async function runNoteAgent(
   const textStream = result.textStream;
   const reader = textStream.getReader();
   const encoder = new TextEncoder();
-  const STREAM_TIMEOUT_MS = 60_000; // 单次读取超时 60 秒
+  const STREAM_TIMEOUT_MS = 120_000; // 单次读取超时 120 秒
 
   const wrapped = new ReadableStream<Uint8Array>({
     async pull(controller) {
@@ -156,6 +176,10 @@ export async function runNoteAgent(
         logger.agent.info("流注入 NOTE_MODIFIED 标记", { noteId: pendingModifiedNoteId.current });
         chunk = marker + chunk;
         pendingModifiedNoteId.current = null;
+      }
+      // 注入进度消息
+      while (progressQueue.length > 0) {
+        chunk = progressQueue.shift()! + chunk;
       }
       controller.enqueue(encoder.encode(chunk));
     },

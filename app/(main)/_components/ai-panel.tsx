@@ -36,6 +36,7 @@ const AiPanel = () => {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [streaming, setStreaming] = useState("");
+  const [progress, setProgress] = useState("");
   const messagesRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -52,6 +53,7 @@ const AiPanel = () => {
     setInput("");
     setLoading(true);
     setStreaming("");
+    setProgress("");
 
     try {
       const response = await fetch("/api/ai/chat", {
@@ -109,6 +111,13 @@ const AiPanel = () => {
           fullText = fullText.replace(/\[NOTE_MODIFIED:[^\]]+\]/, "");
           triggerDocument(modifiedId);
           triggerSidebar();
+        }
+
+        // 检测进度消息
+        const progMatch = fullText.match(/\[PROGRESS:(.+?)\]/);
+        if (progMatch) {
+          setProgress(progMatch[1]);
+          fullText = fullText.replace(/\[PROGRESS:[^\]]+\]/, "");
         }
 
         setStreaming(fullText);
@@ -286,9 +295,9 @@ const AiPanel = () => {
           )}
 
           {loading && !streaming && (
-            <div className="flex items-center gap-2 text-neutral-400">
+            <div className="flex items-center gap-2 text-neutral-400 pl-1">
               <Loader2 className="h-4 w-4 animate-spin" />
-              <span className="text-xs">思考中...</span>
+              <span className="text-xs">{progress || "分析中..."}</span>
             </div>
           )}
         </div>
