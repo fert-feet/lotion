@@ -108,18 +108,14 @@ const DocumentListRoot = () => {
     const { user } = useSupabaseUser();
     const sidebarKey = useRefresh((s) => s.sidebarKey);
     const [allDocs, setAllDocs] = useState<SidebarDocument[] | undefined>(undefined);
-    const [visible, setVisible] = useState(false);
     const initialLoaded = useRef(false);
 
     useEffect(() => {
         if (user) {
-            setVisible(false);
             getSidebarAll(user.id)
                 .then((data) => {
                     setAllDocs(data);
                     initialLoaded.current = true;
-                    // 下一帧整体淡入，避免浏览器逐条绘制
-                    requestAnimationFrame(() => setVisible(true));
                 })
                 .catch(() => {
                     if (!initialLoaded.current) setAllDocs([]);
@@ -137,14 +133,7 @@ const DocumentListRoot = () => {
         );
     }
 
-    return (
-        <div
-            className="transition-opacity duration-150"
-            style={{ opacity: visible ? 1 : 0 }}
-        >
-            <DocumentList allDocs={allDocs ?? []} />
-        </div>
-    );
+    return <DocumentList allDocs={allDocs ?? []} />;
 };
 
 export default DocumentListRoot;
