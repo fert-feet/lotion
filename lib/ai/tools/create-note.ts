@@ -2,13 +2,14 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { tool } from "ai";
 import z from "zod";
 import { logger } from "@/lib/logger";
+import { markdownToBlocks } from "@/lib/markdown-to-blocks";
 
 export function createCreateNoteTool(supabase: SupabaseClient, userId: string, pendingNoteId: { current: string | null } = { current: null }) {
   return tool({
     description: "创建一篇新笔记。标题应简洁地概括内容主题。",
     inputSchema: z.object({
       title: z.string().describe("笔记标题"),
-      content: z.string().describe("笔记内容，按自然段书写"),
+      content: z.string().describe("笔记内容，使用 Markdown 格式书写，支持标题、加粗、列表、代码块等"),
     }),
     execute: async ({ title, content }: { title: string; content: string }) => {
       logger.tools.info("[createNote] 创建笔记", { title, contentLen: content.length });
@@ -24,11 +25,7 @@ export function createCreateNoteTool(supabase: SupabaseClient, userId: string, p
         return `创建笔记失败：${error?.message || "未知错误"}`;
       }
 
-      const blocks = content.split("\n").map((line, i) => ({
-        id: `ai-${Date.now()}-${i}`,
-        type: "paragraph" as const,
-        content: line ? [{ type: "text" as const, text: line }] : [],
-      }));
+      const blocks = markdownToBlocks(content);
 
       await supabase
         .from("documents")
@@ -36,7 +33,7 @@ export function createCreateNoteTool(supabase: SupabaseClient, userId: string, p
         .eq("id", doc.id);
 
       pendingNoteId.current = doc.id;
-      logger.tools.info("[createNote] 标记待注入", { noteId: doc.id });
+      logger.tools.info("[createNote] 已转换并写入", { noteId: doc.id, blockCount: blocks.length });
 
       return `笔记「${title}」已创建，内容已写入。`;
     },

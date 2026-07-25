@@ -8,6 +8,7 @@ import { useEffect, useRef, useState } from "react";
 import { Bot, Send, Sparkles, X, Loader2 } from "lucide-react";
 import { Button } from "../../../components/ui/button";
 import { toast } from "sonner";
+import ReactMarkdown from "react-markdown";
 
 interface Message {
   role: "user" | "assistant";
@@ -139,13 +140,32 @@ const AiPanel = () => {
               )}
               <div
                 className={cn(
-                  "rounded-lg px-3 py-2 text-sm max-w-[85%] whitespace-pre-wrap",
+                  "rounded-lg px-3 py-2 text-sm max-w-[85%]",
                   msg.role === "user"
-                    ? "bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900"
-                    : "bg-neutral-100 dark:bg-neutral-800"
+                    ? "bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900 whitespace-pre-wrap"
+                    : "bg-neutral-100 dark:bg-neutral-800 prose prose-sm dark:prose-invert max-w-none prose-headings:my-1 prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-code:bg-neutral-200 dark:prose-code:bg-neutral-700 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-xs prose-pre:bg-neutral-200 dark:prose-pre:bg-neutral-800 prose-pre:text-xs"
                 )}
               >
-                {msg.content}
+                {msg.role === "assistant" ? (
+                  <ReactMarkdown
+                    components={{
+                      a: ({ href, children }) => (
+                        <a
+                          href={href}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-500 underline"
+                        >
+                          {children}
+                        </a>
+                      ),
+                    }}
+                  >
+                    {msg.content}
+                  </ReactMarkdown>
+                ) : (
+                  msg.content
+                )}
               </div>
             </div>
           ))}

@@ -1,6 +1,7 @@
 /* todo: note 这里是总体的 css 所在地 */
 @import "tailwindcss";
 @import "tw-animate-css";
+@plugin "@tailwindcss/typography";
 
 @custom-variant dark (&:is(.dark *));
 
