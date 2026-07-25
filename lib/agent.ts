@@ -4,6 +4,7 @@ import { stepCountIs } from "ai";
 import { NOTE_ASSISTANT_PROMPT } from "./ai-prompts";
 import { createTools } from "./ai/tools";
 import { getById } from "./db";
+import { logger } from "./logger";
 
 function extractText(content: string | null): string {
   if (!content) return "";
@@ -30,6 +31,7 @@ export async function runNoteAgent(
     const doc = await getById(documentId);
     if (doc) {
       const plainText = extractText(doc.content);
+      logger.agent.info("注入文档上下文", { documentId, title: doc.title, chars: plainText.length });
       messages.push({
         role: "user",
         content: `用户正在查看文档「${doc.title}」，内容如下：\n\n${plainText}`,
@@ -42,6 +44,9 @@ export async function runNoteAgent(
   }
 
   messages.push({ role: "user", content: prompt });
+  logger.agent.info("开始 Agent 执行", { userId, prompt: prompt.slice(0, 100), withContext: !!documentId });
+
+  let stepCount = 0;
 
   return streamText({
     model: deepSeek("deepseek-v4-flash"),
@@ -49,5 +54,20 @@ export async function runNoteAgent(
     messages,
     tools: createTools(userId),
     stopWhen: stepCountIs(10),
+    onStepFinish: ({ text, toolCalls, toolResults, finishReason }) => {
+      stepCount++;
+      logger.agent.info(`Step ${stepCount} 完成`, {
+        finishReason,
+        textLen: text?.length ?? 0,
+        toolCalls: toolCalls?.map((tc: any) => tc.toolName),
+        toolResults: toolResults?.map((tr: any) => ({
+          tool: tr.toolName,
+          resultLen: String(tr.result).length,
+        })),
+      });
+    },
+    onError: ({ error }) => {
+      logger.agent.error("Agent 执行错误", { message: String(error) });
+    },
   });
 }

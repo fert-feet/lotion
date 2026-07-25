@@ -1,6 +1,7 @@
 import { tool } from "ai";
 import z from "zod";
 import { getSearch } from "@/lib/db";
+import { logger } from "@/lib/logger";
 
 export function createSearchNotesTool(userId: string) {
   return tool({
@@ -9,8 +10,11 @@ export function createSearchNotesTool(userId: string) {
       query: z.string().describe("搜索关键词，会匹配标题"),
     }),
     execute: async ({ query }) => {
+      logger.tools.info("[searchNotes] 搜索", { query });
       const docs = await getSearch(userId);
       const matches = docs.filter((d) => d.title.toLowerCase().includes(query.toLowerCase()));
+
+      logger.tools.info("[searchNotes] 完成", { total: docs.length, matched: matches.length });
 
       if (matches.length === 0) {
         return `未找到标题包含「${query}」的笔记。`;

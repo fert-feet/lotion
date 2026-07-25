@@ -1,6 +1,7 @@
 import { tool } from "ai";
 import z from "zod";
 import { create, update } from "@/lib/db";
+import { logger } from "@/lib/logger";
 
 export function createCreateNoteTool(userId: string) {
   return tool({
@@ -10,6 +11,7 @@ export function createCreateNoteTool(userId: string) {
       content: z.string().describe("笔记内容，按自然段书写"),
     }),
     execute: async ({ title, content }) => {
+      logger.tools.info("[createNote] 创建笔记", { title, contentLen: content.length });
       const blocks = content.split("\n").map((line, i) => ({
         id: `ai-${Date.now()}-${i}`,
         type: "paragraph" as const,

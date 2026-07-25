@@ -1,6 +1,7 @@
 import { tool } from "ai";
 import z from "zod";
 import { getById } from "@/lib/db";
+import { logger } from "@/lib/logger";
 
 export function createReadNoteTool(_userId: string) {
   return tool({
@@ -9,6 +10,7 @@ export function createReadNoteTool(_userId: string) {
       noteId: z.string().describe("笔记 ID（由 searchNotes 返回）"),
     }),
     execute: async ({ noteId }) => {
+      logger.tools.info("[readNote] 读取笔记", { noteId });
       try {
         const doc = await getById(noteId);
 
@@ -31,6 +33,7 @@ export function createReadNoteTool(_userId: string) {
 
         return `笔记「${doc.title}」内容：\n\n${text}`;
       } catch {
+        logger.tools.warn("[readNote] 笔记不存在", { noteId });
         return `笔记 ${noteId} 不存在或无权访问。`;
       }
     },
