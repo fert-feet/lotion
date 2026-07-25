@@ -6,11 +6,11 @@ import { createCreateNoteTool } from "./create-note";
 export function createTools(
   supabase: SupabaseClient,
   userId: string,
-  createdNoteIds: string[] = [],
+  pendingNoteId: { current: string | null } = { current: null },
 ) {
   return {
     searchNotes: createSearchNotesTool(supabase, userId),
     readNote: createReadNoteTool(supabase),
-    createNote: createCreateNoteTool(supabase, userId, createdNoteIds),
+    createNote: createCreateNoteTool(supabase, userId, pendingNoteId),
   };
 }

@@ -3,7 +3,7 @@ import { tool } from "ai";
 import z from "zod";
 import { logger } from "@/lib/logger";
 
-export function createCreateNoteTool(supabase: SupabaseClient, userId: string, createdNoteIds: string[] = []) {
+export function createCreateNoteTool(supabase: SupabaseClient, userId: string, pendingNoteId: { current: string | null } = { current: null }) {
   return tool({
     description: "创建一篇新笔记。标题应简洁地概括内容主题。",
     inputSchema: z.object({
@@ -35,7 +35,8 @@ export function createCreateNoteTool(supabase: SupabaseClient, userId: string, c
         .update({ content: JSON.stringify(blocks) })
         .eq("id", doc.id);
 
-      createdNoteIds.push(doc.id);
+      pendingNoteId.current = doc.id;
+      logger.tools.info("[createNote] 标记待注入", { noteId: doc.id });
 
       return `笔记「${title}」已创建，内容已写入。`;
     },

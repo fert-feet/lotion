@@ -24,12 +24,8 @@ export async function runNoteAgent(
   userId: string,
   prompt: string,
   docContext?: { title: string; content: string },
-): Promise<{
-  stream: ReadableStream<string>;
-  noteIds: string[];
-}> {
+) {
   const messages: any[] = [];
-  const createdNoteIds: string[] = [];
 
   if (docContext) {
     const plainText = extractText(docContext.content);
@@ -48,44 +44,44 @@ export async function runNoteAgent(
   logger.agent.info("开始 Agent 执行", { userId, prompt: prompt.slice(0, 100), withContext: !!docContext });
 
   let stepCount = 0;
+  // 共享变量：createNote tool 创建后写入 ID，流读取时检测并注入标记
+  const pendingNoteId: { current: string | null } = { current: null };
 
   const result = streamText({
     model: deepSeek("deepseek-v4-flash"),
     system: NOTE_ASSISTANT_PROMPT,
     messages,
-    tools: createTools(supabase, userId, createdNoteIds),
+    tools: createTools(supabase, userId, pendingNoteId),
     stopWhen: stepCountIs(10),
     onStepFinish: ({ finishReason }) => {
       stepCount++;
-      logger.agent.info(`Step ${stepCount} 完成`, { finishReason });
+      logger.agent.info(`Step ${stepCount} 完成`, { finishReason, pendingNoteId: pendingNoteId.current });
     },
   });
 
+  // 包装流：每次读取时检查是否有待注入的 noteId
   const textStream = result.textStream;
+  const reader = textStream.getReader();
 
-  // 如果有新创建的笔记，在流前面插入标记，前端读到后自动跳转
-  if (createdNoteIds.length > 0) {
-    const prefix = createdNoteIds.map((id) => `[NOTE_CREATED:${id}]`).join("");
-    const reader = textStream.getReader();
-    let prefixSent = false;
-    const combined = new ReadableStream<string>({
-      async pull(controller) {
-        if (!prefixSent) {
-          controller.enqueue(prefix);
-          prefixSent = true;
-          return;
-        }
-        const { done, value } = await reader.read();
-        if (done) {
-          controller.close();
-        } else {
-          controller.enqueue(value);
-        }
-      },
-    });
+  const wrapped = new ReadableStream<string>({
+    async pull(controller) {
+      const { done, value } = await reader.read();
+      if (done) {
+        controller.close();
+        return;
+      }
 
-    return { stream: combined, noteIds: createdNoteIds };
-  }
+      // tool 执行中产生了 noteId，注入到当前 chunk 前面
+      if (pendingNoteId.current) {
+        const marker = `[NOTE_CREATED:${pendingNoteId.current}]`;
+        logger.agent.info("流注入标记", { noteId: pendingNoteId.current });
+        controller.enqueue(marker + value);
+        pendingNoteId.current = null;
+      } else {
+        controller.enqueue(value);
+      }
+    },
+  });
 
-  return { stream: textStream, noteIds: [] };
+  return { stream: wrapped };
 }
