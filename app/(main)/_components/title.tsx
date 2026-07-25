@@ -3,6 +3,7 @@
 import { update, type Document } from "@/lib/db";
 import { useRefresh } from "@/hooks/use-refresh";
 import React, { useEffect, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { Input } from "../../../components/ui/input";
 import { Button } from "../../../components/ui/button";
 import { Skeleton } from "../../../components/ui/skeleton";
@@ -40,11 +41,13 @@ const Title = ({
     };
 
     const disableInput = () => {
-        setIsEditing(false);
-        setDisplayTitle(title); // 立即显示用户输入的新标题，不等远端刷新
-        // Wait for the final update to complete before triggering refresh,
-        // so the re-fetch gets the latest title from DB.
-        update(initialData.id, { title: title || "Untitled" }).then(() => {
+        const newTitle = title || "Untitled";
+        // 同步渲染：确保 displayTitle 立即生效，不被异步操作打断
+        flushSync(() => {
+            setIsEditing(false);
+            setDisplayTitle(newTitle);
+        });
+        update(initialData.id, { title: newTitle }).then(() => {
             triggerDocument(initialData.id);
         });
     };

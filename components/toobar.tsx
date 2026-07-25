@@ -3,6 +3,7 @@ import { type Document } from "@/lib/db";
 import IconPicker from "./icon-picker";
 import { Button } from "./ui/button";
 import { ElementRef, useEffect, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { update, removeIcon } from "@/lib/db";
 import { useRefresh } from "@/hooks/use-refresh";
 import TextareaAutosize from "react-textarea-autosize";
@@ -48,9 +49,12 @@ const Toolbar = ({
     };
 
     const disableInput = () => {
-        setIsEditing(false);
-        setDisplayValue(value); // 立即显示新标题
-        update(initialData.id, { title: value || "Untitled" }).then(() => {
+        const newValue = value || "Untitled";
+        flushSync(() => {
+            setIsEditing(false);
+            setDisplayValue(newValue);
+        });
+        update(initialData.id, { title: newValue }).then(() => {
             triggerDocument(initialData.id);
         });
     };
