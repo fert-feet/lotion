@@ -35,7 +35,7 @@ export function createCreateNoteTool(supabase: SupabaseClient, userId: string, p
       pendingNoteId.current = doc.id;
       logger.tools.info("[createNote] 已转换并写入", { noteId: doc.id, blockCount: blocks.length });
 
-      return `笔记「${title}」已创建，内容已写入。`;
+      return `笔记「${title}」已创建（ID: ${doc.id}），内容已写入。如果觉得内容需要调整，可用此 ID 调用 updateNote 修改。`;
     },
   });
 }
