@@ -1,176 +1,113 @@
-# Lotion - Notion Clone
+# Lotion — Notion Clone with AI Agent
 
-Lotion is a Notion-inspired note-taking and knowledge management application built with modern web technologies. It provides a connected workspace where users can create, organize, and collaborate on documents in real-time.
+类 Notion 的笔记应用，基于 Supabase 全栈后端，集成 DeepSeek AI 笔记助手。
 
 ## Features
 
-- **Document Creation & Management**: Create, edit, and organize notes with a clean, intuitive interface
-- **Hierarchical Organization**: Organize documents in a folder-like structure with nested documents
-- **Real-time Collaboration**: Built with Convex for real-time data synchronization
-- **User Authentication**: Secure authentication with Clerk
-- **Trash Management**: Archive and restore documents with full trash functionality
-- **Rich Text Editing**: Block-based editor for creating rich content using BlockNote
-- **Cover Images & Icons**: Customize documents with cover images and icons
-- **Search Functionality**: Quickly find documents with search
-- **Responsive Design**: Works seamlessly across desktop and mobile devices
-- **Dark Mode**: Built-in theme support for comfortable viewing
-- **Publish Documents**: Share documents with public links
+- **Document CRUD**: 创建、编辑、嵌套组织笔记
+- **AI Agent**: 侧边栏唤起 AI 助手，支持总结笔记、改进写作、生成新文档
+- **Rich Text Editing**: BlockNote 块编辑器，支持图片上传
+- **Hierarchical Organization**: 无限层级嵌套文档树
+- **User Authentication**: Supabase Auth（邮箱注册登录）
+- **Trash Management**: 归档/恢复/永久删除
+- **Cover Images & Icons**: 封面图、Emoji 图标
+- **Search**: Ctrl+J / Cmd+J 全局搜索
+- **Dark Mode**: 跟随系统主题
+- **Publish**: 生成公开分享链接
 
 ## Tech Stack
 
 - **Frontend**: Next.js 15, React 19, TypeScript
-- **Styling**: Tailwind CSS
-- **UI Components**: Shadcn UI, Radix UI, Lucide React Icons
-- **Authentication**: Clerk
-- **Backend**: Convex (real-time backend-as-a-service)
-- **State Management**: Zustand
-- **Rich Text Editor**: BlockNote
-- **File Storage**: EdgeStore
-- **Database**: Convex Database
+- **Backend**: Supabase (PostgreSQL + Auth + Storage)
+- **AI**: DeepSeek V4 Flash (via @ai-sdk/deepseek)
+- **Editor**: BlockNote
+- **Styling**: Tailwind CSS 4 + shadcn/ui
+- **State**: Zustand
 
 ## Getting Started
 
 ### Prerequisites
 
-- Node.js (version 18 or higher)
-- pnpm (recommended) or npm/yarn
-- A Convex account
-- A Clerk account
-- An EdgeStore account (for image storage)
+- Node.js 18+
+- pnpm
+- Supabase 项目（免费）
 
-### Installation
+### Quick Start
 
-1. Clone the repository:
-   ```bash
-   git clone <repository-url>
-   cd front-end-learning
-   ```
+```bash
+# 1. 安装依赖
+pnpm install
 
-2. Install dependencies:
-   ```bash
-   pnpm install
-   ```
+# 2. 配置环境变量 — 创建 .env.local
+NEXT_PUBLIC_SUPABASE_URL=https://xxxxxxxxxxxx.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_xxxxxxxx
+DEEPSEEK_API_KEY=sk-xxxxxxxx
 
-3. Set up environment variables:
-   Create a `.env.local` file with your Convex, Clerk, and EdgeStore credentials:
-   ```env
-   NEXT_PUBLIC_CONVEX_URL=your_convex_url
-   NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=your_clerk_publishable_key
-   CLERK_SECRET_KEY=your_clerk_secret_key
-   EDGE_STORE_ACCESS_KEY=your_edgestore_access_key
-   EDGE_STORE_SECRET_KEY=your_edgestore_secret_key
-   ```
+# 3. 在 Supabase SQL Editor 执行 supabase/migrations/001_initial_schema.sql
 
-4. Run the development server:
-   ```bash
-   pnpm dev
-   ```
+# 4. Supabase 面板开启 Email Auth（关闭邮箱验证）并创建 Storage bucket "lotion"（公开）
 
-5. Open [http://localhost:3000](http://localhost:3000) in your browser.
+# 5. 启动
+pnpm dev
+```
+
+打开 [http://localhost:3000](http://localhost:3000)，注册账号即可使用。
 
 ## Project Structure
 
 ```
-front-end-learning/
-├── app/                     # Next.js app router
-│   ├── (main)/             # Main application (authenticated users)
-│   │   ├── _components/    # Main layout components
-│   │   └── (routes)/       # Document routes
-│   ├── (marketing)/        # Marketing pages (public)
-│   │   └── _components/    # Marketing page components
-│   ├── (public)/           # Public document preview
-│   └── api/                # API routes
-├── components/             # Shared UI components
-│   ├── modals/             # Modal components
-│   ├── providers/          # React context providers
-│   ├── ui/                 # Reusable UI components
-│   └── upload/             # File upload components
-├── convex/                 # Convex backend functions and schema
-├── hooks/                  # Custom React hooks
-├── lib/                    # Utility functions
-└── public/                 # Static assets
+app/
+├── (main)/               # 认证用户主界面
+│   ├── _components/       # navigation, editor, ai-panel, document-list, ...
+│   └── (routes)/          # /documents/[documentId]
+├── (marketing)/           # 着陆页
+├── (public)/              # 公开文档预览
+├── api/ai/chat/route.ts   # DeepSeek 流式 API
+├── login/                 # 登录
+├── register/              # 注册
+lib/
+├── db.ts                  # Supabase 数据库 CRUD 函数
+├── supabase/              # SSR 客户端 + middleware
+├── ai-prompts.ts          # AI 系统提示词
+hooks/                     # Zustand stores + useSupabaseUser
+components/                # shadcn/ui + Toolbar + SearchCommand
+supabase/migrations/       # SQL DDL（建表 + RLS）
 ```
 
-## Core Functionality
+## Data Model
 
-### Document Management
-- Create new documents with the "New Page" button
-- Organize documents in a hierarchical structure (nested documents)
-- Archive documents to the trash
-- Restore documents from the trash
-- Permanently delete documents
-- Search across all documents
+`documents` 表（PostgreSQL，RLS 保护）：
 
-### Authentication
-- Sign up and login with Clerk
-- Protected routes for authenticated users only
-- User profile management
-
-### Editor Features
-- Block-based rich text editing with BlockNote
-- Add cover images to documents
-- Add icons to documents
-- Customize document titles
-
-### Data Model
-Documents are stored with the following schema:
-- `title`: Document title
-- `userId`: Owner of the document
-- `isArchived`: Archive status
-- `parentDocument`: Parent document ID (for hierarchical organization)
-- `content`: Document content (optional)
-- `coverImage`: Cover image URL (optional)
-- `icon`: Document icon (optional)
-- `isPublished`: Publication status
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `id` | UUID | 主键 |
+| `title` | TEXT | 标题 |
+| `userId` | UUID | 所有者（外键 auth.users） |
+| `isArchived` | BOOLEAN | 是否归档 |
+| `parentDocument` | UUID | 父文档（自引用） |
+| `content` | TEXT | BlockNote JSON |
+| `coverImage` | TEXT | 封面图 URL |
+| `icon` | TEXT | Emoji 图标 |
+| `isPublished` | BOOLEAN | 是否公开 |
 
 ## Development
 
-### Available Scripts
-
-- `pnpm dev` - Runs the app in development mode
-- `pnpm build` - Builds the app for production
-- `pnpm start` - Runs the built app in production mode
-- `pnpm lint` - Runs ESLint
-
-### Convex Functions
-
-The backend is powered by Convex with the following functions:
-- `documents.create` - Create a new document
-- `documents.getSidebar` - Get documents for sidebar display
-- `documents.getTrash` - Get archived documents
-- `documents.archive` - Archive a document
-- `documents.restore` - Restore an archived document
-- `documents.remove` - Permanently delete a document
-- `documents.getSearch` - Get all documents for search
-- `documents.getById` - Get a specific document by ID
-- `documents.update` - Update document properties
-- `documents.removeIcon` - Remove document icon
-- `documents.removeCoverImage` - Remove document cover image
+```bash
+pnpm dev          # Turbopack 开发服务器
+pnpm build        # 生产构建
+pnpm start        # 运行构建产物
+pnpm lint         # ESLint
+```
 
 ## Deployment
 
-The easiest way to deploy your Lotion app is to use [Vercel](https://vercel.com/):
+部署到 Vercel：
 
-1. Push your code to a GitHub repository
-2. Create a new project on Vercel
-3. Connect your GitHub repository
-4. Set up the required environment variables
-5. Deploy!
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-## Learn More
-
-To learn more about the technologies used in this project:
-
-- [Next.js Documentation](https://nextjs.org/docs)
-- [Convex Documentation](https://docs.convex.dev/)
-- [Clerk Documentation](https://clerk.dev/docs)
-- [Tailwind CSS Documentation](https://tailwindcss.com/docs)
-- [BlockNote Documentation](https://www.blocknotejs.org/)
+1. Push 到 GitHub
+2. Vercel 导入项目
+3. 设置环境变量（同上）
+4. Deploy
 
 ## License
 
-This project is licensed under the MIT License.
+MIT
