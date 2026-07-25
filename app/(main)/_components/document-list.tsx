@@ -3,6 +3,7 @@
 import { useParams, useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { useSupabaseUser } from "@/hooks/use-supabase-user";
+import { useRefresh } from "@/hooks/use-refresh";
 import { getSidebar, type Document } from "@/lib/db";
 import Item from "./item";
 import { cn } from "../../../lib/utils";
@@ -21,6 +22,7 @@ const DocumentList = ({
     const params = useParams();
     const router = useRouter();
     const { user } = useSupabaseUser();
+    const { key: refreshKey } = useRefresh();
     const [expanded, setExpanded] = useState<Record<string, boolean>>({});
     const [documents, setDocuments] = useState<Document[] | undefined>(undefined);
 
@@ -30,7 +32,7 @@ const DocumentList = ({
                 .then(setDocuments)
                 .catch(() => setDocuments([]));
         }
-    }, [user, parentDocumentId]);
+    }, [user, parentDocumentId, refreshKey]);
 
     const onExpand = (documentId: string) => {
         setExpanded(prevExpanded => ({

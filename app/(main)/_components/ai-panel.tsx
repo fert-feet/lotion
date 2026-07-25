@@ -3,6 +3,7 @@
 import { useAiPanel } from "@/hooks/use-ai-panel";
 import { cn } from "@/lib/utils";
 import { create, update } from "@/lib/db";
+import { useRefresh } from "@/hooks/use-refresh";
 import { useSupabaseUser } from "@/hooks/use-supabase-user";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -19,6 +20,7 @@ interface Message {
 const AiPanel = () => {
   const { isOpen, onClose } = useAiPanel();
   const { user } = useSupabaseUser();
+  const { trigger: refresh } = useRefresh();
   const params = useParams();
   const router = useRouter();
 
@@ -108,12 +110,16 @@ const AiPanel = () => {
       content: line ? [{ type: "text" as const, text: line }] : [],
     }));
 
+    let newDocId: string;
     const promise = create(user.id, "AI 生成的笔记")
       .then((docId) => {
+        newDocId = docId;
         return update(docId, { content: JSON.stringify(blocks) });
       })
       .then(() => {
+        refresh();
         onClose();
+        router.push(`/documents/${newDocId}`);
       });
 
     toast.promise(promise, {
