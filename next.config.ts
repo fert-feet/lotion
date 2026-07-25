@@ -4,7 +4,7 @@ const nextConfig: NextConfig = {
     images: {
       remotePatterns: [
         {
-          hostname: "files.edgestore.dev"
+          hostname: "njwnokkclwwglyarylie.supabase.co"
         }
       ]
     }
