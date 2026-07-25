@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "../../../components/ui/button";
 import { useRefresh } from "@/hooks/use-refresh";
 import { update, remove } from "@/lib/db";
+import { FileText, Trash2 } from "lucide-react";
 
 interface DraftBannerProps {
   documentId: string;
@@ -13,10 +14,12 @@ interface DraftBannerProps {
 const DraftBanner = ({ documentId }: DraftBannerProps) => {
   const router = useRouter();
   const triggerSidebar = useRefresh((s) => s.triggerSidebar);
+  const triggerDocument = useRefresh((s) => s.triggerDocument);
 
   const onConfirm = () => {
     const promise = update(documentId, { isDraft: false }).then(() => {
       triggerSidebar();
+      triggerDocument(documentId);
       toast.success("草稿已保存");
     });
 
@@ -41,24 +44,30 @@ const DraftBanner = ({ documentId }: DraftBannerProps) => {
   };
 
   return (
-    <div className="w-full bg-amber-500 text-center text-sm p-2 text-white flex items-center justify-center gap-x-2">
-      <p>📝 AI 生成的草稿</p>
-      <Button
-        size="sm"
-        onClick={onConfirm}
-        variant="outline"
-        className="border-white bg-transparent hover:bg-primary/5 cursor-pointer text-white hover:text-white p-1 px-2 h-auto font-normal"
-      >
-        确认保存
-      </Button>
-      <Button
-        size="sm"
-        onClick={onDiscard}
-        variant="outline"
-        className="border-white bg-transparent hover:bg-primary/5 text-white hover:text-white p-1 px-2 h-auto font-normal cursor-pointer"
-      >
-        丢弃
-      </Button>
+    <div className="w-full border-b bg-amber-50/80 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800/60">
+      <div className="max-w-3xl lg:max-w-4xl mx-auto flex items-center gap-3 px-4 py-2.5">
+        <FileText className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
+        <p className="text-sm font-medium text-amber-800 dark:text-amber-200 flex-1">
+          AI 生成的草稿
+        </p>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={onConfirm}
+          className="h-7 text-xs"
+        >
+          确认保存
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={onDiscard}
+          className="h-7 text-xs text-muted-foreground hover:text-destructive"
+        >
+          <Trash2 className="h-3.5 w-3.5 mr-1" />
+          丢弃
+        </Button>
+      </div>
     </div>
   );
 };

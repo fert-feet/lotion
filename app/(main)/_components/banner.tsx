@@ -7,6 +7,7 @@ import ConfirmModal from "../../../components/modals/confirm-modal";
 import { useSupabaseUser } from "@/hooks/use-supabase-user";
 import { useRefresh } from "@/hooks/use-refresh";
 import { remove, restore } from "@/lib/db";
+import { Archive, Trash2, Undo2 } from "lucide-react";
 
 interface BannerProps {
     documentId: string;
@@ -46,29 +47,32 @@ const Banner = ({
     };
 
     return (
-        <div className="w-full bg-rose-500 text-center text-sm p-2 text-white flex items-center justify-center gap-x-2">
-            <p>
-                This Page is Trash
-            </p>
-            <Button
-                size="sm"
-                onClick={onRestore}
-                variant="outline"
-                className="border-white bg-transparent hover:bg-primary/5 cursor-pointer text-white hover:text-white p-1 px-2 h-auto font-normal"
-            >
-                Restore Page
-            </Button>
-            <ConfirmModal
-            onConfirm={onRemove}
-            >
+        <div className="w-full border-b bg-rose-50/80 dark:bg-rose-950/20 border-rose-200 dark:border-rose-800/60">
+            <div className="max-w-3xl lg:max-w-4xl mx-auto flex items-center gap-3 px-4 py-2.5">
+                <Archive className="h-4 w-4 text-rose-600 dark:text-rose-400 shrink-0" />
+                <p className="text-sm font-medium text-rose-800 dark:text-rose-200 flex-1">
+                    此页面已在回收站
+                </p>
                 <Button
                     size="sm"
                     variant="outline"
-                    className="border-white bg-transparent hover:bg-primary/5 text-white hover:text-white p-1 px-2 h-auto font-normal cursor-pointer"
+                    onClick={onRestore}
+                    className="h-7 text-xs"
                 >
-                    Delete forever
+                    <Undo2 className="h-3.5 w-3.5 mr-1" />
+                    恢复
                 </Button>
-            </ConfirmModal>
+                <ConfirmModal onConfirm={onRemove}>
+                    <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 text-xs text-muted-foreground hover:text-destructive"
+                    >
+                        <Trash2 className="h-3.5 w-3.5 mr-1" />
+                        永久删除
+                    </Button>
+                </ConfirmModal>
+            </div>
         </div>
     );
 };
