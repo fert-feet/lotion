@@ -24,8 +24,12 @@ export async function runNoteAgent(
   userId: string,
   prompt: string,
   docContext?: { title: string; content: string },
-) {
+): Promise<{
+  stream: ReadableStream<string>;
+  noteIds: string[];
+}> {
   const messages: any[] = [];
+  const createdNoteIds: string[] = [];
 
   if (docContext) {
     const plainText = extractText(docContext.content);
@@ -45,22 +49,43 @@ export async function runNoteAgent(
 
   let stepCount = 0;
 
-  return streamText({
+  const result = streamText({
     model: deepSeek("deepseek-v4-flash"),
     system: NOTE_ASSISTANT_PROMPT,
     messages,
-    tools: createTools(supabase, userId),
+    tools: createTools(supabase, userId, createdNoteIds),
     stopWhen: stepCountIs(10),
-    onStepFinish: ({ text, toolCalls, toolResults, finishReason }) => {
+    onStepFinish: ({ finishReason }) => {
       stepCount++;
-      logger.agent.info(`Step ${stepCount} 完成`, {
-        finishReason,
-        textLen: text?.length ?? 0,
-        toolCalls: toolCalls?.map((tc: any) => tc.toolName) ?? [],
-        toolResults: Array.isArray(toolResults)
-          ? toolResults.map((tr: any) => ({ tool: tr.toolName, ok: !tr.error }))
-          : [],
-      });
+      logger.agent.info(`Step ${stepCount} 完成`, { finishReason });
     },
   });
+
+  const textStream = result.textStream;
+
+  // 如果有新创建的笔记，在流前面插入标记，前端读到后自动跳转
+  if (createdNoteIds.length > 0) {
+    const prefix = createdNoteIds.map((id) => `[NOTE_CREATED:${id}]`).join("");
+    const reader = textStream.getReader();
+    let prefixSent = false;
+    const combined = new ReadableStream<string>({
+      async pull(controller) {
+        if (!prefixSent) {
+          controller.enqueue(prefix);
+          prefixSent = true;
+          return;
+        }
+        const { done, value } = await reader.read();
+        if (done) {
+          controller.close();
+        } else {
+          controller.enqueue(value);
+        }
+      },
+    });
+
+    return { stream: combined, noteIds: createdNoteIds };
+  }
+
+  return { stream: textStream, noteIds: [] };
 }

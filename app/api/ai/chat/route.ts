@@ -30,9 +30,9 @@ export async function POST(request: Request) {
     }
   }
 
-  const result = await runNoteAgent(supabase, user.id, prompt, docContext);
+  const { stream } = await runNoteAgent(supabase, user.id, prompt, docContext);
 
-  return new Response(result.textStream, {
+  return new Response(stream, {
     headers: {
       "Content-Type": "text/plain; charset=utf-8",
       "Cache-Control": "no-cache",
