@@ -74,7 +74,6 @@ const AiPanel = () => {
             const docId = match[1];
             fullText = fullText.replace(/\[NOTE_CREATED:[^\]]+\]/, "");
             setTimeout(() => {
-              onClose();
               router.push(`/documents/${docId}`);
             }, 800);
           }
