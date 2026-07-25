@@ -9,7 +9,7 @@ export function createDeleteNoteTool(
   pendingConfirmDelete: { current: { noteId: string; title: string } | null },
 ) {
   return tool({
-    description: "永久删除笔记。需要用户二次确认，不会立即执行。",
+    description: "永久删除笔记。调用后系统会自动弹出确认框让用户二次确认，你不需要额外询问。",
     inputSchema: z.object({
       noteId: z.string().describe("要删除的笔记 ID"),
     }),
