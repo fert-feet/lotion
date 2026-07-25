@@ -1,34 +1,33 @@
 "use client";
 
-import { useMutation, useQuery } from "convex/react";
-import { Doc, Id } from "../../../../../convex/_generated/dataModel";
-import { api } from "../../../../../convex/_generated/api";
-import { Spinner } from "../../../../../components/ui/spinner";
+import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import Toolbar from "../../../../../components/toobar";
-import Cover from "../../../_components/cover";
+import { getById, update, type Document } from "@/lib/db";
 import { Skeleton } from "../../../../../components/ui/skeleton";
 import { useMemo } from "react";
 import dynamic from "next/dynamic";
+import Toolbar from "../../../../../components/toobar";
+import Cover from "../../../_components/cover";
 
 const DocumentIdPage = () => {
     const params = useParams();
+    const Editor = useMemo(() => dynamic(() => import("../../../_components/editor"), { ssr: false }), []);
 
-    //TODO 查询几个 use 的用法
-    const Editor = useMemo(() => dynamic(() => import("../../../_components/editor"), {ssr: false}), [])
+    const [document, setDocument] = useState<Document | null | undefined>(undefined);
 
-    const document = useQuery(api.documents.getById, {
-        documentId: params.documentId as Id<"documents">
-    });
-
-    const update = useMutation(api.documents.update)
+    useEffect(() => {
+        if (params.documentId) {
+            getById(params.documentId as string)
+                .then(setDocument)
+                .catch(() => setDocument(null));
+        }
+    }, [params.documentId]);
 
     const onChange = (content: string) => {
-        update({
-            id: params.documentId as Id<"documents">,
-            content
-        })
-    }
+        if (document) {
+            update(document.id, { content });
+        }
+    };
 
     if (document === undefined) {
         return (
@@ -52,13 +51,13 @@ const DocumentIdPage = () => {
 
     return (
         <div className="pb-40">
-            <Cover url={document.coverImage} />
+            <Cover url={document.coverImage || undefined} />
             <div className="md:max-w-3xl lg:max-w-4xl mx-auto">
                 <Toolbar initialData={document} />
                 <Editor
-                editable={!document.isArchived}
-                onChange={onChange}
-                initialContent={document.content}
+                    editable={!document.isArchived}
+                    onChange={onChange}
+                    initialContent={document.content || undefined}
                 />
             </div>
         </div>

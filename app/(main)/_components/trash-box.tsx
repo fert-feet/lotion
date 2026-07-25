@@ -1,25 +1,28 @@
-import { useMutation, useQuery } from "convex/react";
 import { useParams, useRouter } from "next/navigation";
-import { api } from "../../../convex/_generated/api";
-import { Id } from "../../../convex/_generated/dataModel";
 import { toast } from "sonner";
-import { routerServerGlobal } from "next/dist/server/lib/router-utils/router-server-context";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Spinner } from "../../../components/ui/spinner";
 import { Search, Trash, Undo } from "lucide-react";
 import { Input } from "../../../components/ui/input";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "../../../components/ui/alert-dialog";
 import ConfirmModal from "../../../components/modals/confirm-modal";
+import { useSupabaseUser } from "@/hooks/use-supabase-user";
+import { getTrash, restore, remove, type Document } from "@/lib/db";
 
 const TrashBox = () => {
     const params = useParams();
     const router = useRouter();
+    const { user } = useSupabaseUser();
 
-    const documents = useQuery(api.documents.getTrash, {});
-    const restore = useMutation(api.documents.restore);
-    const remove = useMutation(api.documents.remove);
-
+    const [documents, setDocuments] = useState<Document[] | undefined>(undefined);
     const [search, setSearch] = useState("");
+
+    const loadTrash = () => {
+        if (user) {
+            getTrash(user.id).then(setDocuments);
+        }
+    };
+
+    useEffect(() => { loadTrash(); }, [user]);
 
     const filterDocuments = documents?.filter((document) => {
         return document.title.toLowerCase().includes(search.toLowerCase());
@@ -29,27 +32,24 @@ const TrashBox = () => {
         router.push(`/documents/${documentId}`);
     };
 
-    const onRemove = (
-        documentId: Id<"documents">
-    ) => {
-        const promise = remove({ id: documentId });
+    const onRemove = (documentId: string) => {
+        const promise = remove(documentId).then(() => loadTrash());
 
         toast.promise(promise, {
             loading: "Removing note...",
             success: "Note removed",
             error: "Failed to remove"
         });
-
-        router.push("/documents/");
     };
 
     const onRestore = (
         event: React.MouseEvent<HTMLDivElement, MouseEvent>,
-        documentId: Id<"documents">
+        documentId: string
     ) => {
         event.stopPropagation();
 
-        const promise = restore({ id: documentId });
+        if (!user) return;
+        const promise = restore(user.id, documentId).then(() => loadTrash());
 
         toast.promise(promise, {
             loading: "Restoring note...",
@@ -84,10 +84,10 @@ const TrashBox = () => {
                 </p>
                 {filterDocuments?.map((document) => (
                     <div
-                        key={document._id}
+                        key={document.id}
                         role="button"
                         className="text-sm rounded-sm w-full items-center text-primary hover:bg-primary/5 flex justify-between cursor-pointer group"
-                        onClick={() => handleClick(document._id)} // () => func()适合需要传参，如果直接放 func() 会直接执行
+                        onClick={() => handleClick(document.id)}
                     >
                         <span className="truncate pl-2">
                             {document.title}
@@ -96,7 +96,7 @@ const TrashBox = () => {
                             <div
                                 role="button"
                                 className="rounded-sm p-2 hover:bg-neutral-300 dark:hover:bg-neutral-600"
-                                onClick={(e) => onRestore(e, document._id)}
+                                onClick={(e) => onRestore(e, document.id)}
                             >
                                 <Undo className="h-4 w-4 text-muted-foreground" />
                             </div>
@@ -104,7 +104,7 @@ const TrashBox = () => {
 
                             </div>
                             <ConfirmModal
-                                onConfirm={() => onRemove(document._id)}
+                                onConfirm={() => onRemove(document.id)}
                             >
                                 <div
                                     role="button"

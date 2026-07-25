@@ -1,18 +1,17 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import { Doc, Id } from "../../../convex/_generated/dataModel";
-import { useState } from "react";
-import { useQuery } from "convex/react";
-import { api } from "../../../convex/_generated/api";
+import { useState, useEffect } from "react";
+import { useSupabaseUser } from "@/hooks/use-supabase-user";
+import { getSidebar, type Document } from "@/lib/db";
 import Item from "./item";
 import { cn } from "../../../lib/utils";
 import { FileIcon } from "lucide-react";
 
 interface DocumentListProps {
-    parentDocumentId?: Id<"documents">;
+    parentDocumentId?: string | null;
     level?: number;
-    data?: Doc<"documents">[];
+    data?: Document[];
 }
 
 const DocumentList = ({
@@ -21,19 +20,24 @@ const DocumentList = ({
 }: DocumentListProps) => {
     const params = useParams();
     const router = useRouter();
+    const { user } = useSupabaseUser();
     const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+    const [documents, setDocuments] = useState<Document[] | undefined>(undefined);
 
-    // 切换某个文档的折叠或展开
+    useEffect(() => {
+        if (user) {
+            getSidebar(user.id, parentDocumentId)
+                .then(setDocuments)
+                .catch(() => setDocuments([]));
+        }
+    }, [user, parentDocumentId]);
+
     const onExpand = (documentId: string) => {
         setExpanded(prevExpanded => ({
             ...prevExpanded,
             [documentId]: !prevExpanded[documentId]
         }));
     };
-
-    const documents = useQuery(api.documents.getSidebar, {
-        parentDocument: parentDocumentId
-    });
 
     const onRedirect = (documentId: string) => {
         router.push(`/documents/${documentId}`);
@@ -53,7 +57,6 @@ const DocumentList = ({
         );
     }
 
-
     return (
         <>
             <p
@@ -69,21 +72,21 @@ const DocumentList = ({
                 No page inside
             </p>
             {documents.map((document) => (
-                <div key={document._id}>
+                <div key={document.id}>
                     <Item
-                        id={document._id}
-                        onClick={() => onRedirect(document._id)}
+                        id={document.id}
+                        onClick={() => onRedirect(document.id)}
                         label={document.title}
-                        icon={FileIcon} //默认 icon
-                        documentIcon={document.icon} // 文件 icon（若存在）
-                        active={params.documentId === document._id}
+                        icon={FileIcon}
+                        documentIcon={document.icon || undefined}
+                        active={params.documentId === document.id}
                         level={level}
-                        onExpand={() => onExpand(document._id)}
-                        expanded={expanded[document._id]}
+                        onExpand={() => onExpand(document.id)}
+                        expanded={expanded[document.id]}
                     />
-                    {expanded[document._id] && (
+                    {expanded[document.id] && (
                         <DocumentList
-                            parentDocumentId={document._id}
+                            parentDocumentId={document.id}
                             level={level + 1}
                         />
                     )}

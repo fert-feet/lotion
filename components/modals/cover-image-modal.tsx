@@ -1,48 +1,39 @@
-import { useState } from "react";
 import useCoverImage from "../../hooks/use-cover-image";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog";
 import { SingleImageDropzone } from "../upload/single-image";
-import { useEdgeStore } from "../../lib/edgestore";
-import { useMutation } from "convex/react";
-import { api } from "../../convex/_generated/api";
 import { useParams } from "next/navigation";
-import { Id } from "../../convex/_generated/dataModel";
 import { UploaderProvider, UploadFn } from "../upload/uploader-provider";
-import { SingleImageDropzoneUsage } from "../single-image-dropzone";
+import { createClient } from "@/lib/supabase/client";
+import { update } from "@/lib/db";
 import React from "react";
-import { log } from "console";
 
 const CoverImageModal = () => {
-    const [file, setFile] = useState<File>();
-    const [isSubmitting, setIsSubmitting] = useState(false);
     const params = useParams();
-
     const coverImage = useCoverImage();
-    const { edgestore } = useEdgeStore();
-    const update = useMutation(api.documents.update);
 
     const onClose = () => {
-        setFile(undefined);
-        setIsSubmitting(false);
         coverImage.onClose();
     };
 
     const uploadFn: UploadFn = async ({ file }) => {
-        const res = await edgestore.publicFiles.upload({
-            file,
-            options: {
-                replaceTargetUrl: coverImage.url
-            }
-        });
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error("Not authenticated");
 
-        await update({
-            id: params.documentId as Id<"documents">,
-            coverImage: res.url
-        });
+        const fileExt = file.name.split(".").pop();
+        const path = `${user.id}/${Date.now()}.${fileExt}`;
+
+        const { error } = await supabase.storage.from("lotion").upload(path, file);
+
+        if (error) throw error;
+
+        const { data: urlData } = supabase.storage.from("lotion").getPublicUrl(path);
+
+        await update(params.documentId as string, { coverImage: urlData.publicUrl });
 
         onClose();
 
-        return res;
+        return { url: urlData.publicUrl };
     };
 
     return (
@@ -56,7 +47,7 @@ const CoverImageModal = () => {
                 <UploaderProvider uploadFn={uploadFn} autoUpload>
                     <SingleImageDropzone
                         dropzoneOptions={{
-                            maxSize: 1024 * 1024 * 3, // 1 MB
+                            maxSize: 1024 * 1024 * 3,
                         }}
                     />
                 </UploaderProvider>

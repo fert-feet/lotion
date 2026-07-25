@@ -2,16 +2,14 @@
 
 import { MoreHorizontal, Trash } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "../../../components/ui/dropdown-menu";
-import { Id } from "../../../convex/_generated/dataModel";
 import { toast } from "sonner";
-import { useMutation } from "convex/react";
-import { api } from "../../../convex/_generated/api";
-import { useUser } from "@clerk/nextjs";
+import { archive, type Document } from "@/lib/db";
+import { useSupabaseUser } from "@/hooks/use-supabase-user";
 import { Skeleton } from "../../../components/ui/skeleton";
 import { useRouter } from "next/navigation";
 
 interface MenuProps {
-    documentId: Id<"documents">;
+    documentId: string;
     isArchive: boolean;
 }
 
@@ -19,18 +17,17 @@ const Menu = ({
     documentId,
     isArchive
 }: MenuProps) => {
-    const archive = useMutation(api.documents.archive);
     const router = useRouter()
+    const { user } = useSupabaseUser();
 
-    const { user } = useUser();
+    if (!user) return null;
 
-    const onArchive = (
-    ) => {
+    const onArchive = () => {
         if (!documentId) {
             return;
         }
 
-        const promise = archive({ id: documentId })
+        const promise = archive(user.id, documentId)
             .then(() => router.push("/documents"))
 
         toast.promise(promise, {
@@ -60,7 +57,7 @@ const Menu = ({
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <div className="text-xs text-muted-foreground p-2 font-medium">
-                        Last edited by: {user?.username}
+                        Last edited by: {user.email}
                     </div>
                 </DropdownMenuContent>
             </DropdownMenu>

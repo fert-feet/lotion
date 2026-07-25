@@ -1,13 +1,13 @@
 "use client";
 
-import { ChevronsLeft, MenuIcon, Plus, PlusCircle, Rewind, Search, Settings, Trash } from "lucide-react";
+import { ChevronsLeft, MenuIcon, Plus, PlusCircle, Rewind, Search, Settings, Sparkles, Trash } from "lucide-react";
 import { useParams, usePathname, useRouter } from "next/navigation";
 import React, { ElementRef, useEffect, useRef, useState } from "react";
 import { useMediaQuery } from "usehooks-ts";
 import { cn } from "../../../lib/utils";
 import UserItem from "./user-item";
-import { useMutation, useQuery } from "convex/react";
-import { api } from "../../../convex/_generated/api";
+import { create } from "@/lib/db";
+import { useSupabaseUser } from "@/hooks/use-supabase-user";
 import Item from "./item";
 import { toast } from "sonner";
 import DocumentList from "./document-list";
@@ -15,15 +15,17 @@ import { Popover, PopoverContent, PopoverTrigger } from "../../../components/ui/
 import TrashBox from "./trash-box";
 import useSearch from "../../../hooks/use-search";
 import useSettings from "../../../hooks/use-setting";
+import { useAiPanel } from "@/hooks/use-ai-panel";
 import Navbar from "./navbar";
 
 const Navigation = () => {
     const pathName = usePathname();
     const params = useParams();
     const isMobile = useMediaQuery("(max-width: 768px)");
-    const create = useMutation(api.documents.create);
+    const { user } = useSupabaseUser();
     const toggle = useSearch((store) => store.toggle);
     const settings = useSettings();
+    const aiPanel = useAiPanel();
     const router = useRouter();
 
     const isResizingRef = useRef(false);
@@ -37,7 +39,7 @@ const Navigation = () => {
         if (isMobile) {
             collapse();
         }
-    }, [isMobile, pathName]); // 负责处理导航之后的行为，并且只关心移动端的体验
+    }, [isMobile, pathName]);
 
     useEffect(() => {
         if (isMobile) {
@@ -45,10 +47,11 @@ const Navigation = () => {
         } else {
             resetWidth();
         }
-    }, [isMobile]); // 负责不同尺寸设备的切换，并且总体只分为手机和其他
+    }, [isMobile]);
 
     const onCreate = () => {
-        const promise = create({ title: "Untitled" })
+        if (!user) return;
+        const promise = create(user.id, "Untitled")
             .then((documentId) => { router.push(`/documents/${documentId}`); });
 
         toast.promise(promise, {
@@ -150,6 +153,11 @@ const Navigation = () => {
                         onClick={settings.onOpen}
                     />
                     <Item
+                        label="AI 助手"
+                        icon={Sparkles}
+                        onClick={aiPanel.toggle}
+                    />
+                    <Item
                         onClick={onCreate}
                         label="New Page"
                         icon={PlusCircle}
@@ -186,7 +194,6 @@ const Navigation = () => {
                     className="opacity-0 group-hover/sidebar:opacity-100 transition cursor-ew-resize absolute h-full w-1 bg-primary/10 right-0 top-0" />
             </aside>
 
-            {/* navbar 会随着 sidebar 改变大小 */}
             <div ref={navbarRef} className={cn(
                 "absolute top-0 z-[99999]",
                 !isCollapsed && !isMobile && "left-60 w-[calc(100%-240px)]",

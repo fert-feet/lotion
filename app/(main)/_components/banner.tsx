@@ -1,27 +1,24 @@
 "use client";
 
 import { toast } from "sonner";
-import { Id } from "../../../convex/_generated/dataModel";
-import { useMutation } from "convex/react";
-import { api } from "../../../convex/_generated/api";
 import { useRouter } from "next/navigation";
 import { Button } from "../../../components/ui/button";
 import ConfirmModal from "../../../components/modals/confirm-modal";
+import { useSupabaseUser } from "@/hooks/use-supabase-user";
+import { remove, restore } from "@/lib/db";
 
 interface BannerProps {
-    documentId: Id<"documents">;
+    documentId: string;
 }
 
 const Banner = ({
     documentId
 }: BannerProps) => {
     const router = useRouter();
-
-    const remove = useMutation(api.documents.remove);
-    const restore = useMutation(api.documents.restore);
+    const { user } = useSupabaseUser();
 
     const onRemove = () => {
-        const promise = remove({ id: documentId });
+        const promise = remove(documentId);
 
         toast.promise(promise, {
             loading: "Removing note...",
@@ -33,7 +30,8 @@ const Banner = ({
     };
 
     const onRestore = () => {
-        const promise = restore({ id: documentId });
+        if (!user) return;
+        const promise = restore(user.id, documentId);
 
         toast.promise(promise, {
             loading: "Restoring note...",

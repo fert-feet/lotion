@@ -5,11 +5,9 @@ import { cn } from "../../../lib/utils";
 import { Button } from "../../../components/ui/button";
 import { ImageIcon, X } from "lucide-react";
 import useCoverImage from "../../../hooks/use-cover-image";
-import { useMutation } from "convex/react";
-import { api } from "../../../convex/_generated/api";
 import { useParams } from "next/navigation";
-import { Id } from "../../../convex/_generated/dataModel";
-import { useEdgeStore } from "../../../lib/edgestore";
+import { createClient } from "@/lib/supabase/client";
+import { removeCoverImage } from "@/lib/db";
 import { Skeleton } from "../../../components/ui/skeleton";
 
 interface CoverProps {
@@ -23,19 +21,17 @@ const Cover = ({
 }: CoverProps) => {
     const params = useParams();
     const coverImage = useCoverImage();
-    const { edgestore } = useEdgeStore();
-    const removeCoverImage = useMutation(api.documents.removeCoverImage);
 
     const onRemove = async () => {
         if (url) {
-            await edgestore.publicFiles.delete({
-                url: url
-            });
+            const supabase = createClient();
+            const pathMatch = url.match(/\/lotion\/(.+)$/);
+            if (pathMatch) {
+                await supabase.storage.from("lotion").remove([pathMatch[1]]);
+            }
         }
 
-        removeCoverImage({
-            id: params.documentId as Id<"documents">
-        });
+        removeCoverImage(params.documentId as string);
     };
 
     return (

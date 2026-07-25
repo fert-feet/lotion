@@ -1,38 +1,36 @@
 "use client";
 
-// TODO 把这些相对位置改为 @ 开头的路径
-import { useMutation, useQuery } from "convex/react";
-import { Doc, Id } from "../../../../../convex/_generated/dataModel";
-import { api } from "../../../../../convex/_generated/api";
-import { Spinner } from "../../../../../components/ui/spinner";
+import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import Toolbar from "../../../../../components/toobar";
-import Cover from "../../../../(main)/_components/cover";
+import { getById, update, type Document } from "@/lib/db";
 import { Skeleton } from "../../../../../components/ui/skeleton";
 import { useMemo } from "react";
 import dynamic from "next/dynamic";
 import Image from "next/image";
 import { Button } from "../../../../../components/ui/button";
 import { ArrowRight } from "lucide-react";
+import Toolbar from "../../../../../components/toobar";
+import Cover from "../../../../(main)/_components/cover";
 
 const DocumentIdPage = () => {
     const params = useParams();
-
-    //TODO 查询几个 use 的用法
+    const router = useRouter();
     const Editor = useMemo(() => dynamic(() => import("../../../../(main)/_components/editor"), { ssr: false }), []);
 
-    const document = useQuery(api.documents.getById, {
-        documentId: params.documentId as Id<"documents">
-    });
+    const [document, setDocument] = useState<Document | null | undefined>(undefined);
 
-    const update = useMutation(api.documents.update);
-    const router = useRouter()
+    useEffect(() => {
+        if (params.documentId) {
+            getById(params.documentId as string)
+                .then(setDocument)
+                .catch(() => setDocument(null));
+        }
+    }, [params.documentId]);
 
     const onChange = (content: string) => {
-        update({
-            id: params.documentId as Id<"documents">,
-            content
-        });
+        if (document) {
+            update(document.id, { content });
+        }
     };
 
     if (document === undefined) {
@@ -69,24 +67,23 @@ const DocumentIdPage = () => {
                 <h2 className="text-lg font-bold pt-4 text-center">
                     Only the author can view it!
                 </h2>
-            <Button onClick={() => router.push("/")} className="text-md font-medium cursor-pointer">
-                Go back
-                <ArrowRight className="h-5 w-5 ml-2" />
-            </Button>
+                <Button onClick={() => router.push("/")} className="text-md font-medium cursor-pointer">
+                    Go back
+                    <ArrowRight className="h-5 w-5 ml-2" />
+                </Button>
             </div>
         );
-
     }
 
     return (
         <div className="pb-40">
-            <Cover preview url={document.coverImage} />
+            <Cover preview url={document.coverImage || undefined} />
             <div className="md:max-w-3xl lg:max-w-4xl mx-auto">
                 <Toolbar preview initialData={document} />
                 <Editor
                     editable={false}
                     onChange={onChange}
-                    initialContent={document.content}
+                    initialContent={document.content || undefined}
                 />
             </div>
         </div>

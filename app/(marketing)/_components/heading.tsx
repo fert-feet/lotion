@@ -1,14 +1,14 @@
 "use client"
 
 import { Button } from "@/components/ui/button";
-import { SignInButton, UserButton } from "@clerk/nextjs";
-import { useConvexAuth } from "convex/react";
+import { useSupabaseUser } from "@/hooks/use-supabase-user";
 import { ArrowRight } from "lucide-react";
 import { Spinner } from "../../../components/ui/spinner";
 import Link from "next/link";
 
 const Heading = () => {
-    const { isAuthenticated, isLoading } = useConvexAuth()
+    const { user, loading } = useSupabaseUser()
+    const isAuthenticated = !!user
 
     return (
         <div className="max-w-3xl space-y-4 mb-20">
@@ -20,19 +20,19 @@ const Heading = () => {
             <h3 className="text-base sm:text-xl md:text-2xl font-medium">
                 Lotion is the connected workspace where better, faster work happens.
             </h3>
-            {isLoading && (
+            {loading && (
                 <div className="flex justify-center">
                     <Spinner className="size-7" />
                 </div>
             )}
-            {!isAuthenticated && !isLoading && (
-                <SignInButton mode="modal">
+            {!isAuthenticated && !loading && (
+                <Link href="/register">
                     <Button>
                         Get Lotion Free!
                     </Button>
-                </SignInButton>
+                </Link>
             )}
-            {isAuthenticated && !isLoading && (
+            {isAuthenticated && !loading && (
                 <>
                     <Button variant="default" size="sm" asChild>
                         <Link href="/documents">

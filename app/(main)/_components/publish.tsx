@@ -1,38 +1,29 @@
 "use client";
 
-import { useMutation } from "convex/react";
 import { Button } from "../../../components/ui/button";
-import { Doc } from "../../../convex/_generated/dataModel";
 import useOrigin from "../../../hooks/use-origin";
-import { api } from "../../../convex/_generated/api";
 import { useState } from "react";
-import { Toaster } from "../../../components/ui/sonner";
 import { toast } from "sonner";
 import { Popover, PopoverContent, PopoverTrigger } from "../../../components/ui/popover";
 import { Check, Copy, Globe } from "lucide-react";
+import { update, type Document } from "@/lib/db";
 
 interface publishProps {
-    initialData: Doc<"documents">;
+    initialData: Document;
 }
 
 const Publish = ({
     initialData
 }: publishProps) => {
     const origin = useOrigin();
-    const update = useMutation(api.documents.update);
-
     const [copied, setCopied] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    const url = `${origin}/preview/${initialData._id}`;
+    const url = `${origin}/preview/${initialData.id}`;
 
     const onPublish = () => {
         setIsSubmitting(true);
-
-        const promise = update({
-            id: initialData._id,
-            isPublished: true
-        })
+        const promise = update(initialData.id, { isPublished: true })
             .finally(() => setIsSubmitting(false));
 
         toast.promise(promise, {
@@ -44,11 +35,7 @@ const Publish = ({
 
     const onUnpublish = () => {
         setIsSubmitting(true);
-
-        const promise = update({
-            id: initialData._id,
-            isPublished: false
-        })
+        const promise = update(initialData.id, { isPublished: false })
             .finally(() => setIsSubmitting(false));
 
         toast.promise(promise, {

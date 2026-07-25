@@ -11,7 +11,7 @@ import { BlockNoteView } from "@blocknote/shadcn";
 import "@blocknote/core/style.css";
 import { useCreateBlockNote, useEditorChange } from "@blocknote/react";
 import { useTheme } from "next-themes";
-import { useEdgeStore } from "../../../lib/edgestore";
+import { createClient } from "@/lib/supabase/client";
 
 interface EditorProps {
     onChange: (value: string) => void;
@@ -25,14 +25,20 @@ const Editor = ({
     editable
 }: EditorProps) => {
     const { resolvedTheme } = useTheme();
-    const { edgestore } = useEdgeStore();
 
     const handleUpload = async (file: File) => {
-        const res = await edgestore.publicFiles.upload({
-            file
-        })
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error("Not authenticated");
 
-        return res.url
+        const fileExt = file.name.split(".").pop();
+        const path = `uploads/${user.id}/${Date.now()}.${fileExt}`;
+
+        const { error } = await supabase.storage.from("lotion").upload(path, file);
+        if (error) throw error;
+
+        const { data: urlData } = supabase.storage.from("lotion").getPublicUrl(path);
+        return urlData.publicUrl;
     };
 
     const editor: BlockNoteEditor = useCreateBlockNote({

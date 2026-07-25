@@ -1,16 +1,14 @@
 import { ImageIcon, Smile, X } from "lucide-react";
-import { Doc } from "../convex/_generated/dataModel";
+import { type Document } from "@/lib/db";
 import IconPicker from "./icon-picker";
 import { Button } from "./ui/button";
 import { ElementRef, useRef, useState } from "react";
-import { useMutation } from "convex/react";
-import { api } from "../convex/_generated/api";
-
+import { update, removeIcon } from "@/lib/db";
 import TextareaAutosize from "react-textarea-autosize";
 import useCoverImage from "../hooks/use-cover-image";
 
 interface ToolbarProps {
-    initialData: Doc<"documents"> | undefined;
+    initialData: Document | undefined;
     preview?: boolean;
 }
 
@@ -19,11 +17,7 @@ const Toolbar = ({
     preview
 }: ToolbarProps) => {
     const coverImage = useCoverImage();
-
     const inputRef = useRef<ElementRef<"textarea">>(null);
-    const update = useMutation(api.documents.update);
-    const removeIcon = useMutation(api.documents.removeIcon);
-
     const [isEditing, setIsEditing] = useState<boolean>(false);
     const [value, setValue] = useState(initialData?.title || "");
 
@@ -50,23 +44,15 @@ const Toolbar = ({
 
     const onInput = (value: string) => {
         setValue(value);
-        update({
-            id: initialData._id,
-            title: value || "Untitled"
-        });
+        update(initialData.id, { title: value || "Untitled" });
     };
 
     const onSeleteIcon = (icon: string) => {
-        update({
-            id: initialData._id,
-            icon: icon
-        });
+        update(initialData.id, { icon });
     };
 
     const onRemoveIcon = () => {
-        removeIcon({
-            id: initialData._id
-        });
+        removeIcon(initialData.id);
     };
 
     const onKeyDown = (

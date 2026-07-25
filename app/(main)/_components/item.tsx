@@ -1,18 +1,16 @@
 "use client";
 
 import { ChevronDown, ChevronRight, LucideIcon, MoreHorizontal, Plus, Trash } from "lucide-react";
-import { Id } from "../../../convex/_generated/dataModel";
 import { Skeleton } from "../../../components/ui/skeleton";
 import { cn } from "../../../lib/utils";
-import { useMutation } from "convex/react";
-import { api } from "../../../convex/_generated/api";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "../../../components/ui/dropdown-menu";
-import { useUser } from "@clerk/nextjs";
+import { useSupabaseUser } from "@/hooks/use-supabase-user";
+import { create, archive } from "@/lib/db";
 
 interface ItemProps {
-    id?: Id<"documents">;
+    id?: string;
     documentIcon?: string;
     active?: boolean;
     expanded?: boolean;
@@ -23,6 +21,7 @@ interface ItemProps {
     onClick?: () => void;
     icon: LucideIcon;
 }
+
 const Item = ({
     id,
     label,
@@ -35,10 +34,10 @@ const Item = ({
     onExpand,
     expanded,
 }: ItemProps) => {
-    const { user } = useUser();
+    const { user } = useSupabaseUser();
     const router = useRouter();
-    const create = useMutation(api.documents.create);
-    const archive = useMutation(api.documents.archive);
+
+    if (!user) return null;
 
     const onArchive = (
         event: React.MouseEvent<HTMLDivElement, MouseEvent>
@@ -49,7 +48,7 @@ const Item = ({
             return;
         }
 
-        const promise = archive({ id })
+        const promise = archive(user.id, id)
             .then(() => router.push("/documents"))
 
         toast.promise(promise, {
@@ -62,13 +61,13 @@ const Item = ({
     const onCreate = (
         event: React.MouseEvent<HTMLDivElement, MouseEvent>
     ) => {
-        event.stopPropagation(); // 外面还包着一个button，点击当前 button 不会引发外层 button
+        event.stopPropagation();
 
         if (!id) {
             return;
         }
 
-        const promise = create({ parentDocument: id, title: "Untitled" })
+        const promise = create(user.id, "Untitled", id)
             .then((documentId) => {
                 if (!expanded) {
                     onExpand?.();
@@ -86,7 +85,7 @@ const Item = ({
     const handleExpand = (
         event: React.MouseEvent<HTMLDivElement, MouseEvent>
     ) => {
-        event.stopPropagation(); // 外面还包着一个button，点击当前 button 不会引发外层 button
+        event.stopPropagation();
         onExpand?.();
     };
 
@@ -103,18 +102,15 @@ const Item = ({
                 active && "bg-primary/5 text-primary"
             )}
         >
-            {/*!!id 判断 id 是否存在（boolean）id 存在 则 !!id = true  */}
             {!!id && (
                 <div
                     role="button"
                     className="h-full rounded-sm hover:bg-neutral-300 dark:hover:bg-neutral-600 mr-1"
                     onClick={handleExpand}
                 >
-
                     <ChevronIcon
                         className="h-4 w-4 shrink-0 text-muted-foreground/65"
                     />
-
                 </div>
             )}
 
@@ -154,7 +150,7 @@ const Item = ({
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <div className="text-xs text-muted-foreground p-2 font-medium">
-                                Last edited by: {user?.username}
+                                Last edited by: {user.email}
                             </div>
                         </DropdownMenuContent>
                     </DropdownMenu>

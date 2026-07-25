@@ -1,15 +1,14 @@
 "use client";
 
-import { useQuery } from "convex/react";
-import { api } from "../../../convex/_generated/api";
 import { useParams } from "next/navigation";
-import { Id } from "../../../convex/_generated/dataModel";
 import { MenuIcon } from "lucide-react";
-import { Spinner } from "../../../components/ui/spinner";
 import Title from "./title";
 import Banner from "./banner";
 import Menu from "./menu";
 import Publish from "./publish";
+import { useEffect, useState } from "react";
+import { getById, type Document } from "@/lib/db";
+import { Skeleton } from "../../../components/ui/skeleton";
 
 interface NavbarProps {
     isCollapsed: boolean;
@@ -21,10 +20,15 @@ const Navbar = ({
     onResetWidth
 }: NavbarProps) => {
     const params = useParams();
+    const [document, setDocument] = useState<Document | null | undefined>(undefined);
 
-    const document = useQuery(api.documents.getById, {
-        documentId: params.documentId as Id<"documents">
-    });
+    useEffect(() => {
+        if (params.documentId) {
+            getById(params.documentId as string)
+                .then(setDocument)
+                .catch(() => setDocument(null));
+        }
+    }, [params.documentId]);
 
     if (document === undefined) {
         return (
@@ -57,12 +61,12 @@ const Navbar = ({
                     <Title initialData={document} />
                     <div className="flex gap-x-2 items-center">
                         <Publish initialData={document}/>
-                        <Menu documentId={document._id} isArchive={document.isArchived} />
+                        <Menu documentId={document.id} isArchive={document.isArchived} />
                     </div>
                 </div>
             </nav>
             {document.isArchived && (
-                <Banner documentId={document._id} />
+                <Banner documentId={document.id} />
             )}
         </>
     );
