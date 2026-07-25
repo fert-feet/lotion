@@ -1,10 +1,10 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useSupabaseUser } from "@/hooks/use-supabase-user";
 import { useRefresh } from "@/hooks/use-refresh";
-import { getSidebar, type Document } from "@/lib/db";
+import { getSidebarAll, type SidebarDocument } from "@/lib/db";
 import Item from "./item";
 import { cn } from "../../../lib/utils";
 import { FileIcon } from "lucide-react";
@@ -12,27 +12,25 @@ import { FileIcon } from "lucide-react";
 interface DocumentListProps {
     parentDocumentId?: string | null;
     level?: number;
-    data?: Document[];
+    allDocs: SidebarDocument[];
 }
 
 const DocumentList = ({
     parentDocumentId,
-    level = 0
+    level = 0,
+    allDocs,
 }: DocumentListProps) => {
     const params = useParams();
     const router = useRouter();
-    const { user } = useSupabaseUser();
-    const sidebarKey = useRefresh((s) => s.sidebarKey);
     const [expanded, setExpanded] = useState<Record<string, boolean>>({});
-    const [documents, setDocuments] = useState<Document[] | undefined>(undefined);
 
-    useEffect(() => {
-        if (user) {
-            getSidebar(user.id, parentDocumentId)
-                .then(setDocuments)
-                .catch(() => setDocuments([]));
-        }
-    }, [user, parentDocumentId, sidebarKey]);
+    // 从扁平数组中过滤当前层级的子文档
+    const documents = useMemo(() => {
+        return allDocs.filter((d) => {
+            if (parentDocumentId) return d.parentDocument === parentDocumentId;
+            return d.parentDocument === null || d.parentDocument === undefined;
+        });
+    }, [allDocs, parentDocumentId]);
 
     const onExpand = (documentId: string) => {
         setExpanded(prevExpanded => ({
@@ -44,20 +42,6 @@ const DocumentList = ({
     const onRedirect = (documentId: string) => {
         router.push(`/documents/${documentId}`);
     };
-
-    if (documents === undefined) {
-        return (
-            <>
-                <Item.Skeleton level={level} />
-                {level === 0 && (
-                    <>
-                        <Item.Skeleton level={level} />
-                        <Item.Skeleton level={level} />
-                    </>
-                )}
-            </>
-        );
-    }
 
     return (
         <>
@@ -90,6 +74,7 @@ const DocumentList = ({
                         <DocumentList
                             parentDocumentId={document.id}
                             level={level + 1}
+                            allDocs={allDocs}
                         />
                     )}
                 </div>
@@ -98,4 +83,33 @@ const DocumentList = ({
     );
 };
 
-export default DocumentList;
+/**
+ * 顶层包装组件：负责拉取数据并传给递归 DocumentList
+ */
+const DocumentListRoot = () => {
+    const { user } = useSupabaseUser();
+    const sidebarKey = useRefresh((s) => s.sidebarKey);
+    const [allDocs, setAllDocs] = useState<SidebarDocument[] | undefined>(undefined);
+
+    useEffect(() => {
+        if (user) {
+            getSidebarAll(user.id)
+                .then(setAllDocs)
+                .catch(() => setAllDocs([]));
+        }
+    }, [user, sidebarKey]);
+
+    if (allDocs === undefined) {
+        return (
+            <>
+                <Item.Skeleton level={0} />
+                <Item.Skeleton level={0} />
+                <Item.Skeleton level={0} />
+            </>
+        );
+    }
+
+    return <DocumentList allDocs={allDocs} />;
+};
+
+export default DocumentListRoot;

@@ -15,12 +15,28 @@ export type Document = {
   updatedAt: string;
 };
 
+/** 侧边栏用，不含 content 和 coverImage */
+export type SidebarDocument = Omit<Document, "content" | "coverImage">;
+
 function supabase() {
   return createClient();
 }
 
 // ---- Queries ----
 
+/** 一次性拉取侧边栏全部文档（不含正文），前端本地按 parentDocument 建树 */
+export async function getSidebarAll(userId: string): Promise<SidebarDocument[]> {
+  const { data } = await supabase()
+    .from("documents")
+    .select("id, title, userId, isArchived, isDraft, parentDocument, icon, isPublished, createdAt, updatedAt")
+    .eq("userId", userId)
+    .eq("isArchived", false)
+    .order("createdAt", { ascending: false });
+
+  return (data || []) as SidebarDocument[];
+}
+
+/** @deprecated 使用 getSidebarAll 替代 */
 export async function getSidebar(userId: string, parentDocument?: string | null) {
   const query = supabase()
     .from("documents")
@@ -61,7 +77,18 @@ export async function getSearch(userId: string) {
   return data || [];
 }
 
+// 请求去重：Navbar 和 Page 同时请求同一个文档时共用同一个 promise
+const pendingById = new Map<string, Promise<Document>>();
+
 export async function getById(documentId: string) {
+  if (pendingById.has(documentId)) return pendingById.get(documentId)!;
+  const promise = _getById(documentId);
+  pendingById.set(documentId, promise);
+  promise.finally(() => pendingById.delete(documentId));
+  return promise;
+}
+
+async function _getById(documentId: string) {
   const { data, error } = await supabase()
     .from("documents")
     .select("*")
