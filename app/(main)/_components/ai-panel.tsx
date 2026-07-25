@@ -222,18 +222,29 @@ const AiPanel = () => {
 
               {/* 删除确认按钮 */}
               {msg.pendingAction?.type === "delete" && (
-                <div className="flex gap-2 justify-start pl-6">
-                  <div className="rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/30 px-3 py-2.5 flex items-center gap-3">
-                    <AlertTriangle className="h-4 w-4 text-red-500 shrink-0" />
-                    <div className="text-sm">
-                      <p className="font-medium text-red-800 dark:text-red-200">
-                        确认永久删除「{msg.pendingAction.title}」？
-                      </p>
-                      <p className="text-xs text-red-600 dark:text-red-400 mt-0.5">
-                        此操作不可撤销
-                      </p>
+                <div className="flex justify-start pl-6">
+                  <div className="rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/30 px-3 py-2.5 w-full max-w-[85%]">
+                    <div className="flex items-start gap-2.5">
+                      <AlertTriangle className="h-4 w-4 text-red-500 shrink-0 mt-0.5" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-red-800 dark:text-red-200">
+                          确认永久删除「{msg.pendingAction.title}」？
+                        </p>
+                        <p className="text-xs text-red-600 dark:text-red-400 mt-0.5">
+                          此操作不可撤销
+                        </p>
+                      </div>
                     </div>
-                    <div className="flex gap-1.5 ml-2">
+                    <div className="flex gap-2 mt-2.5 justify-end">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs cursor-pointer"
+                        onClick={() => handleCancelDelete(i)}
+                      >
+                        <Ban className="h-3.5 w-3.5 mr-1" />
+                        取消
+                      </Button>
                       <Button
                         size="sm"
                         variant="destructive"
@@ -244,15 +255,6 @@ const AiPanel = () => {
                       >
                         <Check className="h-3.5 w-3.5 mr-1" />
                         确认删除
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-7 text-xs cursor-pointer"
-                        onClick={() => handleCancelDelete(i)}
-                      >
-                        <Ban className="h-3.5 w-3.5 mr-1" />
-                        取消
                       </Button>
                     </div>
                   </div>
