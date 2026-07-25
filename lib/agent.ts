@@ -93,6 +93,22 @@ export async function runNoteAgent(
         if (e?.message === "STREAM_TIMEOUT") {
           logger.agent.warn("流读取超时，强制关闭");
         }
+        // 超时前注入所有待处理标记
+        if (pendingNoteId.current) {
+          const marker = `[NOTE_CREATED:${pendingNoteId.current}]`;
+          controller.enqueue(encoder.encode(marker));
+          pendingNoteId.current = null;
+        }
+        if (pendingConfirmDelete.current) {
+          const marker = `[CONFIRM_DELETE:${pendingConfirmDelete.current.noteId}:${encodeURIComponent(pendingConfirmDelete.current.title)}]`;
+          controller.enqueue(encoder.encode(marker));
+          pendingConfirmDelete.current = null;
+        }
+        if (pendingModifiedNoteId.current) {
+          const marker = `[NOTE_MODIFIED:${pendingModifiedNoteId.current}]`;
+          controller.enqueue(encoder.encode(marker));
+          pendingModifiedNoteId.current = null;
+        }
         controller.close();
         return;
       }
