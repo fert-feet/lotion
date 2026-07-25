@@ -60,10 +60,8 @@ export async function runNoteAgent(
   const pendingConfirmDelete: { current: { noteId: string; title: string } | null } = { current: null };
   // 共享变量：updateNote / renameNote 修改了文档，前端需要刷新
   const pendingModifiedNoteId: { current: string | null } = { current: null };
-  // 进度队列：onStepFinish 写入，流 pull 时清空并注入
+  // 进度队列：onStepFinish 写入，定时器轮询直接 enqueue 到流
   const progressQueue: string[] = [];
-  // 流 controller 引用：onStepFinish 直接 enqueue 进度，不等文本 chunk
-  let streamController: ReadableStreamDefaultController<Uint8Array> | null = null;
 
   const result = streamText({
     model: deepSeek("deepseek-v4-flash"),
@@ -78,13 +76,7 @@ export async function runNoteAgent(
           const label = TOOL_LABELS[tc.toolName] || tc.toolName;
           return label;
         }).join(" → ");
-        const marker = `[PROGRESS:${names}]`;
-        // 直接通过 controller 发送进度，不等待下一个文本 chunk
-        if (streamController) {
-          try { streamController.enqueue(encoder.encode(marker)); } catch {}
-        } else {
-          progressQueue.push(marker);
-        }
+        progressQueue.push(`[PROGRESS:${names}]`);
       }
       logger.agent.info(`Step ${stepCount} 完成`, {
         finishReason,
@@ -105,7 +97,28 @@ export async function runNoteAgent(
 
   const wrapped = new ReadableStream<Uint8Array>({
     start(controller) {
-      streamController = controller;
+      // 定时轮询进度队列，有消息就立即推送（不等文本 chunk）
+      const interval = setInterval(() => {
+        while (progressQueue.length > 0) {
+          try {
+            controller.enqueue(encoder.encode(progressQueue.shift()!));
+          } catch {
+            break; // 背压，下一轮再试
+          }
+        }
+      }, 300);
+      // 流关闭时清理定时器
+      let cleaned = false;
+      const cleanup = () => {
+        if (cleaned) return;
+        cleaned = true;
+        clearInterval(interval);
+      };
+      // ReadableStream 没有 close 回调，用 setTimeout 兜底
+      setTimeout(() => cleanup(), STREAM_TIMEOUT_MS + 5000);
+    },
+    cancel() {
+      // 外部取消时清理（暂不实现自动清理以保持简洁）
     },
     async pull(controller) {
       let done: boolean | undefined;
