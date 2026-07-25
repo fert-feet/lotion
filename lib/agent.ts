@@ -70,10 +70,29 @@ export async function runNoteAgent(
   const textStream = result.textStream;
   const reader = textStream.getReader();
   const encoder = new TextEncoder();
+  const STREAM_TIMEOUT_MS = 60_000; // 单次读取超时 60 秒
 
   const wrapped = new ReadableStream<Uint8Array>({
     async pull(controller) {
-      const { done, value } = await reader.read();
+      let done: boolean | undefined;
+      let value: string | undefined;
+
+      try {
+        const result = await Promise.race([
+          reader.read(),
+          new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error("STREAM_TIMEOUT")), STREAM_TIMEOUT_MS)
+          ),
+        ]);
+        done = result.done;
+        value = result.value;
+      } catch (e: any) {
+        if (e?.message === "STREAM_TIMEOUT") {
+          logger.agent.warn("流读取超时，强制关闭");
+        }
+        controller.close();
+        return;
+      }
 
       if (done) {
         // 流结束时如果还有待注入的标记，先注入再关闭
