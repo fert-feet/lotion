@@ -15,7 +15,7 @@ export function createCreateNoteTool(supabase: SupabaseClient, userId: string) {
 
       const { data: doc, error } = await supabase
         .from("documents")
-        .insert({ title, userId, isArchived: false, isPublished: false })
+        .insert({ title, userId, isArchived: false, isPublished: false, isDraft: true })
         .select("id")
         .single();
 
@@ -35,7 +35,7 @@ export function createCreateNoteTool(supabase: SupabaseClient, userId: string) {
         .update({ content: JSON.stringify(blocks) })
         .eq("id", doc.id);
 
-      return `笔记「${title}」已创建 (id: ${doc.id})，内容已写入。`;
+      return `[NOTE_CREATED:${doc.id}]笔记「${title}」内容已写入，正在跳转...`;
     },
   });
 }

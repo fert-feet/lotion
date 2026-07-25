@@ -91,7 +91,7 @@ export async function create(userId: string, title: string, parentDocument?: str
   return data.id;
 }
 
-export async function update(id: string, fields: Partial<Pick<Document, "title" | "content" | "coverImage" | "icon" | "isPublished">>) {
+export async function update(id: string, fields: Partial<Pick<Document, "title" | "content" | "coverImage" | "icon" | "isPublished" | "isDraft">>) {
   const { error } = await supabase()
     .from("documents")
     .update(fields)

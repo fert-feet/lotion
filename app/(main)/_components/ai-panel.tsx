@@ -62,12 +62,29 @@ const AiPanel = () => {
 
       const decoder = new TextDecoder();
       let fullText = "";
+      let hasNavigated = false;
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
         fullText += decoder.decode(value, { stream: true });
+
+        // 检测 createNote marker，自动跳转到文档
+        if (!hasNavigated) {
+          const match = fullText.match(/\[NOTE_CREATED:([^\]]+)\]/);
+          if (match) {
+            hasNavigated = true;
+            const docId = match[1];
+            // 过滤掉标记再显示
+            fullText = fullText.replace(/\[NOTE_CREATED:[^\]]+\]/, "");
+            setTimeout(() => {
+              onClose();
+              router.push(`/documents/${docId}`);
+            }, 800);
+          }
+        }
+
         setStreaming(fullText);
       }
 

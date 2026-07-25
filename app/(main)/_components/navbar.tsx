@@ -4,6 +4,7 @@ import { useParams } from "next/navigation";
 import { MenuIcon } from "lucide-react";
 import Title from "./title";
 import Banner from "./banner";
+import DraftBanner from "./draft-banner";
 import Menu from "./menu";
 import Publish from "./publish";
 import { useEffect, useState } from "react";
@@ -67,6 +68,9 @@ const Navbar = ({
             </nav>
             {document.isArchived && (
                 <Banner documentId={document.id} />
+            )}
+            {document.isDraft && (
+                <DraftBanner documentId={document.id} />
             )}
         </>
     );
