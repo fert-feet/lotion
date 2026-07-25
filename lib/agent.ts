@@ -70,7 +70,7 @@ export async function runNoteAgent(
     system: NOTE_ASSISTANT_PROMPT,
     messages,
     tools: createTools(supabase, userId, pendingNoteId, pendingConfirmDelete, pendingModifiedNoteId),
-    stopWhen: stepCountIs(10),
+    stopWhen: stepCountIs(5),
     onStepFinish: ({ finishReason, toolCalls }) => {
       stepCount++;
       if (toolCalls?.length) {
