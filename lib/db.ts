@@ -5,6 +5,7 @@ export type Document = {
   title: string;
   userId: string;
   isArchived: boolean;
+  isDraft: boolean;
   parentDocument: string | null;
   content: string | null;
   coverImage: string | null;
