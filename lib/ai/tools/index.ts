@@ -78,10 +78,11 @@ export function createTools(
   pendingNoteId: { current: string | null } = { current: null },
   pendingConfirmDelete: { current: { noteId: string; title: string } | null } = { current: null },
   pendingModifiedNoteId: { current: string | null } = { current: null },
+  references: { noteId: string; title: string }[] = [],
 ): ToolSet {
   const tools: Record<string, AnyTool> = {
     searchNotes: createSearchNotesTool(supabase, userId),
-    readNote: createReadNoteTool(supabase),
+    readNote: createReadNoteTool(supabase, references),
     createNote: createCreateNoteTool(supabase, userId, pendingNoteId),
     updateNote: createUpdateNoteTool(supabase, pendingModifiedNoteId),
     renameNote: createRenameNoteTool(supabase, pendingModifiedNoteId),

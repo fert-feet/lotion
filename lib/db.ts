@@ -18,11 +18,72 @@ export type Document = {
 /** 侧边栏用，不含 content 和 coverImage */
 export type SidebarDocument = Omit<Document, "content" | "coverImage">;
 
+/** 文章对话历史消息 */
+export type ChatMessage = {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  createdAt: string;
+};
+
+/** 落库用的消息（server 端写入） */
+export type ChatMessageInput = {
+  userId: string;
+  documentId?: string | null;
+  role: "user" | "assistant";
+  content: string;
+  promptTokens?: number;
+  completionTokens?: number;
+  totalTokens?: number;
+};
+
 function supabase() {
   return createClient();
 }
 
 // ---- Queries ----
+
+// ---- Chat history ----
+
+/** 拉取某篇文档的最近对话历史（时间升序，用于注入 AI 上下文与前端渲染） */
+export async function getChatHistory(
+  userId: string,
+  documentId: string | null,
+  limit = 20,
+  client?: ReturnType<typeof supabase>,
+): Promise<ChatMessage[]> {
+  const db = client ?? supabase();
+  let query = db
+    .from("chat_messages")
+    .select("id, role, content, createdAt")
+    .eq("userId", userId)
+    .order("createdAt", { ascending: false })
+    .limit(limit);
+
+  if (documentId) {
+    query = query.eq("documentId", documentId);
+  }
+
+  const { data } = await query;
+  return ((data || []) as ChatMessage[]).reverse(); // 转回时间升序
+}
+
+/** 写入一条对话消息（server 端：route.ts 落库 user/assistant 消息） */
+export async function insertChatMessage(
+  supabaseClient: ReturnType<typeof supabase>,
+  msg: ChatMessageInput,
+) {
+  const { error } = await supabaseClient.from("chat_messages").insert({
+    userId: msg.userId,
+    documentId: msg.documentId || null,
+    role: msg.role,
+    content: msg.content,
+    promptTokens: msg.promptTokens || 0,
+    completionTokens: msg.completionTokens || 0,
+    totalTokens: msg.totalTokens || 0,
+  });
+  if (error) throw error;
+}
 
 /** 一次性拉取侧边栏全部文档（不含正文），前端本地按 parentDocument 建树 */
 export async function getSidebarAll(userId: string): Promise<SidebarDocument[]> {

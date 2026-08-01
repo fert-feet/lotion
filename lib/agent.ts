@@ -16,6 +16,25 @@ const TOOL_LABELS: Record<string, string> = {
   deleteNote: "🗑️ 删除",
 };
 
+/** 注入到 Agent 的对话历史消息 */
+export interface AgentHistoryMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+/** Agent 执行结果（route.ts 落库 assistant 消息用） */
+export interface AgentResult {
+  text: string;
+  usage: { inputTokens: number; outputTokens: number } | null;
+  references: { noteId: string; title: string }[];
+}
+
+/** AI 读取过的笔记（引用来源） */
+export type AgentReference = { noteId: string; title: string };
+
+const HISTORY_LIMIT = 20; // 注入的历史消息条数上限
+const HISTORY_MSG_LIMIT = 2000; // 单条历史消息截断长度
+
 function extractText(content: string): string {
   try {
     const blocks = JSON.parse(content);
@@ -34,6 +53,7 @@ export async function runNoteAgent(
   userId: string,
   prompt: string,
   docContext?: { title: string; content: string },
+  options?: { history?: AgentHistoryMessage[] },
 ) {
   const messages: any[] = [];
 
@@ -50,8 +70,18 @@ export async function runNoteAgent(
     });
   }
 
+  // 注入对话历史（PandaWiki 启发：多轮上下文让 AI 记住之前的问答，
+  // 多轮指代如"那篇""再详细点"不再需要重新 search + read）
+  const history = (options?.history ?? []).slice(-HISTORY_LIMIT);
+  for (const h of history) {
+    messages.push({ role: h.role, content: h.content.slice(0, HISTORY_MSG_LIMIT) });
+  }
+  if (history.length > 0) {
+    logger.agent.info("注入对话历史", { count: history.length });
+  }
+
   messages.push({ role: "user", content: prompt });
-  logger.agent.info("开始 Agent 执行", { userId, prompt: prompt.slice(0, 100), withContext: !!docContext });
+  logger.agent.info("开始 Agent 执行", { userId, prompt: prompt.slice(0, 100), withContext: !!docContext, historyCount: history.length });
 
   let stepCount = 0;
   const startedAt = Date.now();
@@ -64,12 +94,19 @@ export async function runNoteAgent(
   const pendingModifiedNoteId: { current: string | null } = { current: null };
   // 进度队列：onStepFinish 写入，定时器轮询直接 enqueue 到流
   const progressQueue: string[] = [];
+  // 引用来源：readNote 读取成功后写入，流结束时注入 [REFERENCES:...] 标记
+  const references: AgentReference[] = [];
+  // done promise：onFinish 时 resolve，route.ts 拿 assistant 全文 + usage 落库
+  let resolveDone: (r: AgentResult) => void = () => {};
+  const done = new Promise<AgentResult>((res) => { resolveDone = res; });
+  // onFinish 的 usage（onFinish 与流 done 的先后不保证，用变量桥接）
+  let finishUsage: { inputTokens: number; outputTokens: number } | null = null;
 
   const result = streamText({
     model: deepSeek("deepseek-v4-flash"),
     system: NOTE_ASSISTANT_PROMPT,
     messages,
-    tools: createTools(supabase, userId, pendingNoteId, pendingConfirmDelete, pendingModifiedNoteId),
+    tools: createTools(supabase, userId, pendingNoteId, pendingConfirmDelete, pendingModifiedNoteId, references),
     stopWhen: stepCountIs(5),
     onStepFinish: ({ finishReason, toolCalls, text }) => {
       const stepMs = Date.now() - stepStart;
@@ -92,15 +129,25 @@ export async function runNoteAgent(
         pendingModifiedNoteId: pendingModifiedNoteId.current,
       });
     },
-    onFinish: ({ finishReason, usage, steps }) => {
+    onFinish: ({ finishReason, usage, text, steps }) => {
+      finishUsage = usage
+        ? { inputTokens: usage.inputTokens ?? 0, outputTokens: usage.outputTokens ?? 0 }
+        : null;
       logger.agent.info("Agent 执行结束", {
         finishReason,
         totalSteps: stepCount,
         totalMs: Date.now() - startedAt,
-        usage: usage ? { input: usage.inputTokens, output: usage.outputTokens } : undefined,
+        usage: finishUsage,
+        textLen: text?.length ?? 0,
+        referenceCount: references.length,
         pendingNoteId: pendingNoteId.current,
         pendingModifiedNoteId: pendingModifiedNoteId.current,
         steps: steps?.map((s) => ({ toolCalls: s.toolCalls?.map((tc) => tc.toolName), finishReason: s.finishReason })),
+      });
+      resolveDone({
+        text: text ?? "",
+        usage: finishUsage,
+        references: [...references],
       });
     },
   });
@@ -170,6 +217,12 @@ export async function runNoteAgent(
           controller.enqueue(encoder.encode(marker));
           pendingModifiedNoteId.current = null;
         }
+        // 超时前尽力注入引用标记
+        if (references.length > 0) {
+          const marker = `[REFERENCES:${references.map((r) => `${r.noteId}:${encodeURIComponent(r.title)}`).join("|")}]`;
+          controller.enqueue(encoder.encode(marker));
+          references.length = 0;
+        }
         controller.close();
         return;
       }
@@ -193,6 +246,13 @@ export async function runNoteAgent(
           logger.agent.info("流结束前注入 NOTE_MODIFIED 标记", { noteId: pendingModifiedNoteId.current });
           controller.enqueue(encoder.encode(marker));
           pendingModifiedNoteId.current = null;
+        }
+        // 流结束前注入引用来源标记（readNote 读过的笔记）
+        if (references.length > 0) {
+          const marker = `[REFERENCES:${references.map((r) => `${r.noteId}:${encodeURIComponent(r.title)}`).join("|")}]`;
+          logger.agent.info("流结束前注入 REFERENCES 标记", { count: references.length });
+          controller.enqueue(encoder.encode(marker));
+          references.length = 0;
         }
         controller.close();
         return;
@@ -226,5 +286,5 @@ export async function runNoteAgent(
     },
   });
 
-  return { stream: wrapped };
+  return { stream: wrapped, done };
 }

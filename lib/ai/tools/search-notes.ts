@@ -7,7 +7,7 @@ export function createSearchNotesTool(supabase: SupabaseClient, userId: string) 
   return tool({
     description: "按标题关键词搜索当前用户的所有笔记，返回匹配的笔记 ID 和标题。用于发现和定位笔记。",
     inputSchema: z.object({
-      query: z.string().describe("搜索关键词，会匹配标题"),
+      query: z.string().describe("搜索关键词：从用户请求中提炼 2-5 个关键词（去除'帮我''那篇''总结一下'等口语），用关键词而非完整句子"),
     }),
     execute: async ({ query }: { query: string }) => {
       logger.tools.info("[searchNotes] 搜索", { query });

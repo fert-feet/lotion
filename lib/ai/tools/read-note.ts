@@ -3,7 +3,10 @@ import { tool } from "ai";
 import z from "zod";
 import { logger } from "@/lib/logger";
 
-export function createReadNoteTool(supabase: SupabaseClient) {
+export function createReadNoteTool(
+  supabase: SupabaseClient,
+  references: { noteId: string; title: string }[] = [],
+) {
   return tool({
     description: "读取指定笔记的完整内容。需要先通过 searchNotes 获取笔记 ID。",
     inputSchema: z.object({
@@ -21,6 +24,9 @@ export function createReadNoteTool(supabase: SupabaseClient) {
         logger.tools.warn("[readNote] 笔记不存在", { noteId });
         return `笔记 ${noteId} 不存在或无权访问。`;
       }
+
+      // 记录引用来源：流结束时注入 [REFERENCES:...] 标记，前端展示可点击引用
+      references.push({ noteId, title: doc.title });
 
       if (!doc.content) {
         return `笔记「${doc.title}」内容为空。`;

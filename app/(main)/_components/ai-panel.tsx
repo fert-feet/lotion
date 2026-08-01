@@ -10,10 +10,15 @@ import { Bot, Send, Sparkles, X, Loader2, AlertTriangle, Check, Ban } from "luci
 import { Button } from "../../../components/ui/button";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
-import { remove } from "@/lib/db";
+import { getChatHistory, remove } from "@/lib/db";
 
 interface PendingAction {
   type: "delete";
+  noteId: string;
+  title: string;
+}
+
+interface Reference {
   noteId: string;
   title: string;
 }
@@ -22,6 +27,7 @@ interface Message {
   role: "user" | "assistant";
   content: string;
   pendingAction?: PendingAction;
+  references?: Reference[];
 }
 
 const AiPanel = () => {
@@ -38,6 +44,23 @@ const AiPanel = () => {
   const [streaming, setStreaming] = useState("");
   const [progress, setProgress] = useState("");
   const messagesRef = useRef<HTMLDivElement>(null);
+
+  // 切换文档时加载该文档的对话历史（PandaWiki 启发：每篇文章独立对话线）
+  useEffect(() => {
+    if (!user || !params.documentId) return;
+    let alive = true;
+    getChatHistory(user.id, params.documentId as string, 20)
+      .then((msgs) => {
+        if (!alive) return;
+        setMessages(msgs.map((m) => ({ role: m.role, content: m.content })));
+      })
+      .catch(() => {
+        // 历史拉取失败不阻塞，保持空对话
+      });
+    return () => {
+      alive = false;
+    };
+  }, [user?.id, params.documentId]);
 
   useEffect(() => {
     messagesRef.current?.scrollTo(0, messagesRef.current.scrollHeight);
@@ -62,6 +85,7 @@ const AiPanel = () => {
         body: JSON.stringify({
           prompt: input,
           documentId: params.documentId || undefined,
+          requestId: crypto.randomUUID(), // 服务端幂等，防重复提交
         }),
       });
 
@@ -74,6 +98,7 @@ const AiPanel = () => {
       let fullText = "";
       let hasNavigated = false;
       let pendingAction: PendingAction | undefined;
+      let pendingRefs: Reference[] | undefined;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -113,6 +138,16 @@ const AiPanel = () => {
           triggerSidebar();
         }
 
+        // 检测引用来源标记（readNote 读过的笔记 → 可点击跳转）
+        const refMatch = fullText.match(/\[REFERENCES:([^\]]+)\]/);
+        if (refMatch) {
+          pendingRefs = refMatch[1].split("|").map((part) => {
+            const [noteId, ...titleParts] = part.split(":");
+            return { noteId, title: decodeURIComponent(titleParts.join(":")) };
+          });
+          fullText = fullText.replace(/\[REFERENCES:[^\]]+\]/, "");
+        }
+
         // 检测进度消息
         const progMatch = fullText.match(/\[PROGRESS:(.+?)\]/);
         if (progMatch) {
@@ -123,9 +158,10 @@ const AiPanel = () => {
         setStreaming(fullText);
       }
 
-      const newMsg: Message = { role: "assistant", content: fullText, pendingAction };
+      const newMsg: Message = { role: "assistant", content: fullText, pendingAction, references: pendingRefs };
       setMessages((prev) => [...prev, newMsg]);
       setStreaming("");
+      setProgress("");
     } catch (err) {
       toast.error("AI 请求失败，请稍后再试");
     } finally {
@@ -239,6 +275,22 @@ const AiPanel = () => {
                 </div>
               </div>
 
+              {/* 引用来源：AI 读取过的笔记，可点击跳转 */}
+              {msg.role === "assistant" && msg.references && msg.references.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 pl-6">
+                  {msg.references.map((ref) => (
+                    <button
+                      key={ref.noteId}
+                      onClick={() => router.push(`/documents/${ref.noteId}`)}
+                      className="inline-flex items-center gap-1 rounded-full border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 px-2.5 py-1 text-xs text-muted-foreground hover:text-blue-500 hover:border-blue-300 dark:hover:border-blue-700 transition-colors cursor-pointer max-w-[240px]"
+                    >
+                      <span className="shrink-0">📄</span>
+                      <span className="truncate">{ref.title}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+
               {/* 删除确认按钮 */}
               {msg.pendingAction?.type === "delete" && (
                 <div className="flex justify-start pl-6">
@@ -297,7 +349,13 @@ const AiPanel = () => {
           {loading && !streaming && (
             <div className="flex items-center gap-2 text-neutral-400 pl-1">
               <Loader2 className="h-4 w-4 animate-spin" />
-              <span className="text-xs">{progress || "分析中..."}</span>
+              <span className="text-xs">{progress || "正在查找结果..."}</span>
+            </div>
+          )}
+          {loading && streaming && (
+            <div className="flex items-center gap-2 text-neutral-400 pl-1">
+              <Loader2 className="h-3.5 w-3.5" />
+              <span className="text-xs">正在回答...</span>
             </div>
           )}
         </div>

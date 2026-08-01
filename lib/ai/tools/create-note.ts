@@ -12,6 +12,13 @@ export function createCreateNoteTool(supabase: SupabaseClient, userId: string, p
       content: z.string().describe("笔记内容，使用 Markdown 格式书写，支持标题、加粗、列表、代码块等"),
     }),
     execute: async ({ title, content }: { title: string; content: string }) => {
+      // 幂等防重（PandaWiki 启发）：本次对话已创建过笔记时拒绝再次创建，
+      // 根治 AI 重复调用 createNote 留下多篇草稿
+      if (pendingNoteId.current) {
+        logger.tools.warn("[createNote] 拒绝重复创建", { existingNoteId: pendingNoteId.current });
+        return `本次对话已经创建过笔记（ID: ${pendingNoteId.current}）。请直接使用该 ID 调用 updateNote 修改内容，不要重复创建新笔记。`;
+      }
+
       logger.tools.info("[createNote] 创建笔记", { title, contentLen: content.length });
 
       // 先转换 Markdown 再插入：转换失败不会留下空笔记
