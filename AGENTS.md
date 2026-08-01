@@ -38,6 +38,8 @@ app/
 ├── auth/callback/route.ts  # OAuth 回调占位
 lib/
 ├── db.ts                   # 所有 Supabase 数据库函数 (CRUD 11 个)
+├── agent.ts                # Agent 核心：streamText + SSE 事件流包装（6 类事件）
+├── ai/tools/               # 7 个 Tool（search/read/create/update/rename/archive/delete）
 ├── supabase/client.ts      # 浏览器端 Supabase 客户端
 ├── supabase/server.ts      # 服务端 Supabase 客户端
 ├── supabase/middleware.ts   # 会话刷新中间件逻辑
@@ -64,7 +66,7 @@ vitest.config.mts           # Vitest 配置（node 环境 + @/ alias）
 - Zustand store 模式：`isOpen / onOpen / onClose / toggle`
 - 数据库操作统一通过 `lib/db.ts` 导出函数，不在组件中直接写 Supabase 查询
 - 文件上传到 Supabase Storage bucket `lotion`
-- AI 流式返回纯文本（非 data stream 格式），前端 `reader.read()` 逐块拼接
+- AI 流协议：`POST /api/ai/chat` 返回 SSE（`text/event-stream`），每行 `data: <json>\n\n`，事件类型 `text / progress / note_created / confirm_delete / note_modified / references`（见 `lib/agent.ts` 的 `AgentStreamEvent`）；前端 `ai-panel.tsx` 按 `\n\n` 分隔解析事件行，**不要改成拼接文本 + 正则提取标记**
 - 不要在 `messages` 数组中放 `role: "system"`，用 `streamText({ system: "..." })` 参数
 
 ## Notes

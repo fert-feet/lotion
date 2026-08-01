@@ -71,7 +71,7 @@ app/
 ├── login/ + register/             # Supabase Auth
 lib/
 ├── db.ts                          # CRUD + 请求去重 + 内存缓存
-├── agent.ts                       # Agent 核心：streamText + 流包装 + 标记注入
+├── agent.ts                       # Agent 核心：streamText + SSE 事件流包装
 ├── ai-prompts.ts                  # 系统提示词
 ├── markdown-to-blocks.ts          # Markdown → BlockNote JSON 转换
 ├── ai/tools/                      # 7 个 Tool（search/read/create/update/rename/archive/delete）
@@ -86,9 +86,10 @@ supabase/migrations/               # 3 个 SQL 迁移（建表 + RLS + 索引）
 ```
 用户 prompt → POST /api/ai/chat → runNoteAgent()
   → streamText({ model: deepseek-v4-flash, tools: 7 tools, stopWhen: 5 steps })
-  → AI 自主决策调用 Tool → 共享变量通知标记
-  → ReadableStream 包装层注入 [NOTE_CREATED]/[NOTE_MODIFIED]/[CONFIRM_DELETE]/[PROGRESS]
-  → 前端解析标记 → 跳转/刷新/确认/进度展示
+  → AI 自主决策调用 Tool → 共享变量记录副作用（创建/修改/删除确认/引用）
+  → ReadableStream 包装层输出 SSE 事件行（data: <json>）
+    text / progress / note_created / confirm_delete / note_modified / references
+  → 前端按行解析事件 → 跳转/刷新/确认/进度展示
 ```
 
 ## Data Model
