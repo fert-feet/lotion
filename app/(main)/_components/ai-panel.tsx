@@ -363,7 +363,7 @@ const AiPanel = () => {
             type="button"
             title={m[2]}
             onClick={() => router.push(`/documents/${m[2]}`)}
-            className="mention-chip cursor-pointer transition-colors hover:bg-secondary/80"
+            className="mention-chip mention-chip-on-dark cursor-pointer"
           >
             {m[1]}
           </button>

@@ -167,3 +167,13 @@ body,
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+/* 深色气泡（用户消息黑底白字）内的胶囊：透明底 + 文字色描边，自动适配深浅主题 */
+.mention-chip-on-dark {
+  background: transparent;
+  border-color: currentColor;
+  color: inherit;
+}
+.mention-chip-on-dark:hover {
+  opacity: 0.8;
+}
