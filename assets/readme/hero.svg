@@ -1,8 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg"
      width="1200" height="420" viewBox="0 0 1200 420"
      role="img" aria-labelledby="title desc">
-  <title id="title">Lotion — Notion Clone with AI Agent</title>
-  <desc id="desc">类 Notion 的全栈笔记应用：无限层级文档树、BlockNote 富文本编辑器，右侧窗口展示 DeepSeek AI Agent 的 SSE 事件流（note_created / references）。</desc>
+  <title id="title">Lotion — AI-Powered Notes</title>
+  <desc id="desc">全栈 AI 笔记应用：无限层级文档树、BlockNote 富文本编辑器，右侧窗口展示 DeepSeek AI Agent 的 SSE 事件流（note_created / references）。</desc>
 
   <defs>
     <linearGradient id="cardShadow" x1="0" y1="0" x2="0" y2="1">
@@ -17,7 +17,7 @@
   <!-- 左侧：标题区 -->
   <g id="title-block" transform="translate(64 0)">
     <text x="0" y="88" font-family="ui-monospace, SFMono-Regular, Menlo, monospace"
-          font-size="16" letter-spacing="2.5" fill="#4D6BFE">NOTION CLONE · DEEPSEEK AGENT</text>
+          font-size="16" letter-spacing="2.5" fill="#4D6BFE">AI-POWERED NOTES · DEEPSEEK AGENT</text>
     <text x="0" y="158" font-family="-apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, &quot;PingFang SC&quot;, &quot;Hiragino Sans GB&quot;, &quot;Microsoft YaHei&quot;, sans-serif"
           font-size="72" font-weight="800" fill="#1C1B18">Lotion</text>
     <text x="0" y="206" font-family="-apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, &quot;PingFang SC&quot;, &quot;Hiragino Sans GB&quot;, &quot;Microsoft YaHei&quot;, sans-serif"

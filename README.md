@@ -1,10 +1,10 @@
-# Lotion — Notion Clone with AI Agent
+# Lotion — AI-Powered Notes
 
 <p align="center">
-  <img src="./assets/readme/hero.svg?v=2" width="100%" alt="Lotion：类 Notion 的全栈笔记应用——无限层级文档树、BlockNote 富文本编辑，DeepSeek Agent 通过 SSE 事件流实时管理笔记">
+  <img src="./assets/readme/hero.svg?v=2" width="100%" alt="Lotion：全栈 AI 笔记应用——无限层级文档树、BlockNote 富文本编辑，DeepSeek Agent 通过 SSE 事件流实时管理笔记">
 </p>
 
-类 Notion 的全栈笔记应用：Supabase 提供认证、数据库与存储，BlockNote 负责富文本编辑，DeepSeek Agent 帮你搜索、创建、修改和整理笔记。
+全栈 AI 笔记应用：Supabase 提供认证、数据库与存储，BlockNote 负责富文本编辑，DeepSeek Agent 帮你搜索、创建、修改和整理笔记。
 
 ## 特性
 
