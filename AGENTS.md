@@ -19,6 +19,8 @@ pnpm dev          # 启动开发服务器 (turbopack)
 pnpm build        # 生产构建
 pnpm start        # 运行构建产物
 pnpm lint         # ESLint
+pnpm test         # Vitest 单测（单次运行）
+pnpm test:watch   # Vitest 监听模式
 ```
 
 ## 架构
@@ -44,6 +46,8 @@ middleware.ts               # 全局路由守卫（未登录→/login）
 supabase/migrations/        # SQL DDL（建表+RLS）
 hooks/                      # Zustand stores + useSupabaseUser
 components/                 # shadcn/ui + Toolbar + SearchCommand
+test/                       # Vitest 单测（与 lib/、api/ 同构目录）
+vitest.config.mts           # Vitest 配置（node 环境 + @/ alias）
 ```
 
 - 数据库仅 1 张 `documents` 表，自引用（`parentDocument`）支持嵌套
@@ -52,6 +56,8 @@ components/                 # shadcn/ui + Toolbar + SearchCommand
 
 ## 约定
 
+- **后台代码（lib/、app/api/）每次修改必须补或更新单测**：新增/修改行为要有对应用例，回归修复要有防复发用例，提交前 `pnpm test` 必须全绿
+- 测试文件放 `test/` 目录，与被测模块同构（`test/lib/`、`test/api/`）；supabase / ai sdk / logger 用 `vi.mock` + fake 桩，不连真实数据库
 - **禁止启动开发服务器**：不要执行 `pnpm dev` 或 `npm run dev`。用户自行管理服务进程。验证编译用静态检查即可。
 - 提交消息格式：`feature: <中文描述>` 或 `fix: <中文描述>`，每次变更必须提交
 - 所有组件目前都是 `"use client"`（项目尚未使用 React Server Components）
