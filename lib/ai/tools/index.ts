@@ -82,10 +82,10 @@ export function createTools(
 ): ToolSet {
   const tools: Record<string, AnyTool> = {
     searchNotes: createSearchNotesTool(supabase, userId),
-    readNote: createReadNoteTool(supabase),
+    readNote: createReadNoteTool(supabase, userId),
     createNote: createCreateNoteTool(supabase, userId, pendingNoteId, references),
-    updateNote: createUpdateNoteTool(supabase, pendingModifiedNoteId, references),
-    renameNote: createRenameNoteTool(supabase, pendingModifiedNoteId, references),
+    updateNote: createUpdateNoteTool(supabase, userId, pendingModifiedNoteId, references),
+    renameNote: createRenameNoteTool(supabase, userId, pendingModifiedNoteId, references),
     archiveNote: createArchiveNoteTool(supabase, userId),
     deleteNote: createDeleteNoteTool(supabase, userId, pendingConfirmDelete),
   };

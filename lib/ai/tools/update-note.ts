@@ -6,6 +6,7 @@ import { markdownToBlocks, extractTitle } from "@/lib/markdown-to-blocks";
 
 export function createUpdateNoteTool(
   supabase: SupabaseClient,
+  userId: string,
   pendingModifiedNoteId: { current: string | null } = { current: null },
   references: { noteId: string; title: string }[] = [],
 ) {
@@ -29,6 +30,7 @@ export function createUpdateNoteTool(
         .from("documents")
         .update(fields)
         .eq("id", noteId)
+        .eq("userId", userId)
         .select("title")
         .single();
 

@@ -29,7 +29,7 @@ vi.mock("ai", async (importOriginal) => {
                   : { noteId: "doc-123" };
             await options.tools[toolName].execute(args, { toolCallId: "t1" });
           }
-          // 模拟工具调用完成回调 → 触发 [PROGRESS:...] 注入
+          // 模拟工具调用完成回调 → 触发 progress 事件注入
           if (mockConfig.emitStepFinish) {
             options.onStepFinish?.({
               finishReason: "tool-calls",
@@ -71,18 +71,22 @@ const fakeSupabase = {
       }),
       select: () => ({
         eq: () => ({
-          single: async () => ({
-            data: { id: "doc-123", title: "引用笔记", content: "笔记内容" },
-            error: null,
+          eq: () => ({
+            single: async () => ({
+              data: { id: "doc-123", title: "引用笔记", content: "笔记内容" },
+              error: null,
+            }),
           }),
         }),
       }),
       update: () => ({
         eq: () => ({
-          select: () => ({
-            single: async () => ({
-              data: { id: "doc-123", title: "引用笔记", content: "笔记内容" },
-              error: null,
+          eq: () => ({
+            select: () => ({
+              single: async () => ({
+                data: { id: "doc-123", title: "引用笔记", content: "笔记内容" },
+                error: null,
+              }),
             }),
           }),
         }),
@@ -93,16 +97,31 @@ const fakeSupabase = {
 
 // ---- helpers ----
 
-async function readAll(stream: ReadableStream<Uint8Array>): Promise<string> {
+interface SseEvent {
+  type: string;
+  [key: string]: unknown;
+}
+
+/** 解析 SSE 流（data: <json> 以空行分隔）为事件数组 */
+async function readEvents(stream: ReadableStream<Uint8Array>): Promise<SseEvent[]> {
   const reader = stream.getReader();
   const decoder = new TextDecoder();
-  let text = "";
+  let buffer = "";
+  const events: SseEvent[] = [];
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
-    text += decoder.decode(value, { stream: true });
+    buffer += decoder.decode(value, { stream: true });
+    let sep: number;
+    while ((sep = buffer.indexOf("\n\n")) !== -1) {
+      const raw = buffer.slice(0, sep);
+      buffer = buffer.slice(sep + 2);
+      if (raw.startsWith("data: ")) {
+        events.push(JSON.parse(raw.slice(6)));
+      }
+    }
   }
-  return text;
+  return events;
 }
 
 beforeEach(() => {
@@ -112,47 +131,55 @@ beforeEach(() => {
 
 // ---- tests ----
 
-describe("runNoteAgent 流标记注入", () => {
-  it("createNote 执行后向流中注入 [NOTE_CREATED] 标记", async () => {
+describe("runNoteAgent SSE 事件注入", () => {
+  it("createNote 执行后推送 note_created 事件（独立事件行，不混入文本）", async () => {
     mockConfig.tool = "createNote";
     const { stream } = await runNoteAgent(fakeSupabase, "user-1", "帮我创建一篇笔记");
-    const text = await readAll(stream);
-    expect(text).toContain("[NOTE_CREATED:doc-123]");
-    expect(text).toContain("正在处理...");
+    const events = await readEvents(stream);
+
+    const created = events.find((e) => e.type === "note_created");
+    expect(created?.noteId).toBe("doc-123");
+    // 文本走 text 事件通道，事件行不被拼进文本内容
+    const textEvents = events.filter((e) => e.type === "text").map((e) => e.text);
+    expect(textEvents).toEqual(["正在处理..."]);
   });
 
-  it("updateNote 执行后流结束前注入 [REFERENCES] 标记（标题 URL 编码）", async () => {
+  it("updateNote 执行后流结束前推送 references 事件（标题不编码）", async () => {
     mockConfig.tool = "updateNote";
     const { stream, done } = await runNoteAgent(fakeSupabase, "user-1", "改一下笔记");
-    const text = await readAll(stream);
-    expect(text).toContain(`[REFERENCES:doc-123:${encodeURIComponent("引用笔记")}]`);
+    const events = await readEvents(stream);
+
+    const refs = events.find((e) => e.type === "references");
+    expect(refs?.references).toEqual([{ noteId: "doc-123", title: "引用笔记" }]);
     // done 携带引用信息供 route 落库
     const result = await done;
     expect(result.references).toEqual([{ noteId: "doc-123", title: "引用笔记" }]);
   });
 
-  it("readNote 执行后不注入 [REFERENCES] 标记（纯读取不展示胶囊）", async () => {
+  it("readNote 执行后不推送 references 事件（纯读取不展示胶囊）", async () => {
     mockConfig.tool = "readNote";
     const { stream, done } = await runNoteAgent(fakeSupabase, "user-1", "读一下笔记");
-    const text = await readAll(stream);
-    expect(text).not.toContain("[REFERENCES");
+    const events = await readEvents(stream);
+
+    expect(events.some((e) => e.type === "references")).toBe(false);
     const result = await done;
     expect(result.references).toEqual([]);
   });
 
-  it("onStepFinish 工具调用触发 [PROGRESS] 进度注入", async () => {
+  it("onStepFinish 工具调用触发 progress 事件（带工具中文标签）", async () => {
     mockConfig.emitStepFinish = true;
     const { stream } = await runNoteAgent(fakeSupabase, "user-1", "搜索一下");
-    const text = await readAll(stream);
-    expect(text).toContain("[PROGRESS:");
+    const events = await readEvents(stream);
+
+    const prog = events.find((e) => e.type === "progress");
+    expect(prog?.label).toContain("🔍 搜索笔记");
   });
 
-  it("无工具调用时流内容保持原样，不注入任何标记", async () => {
+  it("无工具调用时只有 text 事件，无副作用事件", async () => {
     const { stream } = await runNoteAgent(fakeSupabase, "user-1", "你好");
-    const text = await readAll(stream);
-    expect(text).toBe("正在处理...");
-    expect(text).not.toContain("[NOTE_CREATED");
-    expect(text).not.toContain("[REFERENCES");
+    const events = await readEvents(stream);
+
+    expect(events).toEqual([{ type: "text", text: "正在处理..." }]);
   });
 
   it("done promise 在流结束后 resolve 出文本与 usage", async () => {
@@ -165,4 +192,3 @@ describe("runNoteAgent 流标记注入", () => {
     });
   });
 });
-

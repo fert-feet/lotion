@@ -16,6 +16,15 @@ const TOOL_LABELS: Record<string, string> = {
   deleteNote: "🗑️ 删除",
 };
 
+/** SSE 事件类型（前端 ai-panel.tsx 按 type 分发解析） */
+export type AgentStreamEvent =
+  | { type: "text"; text: string }
+  | { type: "progress"; label: string }
+  | { type: "note_created"; noteId: string }
+  | { type: "confirm_delete"; noteId: string; title: string }
+  | { type: "note_modified"; noteId: string }
+  | { type: "references"; references: AgentReference[] };
+
 /** 注入到 Agent 的对话历史消息 */
 export interface AgentHistoryMessage {
   role: "user" | "assistant";
@@ -34,6 +43,13 @@ export type AgentReference = { noteId: string; title: string };
 
 const HISTORY_LIMIT = 20; // 注入的历史消息条数上限
 const HISTORY_MSG_LIMIT = 2000; // 单条历史消息截断长度
+
+const encoder = new TextEncoder();
+
+/** 序列化一条 SSE 事件（data: <json> + 空行） */
+function sseEvent(event: AgentStreamEvent): Uint8Array {
+  return encoder.encode(`data: ${JSON.stringify(event)}\n\n`);
+}
 
 function extractText(content: string): string {
   try {
@@ -86,15 +102,15 @@ export async function runNoteAgent(
   let stepCount = 0;
   const startedAt = Date.now();
   let stepStart = startedAt;
-  // 共享变量：createNote tool 创建后写入 ID，流读取时检测并注入标记
+  // 共享变量：createNote tool 创建后写入 ID，流读取时检测并推送 note_created 事件
   const pendingNoteId: { current: string | null } = { current: null };
   // 共享变量：deleteNote tool 触发确认，等待用户在前端确认
   const pendingConfirmDelete: { current: { noteId: string; title: string } | null } = { current: null };
   // 共享变量：updateNote / renameNote 修改了文档，前端需要刷新
   const pendingModifiedNoteId: { current: string | null } = { current: null };
-  // 进度队列：onStepFinish 写入，定时器轮询直接 enqueue 到流
+  // 进度队列：onStepFinish 写入，定时器轮询直接推送 progress 事件
   const progressQueue: string[] = [];
-  // 引用来源：readNote 读取成功后写入，流结束时注入 [REFERENCES:...] 标记
+  // 引用来源：readNote 读取成功后写入，流结束时推送 references 事件
   const references: AgentReference[] = [];
   // done promise：onFinish 时 resolve，route.ts 拿 assistant 全文 + usage 落库
   let resolveDone: (r: AgentResult) => void = () => {};
@@ -118,7 +134,7 @@ export async function runNoteAgent(
           const label = TOOL_LABELS[tc.toolName] || tc.toolName;
           return label;
         }).join(" → ");
-        progressQueue.push(`[PROGRESS:${names}]`);
+        progressQueue.push(names);
       }
       logger.agent.info(`Step ${stepCount} 完成`, {
         finishReason,
@@ -153,24 +169,62 @@ export async function runNoteAgent(
     },
   });
 
-  // 包装流：每次读取时检查是否有待注入的 noteId
-  // 使用 TextEncoder 确保产出 Uint8Array（Response 构造函数要求）
+  // 包装流：SSE 事件行输出（data: <json>\n\n），事件与文本分通道，前端按行解析
   const textStream = result.textStream;
   const reader = textStream.getReader();
-  const encoder = new TextEncoder();
   const STREAM_TIMEOUT_MS = 120_000; // 单次读取超时 120 秒
+
+  /** 推送即时事件（progress + 副作用），失败（背压/已关闭）时丢弃并返回 false */
+  function flushImmediateEvents(controller: ReadableStreamDefaultController<Uint8Array>): boolean {
+    try {
+      while (progressQueue.length > 0) {
+        controller.enqueue(sseEvent({ type: "progress", label: progressQueue.shift()! }));
+      }
+      if (pendingNoteId.current) {
+        logger.agent.info("推送 note_created 事件", { noteId: pendingNoteId.current });
+        controller.enqueue(sseEvent({ type: "note_created", noteId: pendingNoteId.current }));
+        pendingNoteId.current = null;
+      }
+      if (pendingConfirmDelete.current) {
+        logger.agent.info("推送 confirm_delete 事件", { noteId: pendingConfirmDelete.current.noteId });
+        controller.enqueue(sseEvent({
+          type: "confirm_delete",
+          noteId: pendingConfirmDelete.current.noteId,
+          title: pendingConfirmDelete.current.title,
+        }));
+        pendingConfirmDelete.current = null;
+      }
+      if (pendingModifiedNoteId.current) {
+        logger.agent.info("推送 note_modified 事件", { noteId: pendingModifiedNoteId.current });
+        controller.enqueue(sseEvent({ type: "note_modified", noteId: pendingModifiedNoteId.current }));
+        pendingModifiedNoteId.current = null;
+      }
+      return true;
+    } catch {
+      return false; // 背压或流已关闭：放弃剩余事件
+    }
+  }
+
+  /** 流结束时推送残留事件 + 引用来源（references 一次性汇总） */
+  function flushFinalEvents(controller: ReadableStreamDefaultController<Uint8Array>) {
+    const ok = flushImmediateEvents(controller);
+    if (!ok) return;
+    if (references.length > 0) {
+      logger.agent.info("推送 references 事件", { count: references.length });
+      try {
+        controller.enqueue(sseEvent({ type: "references", references: [...references] }));
+        references.length = 0;
+      } catch {
+        // 流已关闭，丢弃
+      }
+    }
+  }
 
   const wrapped = new ReadableStream<Uint8Array>({
     start(controller) {
       // 定时轮询进度队列，有消息就立即推送（不等文本 chunk）
       const interval = setInterval(() => {
-        while (progressQueue.length > 0) {
-          try {
-            controller.enqueue(encoder.encode(progressQueue.shift()!));
-          } catch {
-            break; // 背压，下一轮再试
-          }
-        }
+        flushImmediateEvents(controller);
       }, 300);
       // 流关闭时清理定时器
       let cleaned = false;
@@ -186,6 +240,9 @@ export async function runNoteAgent(
       // 外部取消时清理（暂不实现自动清理以保持简洁）
     },
     async pull(controller) {
+      // 先推送待处理的进度与副作用事件（保证事件先于后续文本）
+      flushImmediateEvents(controller);
+
       let done: boolean | undefined;
       let value: string | undefined;
 
@@ -202,88 +259,20 @@ export async function runNoteAgent(
         if (e?.message === "STREAM_TIMEOUT") {
           logger.agent.warn("流读取超时，强制关闭");
         }
-        // 超时前注入所有待处理标记
-        if (pendingNoteId.current) {
-          const marker = `[NOTE_CREATED:${pendingNoteId.current}]`;
-          controller.enqueue(encoder.encode(marker));
-          pendingNoteId.current = null;
-        }
-        if (pendingConfirmDelete.current) {
-          const marker = `[CONFIRM_DELETE:${pendingConfirmDelete.current.noteId}:${encodeURIComponent(pendingConfirmDelete.current.title)}]`;
-          controller.enqueue(encoder.encode(marker));
-          pendingConfirmDelete.current = null;
-        }
-        if (pendingModifiedNoteId.current) {
-          const marker = `[NOTE_MODIFIED:${pendingModifiedNoteId.current}]`;
-          controller.enqueue(encoder.encode(marker));
-          pendingModifiedNoteId.current = null;
-        }
-        // 超时前尽力注入引用标记
-        if (references.length > 0) {
-          const marker = `[REFERENCES:${references.map((r) => `${r.noteId}:${encodeURIComponent(r.title)}`).join("|")}]`;
-          controller.enqueue(encoder.encode(marker));
-          references.length = 0;
-        }
+        // 超时前尽力推送残留事件
+        flushFinalEvents(controller);
         controller.close();
         return;
       }
 
       if (done) {
-        // 流结束时如果还有待注入的标记，先注入再关闭
-        if (pendingNoteId.current) {
-          const marker = `[NOTE_CREATED:${pendingNoteId.current}]`;
-          logger.agent.info("流结束前注入 NOTE_CREATED 标记", { noteId: pendingNoteId.current });
-          controller.enqueue(encoder.encode(marker));
-          pendingNoteId.current = null;
-        }
-        if (pendingConfirmDelete.current) {
-          const marker = `[CONFIRM_DELETE:${pendingConfirmDelete.current.noteId}:${encodeURIComponent(pendingConfirmDelete.current.title)}]`;
-          logger.agent.info("流结束前注入 CONFIRM_DELETE 标记", { noteId: pendingConfirmDelete.current.noteId });
-          controller.enqueue(encoder.encode(marker));
-          pendingConfirmDelete.current = null;
-        }
-        if (pendingModifiedNoteId.current) {
-          const marker = `[NOTE_MODIFIED:${pendingModifiedNoteId.current}]`;
-          logger.agent.info("流结束前注入 NOTE_MODIFIED 标记", { noteId: pendingModifiedNoteId.current });
-          controller.enqueue(encoder.encode(marker));
-          pendingModifiedNoteId.current = null;
-        }
-        // 流结束前注入引用来源标记（readNote 读过的笔记）
-        if (references.length > 0) {
-          const marker = `[REFERENCES:${references.map((r) => `${r.noteId}:${encodeURIComponent(r.title)}`).join("|")}]`;
-          logger.agent.info("流结束前注入 REFERENCES 标记", { count: references.length });
-          controller.enqueue(encoder.encode(marker));
-          references.length = 0;
-        }
+        // 流结束时推送残留事件 + 引用来源
+        flushFinalEvents(controller);
         controller.close();
         return;
       }
 
-      // tool 执行中产生了 noteId / confirmDelete / modifiedNoteId，注入到当前 chunk 前面
-      let chunk = value;
-      if (pendingNoteId.current) {
-        const marker = `[NOTE_CREATED:${pendingNoteId.current}]`;
-        logger.agent.info("流注入 NOTE_CREATED 标记", { noteId: pendingNoteId.current });
-        chunk = marker + chunk;
-        pendingNoteId.current = null;
-      }
-      if (pendingConfirmDelete.current) {
-        const marker = `[CONFIRM_DELETE:${pendingConfirmDelete.current.noteId}:${encodeURIComponent(pendingConfirmDelete.current.title)}]`;
-        logger.agent.info("流注入 CONFIRM_DELETE 标记", { noteId: pendingConfirmDelete.current.noteId });
-        chunk = marker + chunk;
-        pendingConfirmDelete.current = null;
-      }
-      if (pendingModifiedNoteId.current) {
-        const marker = `[NOTE_MODIFIED:${pendingModifiedNoteId.current}]`;
-        logger.agent.info("流注入 NOTE_MODIFIED 标记", { noteId: pendingModifiedNoteId.current });
-        chunk = marker + chunk;
-        pendingModifiedNoteId.current = null;
-      }
-      // 注入进度消息
-      while (progressQueue.length > 0) {
-        chunk = progressQueue.shift()! + chunk;
-      }
-      controller.enqueue(encoder.encode(chunk));
+      controller.enqueue(sseEvent({ type: "text", text: value ?? "" }));
     },
   });
 

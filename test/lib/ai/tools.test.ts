@@ -87,21 +87,24 @@ describe("createNote 工具", () => {
 
 describe("readNote 工具", () => {
   it("读取成功但不记录引用来源（只有写操作才展示胶囊）", async () => {
-    const { supabase } = mockSupabase([
+    const { supabase, calls } = mockSupabase([
       () => ({ data: { title: "目标笔记", content: "正文" }, error: null }),
     ]);
     const references: { noteId: string; title: string }[] = [];
-    const t = createReadNoteTool(supabase);
+    const t = createReadNoteTool(supabase, "u1");
     const result = await t.execute({ noteId: "doc-1" } as never, {} as never);
 
     expect(result).toContain("目标笔记");
     expect(references).toHaveLength(0);
+    // 按 id + userId 过滤，防止跨用户读取（RLS 之外的纵深防御）
+    expect(calls).toContainEqual({ op: "eq", col: "id", val: "doc-1" });
+    expect(calls).toContainEqual({ op: "eq", col: "userId", val: "u1" });
   });
 
   it("笔记不存在时返回提示且不记录引用", async () => {
     const { supabase } = mockSupabase([() => ({ data: null, error: { message: "nf" } })]);
     const references: { noteId: string; title: string }[] = [];
-    const t = createReadNoteTool(supabase);
+    const t = createReadNoteTool(supabase, "u1");
     const result = await t.execute({ noteId: "missing" } as never, {} as never);
 
     expect(result).toContain("不存在");
@@ -118,7 +121,7 @@ describe("updateNote 工具", () => {
     ]);
     const pending = { current: null as string | null };
     const references: { noteId: string; title: string }[] = [];
-    const t = createUpdateNoteTool(supabase, pending, references);
+    const t = createUpdateNoteTool(supabase, "u1", pending, references);
     const result = await t.execute({ noteId: "doc-1", content: "新内容" } as never, {} as never);
 
     expect(result).toBe("笔记内容已更新。");
@@ -128,13 +131,16 @@ describe("updateNote 工具", () => {
     expect(updateCall?.fields).toEqual({
       content: expect.stringContaining("新内容"),
     });
+    // 写操作按 id + userId 过滤，防止跨用户修改
+    expect(calls).toContainEqual({ op: "eq", col: "id", val: "doc-1" });
+    expect(calls).toContainEqual({ op: "eq", col: "userId", val: "u1" });
   });
 
   it("内容以 # 一级标题开头时提取为文档 title", async () => {
     const { supabase, calls } = mockSupabase([
       () => ({ data: { title: "新标题" }, error: null }),
     ]);
-    const t = createUpdateNoteTool(supabase, { current: null });
+    const t = createUpdateNoteTool(supabase, "u1", { current: null });
     await t.execute({ noteId: "doc-1", content: "# 新标题\n正文" } as never, {} as never);
 
     const updateCall = calls.find((c) => c.op === "update");
@@ -147,7 +153,7 @@ describe("updateNote 工具", () => {
     const { supabase } = mockSupabase([() => ({ error: { message: "db down" } })]);
     const pending = { current: null as string | null };
     const references: { noteId: string; title: string }[] = [];
-    const t = createUpdateNoteTool(supabase, pending, references);
+    const t = createUpdateNoteTool(supabase, "u1", pending, references);
     const result = await t.execute({ noteId: "doc-1", content: "x" } as never, {} as never);
 
     expect(result).toContain("更新失败");
@@ -163,18 +169,21 @@ describe("renameNote 工具", () => {
     const { supabase, calls } = mockSupabase([() => ({ error: null })]);
     const pending = { current: null as string | null };
     const references: { noteId: string; title: string }[] = [];
-    const t = createRenameNoteTool(supabase, pending, references);
+    const t = createRenameNoteTool(supabase, "u1", pending, references);
     const result = await t.execute({ noteId: "doc-1", title: "新标题" } as never, {} as never);
 
     expect(result).toContain("新标题");
     expect(pending.current).toBe("doc-1");
     expect(references).toEqual([{ noteId: "doc-1", title: "新标题" }]);
     expect(calls).toContainEqual({ op: "update", fields: { title: "新标题" } });
+    // 写操作按 id + userId 过滤，防止跨用户重命名
+    expect(calls).toContainEqual({ op: "eq", col: "id", val: "doc-1" });
+    expect(calls).toContainEqual({ op: "eq", col: "userId", val: "u1" });
   });
 
   it("重命名失败返回错误文案", async () => {
     const { supabase } = mockSupabase([() => ({ error: { message: "db down" } })]);
-    const t = createRenameNoteTool(supabase, { current: null });
+    const t = createRenameNoteTool(supabase, "u1", { current: null });
     const result = await t.execute({ noteId: "doc-1", title: "x" } as never, {} as never);
 
     expect(result).toContain("重命名失败");

@@ -3,7 +3,7 @@ import { tool } from "ai";
 import z from "zod";
 import { logger } from "@/lib/logger";
 
-export function createReadNoteTool(supabase: SupabaseClient) {
+export function createReadNoteTool(supabase: SupabaseClient, userId: string) {
   return tool({
     description: "读取指定笔记的完整内容。需要先通过 searchNotes 获取笔记 ID。",
     inputSchema: z.object({
@@ -15,6 +15,7 @@ export function createReadNoteTool(supabase: SupabaseClient) {
         .from("documents")
         .select("title, content")
         .eq("id", noteId)
+        .eq("userId", userId)
         .single();
 
       if (error || !doc) {

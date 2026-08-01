@@ -5,6 +5,7 @@ import { logger } from "@/lib/logger";
 
 export function createRenameNoteTool(
   supabase: SupabaseClient,
+  userId: string,
   pendingModifiedNoteId: { current: string | null } = { current: null },
   references: { noteId: string; title: string }[] = [],
 ) {
@@ -20,7 +21,8 @@ export function createRenameNoteTool(
       const { error } = await supabase
         .from("documents")
         .update({ title })
-        .eq("id", noteId);
+        .eq("id", noteId)
+        .eq("userId", userId);
 
       if (error) {
         logger.tools.error("[renameNote] 重命名失败", { error: String(error) });

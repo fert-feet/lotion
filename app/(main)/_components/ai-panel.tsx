@@ -38,6 +38,15 @@ interface Message {
   references?: Reference[];
 }
 
+/** 服务端 SSE 事件（与 lib/agent.ts 的 AgentStreamEvent 对应，事件与文本分通道） */
+type SseEvent =
+  | { type: "text"; text: string }
+  | { type: "progress"; label: string }
+  | { type: "note_created"; noteId: string }
+  | { type: "confirm_delete"; noteId: string; title: string }
+  | { type: "note_modified"; noteId: string }
+  | { type: "references"; references: Reference[] };
+
 const AiPanel = () => {
   const { isOpen, onClose } = useAiPanel();
   const { user } = useSupabaseUser();
@@ -231,64 +240,59 @@ const AiPanel = () => {
       if (!reader) throw new Error("No reader");
 
       const decoder = new TextDecoder();
+      let buffer = "";
       let hasNavigated = false;
+
+      // SSE 事件解析：服务端以 `data: <json>\n\n` 输出，text/progress/
+      // note_created/confirm_delete/note_modified/references 分通道，不再与 AI 文本混流
+      const handleEvent = (event: SseEvent) => {
+        switch (event.type) {
+          case "text":
+            fullText += event.text;
+            setStreaming(fullText);
+            break;
+          case "progress":
+            setProgress(event.label);
+            break;
+          case "note_created":
+            if (!hasNavigated) {
+              hasNavigated = true;
+              setTimeout(() => {
+                router.push(`/documents/${event.noteId}`);
+              }, 800);
+            }
+            break;
+          case "confirm_delete":
+            if (!pendingAction) {
+              pendingAction = { type: "delete", noteId: event.noteId, title: event.title };
+            }
+            break;
+          case "note_modified":
+            triggerDocument(event.noteId);
+            triggerSidebar();
+            break;
+          case "references":
+            pendingRefs = event.references;
+            break;
+        }
+      };
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
-        fullText += decoder.decode(value, { stream: true });
-
-        if (!hasNavigated) {
-          const noteMatch = fullText.match(/\[NOTE_CREATED:([^\]]+)\]/);
-          if (noteMatch) {
-            hasNavigated = true;
-            const docId = noteMatch[1];
-            fullText = fullText.replace(/\[NOTE_CREATED:[^\]]+\]/, "");
-            setTimeout(() => {
-              router.push(`/documents/${docId}`);
-            }, 800);
+        buffer += decoder.decode(value, { stream: true });
+        let sep: number;
+        while ((sep = buffer.indexOf("\n\n")) !== -1) {
+          const raw = buffer.slice(0, sep);
+          buffer = buffer.slice(sep + 2);
+          if (!raw.startsWith("data: ")) continue;
+          try {
+            handleEvent(JSON.parse(raw.slice(6)));
+          } catch {
+            // 非 JSON 事件行直接忽略
           }
         }
-
-        // 检测删除确认标记
-        if (!pendingAction) {
-          const confirmMatch = fullText.match(/\[CONFIRM_DELETE:([^:]+):([^\]]+)\]/);
-          if (confirmMatch) {
-            const noteId = confirmMatch[1];
-            const title = decodeURIComponent(confirmMatch[2]);
-            pendingAction = { type: "delete", noteId, title };
-            fullText = fullText.replace(/\[CONFIRM_DELETE:[^\]]+\]/, "");
-          }
-        }
-
-        // 检测文档修改标记（updateNote / renameNote 触发的刷新）
-        const modMatch = fullText.match(/\[NOTE_MODIFIED:([^\]]+)\]/);
-        if (modMatch) {
-          const modifiedId = modMatch[1];
-          fullText = fullText.replace(/\[NOTE_MODIFIED:[^\]]+\]/, "");
-          triggerDocument(modifiedId);
-          triggerSidebar();
-        }
-
-        // 检测引用来源标记（readNote 读过的笔记 → 可点击跳转）
-        const refMatch = fullText.match(/\[REFERENCES:([^\]]+)\]/);
-        if (refMatch) {
-          pendingRefs = refMatch[1].split("|").map((part) => {
-            const [noteId, ...titleParts] = part.split(":");
-            return { noteId, title: decodeURIComponent(titleParts.join(":")) };
-          });
-          fullText = fullText.replace(/\[REFERENCES:[^\]]+\]/, "");
-        }
-
-        // 检测进度消息
-        const progMatch = fullText.match(/\[PROGRESS:(.+?)\]/);
-        if (progMatch) {
-          setProgress(progMatch[1]);
-          fullText = fullText.replace(/\[PROGRESS:[^\]]+\]/, "");
-        }
-
-        setStreaming(fullText);
       }
 
       const newMsg: Message = { role: "assistant", content: fullText, pendingAction, references: pendingRefs };
@@ -298,8 +302,8 @@ const AiPanel = () => {
       refreshSessions(); // 刷新会话列表（首个问题会自动命名会话）
     } catch (err) {
       if (controller.signal.aborted) {
-        // 用户主动终止：保留已生成的部分内容，并清理未闭合的标记残留
-        const partial = fullText.replace(/\[[^\]]*$/, "").trim();
+        // 用户主动终止：保留已生成的部分内容（SSE 事件与文本分通道，无标记残留需清理）
+        const partial = fullText.trim();
         if (partial) {
           setMessages((prev) => [...prev, { role: "assistant", content: partial }]);
         }

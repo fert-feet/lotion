@@ -138,7 +138,7 @@ describe("POST /api/ai/chat", () => {
       makeRequest({ prompt: "你好", sessionId: "s1", requestId: "r-ok-1" })
     );
     expect(res.status).toBe(200);
-    expect(res.headers.get("Content-Type")).toContain("text/plain");
+    expect(res.headers.get("Content-Type")).toContain("text/event-stream");
     expect(res.headers.get("Cache-Control")).toBe("no-cache");
 
     const text = await res.text();
