@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 import { useSupabaseUser } from "@/hooks/use-supabase-user";
 import { useRefresh } from "@/hooks/use-refresh";
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Bot, Send, Sparkles, X, Loader2, AlertTriangle, Check, Ban, MessageSquare, Plus, Trash2, History, Square } from "lucide-react";
 import { Button } from "../../../components/ui/button";
 import MentionInput, { type MentionInputHandle } from "./mention-input";
@@ -17,7 +17,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "../../../components/ui/dropdown-menu";
-import { getChatHistory, getChatSessions, createChatSession, deleteChatSession, remove, type ChatSession } from "@/lib/db";
+import { getChatHistory, getChatSessions, createChatSession, deleteChatSession, getById, remove, type ChatSession } from "@/lib/db";
 import { truncateMentionTitle } from "@/lib/mention";
 
 interface PendingAction {
@@ -359,6 +359,16 @@ const AiPanel = () => {
     abortRef.current?.abort();
   };
 
+  // 点击胶囊/引用跳转前先确认文档存在，已删除的文档提示而不跳转（避免 not found 页）
+  const openDocument = useCallback(
+    (id: string) => {
+      getById(id)
+        .then(() => router.push(`/documents/${id}`))
+        .catch(() => toast.error("文档不存在或已删除"));
+    },
+    [router]
+  );
+
   // 移除队列中的一条消息
   const removeFromQueue = (index: number) => {
     queueRef.current = queueRef.current.filter((_, i) => i !== index);
@@ -382,7 +392,7 @@ const AiPanel = () => {
             key={index}
             type="button"
             title={m[2]}
-            onClick={() => router.push(`/documents/${m[2]}`)}
+            onClick={() => openDocument(m[2])}
             className="mention-chip cursor-pointer"
           >
             <span>@{truncateMentionTitle(m[1])}</span>
@@ -555,7 +565,7 @@ const AiPanel = () => {
                               <button
                                 type="button"
                                 title={href}
-                                onClick={() => router.push(`/documents/${href}`)}
+                                onClick={() => openDocument(href)}
                                 className="mention-chip cursor-pointer"
                               >
                                 <span>{`@${truncateMentionTitle(text.slice(1))}`}</span>
@@ -591,7 +601,7 @@ const AiPanel = () => {
                   {msg.references.map((ref) => (
                     <button
                       key={ref.noteId}
-                      onClick={() => router.push(`/documents/${ref.noteId}`)}
+                      onClick={() => openDocument(ref.noteId)}
                       className="inline-flex items-center gap-1 rounded-full border border-border bg-muted/50 px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground hover:border-foreground/40 transition-colors cursor-pointer max-w-[240px]"
                     >
                       <span className="shrink-0">📄</span>

@@ -1,16 +1,19 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { getById, getByIdFresh, update, type Document } from "@/lib/db";
 import { useRefresh } from "@/hooks/use-refresh";
 import { Skeleton } from "../../../../../components/ui/skeleton";
+import { Button } from "../../../../../components/ui/button";
+import { FileQuestion } from "lucide-react";
 import Toolbar from "../../../../../components/toobar";
 import Cover from "../../../_components/cover";
 
 const DocumentIdPage = () => {
     const params = useParams();
+    const router = useRouter();
     const Editor = useMemo(() => dynamic(() => import("../../../_components/editor"), { ssr: false }), []);
     const documentKeys = useRefresh((s) => s.documentKeys);
 
@@ -52,7 +55,23 @@ const DocumentIdPage = () => {
     }
 
     if (document === null) {
-        return <div>Not found</div>;
+        return (
+            <div className="h-full flex flex-col items-center justify-center gap-3 text-center px-4">
+                <FileQuestion className="h-12 w-12 text-muted-foreground" />
+                <div>
+                    <p className="text-base font-medium">文档不存在或已删除</p>
+                    <p className="text-sm text-muted-foreground mt-1">它可能已被删除，或链接已失效</p>
+                </div>
+                <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-2 cursor-pointer"
+                    onClick={() => router.push("/documents")}
+                >
+                    返回文档列表
+                </Button>
+            </div>
+        );
     }
 
     return (
