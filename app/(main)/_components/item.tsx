@@ -24,6 +24,9 @@ interface ItemProps {
     icon: LucideIcon;
     iconClassName?: string;
     highlighted?: boolean;
+    batchMode?: boolean;
+    checked?: boolean;
+    onToggleCheck?: (id: string) => void;
 }
 
 const Item = memo(({
@@ -39,6 +42,9 @@ const Item = memo(({
     expanded,
     iconClassName,
     highlighted,
+    batchMode,
+    checked,
+    onToggleCheck,
 }: ItemProps) => {
     const { user } = useSupabaseUser();
     const triggerSidebar = useRefresh((s) => s.triggerSidebar);
@@ -104,7 +110,13 @@ const Item = memo(({
 
     return (
         <div
-            onClick={onClick}
+            onClick={() => {
+                if (batchMode && id) {
+                    onToggleCheck?.(id);
+                    return;
+                }
+                onClick?.();
+            }}
             onMouseEnter={() => {
                 if (id) {
                     prefetchById(id);
@@ -119,6 +131,19 @@ const Item = memo(({
                 active && "bg-primary/10 text-primary"
             )}
         >
+            {batchMode && !!id && (
+                <input
+                    type="checkbox"
+                    checked={!!checked}
+                    onChange={(e) => {
+                        e.stopPropagation();
+                        onToggleCheck?.(id!);
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                    className="mr-2 h-3.5 w-3.5 shrink-0 cursor-pointer accent-foreground"
+                />
+            )}
+
             {!!id && (
                 <div
                     role="button"

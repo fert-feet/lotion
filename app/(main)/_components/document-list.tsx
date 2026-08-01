@@ -13,12 +13,18 @@ interface DocumentListProps {
     parentDocumentId?: string | null;
     level?: number;
     allDocs: SidebarDocument[];
+    batchMode?: boolean;
+    selected?: Set<string>;
+    onToggleCheck?: (id: string) => void;
 }
 
 const DocumentList = ({
     parentDocumentId,
     level = 0,
     allDocs,
+    batchMode,
+    selected,
+    onToggleCheck,
 }: DocumentListProps) => {
     const params = useParams();
     const router = useRouter();
@@ -87,12 +93,18 @@ const DocumentList = ({
                         level={level}
                         onExpand={getExpandHandler(document.id)}
                         expanded={expanded[document.id]}
+                        batchMode={batchMode}
+                        checked={selected?.has(document.id)}
+                        onToggleCheck={onToggleCheck}
                     />
                     {expanded[document.id] && (
                         <DocumentList
                             parentDocumentId={document.id}
                             level={level + 1}
                             allDocs={allDocs}
+                            batchMode={batchMode}
+                            selected={selected}
+                            onToggleCheck={onToggleCheck}
                         />
                     )}
                 </div>
@@ -104,7 +116,13 @@ const DocumentList = ({
 /**
  * 顶层包装组件：负责拉取数据并传给递归 DocumentList
  */
-const DocumentListRoot = () => {
+interface DocumentListRootProps {
+    batchMode?: boolean;
+    selected?: Set<string>;
+    onToggleCheck?: (id: string) => void;
+}
+
+const DocumentListRoot = ({ batchMode, selected, onToggleCheck }: DocumentListRootProps) => {
     const { user } = useSupabaseUser();
     const sidebarKey = useRefresh((s) => s.sidebarKey);
     const [allDocs, setAllDocs] = useState<SidebarDocument[] | undefined>(undefined);
@@ -133,7 +151,7 @@ const DocumentListRoot = () => {
         );
     }
 
-    return <DocumentList allDocs={allDocs ?? []} />;
+    return <DocumentList allDocs={allDocs ?? []} batchMode={batchMode} selected={selected} onToggleCheck={onToggleCheck} />;
 };
 
 export default DocumentListRoot;

@@ -1,12 +1,12 @@
 "use client";
 
-import { ChevronsLeft, MenuIcon, Plus, PlusCircle, Search, Settings, Sparkles, Trash } from "lucide-react";
+import { ChevronsLeft, ListChecks, MenuIcon, Plus, PlusCircle, Search, Settings, Sparkles, Trash } from "lucide-react";
 import { useParams, usePathname, useRouter } from "next/navigation";
 import React, { ElementRef, useEffect, useRef, useState } from "react";
 import { useMediaQuery } from "usehooks-ts";
 import { cn } from "../../../lib/utils";
 import UserItem from "./user-item";
-import { create } from "@/lib/db";
+import { create, remove } from "@/lib/db";
 import { useSupabaseUser } from "@/hooks/use-supabase-user";
 import { useRefresh } from "@/hooks/use-refresh";
 import Item from "./item";
@@ -17,6 +17,8 @@ import TrashBox from "./trash-box";
 import useSearch from "../../../hooks/use-search";
 import useSettings from "../../../hooks/use-setting";
 import { useAiPanel } from "@/hooks/use-ai-panel";
+import ConfirmModal from "../../../components/modals/confirm-modal";
+import { Button } from "../../../components/ui/button";
 import Navbar from "./navbar";
 
 const Navigation = () => {
@@ -36,6 +38,9 @@ const Navigation = () => {
 
     const [isResetting, setIsResetting] = useState(false);
     const [isCollapsed, setIsCollapsed] = useState(isMobile);
+    // 批量删除模式：进入后文档行出现复选框，底部操作条确认后永久删除
+    const [batchMode, setBatchMode] = useState(false);
+    const [selected, setSelected] = useState<Set<string>>(new Set());
 
     useEffect(() => {
         if (isMobile) {
@@ -57,6 +62,34 @@ const Navigation = () => {
             loading: "Creating a new note...",
             success: "New note created",
             error: "Failed to create a new note."
+        });
+    };
+
+    const toggleCheck = (id: string) => {
+        setSelected((prev) => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id);
+            else next.add(id);
+            return next;
+        });
+    };
+
+    const exitBatchMode = () => {
+        setSelected(new Set());
+        setBatchMode(false);
+    };
+
+    const batchDelete = () => {
+        if (selected.size === 0) return;
+        const ids = Array.from(selected);
+        const promise = Promise.all(ids.map((id) => remove(id))).then(() => {
+            triggerSidebar();
+            exitBatchMode();
+        });
+        toast.promise(promise, {
+            loading: `正在删除 ${ids.length} 篇文档...`,
+            success: `已删除 ${ids.length} 篇文档`,
+            error: "删除失败，请稍后重试",
         });
     };
 
@@ -138,8 +171,9 @@ const Navigation = () => {
                 >
                     <ChevronsLeft className="h-6 w-6" />
                 </div>
-                <div>
-                    <UserItem />
+                <div className="flex-1 overflow-y-auto">
+                    <div>
+                        <UserItem />
                     <Item
                         label="Search"
                         icon={Search}
@@ -164,29 +198,66 @@ const Navigation = () => {
                     />
                 </div>
 
-                <div className="mt-4">
-                    <DocumentList />
-                    <div className="pt-0.5">
-                        <Item
-                            onClick={onCreate}
-                            icon={Plus}
-                            label="Add a page"
+                    <div className="mt-4">
+                        <DocumentList
+                            batchMode={batchMode}
+                            selected={selected}
+                            onToggleCheck={toggleCheck}
                         />
+                        <div className="pt-0.5">
+                            <Item
+                                onClick={onCreate}
+                                icon={Plus}
+                                label="Add a page"
+                            />
+                        </div>
+
+                        <Item
+                            label="批量删除"
+                            icon={ListChecks}
+                            onClick={() => setBatchMode(true)}
+                        />
+
+                        <Popover>
+                            <PopoverTrigger className="w-full mt-4">
+                                <Item label="Trash" icon={Trash} />
+                            </PopoverTrigger>
+
+                            <PopoverContent
+                                className="p-0 w-72"
+                                side={isMobile ? "bottom" : "right"}
+                            >
+                                <TrashBox />
+                            </PopoverContent>
+                        </Popover>
                     </div>
-
-                    <Popover>
-                        <PopoverTrigger className="w-full mt-4">
-                            <Item label="Trash" icon={Trash} />
-                        </PopoverTrigger>
-
-                        <PopoverContent
-                            className="p-0 w-72"
-                            side={isMobile ? "bottom" : "right"}
-                        >
-                            <TrashBox />
-                        </PopoverContent>
-                    </Popover>
                 </div>
+
+                {batchMode && (
+                    <div className="border-t bg-secondary px-3 py-2 flex items-center gap-2 shrink-0">
+                        <span className="text-xs text-muted-foreground flex-1 truncate">
+                            已选 {selected.size} 篇
+                        </span>
+                        <ConfirmModal onConfirm={batchDelete}>
+                            <Button
+                                size="sm"
+                                variant="destructive"
+                                disabled={selected.size === 0}
+                                className="h-7 text-xs cursor-pointer"
+                            >
+                                删除
+                            </Button>
+                        </ConfirmModal>
+                        <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 text-xs cursor-pointer"
+                            onClick={exitBatchMode}
+                        >
+                            取消
+                        </Button>
+                    </div>
+                )}
 
                 <div
                     onMouseDown={(e) => { handleMouseDown(e); }}
