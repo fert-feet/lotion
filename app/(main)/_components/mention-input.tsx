@@ -102,7 +102,9 @@ export default function MentionInput({
     chip.dataset.docTitle = doc.title;
     chip.title = doc.id; // 完整 id 放悬停提示，视觉只显示 @标题
     chip.className = "mention-chip select-none";
-    chip.textContent = "@" + doc.title;
+    const chipText = document.createElement("span");
+    chipText.textContent = "@" + doc.title;
+    chip.appendChild(chipText);
 
     // 文本节点拆分为 keep + 胶囊 + rest
     node.textContent = keep;

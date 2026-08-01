@@ -164,11 +164,17 @@ body,
   font-weight: 500;
   line-height: 1.5;
   color: inherit;
+  max-width: 10rem;
   vertical-align: middle;
   white-space: nowrap;
-  max-width: 100%;
+}
+
+/* 胶囊文本超出 max-width 时省略号截断（flex 子项需 min-width:0 才能收缩） */
+.mention-chip > span {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* 可点击胶囊的 hover 反馈 */
