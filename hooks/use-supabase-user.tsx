@@ -31,8 +31,12 @@ export function UserProvider({
   });
 
   useEffect(() => {
-    // SSR 已有 user，无需重复验证
-    if (ssrUser) return;
+    // SSR 注入的 user 变化时同步 state（如登录后 router.refresh() 重新 SSR，
+    // ssrUser 从 null → User；否则 state 停留在旧值导致侧边栏空白直到 F5）
+    if (ssrUser) {
+      setState({ user: ssrUser, loading: false });
+      return;
+    }
     // 兜底：cookie 与 localStorage 可能不一致（如登录后 cookie 过期），
     // 客户端再恢复一次。全应用仅此一个 getUser 请求。
     createClient()
