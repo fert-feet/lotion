@@ -193,7 +193,8 @@ export async function getById(documentId: string) {
     return doc;
   });
   pendingById.set(documentId, promise);
-  promise.finally(() => pendingById.delete(documentId));
+  // 派生 promise 必须吞掉 rejection，否则主 promise reject 时产生 unhandled rejection
+  promise.finally(() => pendingById.delete(documentId)).catch(() => {});
   return promise;
 }
 
