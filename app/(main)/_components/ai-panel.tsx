@@ -350,7 +350,7 @@ const AiPanel = () => {
                 >
                   <MessageSquare className="h-3.5 w-3.5 shrink-0" />
                   <span className="truncate flex-1">{s.title}</span>
-                  {s.id === activeSessionId && <Check className="h-3.5 w-3.5 shrink-0 text-ai" />}
+                  {s.id === activeSessionId && <Check className="h-3.5 w-3.5 shrink-0 text-foreground" />}
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -397,7 +397,7 @@ const AiPanel = () => {
         <div ref={messagesRef} className="flex-1 overflow-y-auto p-4 space-y-4">
           {messages.length === 0 && !loading && (
             <div className="flex flex-col items-center justify-center h-full text-center gap-3 text-muted-foreground">
-              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-ai to-fuchsia-500 text-white shadow-md">
+              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-foreground text-background shadow-md">
                 <Bot className="h-7 w-7" />
               </div>
               <div className="space-y-1">
@@ -423,18 +423,18 @@ const AiPanel = () => {
               >
                 {msg.role === "assistant" && (
                   <div className="flex flex-col items-center gap-0.5 shrink-0 mt-0.5">
-                    <div className="flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-ai to-fuchsia-500 text-white">
+                    <div className="flex h-6 w-6 items-center justify-center rounded-full bg-foreground text-background">
                       <Sparkles className="h-3.5 w-3.5" />
                     </div>
-                    <span className="text-[9px] font-semibold leading-none text-ai">AI</span>
+                    <span className="text-[9px] font-semibold leading-none text-muted-foreground">AI</span>
                   </div>
                 )}
                 <div
                   className={cn(
                     "rounded-lg px-3 py-2 text-sm max-w-[85%]",
                     msg.role === "user"
-                      ? "bg-ai text-ai-foreground whitespace-pre-wrap"
-                      : "bg-ai-muted/70 dark:bg-ai-muted/60 prose prose-sm dark:prose-invert max-w-none prose-headings:my-1 prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-code:bg-muted prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-xs prose-pre:bg-muted prose-pre:text-xs"
+                      ? "bg-foreground text-background whitespace-pre-wrap"
+                      : "bg-muted prose prose-sm dark:prose-invert max-w-none prose-headings:my-1 prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-code:bg-muted prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-xs prose-pre:bg-muted prose-pre:text-xs"
                   )}
                 >
                   {msg.role === "assistant" && msg.content ? (
@@ -445,7 +445,7 @@ const AiPanel = () => {
                             href={href}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-ai underline"
+                            className="text-foreground underline"
                           >
                             {children}
                           </a>
@@ -469,7 +469,7 @@ const AiPanel = () => {
                     <button
                       key={ref.noteId}
                       onClick={() => router.push(`/documents/${ref.noteId}`)}
-                      className="inline-flex items-center gap-1 rounded-full border border-border bg-muted/50 px-2.5 py-1 text-xs text-muted-foreground hover:text-ai hover:border-ai/40 transition-colors cursor-pointer max-w-[240px]"
+                      className="inline-flex items-center gap-1 rounded-full border border-border bg-muted/50 px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground hover:border-foreground/40 transition-colors cursor-pointer max-w-[240px]"
                     >
                       <span className="shrink-0">📄</span>
                       <span className="truncate">{ref.title}</span>
@@ -524,14 +524,14 @@ const AiPanel = () => {
           {streaming && (
             <div className="flex gap-2 justify-start">
               <div className="flex flex-col items-center gap-0.5 shrink-0 mt-0.5">
-                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-ai to-fuchsia-500 text-white">
+                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-foreground text-background">
                   <Sparkles className="h-3.5 w-3.5" />
                 </div>
-                <span className="text-[9px] font-semibold leading-none text-ai">AI</span>
+                <span className="text-[9px] font-semibold leading-none text-muted-foreground">AI</span>
               </div>
-              <div className="rounded-lg px-3 py-2 text-sm max-w-[85%] bg-ai-muted/70 dark:bg-ai-muted/60 whitespace-pre-wrap">
+              <div className="rounded-lg px-3 py-2 text-sm max-w-[85%] bg-muted whitespace-pre-wrap">
                 {streaming}
-                <span className="inline-block w-1 h-4 bg-ai ml-0.5 animate-pulse" />
+                <span className="inline-block w-1 h-4 bg-foreground ml-0.5 animate-pulse" />
               </div>
             </div>
           )}
@@ -557,12 +557,12 @@ const AiPanel = () => {
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleSend()}
               placeholder="输入你的问题..."
-              className="flex-1 rounded-md border border-border bg-muted px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ai/60"
+              className="flex-1 rounded-md border border-border bg-muted px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-foreground/40"
               disabled={loading}
             />
             <Button
               size="icon"
-              className="h-9 w-9 cursor-pointer bg-ai text-ai-foreground hover:bg-ai/90"
+              className="h-9 w-9 cursor-pointer bg-foreground text-background hover:bg-foreground/90"
               onClick={handleSend}
               disabled={loading || !input.trim()}
             >
