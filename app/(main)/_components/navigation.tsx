@@ -193,7 +193,7 @@ const Navigation = () => {
                     className="opacity-0 group-hover/sidebar:opacity-100 transition cursor-ew-resize absolute h-full w-1 bg-primary/10 right-0 top-0" />
             </aside>
 
-            <div ref={navbarRef} className={cn(
+            <div ref={navbarRef} id="main-navbar" className={cn(
                 "absolute top-0 z-[99999]",
                 !isCollapsed && !isMobile && "left-60 w-[calc(100%-240px)]",
                 isCollapsed && !isMobile && "left-0 w-full",

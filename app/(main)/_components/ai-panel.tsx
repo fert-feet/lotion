@@ -59,8 +59,22 @@ const AiPanel = () => {
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
+  const [navHeight, setNavHeight] = useState(0);
   const confirmTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const messagesRef = useRef<HTMLDivElement>(null);
+
+  // 面板顶部卡在 navbar/banner 下方：实时测量顶部文档栏高度
+  // （banner 出现/消失、侧边栏折叠都会改变高度，用 ResizeObserver 跟随）
+  useEffect(() => {
+    if (!isOpen) return;
+    const el = document.getElementById("main-navbar");
+    if (!el) return;
+    const measure = () => setNavHeight(el.getBoundingClientRect().height);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [isOpen]);
 
   const userId = user?.id;
 
@@ -305,20 +319,14 @@ const AiPanel = () => {
   return (
     <>
       <div className="fixed inset-0 z-[100]" onClick={onClose} />
-      <aside className={cn(
-        "fixed right-0 top-0 h-full w-96 border-l bg-white dark:bg-neutral-900 dark:border-neutral-800 z-[101] flex flex-col shadow-xl"
-      )}>
-        <div className="flex items-center justify-between gap-2 border-b px-4 py-3 dark:border-neutral-800">
-          <div className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-blue-500" />
-            <span className="font-semibold text-sm">AI 助手</span>
-          </div>
-          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onClose}>
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
-
-        {/* 会话工具栏：当前标题 + 新增 + 历史下拉（同一时间只展示一个会话） */}
+      <aside
+        style={{ top: navHeight }}
+        className={cn(
+          "fixed right-0 bottom-0 w-96 border-l bg-white dark:bg-neutral-900 dark:border-neutral-800 z-[101] flex flex-col shadow-xl"
+        )}
+      >
+        {/* 会话工具栏：当前标题 + 历史下拉 + 新增 + 关闭（原"AI 助手"标题栏已去掉，
+            面板顶部刚好卡在 navbar/banner 下方） */}
         <div className="border-b dark:border-neutral-800 px-3 py-2 flex items-center gap-1.5 shrink-0">
           <span className="flex-1 truncate text-sm font-medium text-muted-foreground min-w-0">
             {sessions.find((s) => s.id === activeSessionId)?.title ?? "新对话"}
@@ -374,6 +382,15 @@ const AiPanel = () => {
           >
             <Plus className="h-4 w-4" />
             <span>新增</span>
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 text-muted-foreground cursor-pointer"
+            onClick={onClose}
+            title="关闭"
+          >
+            <X className="h-4 w-4" />
           </Button>
         </div>
 
