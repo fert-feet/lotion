@@ -17,14 +17,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "../../../components/ui/dropdown-menu";
-import {
-  getChatHistory,
-  getChatSessions,
-  createChatSession,
-  deleteChatSession,
-  remove,
-  type ChatSession,
-} from "@/lib/db";
+import { getChatHistory, getChatSessions, createChatSession, deleteChatSession, remove, type ChatSession } from "@/lib/db";
+import { truncateMentionTitle } from "@/lib/mention";
 
 interface PendingAction {
   type: "delete";
@@ -365,7 +359,7 @@ const AiPanel = () => {
             onClick={() => router.push(`/documents/${m[2]}`)}
             className="mention-chip cursor-pointer"
           >
-            <span>@{m[1]}</span>
+            <span>@{truncateMentionTitle(m[1])}</span>
           </button>
         );
       }
@@ -538,7 +532,7 @@ const AiPanel = () => {
                                 onClick={() => router.push(`/documents/${href}`)}
                                 className="mention-chip cursor-pointer"
                               >
-                                <span>{text}</span>
+                                <span>{`@${truncateMentionTitle(text.slice(1))}`}</span>
                               </button>
                             );
                           }

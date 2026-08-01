@@ -30,3 +30,10 @@ export function extractMentions(text: string): Mention[] {
   }
   return mentions;
 }
+
+/** 胶囊标题截断：超过 maxChars 个字时截断并加省略号（完整标题保留在悬停提示/序列化中） */
+export function truncateMentionTitle(title: string, maxChars = 4): string {
+  const t = title.trim();
+  if (t.length <= maxChars) return t;
+  return t.slice(0, maxChars) + "…";
+}

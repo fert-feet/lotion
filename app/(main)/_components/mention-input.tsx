@@ -2,6 +2,7 @@
 
 import { useSupabaseUser } from "@/hooks/use-supabase-user";
 import { getSearch, type SidebarDocument } from "@/lib/db";
+import { truncateMentionTitle } from "@/lib/mention";
 import { FileText } from "lucide-react";
 import { useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
@@ -103,7 +104,7 @@ export default function MentionInput({
     chip.title = doc.id; // 完整 id 放悬停提示，视觉只显示 @标题
     chip.className = "mention-chip select-none";
     const chipText = document.createElement("span");
-    chipText.textContent = "@" + doc.title;
+    chipText.textContent = "@" + truncateMentionTitle(doc.title);
     chip.appendChild(chipText);
 
     // 文本节点拆分为 keep + 胶囊 + rest

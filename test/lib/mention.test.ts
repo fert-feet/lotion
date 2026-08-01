@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { extractMentions } from "@/lib/mention";
+import { extractMentions, truncateMentionTitle } from "@/lib/mention";
 
 describe("extractMentions", () => {
   it("解析基本提及标记", () => {
@@ -39,5 +39,29 @@ describe("extractMentions", () => {
     const text = "帮我总结 [@React学习](doc-1) 和 [@前端路线](doc-2) 这两篇笔记，重点对比异同";
     const mentions = extractMentions(text);
     expect(mentions).toHaveLength(2);
+  });
+});
+
+describe("truncateMentionTitle", () => {
+  it("4 字以内不截断", () => {
+    expect(truncateMentionTitle("前端路线")).toBe("前端路线");
+    expect(truncateMentionTitle("")).toBe("");
+  });
+
+  it("超过 4 字截断并加省略号", () => {
+    expect(truncateMentionTitle("React学习笔记")).toBe("Reac…");
+  });
+
+  it("正好 4 字不截断", () => {
+    expect(truncateMentionTitle("学习计划")).toBe("学习计划");
+  });
+
+  it("首尾空白会被去除", () => {
+    expect(truncateMentionTitle("  标题  ")).toBe("标题");
+  });
+
+  it("可自定义最大字数", () => {
+    expect(truncateMentionTitle("一二三四五六", 6)).toBe("一二三四五六");
+    expect(truncateMentionTitle("一二三四五六", 3)).toBe("一二三…");
   });
 });
