@@ -165,6 +165,7 @@ body,
   line-height: 1.5;
   color: inherit;
   max-width: 10rem;
+  margin-inline: 3px; /* 与相邻文本之间留出空隙 */
   vertical-align: middle;
   white-space: nowrap;
 }
