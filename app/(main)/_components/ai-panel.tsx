@@ -57,31 +57,12 @@ const AiPanel = () => {
   const [navHeight, setNavHeight] = useState(0);
   const confirmTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const messagesRef = useRef<HTMLDivElement>(null);
-  const panelRef = useRef<HTMLElement | null>(null);
   // 流式请求控制：当前是否在生成、终止用 AbortController、待发送队列
   const streamingRef = useRef(false);
   const abortRef = useRef<AbortController | null>(null);
   const queueRef = useRef<string[]>([]);
   const [queueItems, setQueueItems] = useState<string[]>([]);
   const mentionRef = useRef<MentionInputHandle>(null);
-
-  // 面板打开时点击面板外部任意位置关闭。
-  // 不用全屏遮罩（fixed inset-0 会拦截滚轮，导致文档无法滚动），
-  // 改用 document 级 mousedown 判断点击是否在面板内。
-  useEffect(() => {
-    if (!isOpen) return;
-    const handler = (e: MouseEvent) => {
-      const target = e.target as Node | null;
-      if (!target) return;
-      // 面板内部点击不关闭
-      if (panelRef.current?.contains(target)) return;
-      // Radix 下拉/弹层渲染在 portal（body 下），点击其内容（如"历史"下拉项）不应关闭面板
-      if (target instanceof Element && target.closest("[data-radix-popper-content-wrapper]")) return;
-      onClose();
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [isOpen, onClose]);
 
   // 面板顶部卡在 navbar/banner 下方：实时测量顶部文档栏高度
   // （banner 出现/消失、侧边栏折叠都会改变高度，用 ResizeObserver 跟随）
@@ -432,7 +413,6 @@ const AiPanel = () => {
   return (
     <>
       <aside
-        ref={panelRef}
         style={{ top: navHeight }}
         className={cn(
           "fixed right-0 bottom-0 w-96 border-l border-t bg-background z-[101] flex flex-col shadow-xl"
