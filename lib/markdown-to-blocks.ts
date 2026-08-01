@@ -241,3 +241,27 @@ export function markdownToBlocks(markdown: string): BlockNode[] {
 
   return blocks;
 }
+
+/**
+ * 提取正文开头的 # 一级标题作为文档 title，并从正文中移除。
+ *
+ * AI 生成的 markdown 常自带 "# 标题"，而文档的标题是独立的 title 字段
+ * （Toolbar 顶部显示）。不提取会导致页面出现重复标题。
+ * 仅提取第一个 level 1 的 heading，小节（## 等）保留在正文。
+ */
+export function extractTitle(blocks: BlockNode[]): {
+  title: string | null;
+  blocks: BlockNode[];
+} {
+  const first = blocks[0];
+  if (first?.type !== "heading" || first.props?.level !== 1) {
+    return { title: null, blocks };
+  }
+
+  const title = first.content.map((n) => n.text).join("").trim();
+  const rest = blocks.slice(1);
+  if (rest.length === 0) {
+    rest.push({ id: "b-0", type: "paragraph", content: [] });
+  }
+  return { title: title || null, blocks: rest };
+}

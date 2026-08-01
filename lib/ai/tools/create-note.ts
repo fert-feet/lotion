@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { tool } from "ai";
 import z from "zod";
 import { logger } from "@/lib/logger";
-import { markdownToBlocks } from "@/lib/markdown-to-blocks";
+import { markdownToBlocks, extractTitle } from "@/lib/markdown-to-blocks";
 
 export function createCreateNoteTool(supabase: SupabaseClient, userId: string, pendingNoteId: { current: string | null } = { current: null }) {
   return tool({
@@ -16,10 +16,13 @@ export function createCreateNoteTool(supabase: SupabaseClient, userId: string, p
 
       // 先转换 Markdown 再插入：转换失败不会留下空笔记
       const blocks = markdownToBlocks(content);
+      // 正文开头的 # 一级标题作为文档 title（AI 的 title 参数可能为空或与正文不一致）
+      const { title: extractedTitle, blocks: contentBlocks } = extractTitle(blocks);
+      const finalTitle = extractedTitle || title;
 
       const { data: doc, error } = await supabase
         .from("documents")
-        .insert({ title, userId, content: JSON.stringify(blocks), isArchived: false, isPublished: false, isDraft: true })
+        .insert({ title: finalTitle, userId, content: JSON.stringify(contentBlocks), isArchived: false, isPublished: false, isDraft: true })
         .select("id")
         .single();
 
@@ -29,7 +32,7 @@ export function createCreateNoteTool(supabase: SupabaseClient, userId: string, p
       }
 
       pendingNoteId.current = doc.id;
-      logger.tools.info("[createNote] 已创建", { noteId: doc.id, blockCount: blocks.length });
+      logger.tools.info("[createNote] 已创建", { noteId: doc.id, blockCount: contentBlocks.length, title: finalTitle });
 
       return `笔记「${title}」已创建（ID: ${doc.id}），内容已写入。如果觉得内容需要调整，可用此 ID 调用 updateNote 修改。`;
     },

@@ -10,7 +10,7 @@ import { BlockNoteView } from "@blocknote/shadcn";
 import "@blocknote/core/style.css";
 import { useCreateBlockNote } from "@blocknote/react";
 import { useTheme } from "next-themes";
-import { useCallback } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 interface EditorProps {
@@ -45,6 +45,20 @@ const Editor = ({
         initialContent: initialContent ? JSON.parse(initialContent) as PartialBlock[] : undefined,
         uploadFile: handleUpload
     });
+
+    // AI 修改文档后 initialContent 变化：initialContent 只在创建时生效，
+    // 这里手动把新内容替换进已挂载的编辑器（内容没变时不操作，避免打断用户编辑）
+    const lastAppliedContent = useRef<string | undefined>(initialContent);
+    useEffect(() => {
+        if (!initialContent || lastAppliedContent.current === initialContent) return;
+        lastAppliedContent.current = initialContent;
+        try {
+            const blocks = JSON.parse(initialContent) as PartialBlock[];
+            editor.replaceBlocks(editor.document, blocks);
+        } catch {
+            // 非法 JSON 时忽略，保持现状
+        }
+    }, [initialContent, editor]);
 
     const onEditorChange = useCallback((editor: BlockNoteEditor) => {
         onChange(JSON.stringify(editor.document, null, 2));

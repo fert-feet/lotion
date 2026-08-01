@@ -94,6 +94,15 @@ export async function getById(documentId: string) {
   return promise;
 }
 
+/**
+ * 绕过缓存重新拉取文档：AI 的 updateNote 在服务端直接写库，
+ * 不会经过本模块的 update()，docCache 仍存旧值，刷新标记触发时用此函数。
+ */
+export async function getByIdFresh(documentId: string) {
+  docCache.delete(documentId);
+  return getById(documentId);
+}
+
 /** 鼠标悬停预加载：后台静默拉取文档内容到缓存 */
 export function prefetchById(documentId: string) {
   getById(documentId).catch(() => {});

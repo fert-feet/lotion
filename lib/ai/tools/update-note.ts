@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { tool } from "ai";
 import z from "zod";
 import { logger } from "@/lib/logger";
-import { markdownToBlocks } from "@/lib/markdown-to-blocks";
+import { markdownToBlocks, extractTitle } from "@/lib/markdown-to-blocks";
 
 export function createUpdateNoteTool(
   supabase: SupabaseClient,
@@ -18,10 +18,15 @@ export function createUpdateNoteTool(
       logger.tools.info("[updateNote] 更新笔记", { noteId, contentLen: content.length });
 
       const blocks = markdownToBlocks(content);
+      // 正文开头的 # 一级标题提取为文档 title，避免页面重复标题
+      const { title: extractedTitle, blocks: contentBlocks } = extractTitle(blocks);
+
+      const fields: Record<string, string> = { content: JSON.stringify(contentBlocks) };
+      if (extractedTitle) fields.title = extractedTitle;
 
       const { error } = await supabase
         .from("documents")
-        .update({ content: JSON.stringify(blocks) })
+        .update(fields)
         .eq("id", noteId);
 
       if (error) {
@@ -30,7 +35,7 @@ export function createUpdateNoteTool(
       }
 
       pendingModifiedNoteId.current = noteId;
-      logger.tools.info("[updateNote] 更新成功", { noteId, blockCount: blocks.length });
+      logger.tools.info("[updateNote] 更新成功", { noteId, blockCount: contentBlocks.length, extractedTitle: extractedTitle ?? undefined });
       return `笔记内容已更新。`;
     },
   });

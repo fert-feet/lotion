@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { useParams } from "next/navigation";
 import dynamic from "next/dynamic";
-import { getById, update, type Document } from "@/lib/db";
+import { getById, getByIdFresh, update, type Document } from "@/lib/db";
 import { useRefresh } from "@/hooks/use-refresh";
 import { Skeleton } from "../../../../../components/ui/skeleton";
 import Toolbar from "../../../../../components/toobar";
@@ -20,7 +20,10 @@ const DocumentIdPage = () => {
 
     useEffect(() => {
         if (documentId) {
-            getById(documentId)
+            // 首次加载走缓存；AI 修改标记（documentKeys 变化）后必须绕过缓存
+            // 拿新内容（updateNote 在服务端直接写库，docCache 仍是旧值）
+            const loader = refreshKey === 0 ? getById : getByIdFresh;
+            loader(documentId)
                 .then(setDocument)
                 .catch(() => setDocument(null));
         }
