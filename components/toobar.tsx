@@ -25,11 +25,15 @@ const Toolbar = ({
     const [isEditing, setIsEditing] = useState<boolean>(false);
     const [value, setValue] = useState(initialData?.title || "");
     const [displayValue, setDisplayValue] = useState(initialData?.title || "");
+    // 记录上次应用的外部标题：仅外部 title 变化（AI 修改/reload）时同步 displayValue，
+    // 避免失焦瞬间 isEditing 变化触发 effect 用旧标题覆盖新值（新→旧→新闪烁）
+    const lastAppliedTitle = useRef(initialData?.title);
 
     useEffect(() => {
-        if (!isEditing && initialData?.title) {
-            setDisplayValue(initialData.title);
-        }
+        if (isEditing) return;
+        if (!initialData?.title || lastAppliedTitle.current === initialData.title) return;
+        lastAppliedTitle.current = initialData.title;
+        setDisplayValue(initialData.title);
     }, [initialData?.title, isEditing]);
 
     if (!initialData) {
