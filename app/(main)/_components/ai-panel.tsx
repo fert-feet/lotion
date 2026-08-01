@@ -322,7 +322,7 @@ const AiPanel = () => {
       <aside
         style={{ top: navHeight }}
         className={cn(
-          "fixed right-0 bottom-0 w-96 border-l bg-white dark:bg-neutral-900 dark:border-neutral-800 z-[101] flex flex-col shadow-xl"
+          "fixed right-0 bottom-0 w-96 border-l border-t bg-white dark:bg-neutral-900 dark:border-neutral-800 z-[101] flex flex-col shadow-xl"
         )}
       >
         {/* 会话工具栏：当前标题 + 历史下拉 + 新增 + 关闭（原"AI 助手"标题栏已去掉，
