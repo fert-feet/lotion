@@ -164,7 +164,7 @@ const Navigation = () => {
             <aside
                 ref={sidebarRef}
                 className={cn(
-                    "group/sidebar h-full bg-secondary overflow-y-auto relative flex w-60 flex-col z-[99999]",
+                    "group/sidebar h-full bg-sidebar overflow-y-auto relative flex w-60 flex-col z-[99999] before:absolute before:top-0 before:left-0 before:h-[3px] before:w-full before:bg-ai",
                     isResetting && "transition-[width] ease-in-out duration-300",
                     isMobile && "w-0"
                 )}>
@@ -234,7 +234,7 @@ const Navigation = () => {
                 </div>
 
                 {batchMode && (
-                    <div className="border-t bg-secondary px-3 py-2 flex items-center gap-2 shrink-0">
+                    <div className="border-t bg-sidebar px-3 py-2 flex items-center gap-2 shrink-0">
                         <span className="text-xs text-muted-foreground flex-1 truncate">
                             已选 {selected.size} 篇
                         </span>
@@ -266,7 +266,7 @@ const Navigation = () => {
             </aside>
 
             <div ref={navbarRef} id="main-navbar" className={cn(
-                "absolute top-0 z-[99999]",
+                "absolute top-0 z-[99999] before:absolute before:top-0 before:left-0 before:h-[3px] before:w-full before:bg-ai",
                 !isCollapsed && !isMobile && "left-60 w-[calc(100%-240px)]",
                 isCollapsed && !isMobile && "left-0 w-full",
                 isResetting && "transition-[left,width] ease-in-out duration-300",

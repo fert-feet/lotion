@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { useSupabaseUser } from "@/hooks/use-supabase-user";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Sparkles } from "lucide-react";
 import { Spinner } from "../../../components/ui/spinner";
 import Link from "next/link";
 
@@ -11,14 +11,17 @@ const Heading = () => {
     const isAuthenticated = !!user
 
     return (
-        <div className="max-w-3xl space-y-4 mb-20">
-            <h1 className="text-3xl sm:text-5xl md:text-6xl font-bold">
-                Your Ideas, Documents, & Plan. Unified. Welcome to <span className="bg-gradient-to-r from-ai via-fuchsia-500 to-pink-500 bg-clip-text text-transparent">
-                    Lotion
-                </span>
+        <div className="max-w-3xl mx-auto space-y-6 text-center">
+            <div className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card/70 px-3 py-1 text-xs font-medium text-muted-foreground backdrop-blur">
+                <Sparkles className="h-3.5 w-3.5 text-ai" />
+                An AI assistant lives inside every note
+            </div>
+            <h1 className="font-display text-5xl sm:text-6xl md:text-7xl font-semibold tracking-tight leading-[1.04]">
+                The notebook that <span className="hl-mark">thinks</span> with you.
             </h1>
-            <h3 className="text-base sm:text-xl md:text-2xl font-medium">
-                Lotion is the connected workspace where better, faster work happens.
+            <h3 className="text-base sm:text-lg text-muted-foreground max-w-xl mx-auto leading-relaxed">
+                Lotion is the connected workspace where an AI assistant writes,
+                summarizes and organizes your notes — in your language.
             </h3>
             {loading && (
                 <div className="flex justify-center">
@@ -26,21 +29,28 @@ const Heading = () => {
                 </div>
             )}
             {!isAuthenticated && !loading && (
-                <Link href="/register">
-                    <Button size="lg" className="shadow-sm">
-                        Get Lotion Free!
-                    </Button>
-                </Link>
+                <div className="flex items-center justify-center gap-3 pt-2">
+                    <Link href="/register">
+                        <Button size="lg" className="bg-ai text-ai-foreground hover:bg-ai/90 shadow-md shadow-ai/20">
+                            Get Lotion Free!
+                        </Button>
+                    </Link>
+                    <Link href="/login">
+                        <Button size="lg" variant="outline">
+                            Login
+                        </Button>
+                    </Link>
+                </div>
             )}
             {isAuthenticated && !loading && (
-                <>
-                    <Button variant="default" size="sm" asChild>
+                <div className="pt-2">
+                    <Button variant="default" size="lg" asChild>
                         <Link href="/documents">
                             Enter Lotion
-                            <ArrowRight className="h-5 w-5 ml-2"/>
+                            <ArrowRight className="h-5 w-5 ml-2" />
                         </Link>
                     </Button>
-                </>
+                </div>
             )}
         </div>
     );

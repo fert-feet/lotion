@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { PenLine } from "lucide-react";
 
 export default function RegisterPage() {
   const [email, setEmail] = useState("");
@@ -32,40 +34,43 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/50">
-      <div className="w-full max-w-sm rounded-lg border bg-card p-8 shadow-sm">
-        <h1 className="mb-6 text-2xl font-bold">注册 Lotion</h1>
+    <div className="graph-paper relative flex min-h-screen items-center justify-center px-4 before:absolute before:top-0 before:left-0 before:h-[3px] before:w-full before:bg-ai">
+      <div className="w-full max-w-sm rounded-xl border border-border bg-card p-8 shadow-xl shadow-ink/5">
+        <div className="mb-6 flex items-center gap-2.5">
+          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-ai text-ai-foreground">
+            <PenLine className="h-4 w-4" strokeWidth={2.5} />
+          </div>
+          <h1 className="font-display text-xl font-semibold tracking-tight">注册 Lotion</h1>
+        </div>
         <form onSubmit={handleRegister} className="space-y-4">
           <div>
-            <label className="mb-1 block text-sm font-medium">邮箱</label>
-            <input
+            <label className="mb-1.5 block text-sm font-medium">邮箱</label>
+            <Input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="your@email.com"
-              className="w-full rounded-md border bg-muted px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ai/40 focus:border-transparent"
               required
             />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium">密码</label>
-            <input
+            <label className="mb-1.5 block text-sm font-medium">密码</label>
+            <Input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
-              className="w-full rounded-md border bg-muted px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ai/40 focus:border-transparent"
               required
             />
           </div>
           {error && <p className="text-sm text-destructive">{error}</p>}
-          <Button type="submit" disabled={loading} className="w-full">
+          <Button type="submit" disabled={loading} className="w-full cursor-pointer bg-ai text-ai-foreground hover:bg-ai/90">
             {loading ? "注册中..." : "注册"}
           </Button>
         </form>
         <p className="mt-4 text-center text-sm text-muted-foreground">
           已有账号？{" "}
-          <Link href="/login" className="underline hover:text-foreground">
+          <Link href="/login" className="underline underline-offset-4 hover:text-foreground">
             登录
           </Link>
         </p>

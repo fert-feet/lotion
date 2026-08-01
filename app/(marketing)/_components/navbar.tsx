@@ -15,7 +15,12 @@ const Navbar = () => {
     const scrolled = useScrollTop()
 
     return (
-        <div className={cn("z-50 bg-background fixed top-0 flex items-center w-full p-6", scrolled && "border-b shadow-sm")}>
+        <div className={cn(
+            "z-50 fixed top-0 flex items-center w-full px-6 py-4",
+            // 签名：顶部一条荧光笔黄细线
+            "before:absolute before:top-0 before:left-0 before:h-[3px] before:w-full before:bg-ai",
+            scrolled && "border-b border-border bg-background/80 backdrop-blur-md"
+        )}>
             <Logo />
             <div className="flex md:ml-auto md:justify-end justify-between w-full items-center gap-x-2">
                 {loading && (
@@ -29,7 +34,9 @@ const Navbar = () => {
                             <Button variant="ghost" className="cursor-pointer">Login</Button>
                         </Link>
                         <Link href="/register">
-                            <Button variant="default">Get Lotion free!</Button>
+                            <Button className="cursor-pointer bg-ai text-ai-foreground hover:bg-ai/90 shadow-sm">
+                                Get Lotion free!
+                            </Button>
                         </Link>
                     </>
                 )}

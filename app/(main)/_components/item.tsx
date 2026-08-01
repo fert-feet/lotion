@@ -129,8 +129,7 @@ const Item = memo(({
             }}
             className={cn("group min-h-[30px] cursor-pointer text-sm py-1 pr-3 w-full hover:bg-primary/5 flex items-center text-muted-foreground font-medium transition-colors duration-150",
                 active && "bg-primary/10 text-primary"
-            )}
-        >
+            )}        >
             {batchMode && !!id && (
                 <input
                     type="checkbox"
@@ -161,7 +160,7 @@ const Item = memo(({
                     {documentIcon}
                 </div>
             ) : highlighted ? (
-                <div className="mr-2 flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground">
+                <div className="mr-2 flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-ai text-ai-foreground">
                     <Icon className="h-3.5 w-3.5" />
                 </div>
             ) : (

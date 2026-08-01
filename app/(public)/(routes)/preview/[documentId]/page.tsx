@@ -55,19 +55,22 @@ const DocumentIdPage = () => {
 
     if (!document.isPublished) {
         return (
-            <div className="h-full flex flex-col items-center justify-center space-y-4">
-                <div className="flex">
+            <div className="h-full flex flex-col items-center justify-center space-y-4 px-6">
+                <div className="graph-paper flex h-40 w-40 items-center justify-center rounded-xl border border-border bg-card shadow-md shadow-ink/5">
                     <Image
                         alt="error"
                         src="/logo.svg"
-                        width={"300"}
-                        height={"300"}
+                        width={"80"}
+                        height={"80"}
                     />
                 </div>
-                <h2 className="text-lg font-bold pt-4 text-center">
+                <h2 className="font-display text-2xl font-semibold tracking-tight pt-4 text-center">
                     Only the author can view it!
                 </h2>
-                <Button onClick={() => router.push("/")} className="text-md font-medium cursor-pointer">
+                <p className="text-sm text-muted-foreground text-center max-w-xs">
+                    这篇笔记尚未公开，作者发布后才能预览
+                </p>
+                <Button onClick={() => router.push("/")} className="text-md font-medium cursor-pointer bg-ai text-ai-foreground hover:bg-ai/90">
                     Go back
                     <ArrowRight className="h-5 w-5 ml-2" />
                 </Button>

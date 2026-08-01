@@ -6,10 +6,10 @@ import LandingText from "./_components/landingText";
 const MarketingPage = () => {
   return (
     <div className="min-h-full flex flex-col">
-      <div className="flex flex-col items-center justify-center md:justify-center text-center gap-y-8 flex-1 px-6 pb-10">
+      <div className="flex flex-col items-center gap-y-16 md:gap-y-24 flex-1 px-6 pb-20 pt-10">
         <Heading />
-        {/* <Heroes /> */}
-        {/* <LandingText /> */}
+        <Heroes />
+        <LandingText />
       </div>
       <Footer />
     </div>

@@ -1,4 +1,5 @@
-/* todo: note 这里是总体的 css 所在地 */
+/* Lotion 设计系统 —— 「实验笔记簿」：
+   冷调纸墨色 + 网格纸纹理 + 荧光笔黄高亮（AI 的"划重点"） */
 @import "tailwindcss";
 @import "tw-animate-css";
 @plugin "@tailwindcss/typography";
@@ -10,9 +11,15 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-display: var(--font-fraunces), "PingFang SC", "Noto Sans SC", "Microsoft YaHei", ui-serif, serif;
+  /* AI 品牌色：荧光笔黄（替代原紫色） */
   --color-ai: var(--ai);
   --color-ai-foreground: var(--ai-foreground);
   --color-ai-muted: var(--ai-muted);
+  --color-hl: var(--hl);
+  --color-ink: var(--ink);
+  --color-paper: var(--paper);
+  --color-night: var(--night);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -49,82 +56,89 @@
 }
 
 :root {
-  --radius: 0.625rem;
-  /* AI 品牌点缀色（中性极简 + 紫点缀） */
-  --ai: #7C3AED;
-  --ai-foreground: #FFFFFF;
-  --ai-muted: #F5F3FF;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
+  --radius: 0.5rem;
+  /* 品牌色：墨 / 纸 / 荧光黄 */
+  --ink: #1C1E22;
+  --paper: #FAFAF8;
+  --night: #0F1115;
+  --hl: #FFD84D;
+  --ai: #FFD84D;
+  --ai-foreground: #1C1E22;
+  --ai-muted: #FFF7D6;
+  --background: #FAFAF8;
+  --foreground: #1C1E22;
+  --card: #FFFFFF;
+  --card-foreground: #1C1E22;
+  --popover: #FFFFFF;
+  --popover-foreground: #1C1E22;
+  --primary: #1C1E22;
+  --primary-foreground: #FAFAF8;
+  --secondary: #F1F1ED;
+  --secondary-foreground: #1C1E22;
+  --muted: #F1F1ED;
+  --muted-foreground: #6B6F76;
+  --accent: #ECECE7;
+  --accent-foreground: #1C1E22;
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  --border: rgba(28, 30, 34, 0.1);
+  --input: rgba(28, 30, 34, 0.14);
+  --ring: rgba(28, 30, 34, 0.35);
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --sidebar: #F4F4F0;
+  --sidebar-foreground: #1C1E22;
+  --sidebar-primary: #1C1E22;
+  --sidebar-primary-foreground: #FAFAF8;
+  --sidebar-accent: #E9E9E4;
+  --sidebar-accent-foreground: #1C1E22;
+  --sidebar-border: rgba(28, 30, 34, 0.09);
+  --sidebar-ring: rgba(28, 30, 34, 0.35);
+  /* 网格纸纹理线 */
+  --grid-line: rgba(28, 30, 34, 0.045);
+  --grid-line-strong: rgba(28, 30, 34, 0.09);
 }
 
 .dark {
-  /* AI 品牌点缀色（深色模式下提亮，保证对比度） */
-  --ai: #A78BFA;
-  --ai-foreground: #1E1B4B;
-  --ai-muted: #1E1B4B;
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
+  --ai: #FFD84D;
+  --ai-foreground: #171A0E;
+  --ai-muted: #23200F;
+  --background: #0F1115;
+  --foreground: #E9EAEC;
+  --card: #171A21;
+  --card-foreground: #E9EAEC;
+  --popover: #171A21;
+  --popover-foreground: #E9EAEC;
+  --primary: #E9EAEC;
+  --primary-foreground: #1C1E22;
+  --secondary: #1C1F26;
+  --secondary-foreground: #E9EAEC;
+  --muted: #1C2027;
+  --muted-foreground: #9BA1A9;
+  --accent: #22262F;
+  --accent-foreground: #E9EAEC;
   --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
+  --border: rgba(255, 255, 255, 0.08);
+  --input: rgba(255, 255, 255, 0.12);
+  --ring: rgba(255, 255, 255, 0.28);
   --chart-1: oklch(0.488 0.243 264.376);
   --chart-2: oklch(0.696 0.17 162.48);
   --chart-3: oklch(0.769 0.188 70.08);
   --chart-4: oklch(0.627 0.265 303.9);
   --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --sidebar: #13161C;
+  --sidebar-foreground: #E9EAEC;
+  --sidebar-primary: #E9EAEC;
+  --sidebar-primary-foreground: #1C1E22;
+  --sidebar-accent: #1F232B;
+  --sidebar-accent-foreground: #E9EAEC;
+  --sidebar-border: rgba(255, 255, 255, 0.07);
+  --sidebar-ring: rgba(255, 255, 255, 0.28);
+  --grid-line: rgba(255, 255, 255, 0.04);
+  --grid-line-strong: rgba(255, 255, 255, 0.075);
 }
-
 
 /* full pages */
 html,
@@ -133,7 +147,6 @@ body,
   height: 100%
 }
 
-
 @layer base {
   * {
     @apply border-border outline-ring/50;
@@ -141,6 +154,35 @@ body,
   body {
     @apply bg-background text-foreground;
   }
+  ::selection {
+    background: var(--hl);
+    color: var(--ink);
+  }
+}
+
+/* ---- 签名元素：网格纸纹理（坐标纸：细格 24px + 加重线 120px） ---- */
+.graph-paper {
+  background-image:
+    linear-gradient(to right, var(--grid-line-strong) 1px, transparent 1px),
+    linear-gradient(to right, var(--grid-line) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--grid-line-strong) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px);
+  background-size: 120px 120px, 24px 24px, 120px 120px, 24px 24px;
+}
+
+/* ---- 签名元素：荧光笔高亮（AI 划重点），多行时逐行克隆背景 ---- */
+.hl-mark {
+  background: linear-gradient(
+    104deg,
+    transparent 0.9%,
+    var(--hl) 2.4%,
+    var(--hl) 97.6%,
+    transparent 99%
+  );
+  border-radius: 0.18em 0.3em 0.18em 0.3em;
+  padding: 0.04em 0.16em;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
 }
 
 /* @提及胶囊输入框的 placeholder（contentEditable 无原生 placeholder） */

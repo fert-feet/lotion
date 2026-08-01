@@ -526,7 +526,7 @@ const AiPanel = () => {
           ...(isMobile ? {} : { width: "384px" }),
         }}
         className={cn(
-          "group/ai-panel border-l bg-background z-[101] flex flex-col shadow-xl",
+          "group/ai-panel border-l bg-background z-[101] flex flex-col shadow-xl before:absolute before:top-0 before:left-0 before:h-[3px] before:w-full before:bg-ai",
           // 桌面端：flex 占位（挤压式），main 自动让出宽度，内容不被遮挡、横向滚动条完整可见
           // 移动端：覆盖式全屏浮层
           isMobile ? "fixed inset-y-0 right-0 w-full" : "relative h-full"
@@ -612,7 +612,7 @@ const AiPanel = () => {
         <div ref={messagesRef} className="flex-1 overflow-y-auto p-4 space-y-4">
           {messages.length === 0 && !loading && (
             <div className="flex flex-col items-center justify-center h-full text-center gap-3 text-muted-foreground">
-              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-foreground text-background shadow-md">
+              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-ai text-ai-foreground shadow-md">
                 <Bot className="h-7 w-7" />
               </div>
               <div className="space-y-1">
@@ -638,7 +638,7 @@ const AiPanel = () => {
               >
                 {msg.role === "assistant" && (
                   <div className="flex flex-col items-center gap-0.5 shrink-0 mt-0.5">
-                    <div className="flex h-6 w-6 items-center justify-center rounded-full bg-foreground text-background">
+                    <div className="flex h-6 w-6 items-center justify-center rounded-full bg-ai text-ai-foreground">
                       <Sparkles className="h-3.5 w-3.5" />
                     </div>
                     <span className="text-[9px] font-semibold leading-none text-muted-foreground">AI</span>
@@ -757,7 +757,7 @@ const AiPanel = () => {
           {streaming && (
             <div className="flex gap-2 justify-start">
               <div className="flex flex-col items-center gap-0.5 shrink-0 mt-0.5">
-                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-foreground text-background">
+                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-ai text-ai-foreground">
                   <Sparkles className="h-3.5 w-3.5" />
                 </div>
                 <span className="text-[9px] font-semibold leading-none text-muted-foreground">AI</span>
@@ -827,7 +827,7 @@ const AiPanel = () => {
             <div className="shrink-0">
               <Button
                 size="icon"
-                className="h-9 w-9 cursor-pointer bg-foreground text-background hover:bg-foreground/90"
+                className="h-9 w-9 cursor-pointer bg-ai text-ai-foreground hover:bg-ai/90"
                 onClick={loading ? handleStop : () => mentionRef.current?.submit()}
                 disabled={!loading && inputEmpty}
                 title={loading ? "停止生成" : "发送"}
