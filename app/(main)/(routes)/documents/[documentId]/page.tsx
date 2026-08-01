@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { getById, getByIdFresh, update, type Document } from "@/lib/db";
@@ -11,6 +11,10 @@ import { FileQuestion } from "lucide-react";
 import Toolbar from "../../../../../components/toobar";
 import Cover from "../../../_components/cover";
 
+// 编辑器写库防抖：击键期间不落库，停顿 800ms 或卸载时写一次。
+// 之前每次编辑都 JSON.stringify 全量 + update()，打字快时请求堆积
+const SAVE_DEBOUNCE_MS = 800;
+
 const DocumentIdPage = () => {
     const params = useParams();
     const router = useRouter();
@@ -20,6 +24,13 @@ const DocumentIdPage = () => {
     const [document, setDocument] = useState<Document | null | undefined>(undefined);
     const documentId = params.documentId as string;
     const refreshKey = documentKeys[documentId] || 0;
+
+    // 防抖保存：latestContent 保存最新内容，timer 到期才写库；
+    // documentId 存 ref，避免 onChange 闭包捕获过期值
+    const latestContent = useRef("");
+    const documentIdRef = useRef(documentId);
+    const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+    documentIdRef.current = documentId;
 
     useEffect(() => {
         if (documentId) {
@@ -32,11 +43,26 @@ const DocumentIdPage = () => {
         }
     }, [documentId, refreshKey]);
 
-    const onChange = (content: string) => {
-        if (document) {
-            update(document.id, { content });
-        }
-    };
+    // 卸载时 flush 最后一次未保存的编辑，防止防抖窗口内离开丢内容
+    useEffect(() => {
+        return () => {
+            if (saveTimer.current) clearTimeout(saveTimer.current);
+            if (latestContent.current && documentIdRef.current) {
+                update(documentIdRef.current, { content: latestContent.current });
+            }
+        };
+    }, []);
+
+    const onChange = useCallback((content: string) => {
+        latestContent.current = content;
+        if (saveTimer.current) clearTimeout(saveTimer.current);
+        saveTimer.current = setTimeout(() => {
+            saveTimer.current = undefined;
+            if (documentIdRef.current) {
+                update(documentIdRef.current, { content });
+            }
+        }, SAVE_DEBOUNCE_MS);
+    }, []);
 
     if (document === undefined) {
         return (

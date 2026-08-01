@@ -25,6 +25,8 @@ const Toolbar = ({
     const [isEditing, setIsEditing] = useState<boolean>(false);
     const [value, setValue] = useState(initialData?.title || "");
     const [displayValue, setDisplayValue] = useState(initialData?.title || "");
+    // 标题写库防抖：击键期间只更新本地 state，停顿 400ms 才落库
+    const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
     // 记录上次应用的外部标题：仅外部 title 变化（AI 修改/reload）时同步 displayValue，
     // 避免失焦瞬间 isEditing 变化触发 effect 用旧标题覆盖新值（新→旧→新闪烁）
     const lastAppliedTitle = useRef(initialData?.title);
@@ -55,6 +57,11 @@ const Toolbar = ({
 
     const disableInput = () => {
         const newValue = value || "Untitled";
+        // 取消未落库的防抖定时器，blur 时立即写入（避免与防抖重复写）
+        if (saveTimer.current) {
+            clearTimeout(saveTimer.current);
+            saveTimer.current = undefined;
+        }
         flushSync(() => {
             setIsEditing(false);
             setDisplayValue(newValue);
@@ -67,7 +74,12 @@ const Toolbar = ({
 
     const onInput = (value: string) => {
         setValue(value);
-        update(initialData.id, { title: value || "Untitled" });
+        // 防抖写库：连续输入只更新 state，停顿后落库一次
+        if (saveTimer.current) clearTimeout(saveTimer.current);
+        saveTimer.current = setTimeout(() => {
+            saveTimer.current = undefined;
+            update(initialData.id, { title: value || "Untitled" });
+        }, 400);
     };
 
     const onSelectIcon = (icon: string) => {

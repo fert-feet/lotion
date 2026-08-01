@@ -27,8 +27,9 @@ const Navigation = () => {
     const isMobile = useMediaQuery("(max-width: 768px)");
     const { user } = useSupabaseUser();
     const toggle = useSearch((store) => store.toggle);
-    const settings = useSettings();
-    const aiPanel = useAiPanel();
+    // 只订阅用到的 action：整 store 订阅会在任何字段变化时重渲染 Navigation
+    const settingsOnOpen = useSettings((s) => s.onOpen);
+    const aiPanelToggle = useAiPanel((s) => s.toggle);
     const triggerSidebar = useRefresh((s) => s.triggerSidebar);
     const router = useRouter();
 
@@ -183,13 +184,13 @@ const Navigation = () => {
                     <Item
                         label="Settings"
                         icon={Settings}
-                        onClick={settings.onOpen}
+                        onClick={settingsOnOpen}
                     />
                     <Item
                         label="AI 助手"
                         icon={Sparkles}
                         highlighted
-                        onClick={aiPanel.toggle}
+                        onClick={aiPanelToggle}
                     />
                     <Item
                         onClick={onCreate}

@@ -22,6 +22,8 @@ const Title = ({
     const [title, setTitle] = useState(initialData.title || "Untitled");
     // 本地显示的标题：编辑中用自己的 state，失焦立即同步避免闪烁
     const [displayTitle, setDisplayTitle] = useState(initialData.title || "Untitled");
+    // 标题写库防抖：击键期间只更新本地 state，停顿 400ms 才落库
+    const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
     // 非编辑状态下，外部 props 变化时同步显示标题
     useEffect(() => {
@@ -42,6 +44,11 @@ const Title = ({
 
     const disableInput = () => {
         const newTitle = title || "Untitled";
+        // 取消未落库的防抖定时器，blur 时立即写入（避免与防抖重复写）
+        if (saveTimer.current) {
+            clearTimeout(saveTimer.current);
+            saveTimer.current = undefined;
+        }
         // 同步渲染：确保 displayTitle 立即生效，不被异步操作打断
         flushSync(() => {
             setIsEditing(false);
@@ -55,10 +62,16 @@ const Title = ({
     const onChange = (
         e: React.ChangeEvent<HTMLInputElement>
     ) => {
-        setTitle(e.target.value);
-        update(initialData.id, {
-            title: e.target.value || "Untitled"
-        });
+        const value = e.target.value;
+        setTitle(value);
+        // 防抖写库：连续输入只更新 state，停顿后落库一次
+        if (saveTimer.current) clearTimeout(saveTimer.current);
+        saveTimer.current = setTimeout(() => {
+            saveTimer.current = undefined;
+            update(initialData.id, {
+                title: value || "Untitled"
+            });
+        }, 400);
     };
 
     const onKeyDown = (

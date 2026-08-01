@@ -55,13 +55,14 @@ function supabase() {
 
 // ---- Chat history ----
 
-/** 列出当前用户全部会话（按最近更新倒序） */
+/** 列出当前用户全部会话（按最近更新倒序，最多 50 条） */
 export async function getChatSessions(userId: string): Promise<ChatSession[]> {
   const { data } = await supabase()
     .from("chat_sessions")
     .select("id, title, createdAt, updatedAt")
     .eq("userId", userId)
-    .order("updatedAt", { ascending: false });
+    .order("updatedAt", { ascending: false })
+    .limit(50);
 
   return (data || []) as ChatSession[];
 }
@@ -185,13 +186,19 @@ export async function getSearch(userId: string) {
 
 // 请求去重：Navbar 和 Page 同时请求同一个文档时共用同一个 promise
 const pendingById = new Map<string, Promise<Document>>();
-// 内存缓存：已加载过的文档不再重复请求
+// 内存缓存：已加载过的文档不再重复请求；设大小上限防长期会话内存增长
 const docCache = new Map<string, Document>();
+const DOC_CACHE_MAX = 200;
 
 export async function getById(documentId: string) {
   if (docCache.has(documentId)) return docCache.get(documentId)!;
   if (pendingById.has(documentId)) return pendingById.get(documentId)!;
   const promise = _getById(documentId).then((doc) => {
+    // 超出上限时淘汰最旧条目（Map 迭代序 = 插入序）
+    if (docCache.size >= DOC_CACHE_MAX) {
+      const oldest = docCache.keys().next().value;
+      if (oldest !== undefined) docCache.delete(oldest);
+    }
     docCache.set(documentId, doc);
     return doc;
   });

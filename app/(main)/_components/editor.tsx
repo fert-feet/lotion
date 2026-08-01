@@ -61,7 +61,9 @@ const Editor = ({
     }, [initialContent, editor]);
 
     const onEditorChange = useCallback((editor: BlockNoteEditor) => {
-        onChange(JSON.stringify(editor.document, null, 2));
+        // 无缩进序列化：JSON.stringify(x, null, 2) 的空白占 30-50% 体积，
+        // 每次防抖写库都全量传输，紧凑序列化显著降低 payload
+        onChange(JSON.stringify(editor.document));
     }, [onChange]);
 
     return (

@@ -72,6 +72,27 @@ const AiPanel = () => {
   const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
   const [navHeight, setNavHeight] = useState(0);
   const confirmTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // setStreaming 的 rAF 节流：SSE 文本 chunk 到达频率可能高于帧率，
+  // 同一帧内多次 setStreaming 合并为一次渲染（ReactMarkdown 全量重解析开销大）
+  const streamingRaf = useRef<number | null>(null);
+  const pendingStreamingRef = useRef("");
+  // 流式文本更新（rAF 节流）：最新文本存入 ref，每帧最多触发一次 setStreaming
+  const scheduleStreaming = (text: string) => {
+    pendingStreamingRef.current = text;
+    if (streamingRaf.current !== null) return;
+    streamingRaf.current = requestAnimationFrame(() => {
+      streamingRaf.current = null;
+      setStreaming(pendingStreamingRef.current);
+    });
+  };
+
+  // 卸载时取消未执行的 rAF
+  useEffect(() => {
+    return () => {
+      if (streamingRaf.current !== null) cancelAnimationFrame(streamingRaf.current);
+    };
+  }, []);
+
   const messagesRef = useRef<HTMLDivElement>(null);
   // 流式请求控制：当前是否在生成、终止用 AbortController、待发送队列
   const streamingRef = useRef(false);
@@ -286,7 +307,7 @@ const AiPanel = () => {
         switch (event.type) {
           case "text":
             fullText += event.text;
-            setStreaming(fullText);
+            scheduleStreaming(fullText);
             break;
           case "progress":
             setProgress(event.label);

@@ -105,6 +105,8 @@ describe("chat 会话函数", () => {
     const eqs = calls.filter((c) => c.op === "eq");
     expect(eqs).toContainEqual({ op: "eq", col: "userId", val: "u1" });
     expect(calls.some((c) => c.op === "order")).toBe(true);
+    // 最多 50 条，防止会话多时全量拉取
+    expect(calls.some((c) => c.op === "limit")).toBe(true);
   });
 
   it("createChatSession 返回新会话 id", async () => {
@@ -218,6 +220,19 @@ describe("getById 缓存与去重", () => {
     await getById("c3");
     const fresh = await getByIdFresh("c3");
     expect(fresh.title).toBe("新");
+  });
+
+  it("缓存超过上限（200）时淘汰最旧条目，防止内存无限增长", async () => {
+    const script = Array.from({ length: 201 }, (_, i) => () => ({ data: { id: `d${i}`, title: `t${i}` } }));
+    mockSupabase(script);
+    for (let i = 0; i < 201; i++) {
+      await getById(`d${i}`);
+    }
+    // d0 已被淘汰：再次请求需重新拉取（script 已耗尽 → Not found）
+    await expect(getById("d0")).rejects.toThrow("Not found");
+    // d200 仍在缓存：命中不消耗 script
+    await expect(getById("d200")).resolves.toMatchObject({ id: "d200" });
+    expect(script).toHaveLength(0);
   });
 });
 
