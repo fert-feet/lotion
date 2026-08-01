@@ -54,6 +54,8 @@ export async function runNoteAgent(
   logger.agent.info("开始 Agent 执行", { userId, prompt: prompt.slice(0, 100), withContext: !!docContext });
 
   let stepCount = 0;
+  const startedAt = Date.now();
+  let stepStart = startedAt;
   // 共享变量：createNote tool 创建后写入 ID，流读取时检测并注入标记
   const pendingNoteId: { current: string | null } = { current: null };
   // 共享变量：deleteNote tool 触发确认，等待用户在前端确认
@@ -69,7 +71,9 @@ export async function runNoteAgent(
     messages,
     tools: createTools(supabase, userId, pendingNoteId, pendingConfirmDelete, pendingModifiedNoteId),
     stopWhen: stepCountIs(5),
-    onStepFinish: ({ finishReason, toolCalls }) => {
+    onStepFinish: ({ finishReason, toolCalls, text }) => {
+      const stepMs = Date.now() - stepStart;
+      stepStart = Date.now();
       stepCount++;
       if (toolCalls?.length) {
         const names = toolCalls.map((tc: any) => {
@@ -80,10 +84,23 @@ export async function runNoteAgent(
       }
       logger.agent.info(`Step ${stepCount} 完成`, {
         finishReason,
+        stepMs,
+        toolCalls: toolCalls?.map((tc: any) => ({ name: tc.toolName, args: tc.args })),
+        text: text ? (text.length > 200 ? text.slice(0, 200) + "…" : text) : undefined,
         pendingNoteId: pendingNoteId.current,
         pendingConfirmDelete: pendingConfirmDelete.current?.noteId,
         pendingModifiedNoteId: pendingModifiedNoteId.current,
-        toolCalls: toolCalls?.map((tc: any) => tc.toolName),
+      });
+    },
+    onFinish: ({ finishReason, usage, steps }) => {
+      logger.agent.info("Agent 执行结束", {
+        finishReason,
+        totalSteps: stepCount,
+        totalMs: Date.now() - startedAt,
+        usage: usage ? { input: usage.inputTokens, output: usage.outputTokens } : undefined,
+        pendingNoteId: pendingNoteId.current,
+        pendingModifiedNoteId: pendingModifiedNoteId.current,
+        steps: steps?.map((s) => ({ toolCalls: s.toolCalls?.map((tc) => tc.toolName), finishReason: s.finishReason })),
       });
     },
   });

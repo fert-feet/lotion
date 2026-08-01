@@ -14,9 +14,12 @@ export function createCreateNoteTool(supabase: SupabaseClient, userId: string, p
     execute: async ({ title, content }: { title: string; content: string }) => {
       logger.tools.info("[createNote] 创建笔记", { title, contentLen: content.length });
 
+      // 先转换 Markdown 再插入：转换失败不会留下空笔记
+      const blocks = markdownToBlocks(content);
+
       const { data: doc, error } = await supabase
         .from("documents")
-        .insert({ title, userId, isArchived: false, isPublished: false, isDraft: true })
+        .insert({ title, userId, content: JSON.stringify(blocks), isArchived: false, isPublished: false, isDraft: true })
         .select("id")
         .single();
 
@@ -25,15 +28,8 @@ export function createCreateNoteTool(supabase: SupabaseClient, userId: string, p
         return `创建笔记失败：${error?.message || "未知错误"}`;
       }
 
-      const blocks = markdownToBlocks(content);
-
-      await supabase
-        .from("documents")
-        .update({ content: JSON.stringify(blocks) })
-        .eq("id", doc.id);
-
       pendingNoteId.current = doc.id;
-      logger.tools.info("[createNote] 已转换并写入", { noteId: doc.id, blockCount: blocks.length });
+      logger.tools.info("[createNote] 已创建", { noteId: doc.id, blockCount: blocks.length });
 
       return `笔记「${title}」已创建（ID: ${doc.id}），内容已写入。如果觉得内容需要调整，可用此 ID 调用 updateNote 修改。`;
     },

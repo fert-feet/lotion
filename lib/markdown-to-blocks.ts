@@ -69,14 +69,19 @@ function parseInline(text: string): InlineNode[] {
   return splitByMarkers(processed);
 }
 
-const MARKER_REGEX = /([\x01-\x05])(.*?)\1/g;
+// 最大递归深度保险：防止恶意/异常输入导致栈溢出
+const MAX_INLINE_DEPTH = 10;
 
-function splitByMarkers(input: string): InlineNode[] {
+function splitByMarkers(input: string, depth = 0): InlineNode[] {
+  // 局部正则：每次调用新建，避免递归调用共享全局 RegExp 的 lastIndex
+  // （此前用模块级 MARKER_REGEX，内层递归会把 lastIndex 重置为 0，
+  //   外层 exec 重新匹配同一结果 → 无限循环 → tool 执行超时）
+  const markerRegex = /([\x01-\x05])(.*?)\1/g;
   const nodes: InlineNode[] = [];
   let lastIndex = 0;
   let match: RegExpExecArray | null;
 
-  while ((match = MARKER_REGEX.exec(input)) !== null) {
+  while ((match = markerRegex.exec(input)) !== null) {
     // 占位符之前的纯文本
     if (match.index > lastIndex) {
       const plain = input.slice(lastIndex, match.index);
@@ -93,9 +98,13 @@ function splitByMarkers(input: string): InlineNode[] {
       : marker === "\x05" ? { strikethrough: true }
       : {};
 
-    // 递归处理嵌套内容
-    for (const inner of splitByMarkers(content)) {
-      addText(nodes, inner.text, { ...inner.styles, ...style });
+    // 递归处理嵌套内容（深度受限）
+    if (depth >= MAX_INLINE_DEPTH) {
+      addText(nodes, content, style);
+    } else {
+      for (const inner of splitByMarkers(content, depth + 1)) {
+        addText(nodes, inner.text, { ...inner.styles, ...style });
+      }
     }
 
     lastIndex = match.index + match[0].length;
