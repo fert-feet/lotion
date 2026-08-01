@@ -154,6 +154,7 @@ const Navigation = () => {
                     <Item
                         label="AI 助手"
                         icon={Sparkles}
+                        highlighted
                         onClick={aiPanel.toggle}
                     />
                     <Item

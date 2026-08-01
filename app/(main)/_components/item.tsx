@@ -23,6 +23,7 @@ interface ItemProps {
     onClick?: () => void;
     icon: LucideIcon;
     iconClassName?: string;
+    highlighted?: boolean;
 }
 
 const Item = memo(({
@@ -37,6 +38,7 @@ const Item = memo(({
     onExpand,
     expanded,
     iconClassName,
+    highlighted,
 }: ItemProps) => {
     const { user } = useSupabaseUser();
     const triggerSidebar = useRefresh((s) => s.triggerSidebar);
@@ -113,7 +115,10 @@ const Item = memo(({
             style={{
                 paddingLeft: level ? `${(level * 12) + 12}px` : "12px"
             }}
-            className={cn("group min-h-[30px] cursor-pointer text-sm py-1 pr-3 w-full hover:bg-primary/5 flex items-center text-muted-foreground font-medium transition-colors duration-150",
+            className={cn("group min-h-[30px] cursor-pointer text-sm py-1 pr-3 w-full flex items-center font-medium transition-colors duration-150",
+                highlighted
+                    ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                    : "hover:bg-primary/5 text-muted-foreground",
                 active && "bg-primary/10 text-primary"
             )}
         >
@@ -134,7 +139,7 @@ const Item = memo(({
                     {documentIcon}
                 </div>
             ) : (
-                <Icon className={cn("mr-2 h-[18px] w-[18px] text-muted-foreground shrink-0", iconClassName)} />
+                <Icon className={cn("mr-2 h-[18px] w-[18px] shrink-0", highlighted ? "text-primary-foreground" : "text-muted-foreground", iconClassName)} />
             )}
             <span className="truncate">
                 {label}
