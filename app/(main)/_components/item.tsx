@@ -22,6 +22,7 @@ interface ItemProps {
     label: string;
     onClick?: () => void;
     icon: LucideIcon;
+    iconClassName?: string;
 }
 
 const Item = memo(({
@@ -35,6 +36,7 @@ const Item = memo(({
     level = 0,
     onExpand,
     expanded,
+    iconClassName,
 }: ItemProps) => {
     const { user } = useSupabaseUser();
     const triggerSidebar = useRefresh((s) => s.triggerSidebar);
@@ -111,8 +113,8 @@ const Item = memo(({
             style={{
                 paddingLeft: level ? `${(level * 12) + 12}px` : "12px"
             }}
-            className={cn("group min-h-[27px] cursor-pointer text-sm py-1 pr-3 w-full hover:bg-primary/5 flex items-center text-muted-foreground font-medium",
-                active && "bg-primary/5 text-primary"
+            className={cn("group min-h-[30px] cursor-pointer text-sm py-1 pr-3 w-full hover:bg-primary/5 flex items-center text-muted-foreground font-medium transition-colors duration-150",
+                active && "bg-primary/10 text-primary"
             )}
         >
             {!!id && (
@@ -132,7 +134,7 @@ const Item = memo(({
                     {documentIcon}
                 </div>
             ) : (
-                <Icon className="mr-2 h-[18px] w-[18px] text-muted-foreground shrink-0" />
+                <Icon className={cn("mr-2 h-[18px] w-[18px] text-muted-foreground shrink-0", iconClassName)} />
             )}
             <span className="truncate">
                 {label}
@@ -147,7 +149,7 @@ const Item = memo(({
                 <div className="flex ml-auto items-center gap-x-2">
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                            <div role="button" onClick={(e) => e.stopPropagation()} className="cursor-pointer opacity-0 group-hover:opacity-100 h-full ml-auto rounded-sm hover:bg-secondary">
+                            <div role="button" onClick={(e) => e.stopPropagation()} className="cursor-pointer opacity-0 group-hover:opacity-100 max-md:opacity-100 h-full ml-auto rounded-sm hover:bg-secondary">
                                 <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
                             </div>
                         </DropdownMenuTrigger>
@@ -168,7 +170,7 @@ const Item = memo(({
                         </DropdownMenuContent>
                     </DropdownMenu>
 
-                    <div role="button" onClick={onCreate} className="opacity-0 group-hover:opacity-100 h-full ml-auto rounded-sm hover:bg-secondary">
+                    <div role="button" onClick={onCreate} className="opacity-0 group-hover:opacity-100 max-md:opacity-100 h-full ml-auto rounded-sm hover:bg-secondary">
                         <Plus className="h-4 w-4 text-muted-foreground" />
                     </div>
                 </div>

@@ -80,7 +80,7 @@ const TrashBox = () => {
                 <Input
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    className="h-7 px-2 focus-visible:ring-transparent bg-secondary"
+                    className="h-7 px-2 bg-secondary"
                     placeholder="Filter by page title..."
                 />
 
@@ -99,7 +99,7 @@ const TrashBox = () => {
                         <span className="truncate pl-2">
                             {document.title}
                         </span>
-                        <div className="flex items-center group-hover:opacity-100 opacity-0">
+                        <div className="flex items-center group-hover:opacity-100 opacity-0 max-md:opacity-100">
                             <div
                                 role="button"
                                 className="rounded-sm p-2 hover:bg-secondary"

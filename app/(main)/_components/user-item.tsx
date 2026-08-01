@@ -21,9 +21,9 @@ const UserItem = () => {
     return (
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
-                <div role="button" className="flex cursor-pointer items-center text-sm p-3 w-full hover:bg-primary/5">
+                <div role="button" className="flex cursor-pointer items-center text-sm p-3 w-full hover:bg-primary/5 rounded-sm transition-colors duration-150">
                     <div className="flex gap-x-2 items-center max-w-[150px]">
-                        <Avatar className="h-5 w-5">
+                        <Avatar className="h-6 w-6">
                             <AvatarImage src={user?.user_metadata?.avatar_url} />
                         </Avatar>
                         <span className="text-start font-medium line-clamp-1">
