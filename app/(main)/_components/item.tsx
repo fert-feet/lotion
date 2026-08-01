@@ -115,10 +115,7 @@ const Item = memo(({
             style={{
                 paddingLeft: level ? `${(level * 12) + 12}px` : "12px"
             }}
-            className={cn("group min-h-[30px] cursor-pointer text-sm py-1 pr-3 w-full flex items-center font-medium transition-colors duration-150",
-                highlighted
-                    ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                    : "hover:bg-primary/5 text-muted-foreground",
+            className={cn("group min-h-[30px] cursor-pointer text-sm py-1 pr-3 w-full hover:bg-primary/5 flex items-center text-muted-foreground font-medium transition-colors duration-150",
                 active && "bg-primary/10 text-primary"
             )}
         >
@@ -138,8 +135,12 @@ const Item = memo(({
                 <div className="shrink-0 mr-2 text-[18px]">
                     {documentIcon}
                 </div>
+            ) : highlighted ? (
+                <div className="mr-2 flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground">
+                    <Icon className="h-3.5 w-3.5" />
+                </div>
             ) : (
-                <Icon className={cn("mr-2 h-[18px] w-[18px] shrink-0", highlighted ? "text-primary-foreground" : "text-muted-foreground", iconClassName)} />
+                <Icon className={cn("mr-2 h-[18px] w-[18px] shrink-0 text-muted-foreground", iconClassName)} />
             )}
             <span className="truncate">
                 {label}
