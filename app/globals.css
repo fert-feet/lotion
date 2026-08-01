@@ -175,3 +175,10 @@ body,
 .mention-chip.cursor-pointer:hover {
   opacity: 0.8;
 }
+
+/* 深色实底气泡（用户消息黑底白字）内的胶囊：反色实底，不透出气泡底色 */
+.mention-chip-solid {
+  background: var(--background);
+  color: var(--foreground);
+  border-color: color-mix(in srgb, currentColor 30%, transparent);
+}
