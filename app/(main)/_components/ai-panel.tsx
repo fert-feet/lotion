@@ -536,7 +536,7 @@ const AiPanel = () => {
                                 type="button"
                                 title={href}
                                 onClick={() => router.push(`/documents/${href}`)}
-                                className="mention-chip cursor-pointer transition-colors hover:bg-secondary/80"
+                                className="mention-chip cursor-pointer"
                               >
                                 {text.slice(1)}
                               </button>
