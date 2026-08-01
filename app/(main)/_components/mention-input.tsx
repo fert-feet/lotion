@@ -1,6 +1,7 @@
 "use client";
 
 import { useSupabaseUser } from "@/hooks/use-supabase-user";
+import { useRefresh } from "@/hooks/use-refresh";
 import { getSearch, type SidebarDocument } from "@/lib/db";
 import { truncateMentionTitle } from "@/lib/mention";
 import { FileText } from "lucide-react";
@@ -39,18 +40,20 @@ export default function MentionInput({
   ref,
 }: MentionInputProps) {
   const { user } = useSupabaseUser();
+  const sidebarKey = useRefresh((s) => s.sidebarKey);
   const editorRef = useRef<HTMLDivElement>(null);
   const [docs, setDocs] = useState<SidebarDocument[]>([]);
   const [mentionOpen, setMentionOpen] = useState(false);
   const [mentionQuery, setMentionQuery] = useState("");
   const [highlightIndex, setHighlightIndex] = useState(0);
 
-  // 文档列表（@ 选择的数据源）
+  // 文档列表（@ 选择的数据源）：依赖 sidebarKey——新建/删除/归档/AI 创建文档等
+  // 任何触发侧边栏刷新的操作都会递增它，保证 @ 列表及时拿到新文档
   useEffect(() => {
     if (user) {
       getSearch(user.id).then(setDocs).catch(() => {});
     }
-  }, [user]);
+  }, [user, sidebarKey]);
 
   const closeMention = useCallback(() => setMentionOpen(false), []);
 
