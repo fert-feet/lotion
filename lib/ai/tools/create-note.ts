@@ -4,7 +4,12 @@ import z from "zod";
 import { logger } from "@/lib/logger";
 import { markdownToBlocks, extractTitle } from "@/lib/markdown-to-blocks";
 
-export function createCreateNoteTool(supabase: SupabaseClient, userId: string, pendingNoteId: { current: string | null } = { current: null }) {
+export function createCreateNoteTool(
+  supabase: SupabaseClient,
+  userId: string,
+  pendingNoteId: { current: string | null } = { current: null },
+  references: { noteId: string; title: string }[] = [],
+) {
   return tool({
     description: "创建一篇新笔记。标题应简洁地概括内容主题。",
     inputSchema: z.object({
@@ -39,6 +44,8 @@ export function createCreateNoteTool(supabase: SupabaseClient, userId: string, p
       }
 
       pendingNoteId.current = doc.id;
+      // 写操作后记录引用：流结束注入 [REFERENCES:...] 标记，前端展示可点击胶囊
+      references.push({ noteId: doc.id, title: finalTitle });
       logger.tools.info("[createNote] 已创建", { noteId: doc.id, blockCount: contentBlocks.length, title: finalTitle });
 
       return `笔记「${title}」已创建（ID: ${doc.id}），内容已写入。如果觉得内容需要调整，可用此 ID 调用 updateNote 修改。`;

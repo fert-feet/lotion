@@ -51,14 +51,17 @@ beforeEach(() => {
 // ---- createNote ----
 
 describe("createNote 工具", () => {
-  it("创建成功：写入 blocks 并设置 pendingNoteId", async () => {
+  it("创建成功：写入 blocks、设置 pendingNoteId 并记录引用", async () => {
     const { supabase } = mockSupabase([() => ({ data: { id: "doc-1" }, error: null })]);
     const pending = { current: null as string | null };
-    const t = createCreateNoteTool(supabase, "u1", pending);
+    const references: { noteId: string; title: string }[] = [];
+    const t = createCreateNoteTool(supabase, "u1", pending, references);
     const result = await t.execute({ title: "标题", content: "# 一级标题\n内容" } as never, {} as never);
 
     expect(result).toContain("已创建");
     expect(pending.current).toBe("doc-1");
+    // 写操作后记录引用（前端展示可点击胶囊）
+    expect(references).toEqual([{ noteId: "doc-1", title: "一级标题" }]);
   });
 
   it("重复创建被拒绝（幂等防重）", async () => {
@@ -83,22 +86,22 @@ describe("createNote 工具", () => {
 // ---- readNote ----
 
 describe("readNote 工具", () => {
-  it("读取成功并记录引用来源", async () => {
+  it("读取成功但不记录引用来源（只有写操作才展示胶囊）", async () => {
     const { supabase } = mockSupabase([
       () => ({ data: { title: "目标笔记", content: "正文" }, error: null }),
     ]);
     const references: { noteId: string; title: string }[] = [];
-    const t = createReadNoteTool(supabase, references);
+    const t = createReadNoteTool(supabase);
     const result = await t.execute({ noteId: "doc-1" } as never, {} as never);
 
     expect(result).toContain("目标笔记");
-    expect(references).toEqual([{ noteId: "doc-1", title: "目标笔记" }]);
+    expect(references).toHaveLength(0);
   });
 
   it("笔记不存在时返回提示且不记录引用", async () => {
     const { supabase } = mockSupabase([() => ({ data: null, error: { message: "nf" } })]);
     const references: { noteId: string; title: string }[] = [];
-    const t = createReadNoteTool(supabase, references);
+    const t = createReadNoteTool(supabase);
     const result = await t.execute({ noteId: "missing" } as never, {} as never);
 
     expect(result).toContain("不存在");
@@ -109,14 +112,18 @@ describe("readNote 工具", () => {
 // ---- updateNote ----
 
 describe("updateNote 工具", () => {
-  it("更新成功：content 转 blocks，设置 pendingModifiedNoteId", async () => {
-    const { supabase, calls } = mockSupabase([() => ({ error: null })]);
+  it("更新成功：content 转 blocks、设置 pendingModifiedNoteId 并记录引用", async () => {
+    const { supabase, calls } = mockSupabase([
+      () => ({ data: { title: "目标笔记" }, error: null }),
+    ]);
     const pending = { current: null as string | null };
-    const t = createUpdateNoteTool(supabase, pending);
+    const references: { noteId: string; title: string }[] = [];
+    const t = createUpdateNoteTool(supabase, pending, references);
     const result = await t.execute({ noteId: "doc-1", content: "新内容" } as never, {} as never);
 
     expect(result).toBe("笔记内容已更新。");
     expect(pending.current).toBe("doc-1");
+    expect(references).toEqual([{ noteId: "doc-1", title: "目标笔记" }]);
     const updateCall = calls.find((c) => c.op === "update");
     expect(updateCall?.fields).toEqual({
       content: expect.stringContaining("新内容"),
@@ -124,7 +131,9 @@ describe("updateNote 工具", () => {
   });
 
   it("内容以 # 一级标题开头时提取为文档 title", async () => {
-    const { supabase, calls } = mockSupabase([() => ({ error: null })]);
+    const { supabase, calls } = mockSupabase([
+      () => ({ data: { title: "新标题" }, error: null }),
+    ]);
     const t = createUpdateNoteTool(supabase, { current: null });
     await t.execute({ noteId: "doc-1", content: "# 新标题\n正文" } as never, {} as never);
 
@@ -137,25 +146,29 @@ describe("updateNote 工具", () => {
   it("更新失败返回错误文案且不设置标记", async () => {
     const { supabase } = mockSupabase([() => ({ error: { message: "db down" } })]);
     const pending = { current: null as string | null };
-    const t = createUpdateNoteTool(supabase, pending);
+    const references: { noteId: string; title: string }[] = [];
+    const t = createUpdateNoteTool(supabase, pending, references);
     const result = await t.execute({ noteId: "doc-1", content: "x" } as never, {} as never);
 
     expect(result).toContain("更新失败");
     expect(pending.current).toBeNull();
+    expect(references).toHaveLength(0);
   });
 });
 
 // ---- renameNote ----
 
 describe("renameNote 工具", () => {
-  it("重命名成功并设置 pendingModifiedNoteId", async () => {
+  it("重命名成功：设置 pendingModifiedNoteId 并记录引用", async () => {
     const { supabase, calls } = mockSupabase([() => ({ error: null })]);
     const pending = { current: null as string | null };
-    const t = createRenameNoteTool(supabase, pending);
+    const references: { noteId: string; title: string }[] = [];
+    const t = createRenameNoteTool(supabase, pending, references);
     const result = await t.execute({ noteId: "doc-1", title: "新标题" } as never, {} as never);
 
     expect(result).toContain("新标题");
     expect(pending.current).toBe("doc-1");
+    expect(references).toEqual([{ noteId: "doc-1", title: "新标题" }]);
     expect(calls).toContainEqual({ op: "update", fields: { title: "新标题" } });
   });
 

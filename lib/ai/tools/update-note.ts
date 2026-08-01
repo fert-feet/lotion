@@ -7,6 +7,7 @@ import { markdownToBlocks, extractTitle } from "@/lib/markdown-to-blocks";
 export function createUpdateNoteTool(
   supabase: SupabaseClient,
   pendingModifiedNoteId: { current: string | null } = { current: null },
+  references: { noteId: string; title: string }[] = [],
 ) {
   return tool({
     description: "修改已有笔记的内容。先通过 readNote 读取当前内容，再调用此工具更新。",
@@ -24,10 +25,12 @@ export function createUpdateNoteTool(
       const fields: Record<string, string> = { content: JSON.stringify(contentBlocks) };
       if (extractedTitle) fields.title = extractedTitle;
 
-      const { error } = await supabase
+      const { data: updated, error } = await supabase
         .from("documents")
         .update(fields)
-        .eq("id", noteId);
+        .eq("id", noteId)
+        .select("title")
+        .single();
 
       if (error) {
         logger.tools.error("[updateNote] 更新失败", { error: String(error) });
@@ -35,6 +38,8 @@ export function createUpdateNoteTool(
       }
 
       pendingModifiedNoteId.current = noteId;
+      // 写操作后记录引用：流结束注入 [REFERENCES:...] 标记，前端展示可点击胶囊
+      references.push({ noteId, title: updated?.title || extractedTitle || "笔记" });
       logger.tools.info("[updateNote] 更新成功", { noteId, blockCount: contentBlocks.length, extractedTitle: extractedTitle ?? undefined });
       return `笔记内容已更新。`;
     },

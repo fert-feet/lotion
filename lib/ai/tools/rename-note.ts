@@ -6,6 +6,7 @@ import { logger } from "@/lib/logger";
 export function createRenameNoteTool(
   supabase: SupabaseClient,
   pendingModifiedNoteId: { current: string | null } = { current: null },
+  references: { noteId: string; title: string }[] = [],
 ) {
   return tool({
     description: "重命名已有笔记的标题。",
@@ -27,6 +28,8 @@ export function createRenameNoteTool(
       }
 
       pendingModifiedNoteId.current = noteId;
+      // 写操作后记录引用：流结束注入 [REFERENCES:...] 标记，前端展示可点击胶囊
+      references.push({ noteId, title });
       logger.tools.info("[renameNote] 重命名成功");
       return `标题已更新为「${title}」。`;
     },

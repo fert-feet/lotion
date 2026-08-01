@@ -6,7 +6,7 @@ import { runNoteAgent } from "@/lib/agent";
 
 const { mockConfig } = vi.hoisted(() => ({
   mockConfig: {
-    tool: "createNote" as "createNote" | "readNote" | "none",
+    tool: "createNote" as "createNote" | "readNote" | "updateNote" | "none",
     emitStepFinish: false,
   },
 }));
@@ -24,7 +24,9 @@ vi.mock("ai", async (importOriginal) => {
             const args =
               toolName === "createNote"
                 ? { title: "测试笔记", content: "笔记内容" }
-                : { noteId: "doc-123" };
+                : toolName === "updateNote"
+                  ? { noteId: "doc-123", content: "新内容" }
+                  : { noteId: "doc-123" };
             await options.tools[toolName].execute(args, { toolCallId: "t1" });
           }
           // 模拟工具调用完成回调 → 触发 [PROGRESS:...] 注入
@@ -75,6 +77,16 @@ const fakeSupabase = {
           }),
         }),
       }),
+      update: () => ({
+        eq: () => ({
+          select: () => ({
+            single: async () => ({
+              data: { id: "doc-123", title: "引用笔记", content: "笔记内容" },
+              error: null,
+            }),
+          }),
+        }),
+      }),
     };
   },
 } as unknown as SupabaseClient;
@@ -109,14 +121,23 @@ describe("runNoteAgent 流标记注入", () => {
     expect(text).toContain("正在处理...");
   });
 
-  it("readNote 执行后流结束前注入 [REFERENCES] 标记（标题 URL 编码）", async () => {
-    mockConfig.tool = "readNote";
-    const { stream, done } = await runNoteAgent(fakeSupabase, "user-1", "读一下笔记");
+  it("updateNote 执行后流结束前注入 [REFERENCES] 标记（标题 URL 编码）", async () => {
+    mockConfig.tool = "updateNote";
+    const { stream, done } = await runNoteAgent(fakeSupabase, "user-1", "改一下笔记");
     const text = await readAll(stream);
     expect(text).toContain(`[REFERENCES:doc-123:${encodeURIComponent("引用笔记")}]`);
     // done 携带引用信息供 route 落库
     const result = await done;
     expect(result.references).toEqual([{ noteId: "doc-123", title: "引用笔记" }]);
+  });
+
+  it("readNote 执行后不注入 [REFERENCES] 标记（纯读取不展示胶囊）", async () => {
+    mockConfig.tool = "readNote";
+    const { stream, done } = await runNoteAgent(fakeSupabase, "user-1", "读一下笔记");
+    const text = await readAll(stream);
+    expect(text).not.toContain("[REFERENCES");
+    const result = await done;
+    expect(result.references).toEqual([]);
   });
 
   it("onStepFinish 工具调用触发 [PROGRESS] 进度注入", async () => {
