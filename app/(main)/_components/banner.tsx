@@ -47,10 +47,10 @@ const Banner = ({
     };
 
     return (
-        <div className="w-full border-b bg-rose-50/80 dark:bg-rose-950/20 border-rose-200 dark:border-rose-800/60">
+        <div className="w-full border-b bg-muted border-border">
             <div className="max-w-3xl lg:max-w-4xl mx-auto flex items-center gap-3 px-4 py-2.5">
-                <Archive className="h-4 w-4 text-rose-600 dark:text-rose-400 shrink-0" />
-                <p className="text-sm font-medium text-rose-800 dark:text-rose-200 flex-1">
+                <Archive className="h-4 w-4 text-foreground shrink-0" />
+                <p className="text-sm font-medium text-foreground flex-1">
                     此页面已在回收站
                 </p>
                 <Button

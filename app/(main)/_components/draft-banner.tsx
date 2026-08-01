@@ -44,10 +44,10 @@ const DraftBanner = ({ documentId }: DraftBannerProps) => {
   };
 
   return (
-    <div className="w-full border-b bg-amber-50/80 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800/60">
+    <div className="w-full border-b bg-muted border-border">
       <div className="max-w-3xl lg:max-w-4xl mx-auto flex items-center gap-3 px-4 py-2.5">
-        <FileText className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
-        <p className="text-sm font-medium text-amber-800 dark:text-amber-200 flex-1">
+        <FileText className="h-4 w-4 text-foreground shrink-0" />
+        <p className="text-sm font-medium text-foreground flex-1">
           AI 生成的草稿
         </p>
         <Button
