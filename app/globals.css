@@ -150,24 +150,22 @@ body,
   pointer-events: none;
 }
 
-/* 文档提及胶囊：统一 outline 风格（透明底 + 文字色细边框 + 继承文字色），
-   在输入框、AI 气泡、用户气泡（深浅主题）中均自适应，无需主题反转 */
+/* 文档提及胶囊：与 AI 回复下方的引用来源 chip 同款样式（灰底 + 边框 + muted 灰字） */
 .mention-chip {
   display: inline-flex;
   align-items: center;
   border-radius: 9999px;
-  border: 1px solid;
-  border-color: color-mix(in srgb, currentColor 30%, transparent);
-  background: transparent;
-  padding: 0 6px;
-  font-size: 0.6875rem;
-  font-weight: 500;
-  line-height: 1.5;
-  color: inherit;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--muted) 50%, transparent);
+  padding: 0.25rem 0.625rem;
+  font-size: 0.75rem;
+  font-weight: 400;
+  line-height: 1.4;
+  color: var(--muted-foreground);
+  vertical-align: baseline;
+  white-space: nowrap;
   max-width: 10rem;
   margin-inline: 3px; /* 与相邻文本之间留出空隙 */
-  vertical-align: baseline; /* 与相邻文字基线对齐，避免中线对齐造成视觉错位 */
-  white-space: nowrap;
 }
 
 /* 胶囊文本超出 max-width 时省略号截断（flex 子项需 min-width:0 才能收缩） */
@@ -178,7 +176,8 @@ body,
   white-space: nowrap;
 }
 
-/* 可点击胶囊的 hover 反馈 */
+/* 可点击胶囊的 hover 反馈（与引用 chip 一致：文字/边框加深） */
 .mention-chip.cursor-pointer:hover {
-  opacity: 0.8;
+  color: var(--foreground);
+  border-color: color-mix(in srgb, var(--foreground) 40%, transparent);
 }
