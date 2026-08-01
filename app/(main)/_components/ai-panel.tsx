@@ -143,6 +143,13 @@ const AiPanel = () => {
     messagesRef.current?.scrollTo(0, messagesRef.current.scrollHeight);
   }, [messages, streaming]);
 
+  // 每次打开面板都滚到最新消息（关闭时 state 保留，消息不变化不会触发上面的 effect）
+  useEffect(() => {
+    if (isOpen) {
+      messagesRef.current?.scrollTo(0, messagesRef.current.scrollHeight);
+    }
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   // ---- 会话操作 ----
