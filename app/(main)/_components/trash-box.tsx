@@ -19,7 +19,9 @@ const TrashBox = () => {
 
     const loadTrash = () => {
         if (user) {
-            getTrash(user.id).then(setDocuments);
+            getTrash(user.id)
+                .then(setDocuments)
+                .catch(() => setDocuments([])); // 失败显示空列表，避免无限 Spinner
         }
     };
 

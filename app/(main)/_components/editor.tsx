@@ -41,8 +41,18 @@ const Editor = ({
         return urlData.publicUrl;
     };
 
+    // 挂载时解析文档内容：损坏 JSON（AI 工具写入截断等）不崩溃，退化为空文档
+    let initialBlocks: PartialBlock[] | undefined;
+    if (initialContent) {
+        try {
+            initialBlocks = JSON.parse(initialContent) as PartialBlock[];
+        } catch {
+            console.warn("文档内容 JSON 解析失败，按空文档打开");
+        }
+    }
+
     const editor: BlockNoteEditor = useCreateBlockNote({
-        initialContent: initialContent ? JSON.parse(initialContent) as PartialBlock[] : undefined,
+        initialContent: initialBlocks,
         uploadFile: handleUpload
     });
 

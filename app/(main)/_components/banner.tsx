@@ -19,6 +19,7 @@ const Banner = ({
     const router = useRouter();
     const { user } = useSupabaseUser();
     const triggerSidebar = useRefresh((s) => s.triggerSidebar);
+    const triggerDocument = useRefresh((s) => s.triggerDocument);
 
     const onRemove = () => {
         const promise = remove(documentId).then(() => {
@@ -37,6 +38,7 @@ const Banner = ({
         if (!user) return;
         const promise = restore(user.id, documentId).then(() => {
             triggerSidebar();
+            triggerDocument(documentId); // 刷新文档详情，让归档横幅消失
         });
 
         toast.promise(promise, {

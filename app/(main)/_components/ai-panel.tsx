@@ -86,20 +86,32 @@ const AiPanel = () => {
     });
   };
 
+  // 取消未执行的 rAF 并清空待渲染文本：
+  // 流结束/中止时若不取消，已排队的回调会在下一帧把 streaming 置回最后一段文本，
+  // 消息列表下方残留重复的"幽灵流"气泡
+  const cancelStreamingFlush = () => {
+    if (streamingRaf.current !== null) {
+      cancelAnimationFrame(streamingRaf.current);
+      streamingRaf.current = null;
+    }
+    pendingStreamingRef.current = "";
+  };
+
   // 卸载时取消未执行的 rAF
   useEffect(() => {
-    return () => {
-      if (streamingRaf.current !== null) cancelAnimationFrame(streamingRaf.current);
-    };
+    return () => cancelStreamingFlush();
   }, []);
 
   const messagesRef = useRef<HTMLDivElement>(null);
-  // 流式请求控制：当前是否在生成、终止用 AbortController、待发送队列
+  // 流式请求控制：当前是否在生成、终止用 AbortController、待发送队列（含会话快照）
   const streamingRef = useRef(false);
   const abortRef = useRef<AbortController | null>(null);
-  const queueRef = useRef<string[]>([]);
-  const [queueItems, setQueueItems] = useState<string[]>([]);
+  const queueRef = useRef<Array<{ content: string; sessionId: string }>>([]);
+  const [queueItems, setQueueItems] = useState<Array<{ content: string; sessionId: string }>>([]);
   const mentionRef = useRef<MentionInputHandle>(null);
+  // 当前激活会话 ref：abort 分支区分"用户手动停止"与"切换会话导致的中止"
+  const activeSessionRef = useRef<string | null>(null);
+  activeSessionRef.current = activeSessionId;
 
   // 面板顶部卡在 navbar/banner 下方：实时测量顶部文档栏高度
   // （banner 出现/消失、侧边栏折叠都会改变高度，用 ResizeObserver 跟随）
@@ -170,6 +182,16 @@ const AiPanel = () => {
   // 切换会话时加载该会话的历史（跨文档全局对话）
   useEffect(() => {
     if (!userId || !activeSessionId) return;
+    // 切换会话：中止上一会话的流式请求，防止旧流的文本/loading 污染新会话
+    if (streamingRef.current && abortRef.current) {
+      abortRef.current.abort();
+      abortRef.current = null;
+      streamingRef.current = false;
+      setLoading(false);
+      setStreaming("");
+      setProgress("");
+      cancelStreamingFlush();
+    }
     let alive = true;
     getChatHistory(userId, activeSessionId, 20)
       .then((msgs) => {
@@ -258,9 +280,10 @@ const AiPanel = () => {
     }
   };
 
-  // 真正发起请求：首次发送与队列调度共用（不检查 loading，由 streamingRef 保证不并发）
-  const sendMessage = async (content: string) => {
-    if (!content || !activeSessionId) return;
+  // 真正发起请求：首次发送与队列调度共用（不检查 loading，由 streamingRef 保证不并发）。
+  // sessionId 为发起时快照：队列中的消息即使期间切换会话，仍发到入队时的会话。
+  const sendMessage = async (content: string, sessionId: string) => {
+    if (!content || !sessionId) return;
     streamingRef.current = true;
 
     const userMsg: Message = { role: "user", content };
@@ -268,6 +291,7 @@ const AiPanel = () => {
     setLoading(true);
     setStreaming("");
     setProgress("");
+    cancelStreamingFlush();
 
     const controller = new AbortController();
     abortRef.current = controller;
@@ -283,7 +307,7 @@ const AiPanel = () => {
         body: JSON.stringify({
           prompt: content,
           documentId: params.documentId || undefined,
-          sessionId: activeSessionId,
+          sessionId,
           requestId: crypto.randomUUID(), // 服务端幂等，防重复提交
         }),
         signal: controller.signal, // 终止按钮 abort 此请求
@@ -361,18 +385,28 @@ const AiPanel = () => {
       setMessages((prev) => [...prev, newMsg]);
       setStreaming("");
       setProgress("");
+      cancelStreamingFlush();
       refreshSessions(); // 刷新会话列表（首个问题会自动命名会话）
     } catch (err) {
       if (controller.signal.aborted) {
-        // 用户主动终止：保留已生成的部分内容（SSE 事件与文本分通道，无标记残留需清理）
+        // 用户主动停止（同一会话）：保留已生成的部分内容；
+        // 切换会话导致的中止（activeSessionId 已变）不追加，避免旧流文本污染新会话
         const partial = fullText.trim();
-        if (partial) {
+        if (partial && activeSessionRef.current === sessionId) {
           setMessages((prev) => [...prev, { role: "assistant", content: partial }]);
         }
         setStreaming("");
         setProgress("");
-        toast.info("已停止生成");
+        cancelStreamingFlush();
+        // 仅用户主动停止（仍是发起时会话）时提示；切换会话导致的中止不打扰
+        if (activeSessionRef.current === sessionId) {
+          toast.info("已停止生成");
+        }
       } else {
+        // 网络/服务端错误：清理流式状态，避免残留部分文本
+        setStreaming("");
+        setProgress("");
+        cancelStreamingFlush();
         toast.error(
           err instanceof Error && err.message === "DuplicateRequest"
             ? "请求已提交，请勿重复发送"
@@ -380,29 +414,32 @@ const AiPanel = () => {
         );
       }
     } finally {
+      // 归属校验：请求已被会话切换接管（abortRef 被置 null）时不调度队列/清理状态，
+      // 避免旧流的 finally 把下一条队列消息发到错误时机
+      if (abortRef.current !== controller) return;
       streamingRef.current = false;
       setLoading(false);
       abortRef.current = null;
-      // 队列调度：当前请求结束（正常/终止/失败）后自动发送下一条
+      // 队列调度：当前请求结束（正常/终止/失败）后自动发送下一条（含会话快照）
       const next = queueRef.current.shift();
       setQueueItems([...queueRef.current]);
       if (next) {
-        setTimeout(() => sendMessage(next), 60);
+        setTimeout(() => sendMessage(next.content, next.sessionId), 60);
       }
     }
   };
 
-  // 输入框发送入口：流式进行中则入队排队，结束后自动发送
+  // 输入框发送入口：流式进行中则入队排队（记录会话快照），结束后自动发送
   const handleSend = (content: string) => {
     if (!content || !activeSessionId) return;
 
     if (streamingRef.current) {
-      queueRef.current = [...queueRef.current, content];
+      queueRef.current = [...queueRef.current, { content, sessionId: activeSessionId }];
       setQueueItems([...queueRef.current]);
       return;
     }
 
-    void sendMessage(content);
+    void sendMessage(content, activeSessionId);
   };
 
   // 终止当前流式生成（服务端通过 abortSignal 同步中断）
@@ -763,10 +800,10 @@ const AiPanel = () => {
               <div className="space-y-1 max-h-28 overflow-y-auto">
                 {queueItems.map((item, index) => (
                   <div
-                    key={`${index}-${item}`}
+                    key={`${index}-${item.content}`}
                     className="flex items-center gap-2 rounded-sm bg-background/60 px-2 py-1"
                   >
-                    <span className="flex-1 truncate text-xs text-foreground/80">{item}</span>
+                    <span className="flex-1 truncate text-xs text-foreground/80">{item.content}</span>
                     <button
                       onClick={() => removeFromQueue(index)}
                       title="移除该条"

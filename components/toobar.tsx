@@ -116,7 +116,7 @@ const Toolbar = ({
                     </IconPicker>
                     <Button
                         onClick={onRemoveIcon}
-                        className="rounded-full opacity-0 group-hover/icon:opacity-100 transition text-muted-foreground text-xs"
+                        className="rounded-full opacity-0 group-hover/icon:opacity-100 max-md:opacity-100 transition text-muted-foreground text-xs"
                         variant={"outline"}
                         size={"icon"}
                     >
@@ -129,7 +129,7 @@ const Toolbar = ({
                     {initialData.icon}
                 </p>
             )}
-            <div className="flex items-center gap-x-1 group-hover:opacity-100 opacity-0 py-4">
+            <div className="flex items-center gap-x-1 group-hover:opacity-100 opacity-0 max-md:opacity-100 py-4">
                 {!initialData.icon && !preview && (
                     <IconPicker onChange={onSelectIcon}>
                         <Button

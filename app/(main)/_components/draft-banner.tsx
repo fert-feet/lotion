@@ -20,7 +20,6 @@ const DraftBanner = ({ documentId }: DraftBannerProps) => {
     const promise = update(documentId, { isDraft: false }).then(() => {
       triggerSidebar();
       triggerDocument(documentId);
-      toast.success("草稿已保存");
     });
 
     toast.promise(promise, {

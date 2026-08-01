@@ -24,7 +24,12 @@ const SearchCommand = () => {
 
     useEffect(() => {
         if (isOpen && user) {
-            getSearch(user.id).then(setDocuments);
+            // alive 标志：快速开合搜索框时丢弃过期结果
+            let alive = true;
+            getSearch(user.id)
+                .then((data) => { if (alive) setDocuments(data); })
+                .catch(() => { if (alive) setDocuments([]); });
+            return () => { alive = false; };
         }
     }, [isOpen, user]);
 

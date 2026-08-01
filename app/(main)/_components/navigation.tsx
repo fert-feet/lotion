@@ -34,6 +34,9 @@ const Navigation = () => {
     const router = useRouter();
 
     const isResizingRef = useRef(false);
+    // 拖拽是否发生过移动：拖拽结束后 mouseup 会派发 click，若移动过则抑制 resetWidth，
+    // 否则刚拖出的宽度会被立即复位
+    const dragMoved = useRef(false);
     const sidebarRef = useRef<ElementRef<"aside">>(null);
     const navbarRef = useRef<ElementRef<"div">>(null);
 
@@ -107,6 +110,7 @@ const Navigation = () => {
 
     const handleMouseMove = (e: MouseEvent) => {
         if (!isResizingRef.current) return;
+        dragMoved.current = true;
         let newWidth = e.clientX;
 
         if (newWidth < 240) newWidth = 240;
@@ -123,6 +127,8 @@ const Navigation = () => {
         isResizingRef.current = false;
         document.removeEventListener("mousemove", handleMouseMove);
         document.removeEventListener("mouseup", handleMouseUp);
+        // click 在 mouseup 后同步派发，下一事件循环再复位标志
+        setTimeout(() => { dragMoved.current = false; }, 0);
     };
 
     const resetWidth = () => {
@@ -255,7 +261,7 @@ const Navigation = () => {
 
                 <div
                     onMouseDown={(e) => { handleMouseDown(e); }}
-                    onClick={resetWidth}
+                    onClick={() => { if (dragMoved.current) return; resetWidth(); }}
                     className="opacity-0 group-hover/sidebar:opacity-100 transition cursor-ew-resize absolute h-full w-1 bg-primary/10 right-0 top-0" />
             </aside>
 

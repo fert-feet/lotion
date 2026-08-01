@@ -33,6 +33,8 @@ const Title = ({
     }, [initialData.title, isEditing]);
 
     const enableInput = () => {
+        // 编辑态点击输入框内部（移动光标）不应重置为数据库旧标题
+        if (isEditing) return;
         setTitle(initialData.title);
         setIsEditing(true);
 

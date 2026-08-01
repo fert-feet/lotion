@@ -50,10 +50,14 @@ const Publish = ({
     };
 
     const onCopy = () => {
-        navigator.clipboard.writeText(url);
-        setCopied(true);
-        toast.info("Copied");
-
+        // clipboard 在非 HTTPS / 权限拒绝时 reject，失败给出反馈而非静默
+        navigator.clipboard
+            .writeText(url)
+            .then(() => {
+                setCopied(true);
+                toast.info("Copied");
+            })
+            .catch(() => toast.error("复制失败，请手动复制"));
         setTimeout(() => {
             setCopied(false);
         }, 1000);

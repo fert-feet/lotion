@@ -32,14 +32,35 @@ const DocumentIdPage = () => {
     const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
     documentIdRef.current = documentId;
 
+    // 切换文档时立即 flush 未保存内容（写回原文档）：
+    // 防抖窗口内切到别的文档，内容不会丢失也不会串写到新文档。
+    // cleanup 闭包捕获本次渲染的 documentId（旧值），documentIdRef 在
+    // 渲染时已更新为最新值，不能用于这里。
+    useEffect(() => {
+        const prevDocId = documentId;
+        return () => {
+            if (prevDocId && latestContent.current) {
+                if (saveTimer.current) {
+                    clearTimeout(saveTimer.current);
+                    saveTimer.current = undefined;
+                }
+                update(prevDocId, { content: latestContent.current });
+                latestContent.current = "";
+            }
+        };
+    }, [documentId]);
+
     useEffect(() => {
         if (documentId) {
             // 首次加载走缓存；AI 修改标记（documentKeys 变化）后必须绕过缓存
-            // 拿新内容（updateNote 在服务端直接写库，docCache 仍是旧值）
+            // 拿新内容（updateNote 在服务端直接写库，docCache 仍是旧值）。
+            // alive 标志：快速切换文档时丢弃过期响应，避免旧文档覆盖新文档
+            let alive = true;
             const loader = refreshKey === 0 ? getById : getByIdFresh;
             loader(documentId)
-                .then(setDocument)
-                .catch(() => setDocument(null));
+                .then((doc) => { if (alive) setDocument(doc); })
+                .catch(() => { if (alive) setDocument(null); });
+            return () => { alive = false; };
         }
     }, [documentId, refreshKey]);
 
@@ -55,11 +76,13 @@ const DocumentIdPage = () => {
 
     const onChange = useCallback((content: string) => {
         latestContent.current = content;
+        // 快照 timer 创建时的文档 id：到期后若已切换文档，内容仍写回原文档，杜绝串写
+        const docId = documentIdRef.current;
         if (saveTimer.current) clearTimeout(saveTimer.current);
         saveTimer.current = setTimeout(() => {
             saveTimer.current = undefined;
-            if (documentIdRef.current) {
-                update(documentIdRef.current, { content });
+            if (docId) {
+                update(docId, { content });
             }
         }, SAVE_DEBOUNCE_MS);
     }, []);

@@ -25,17 +25,25 @@ const Cover = ({
     const triggerDocument = useRefresh((s) => s.triggerDocument);
 
     const onRemove = async () => {
-        if (url) {
-            const supabase = createClient();
-            const pathMatch = url.match(/\/lotion\/(.+)$/);
-            if (pathMatch) {
-                await supabase.storage.from("lotion").remove([pathMatch[1]]);
+        const documentId = params.documentId as string;
+        if (!documentId) return;
+        try {
+            if (url) {
+                const supabase = createClient();
+                const pathMatch = url.match(/\/lotion\/(.+)$/);
+                if (pathMatch) {
+                    await supabase.storage.from("lotion").remove([pathMatch[1]]);
+                }
             }
+            removeCoverImage(documentId)
+                .then(() => triggerDocument(documentId))
+                .catch(console.error);
+        } catch {
+            // storage 删除失败不阻塞移除封面字段
+            removeCoverImage(documentId)
+                .then(() => triggerDocument(documentId))
+                .catch(console.error);
         }
-
-        removeCoverImage(params.documentId as string)
-            .then(() => triggerDocument(params.documentId as string))
-            .catch(console.error);
     };
 
     return (
@@ -53,7 +61,7 @@ const Cover = ({
                 />
             )}
             {url && !preview && (
-                <div className="opacity-0 transition group-hover:opacity-100 absolute bottom-2 right-3 flex items-center gap-x-2">
+                <div className="opacity-0 transition group-hover:opacity-100 max-md:opacity-100 absolute bottom-2 right-3 flex items-center gap-x-2">
                     <Button
                         onClick={() => coverImage.onReplace(url)}
                         className="text-muted-foreground text-xs cursor-pointer"

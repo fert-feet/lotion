@@ -61,6 +61,14 @@ export default function MentionInput({
     .filter((d) => d.title.toLowerCase().includes(mentionQuery.toLowerCase()))
     .slice(0, 8);
 
+  // @ 列表数据刷新（docs 异步更新）后 filtered 可能变短，highlightIndex 越界时 clamp，
+  // 防止 Enter 时 filtered[highlightIndex] 为 undefined 崩溃
+  useEffect(() => {
+    if (mentionOpen && highlightIndex >= filtered.length) {
+      setHighlightIndex(Math.max(0, filtered.length - 1));
+    }
+  }, [mentionOpen, filtered.length, highlightIndex]);
+
   // 输入时检测光标前是否在输入 @token；同时同步内容空状态
   const handleInput = useCallback(() => {
     const el = editorRef.current;
@@ -177,7 +185,9 @@ export default function MentionInput({
         }
         if (e.key === "Enter") {
           e.preventDefault();
-          insertMention(filtered[highlightIndex]);
+          // 防御：clamp 后仍可能处于竞态窗口，取不到目标时忽略
+          const target = filtered[Math.min(highlightIndex, filtered.length - 1)];
+          if (target) insertMention(target);
           return;
         }
       }

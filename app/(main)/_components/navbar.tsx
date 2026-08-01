@@ -29,9 +29,12 @@ const Navbar = ({
 
     useEffect(() => {
         if (documentId) {
+            // alive 标志：快速切换文档时丢弃过期响应，避免旧文档覆盖新文档
+            let alive = true;
             getById(documentId)
-                .then(setDocument)
-                .catch(() => setDocument(null));
+                .then((doc) => { if (alive) setDocument(doc); })
+                .catch(() => { if (alive) setDocument(null); });
+            return () => { alive = false; };
         }
     }, [documentId, refreshKey]);
 
