@@ -13,7 +13,7 @@ const Heading = () => {
     return (
         <div className="max-w-3xl space-y-4 mb-20">
             <h1 className="text-3xl sm:text-5xl md:text-6xl font-bold">
-                Your Ideas, Documents, & Plan. Unified. Welcome to <span className="underline">
+                Your Ideas, Documents, & Plan. Unified. Welcome to <span className="bg-gradient-to-r from-ai via-fuchsia-500 to-pink-500 bg-clip-text text-transparent">
                     Lotion
                 </span>
             </h1>
@@ -27,7 +27,7 @@ const Heading = () => {
             )}
             {!isAuthenticated && !loading && (
                 <Link href="/register">
-                    <Button>
+                    <Button size="lg" className="shadow-sm">
                         Get Lotion Free!
                     </Button>
                 </Link>

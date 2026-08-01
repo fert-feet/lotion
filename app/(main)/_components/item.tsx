@@ -118,7 +118,7 @@ const Item = memo(({
             {!!id && (
                 <div
                     role="button"
-                    className="h-full rounded-sm hover:bg-neutral-300 dark:hover:bg-neutral-600 mr-1"
+                    className="h-full rounded-sm hover:bg-secondary mr-1"
                     onClick={handleExpand}
                 >
                     <ChevronIcon
@@ -147,7 +147,7 @@ const Item = memo(({
                 <div className="flex ml-auto items-center gap-x-2">
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                            <div role="button" onClick={(e) => e.stopPropagation()} className="cursor-pointer opacity-0 group-hover:opacity-100 h-full ml-auto rounded-sm hover:bg-neutral-300 dark:hover:bg-neutral-600">
+                            <div role="button" onClick={(e) => e.stopPropagation()} className="cursor-pointer opacity-0 group-hover:opacity-100 h-full ml-auto rounded-sm hover:bg-secondary">
                                 <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
                             </div>
                         </DropdownMenuTrigger>
@@ -168,7 +168,7 @@ const Item = memo(({
                         </DropdownMenuContent>
                     </DropdownMenu>
 
-                    <div role="button" onClick={onCreate} className="opacity-0 group-hover:opacity-100 h-full ml-auto rounded-sm hover:bg-neutral-300 dark:hover:bg-neutral-600">
+                    <div role="button" onClick={onCreate} className="opacity-0 group-hover:opacity-100 h-full ml-auto rounded-sm hover:bg-secondary">
                         <Plus className="h-4 w-4 text-muted-foreground" />
                     </div>
                 </div>

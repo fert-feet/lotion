@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
 
 export default function RegisterPage() {
   const [email, setEmail] = useState("");
@@ -31,8 +32,8 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-neutral-50 dark:bg-neutral-950">
-      <div className="w-full max-w-sm rounded-lg border bg-white p-8 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
+    <div className="flex min-h-screen items-center justify-center bg-muted/50">
+      <div className="w-full max-w-sm rounded-lg border bg-card p-8 shadow-sm">
         <h1 className="mb-6 text-2xl font-bold">注册 Lotion</h1>
         <form onSubmit={handleRegister} className="space-y-4">
           <div>
@@ -42,7 +43,7 @@ export default function RegisterPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="your@email.com"
-              className="w-full rounded-md border px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-800"
+              className="w-full rounded-md border bg-muted px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ai/40 focus:border-transparent"
               required
             />
           </div>
@@ -53,22 +54,18 @@ export default function RegisterPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
-              className="w-full rounded-md border px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-800"
+              className="w-full rounded-md border bg-muted px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ai/40 focus:border-transparent"
               required
             />
           </div>
-          {error && <p className="text-sm text-red-500">{error}</p>}
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-50 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-200"
-          >
+          {error && <p className="text-sm text-destructive">{error}</p>}
+          <Button type="submit" disabled={loading} className="w-full">
             {loading ? "注册中..." : "注册"}
-          </button>
+          </Button>
         </form>
-        <p className="mt-4 text-center text-sm text-neutral-500">
+        <p className="mt-4 text-center text-sm text-muted-foreground">
           已有账号？{" "}
-          <Link href="/login" className="underline hover:text-neutral-800">
+          <Link href="/login" className="underline hover:text-foreground">
             登录
           </Link>
         </p>

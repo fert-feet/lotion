@@ -102,7 +102,7 @@ const TrashBox = () => {
                         <div className="flex items-center group-hover:opacity-100 opacity-0">
                             <div
                                 role="button"
-                                className="rounded-sm p-2 hover:bg-neutral-300 dark:hover:bg-neutral-600"
+                                className="rounded-sm p-2 hover:bg-secondary"
                                 onClick={(e) => onRestore(e, document.id)}
                             >
                                 <Undo className="h-4 w-4 text-muted-foreground" />
@@ -115,7 +115,7 @@ const TrashBox = () => {
                             >
                                 <div
                                     role="button"
-                                    className="rounded-sm p-2 hover:bg-neutral-300 dark:hover:bg-neutral-600"
+                                    className="rounded-sm p-2 hover:bg-secondary"
                                 >
                                     <Trash
                                         className="h-4 w-4 text-muted-foreground"

@@ -37,7 +37,7 @@ const Navbar = ({
 
     if (document === undefined) {
         return (
-            <nav className="flex bg-background dark:bg-[#1f1f1f] px-3 py-2 w-full items-center gap-x-4">
+            <nav className="flex bg-background px-3 py-2 w-full items-center gap-x-4">
                 <div className="flex items-center justify-between w-full">
                     <Title.Skeleton />
                     <div className="flex gap-x-2 items-center">
@@ -54,7 +54,7 @@ const Navbar = ({
 
     return (
         <>
-            <nav className="flex bg-background dark:bg-[#1f1f1f] px-3 py-2 w-full items-center gap-x-4">
+            <nav className="flex bg-background px-3 py-2 w-full items-center gap-x-4">
                 {isCollapsed && (
                     <MenuIcon
                         role="button"

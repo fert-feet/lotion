@@ -46,7 +46,7 @@ const Menu = ({
         <div>
             <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                    <div role="button" onClick={(e) => e.stopPropagation()} className="cursor-pointer h-full ml-auto rounded-sm hover:bg-neutral-300 dark:hover:bg-neutral-600">
+                    <div role="button" onClick={(e) => e.stopPropagation()} className="cursor-pointer h-full ml-auto rounded-sm hover:bg-secondary">
                         <MoreHorizontal className="h-4 w-4" />
                     </div>
                 </DropdownMenuTrigger>
