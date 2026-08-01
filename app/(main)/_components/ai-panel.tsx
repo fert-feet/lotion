@@ -66,7 +66,7 @@ const AiPanel = () => {
   const streamingRef = useRef(false);
   const abortRef = useRef<AbortController | null>(null);
   const queueRef = useRef<string[]>([]);
-  const [queueLength, setQueueLength] = useState(0);
+  const [queueItems, setQueueItems] = useState<string[]>([]);
 
   // 面板顶部卡在 navbar/banner 下方：实时测量顶部文档栏高度
   // （banner 出现/消失、侧边栏折叠都会改变高度，用 ResizeObserver 跟随）
@@ -313,7 +313,7 @@ const AiPanel = () => {
       abortRef.current = null;
       // 队列调度：当前请求结束（正常/终止/失败）后自动发送下一条
       const next = queueRef.current.shift();
-      setQueueLength(queueRef.current.length);
+      setQueueItems([...queueRef.current]);
       if (next) {
         setTimeout(() => sendMessage(next), 60);
       }
@@ -327,9 +327,8 @@ const AiPanel = () => {
 
     if (streamingRef.current) {
       queueRef.current = [...queueRef.current, content];
-      setQueueLength(queueRef.current.length);
+      setQueueItems([...queueRef.current]);
       setInput("");
-      toast.info(`已加入队列（当前共 ${queueRef.current.length} 条待发送）`);
       return;
     }
 
@@ -339,6 +338,18 @@ const AiPanel = () => {
   // 终止当前流式生成（服务端通过 abortSignal 同步中断）
   const handleStop = () => {
     abortRef.current?.abort();
+  };
+
+  // 移除队列中的一条消息
+  const removeFromQueue = (index: number) => {
+    queueRef.current = queueRef.current.filter((_, i) => i !== index);
+    setQueueItems([...queueRef.current]);
+  };
+
+  // 清空整个队列
+  const clearQueue = () => {
+    queueRef.current = [];
+    setQueueItems([]);
   };
 
 
@@ -604,6 +615,38 @@ const AiPanel = () => {
         </div>
 
         <div className="border-t p-4">
+          {queueItems.length > 0 && (
+            <div className="mb-3 rounded-md border border-border bg-muted/50 p-2.5">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-xs font-medium text-muted-foreground">
+                  待发送队列（{queueItems.length}）
+                </span>
+                <button
+                  onClick={clearQueue}
+                  className="text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                >
+                  清空
+                </button>
+              </div>
+              <div className="space-y-1 max-h-28 overflow-y-auto">
+                {queueItems.map((item, index) => (
+                  <div
+                    key={`${index}-${item}`}
+                    className="flex items-center gap-2 rounded-sm bg-background/60 px-2 py-1"
+                  >
+                    <span className="flex-1 truncate text-xs text-foreground/80">{item}</span>
+                    <button
+                      onClick={() => removeFromQueue(index)}
+                      title="移除该条"
+                      className="shrink-0 rounded-sm p-0.5 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors cursor-pointer"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           <div className="flex gap-2">
             <input
               value={input}
@@ -612,7 +655,7 @@ const AiPanel = () => {
               placeholder={loading ? "正在回答，输入后自动排队发送..." : "输入你的问题..."}
               className="flex-1 rounded-md border border-border bg-muted px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-foreground/40"
             />
-            <div className="relative shrink-0">
+            <div className="shrink-0">
               <Button
                 size="icon"
                 className="h-9 w-9 cursor-pointer bg-foreground text-background hover:bg-foreground/90"
@@ -622,11 +665,6 @@ const AiPanel = () => {
               >
                 {loading ? <Square className="h-4 w-4" /> : <Send className="h-4 w-4" />}
               </Button>
-              {queueLength > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-foreground px-1 text-[10px] font-medium text-background">
-                  {queueLength}
-                </span>
-              )}
             </div>
           </div>
         </div>
