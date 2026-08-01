@@ -518,7 +518,7 @@ const AiPanel = () => {
                   className={cn(
                     "rounded-lg px-3 py-2 text-sm max-w-[85%]",
                     msg.role === "user"
-                      ? "bg-foreground text-background whitespace-pre-wrap"
+                      ? "bg-muted whitespace-pre-wrap"
                       : "bg-muted prose prose-sm dark:prose-invert max-w-none prose-headings:my-1 prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-code:bg-muted prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-xs prose-pre:bg-muted prose-pre:text-xs"
                   )}
                 >
