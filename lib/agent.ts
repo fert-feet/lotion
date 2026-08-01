@@ -53,7 +53,7 @@ export async function runNoteAgent(
   userId: string,
   prompt: string,
   docContext?: { title: string; content: string },
-  options?: { history?: AgentHistoryMessage[] },
+  options?: { history?: AgentHistoryMessage[]; signal?: AbortSignal },
 ) {
   const messages: any[] = [];
 
@@ -108,6 +108,7 @@ export async function runNoteAgent(
     messages,
     tools: createTools(supabase, userId, pendingNoteId, pendingConfirmDelete, pendingModifiedNoteId, references),
     stopWhen: stepCountIs(5),
+    abortSignal: options?.signal, // 前端终止会话时随 request 中断生成
     onStepFinish: ({ finishReason, toolCalls, text }) => {
       const stepMs = Date.now() - stepStart;
       stepStart = Date.now();

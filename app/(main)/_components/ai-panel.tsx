@@ -6,7 +6,7 @@ import { useSupabaseUser } from "@/hooks/use-supabase-user";
 import { useRefresh } from "@/hooks/use-refresh";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { Bot, Send, Sparkles, X, Loader2, AlertTriangle, Check, Ban, MessageSquare, Plus, Trash2, History } from "lucide-react";
+import { Bot, Send, Sparkles, X, Loader2, AlertTriangle, Check, Ban, MessageSquare, Plus, Trash2, History, Square } from "lucide-react";
 import { Button } from "../../../components/ui/button";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
@@ -62,6 +62,11 @@ const AiPanel = () => {
   const [navHeight, setNavHeight] = useState(0);
   const confirmTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const messagesRef = useRef<HTMLDivElement>(null);
+  // 流式请求控制：当前是否在生成、终止用 AbortController、待发送队列
+  const streamingRef = useRef(false);
+  const abortRef = useRef<AbortController | null>(null);
+  const queueRef = useRef<string[]>([]);
+  const [queueLength, setQueueLength] = useState(0);
 
   // 面板顶部卡在 navbar/banner 下方：实时测量顶部文档栏高度
   // （banner 出现/消失、侧边栏折叠都会改变高度，用 ResizeObserver 跟随）
@@ -186,26 +191,36 @@ const AiPanel = () => {
     }
   };
 
-  const handleSend = async () => {
-    if (!input.trim() || loading || !activeSessionId) return;
+  // 真正发起请求：首次发送与队列调度共用（不检查 loading，由 streamingRef 保证不并发）
+  const sendMessage = async (content: string) => {
+    if (!content || !activeSessionId) return;
+    streamingRef.current = true;
 
-    const userMsg: Message = { role: "user", content: input };
+    const userMsg: Message = { role: "user", content };
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
     setLoading(true);
     setStreaming("");
     setProgress("");
 
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    let fullText = "";
+    let pendingAction: PendingAction | undefined;
+    let pendingRefs: Reference[] | undefined;
+
     try {
       const response = await fetch("/api/ai/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          prompt: input,
+          prompt: content,
           documentId: params.documentId || undefined,
           sessionId: activeSessionId,
           requestId: crypto.randomUUID(), // 服务端幂等，防重复提交
         }),
+        signal: controller.signal, // 终止按钮 abort 此请求
       });
 
       if (!response.ok) throw new Error("Request failed");
@@ -214,10 +229,7 @@ const AiPanel = () => {
       if (!reader) throw new Error("No reader");
 
       const decoder = new TextDecoder();
-      let fullText = "";
       let hasNavigated = false;
-      let pendingAction: PendingAction | undefined;
-      let pendingRefs: Reference[] | undefined;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -283,11 +295,52 @@ const AiPanel = () => {
       setProgress("");
       refreshSessions(); // 刷新会话列表（首个问题会自动命名会话）
     } catch (err) {
-      toast.error("AI 请求失败，请稍后再试");
+      if (controller.signal.aborted) {
+        // 用户主动终止：保留已生成的部分内容，并清理未闭合的标记残留
+        const partial = fullText.replace(/\[[^\]]*$/, "").trim();
+        if (partial) {
+          setMessages((prev) => [...prev, { role: "assistant", content: partial }]);
+        }
+        setStreaming("");
+        setProgress("");
+        toast.info("已停止生成");
+      } else {
+        toast.error("AI 请求失败，请稍后再试");
+      }
     } finally {
+      streamingRef.current = false;
       setLoading(false);
+      abortRef.current = null;
+      // 队列调度：当前请求结束（正常/终止/失败）后自动发送下一条
+      const next = queueRef.current.shift();
+      setQueueLength(queueRef.current.length);
+      if (next) {
+        setTimeout(() => sendMessage(next), 60);
+      }
     }
   };
+
+  // 输入框发送入口：流式进行中则入队排队，结束后自动发送
+  const handleSend = () => {
+    const content = input.trim();
+    if (!content || !activeSessionId) return;
+
+    if (streamingRef.current) {
+      queueRef.current = [...queueRef.current, content];
+      setQueueLength(queueRef.current.length);
+      setInput("");
+      toast.info(`已加入队列（当前共 ${queueRef.current.length} 条待发送）`);
+      return;
+    }
+
+    void sendMessage(content);
+  };
+
+  // 终止当前流式生成（服务端通过 abortSignal 同步中断）
+  const handleStop = () => {
+    abortRef.current?.abort();
+  };
+
 
   const handleConfirmDelete = (msgIndex: number, noteId: string, title: string) => {
     const promise = remove(noteId).then(() => {
@@ -556,18 +609,25 @@ const AiPanel = () => {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleSend()}
-              placeholder="输入你的问题..."
+              placeholder={loading ? "正在回答，输入后自动排队发送..." : "输入你的问题..."}
               className="flex-1 rounded-md border border-border bg-muted px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-foreground/40"
-              disabled={loading}
             />
-            <Button
-              size="icon"
-              className="h-9 w-9 cursor-pointer bg-foreground text-background hover:bg-foreground/90"
-              onClick={handleSend}
-              disabled={loading || !input.trim()}
-            >
-              <Send className="h-4 w-4" />
-            </Button>
+            <div className="relative shrink-0">
+              <Button
+                size="icon"
+                className="h-9 w-9 cursor-pointer bg-foreground text-background hover:bg-foreground/90"
+                onClick={loading ? handleStop : handleSend}
+                disabled={!loading && !input.trim()}
+                title={loading ? "停止生成" : "发送"}
+              >
+                {loading ? <Square className="h-4 w-4" /> : <Send className="h-4 w-4" />}
+              </Button>
+              {queueLength > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-foreground px-1 text-[10px] font-medium text-background">
+                  {queueLength}
+                </span>
+              )}
+            </div>
           </div>
         </div>
       </aside>

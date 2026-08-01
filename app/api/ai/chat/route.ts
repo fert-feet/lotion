@@ -102,7 +102,10 @@ export async function POST(request: Request) {
     logger.api.warn("拉取对话历史失败，本次无上下文", { error: String(e) });
   }
 
-  const { stream, done } = await runNoteAgent(supabase, user.id, prompt, docContext, { history });
+  const { stream, done } = await runNoteAgent(supabase, user.id, prompt, docContext, {
+    history,
+    signal: request.signal, // 前端 abort fetch 时中断 DeepSeek 生成
+  });
 
   // 流结束后后台落库 assistant 消息（含 token 统计，PandaWiki 启发）
   const finish = done
