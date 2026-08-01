@@ -20,6 +20,7 @@ const Toolbar = ({
 }: ToolbarProps) => {
     const coverImage = useCoverImage();
     const triggerDocument = useRefresh((s) => s.triggerDocument);
+    const triggerSidebar = useRefresh((s) => s.triggerSidebar);
     const inputRef = useRef<ElementRef<"textarea">>(null);
     const [isEditing, setIsEditing] = useState<boolean>(false);
     const [value, setValue] = useState(initialData?.title || "");
@@ -56,6 +57,7 @@ const Toolbar = ({
         });
         update(initialData.id, { title: newValue }).then(() => {
             triggerDocument(initialData.id);
+            triggerSidebar(); // 侧边栏同步显示新标题
         });
     };
 
@@ -65,11 +67,17 @@ const Toolbar = ({
     };
 
     const onSelectIcon = (icon: string) => {
-        update(initialData.id, { icon }).then(() => triggerDocument(initialData.id));
+        update(initialData.id, { icon }).then(() => {
+            triggerDocument(initialData.id);
+            triggerSidebar(); // 侧边栏同步显示新 icon
+        });
     };
 
     const onRemoveIcon = () => {
-        removeIcon(initialData.id).then(() => triggerDocument(initialData.id));
+        removeIcon(initialData.id).then(() => {
+            triggerDocument(initialData.id);
+            triggerSidebar(); // 侧边栏同步移除 icon
+        });
     };
 
     const onKeyDown = (
