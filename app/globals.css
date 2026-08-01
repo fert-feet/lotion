@@ -88,11 +88,11 @@
   --chart-3: oklch(0.398 0.07 227.392);
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: #F4F4F0;
+  --sidebar: #EEEEEA;
   --sidebar-foreground: #1C1E22;
   --sidebar-primary: #1C1E22;
   --sidebar-primary-foreground: #FAFAF8;
-  --sidebar-accent: #E9E9E4;
+  --sidebar-accent: #E5E5DF;
   --sidebar-accent-foreground: #1C1E22;
   --sidebar-border: rgba(28, 30, 34, 0.09);
   --sidebar-ring: rgba(28, 30, 34, 0.35);
@@ -128,11 +128,11 @@
   --chart-3: oklch(0.769 0.188 70.08);
   --chart-4: oklch(0.627 0.265 303.9);
   --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: #13161C;
+  --sidebar: #0C0E12;
   --sidebar-foreground: #E9EAEC;
   --sidebar-primary: #E9EAEC;
   --sidebar-primary-foreground: #1C1E22;
-  --sidebar-accent: #1F232B;
+  --sidebar-accent: #191C22;
   --sidebar-accent-foreground: #E9EAEC;
   --sidebar-border: rgba(255, 255, 255, 0.07);
   --sidebar-ring: rgba(255, 255, 255, 0.28);
@@ -158,6 +158,27 @@ body,
     background: var(--hl);
     color: var(--ink);
   }
+}
+
+/* 细滚动条：全局统一（Firefox） */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--muted-foreground) 35%, transparent) transparent;
+}
+/* 细滚动条（WebKit/Blink） */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--muted-foreground) 30%, transparent);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--muted-foreground) 50%, transparent);
 }
 
 /* ---- 签名元素：网格纸纹理（坐标纸：细格 24px + 加重线 120px） ---- */

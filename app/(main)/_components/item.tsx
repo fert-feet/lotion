@@ -127,8 +127,8 @@ const Item = memo(({
             style={{
                 paddingLeft: level ? `${(level * 12) + 12}px` : "12px"
             }}
-            className={cn("group min-h-[30px] cursor-pointer text-sm py-1 pr-3 w-full hover:bg-primary/5 flex items-center text-muted-foreground font-medium transition-colors duration-150",
-                active && "bg-primary/10 text-primary"
+            className={cn("group relative min-h-[30px] cursor-pointer text-sm py-1 pr-3 w-full hover:bg-primary/5 flex items-center text-muted-foreground font-medium transition-colors duration-150",
+                active && "bg-primary/10 text-primary before:absolute before:left-0 before:top-[5px] before:bottom-[5px] before:w-[3px] before:rounded-r-full before:bg-ai"
             )}        >
             {batchMode && !!id && (
                 <input

@@ -151,6 +151,17 @@ const DocumentListRoot = ({ batchMode, selected, onToggleCheck }: DocumentListRo
         );
     }
 
+    // 空状态：引导行动，而不是留白
+    if (allDocs && allDocs.length === 0) {
+        return (
+            <div className="px-3 py-1.5">
+                <p className="text-xs leading-relaxed text-muted-foreground">
+                    还没有笔记 —— 新建一篇，或让 AI 帮你写
+                </p>
+            </div>
+        );
+    }
+
     return <DocumentList allDocs={allDocs ?? []} batchMode={batchMode} selected={selected} onToggleCheck={onToggleCheck} />;
 };
 

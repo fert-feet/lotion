@@ -172,55 +172,66 @@ const Navigation = () => {
                     onClick={collapse}
                     role="button"
                     className={cn(
-                        "h-6 w-6 text-muted-foreground rounded-sm hover:bg-secondary absolute top-2 right-2 opacity-0 group-hover/sidebar:opacity-100 transition",
+                        "h-6 w-6 text-muted-foreground rounded-sm hover:bg-accent absolute top-2 right-2 opacity-0 group-hover/sidebar:opacity-100 transition",
                         isMobile && "opacity-100"
                     )}
                 >
                     <ChevronsLeft className="h-6 w-6" />
                 </div>
                 <div className="flex-1 overflow-y-auto">
-                    <div>
-                        <UserItem />
-                    <Item
-                        label="Search"
-                        icon={Search}
-                        isSearch
-                        onClick={toggle}
-                    />
-                    <Item
-                        label="Settings"
-                        icon={Settings}
-                        onClick={settingsOnOpen}
-                    />
-                    <Item
-                        label="AI 助手"
-                        icon={Sparkles}
-                        highlighted
-                        onClick={aiPanelToggle}
-                    />
-                    <Item
-                        onClick={onCreate}
-                        label="New Page"
-                        icon={PlusCircle}
-                    />
-                </div>
+                    <UserItem />
+                    <div className="mx-3 border-t border-sidebar-border" />
 
-                    <div className="mt-4">
+                    <div className="pt-1">
+                        <Item
+                            label="搜索"
+                            icon={Search}
+                            isSearch
+                            onClick={toggle}
+                        />
+                        <Item
+                            label="设置"
+                            icon={Settings}
+                            onClick={settingsOnOpen}
+                        />
+                        <Item
+                            label="AI 助手"
+                            icon={Sparkles}
+                            highlighted
+                            onClick={aiPanelToggle}
+                        />
+                        <Item
+                            onClick={onCreate}
+                            label="新建笔记"
+                            icon={PlusCircle}
+                        />
+                    </div>
+
+                    <div className="mx-3 mt-2 border-t border-sidebar-border" />
+
+                    <div className="mt-1">
+                        <div className="px-3 pt-2.5 pb-1 text-[11px] font-medium tracking-wide text-muted-foreground/70">
+                            我的文档
+                        </div>
                         <DocumentList
                             batchMode={batchMode}
                             selected={selected}
                             onToggleCheck={toggleCheck}
                         />
+                    </div>
 
+                    <div className="mx-3 mt-2 border-t border-sidebar-border" />
+
+                    <div className="pt-1">
                         <Item
-                            label="Batch Delete"
+                            label="批量删除"
                             icon={ListChecks}
                             onClick={() => setBatchMode(true)}
                         />
 
                         <Popover>
-                            <PopoverTrigger className="w-full mt-4">
-                                <Item label="Trash" icon={Trash} />
+                            <PopoverTrigger className="w-full">
+                                <Item label="回收站" icon={Trash} />
                             </PopoverTrigger>
 
                             <PopoverContent
@@ -262,7 +273,7 @@ const Navigation = () => {
                 <div
                     onMouseDown={(e) => { handleMouseDown(e); }}
                     onClick={() => { if (dragMoved.current) return; resetWidth(); }}
-                    className="opacity-0 group-hover/sidebar:opacity-100 transition cursor-ew-resize absolute h-full w-1 bg-primary/10 right-0 top-0" />
+                    className="opacity-0 group-hover/sidebar:opacity-100 transition cursor-ew-resize absolute h-full w-1 bg-primary/10 hover:bg-ai/50 right-0 top-0" />
             </aside>
 
             <div ref={navbarRef} id="main-navbar" className={cn(

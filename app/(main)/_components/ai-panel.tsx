@@ -537,7 +537,7 @@ const AiPanel = () => {
           <div
             onMouseDown={handleMouseDown}
             title="拖拽调整宽度"
-            className="opacity-0 group-hover/ai-panel:opacity-100 transition cursor-ew-resize absolute left-0 top-0 h-full w-1 bg-primary/10 hover:bg-primary/25"
+            className="opacity-0 group-hover/ai-panel:opacity-100 transition cursor-ew-resize absolute left-0 top-0 h-full w-1 bg-primary/10 hover:bg-ai/50"
           />
         )}
         {/* 会话工具栏：当前标题 + 历史下拉 + 新增 + 关闭（原"AI 助手"标题栏已去掉，
