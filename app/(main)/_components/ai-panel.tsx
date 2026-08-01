@@ -71,9 +71,13 @@ const AiPanel = () => {
   useEffect(() => {
     if (!isOpen) return;
     const handler = (e: MouseEvent) => {
-      if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
-        onClose();
-      }
+      const target = e.target as Node | null;
+      if (!target) return;
+      // 面板内部点击不关闭
+      if (panelRef.current?.contains(target)) return;
+      // Radix 下拉/弹层渲染在 portal（body 下），点击其内容（如"历史"下拉项）不应关闭面板
+      if (target instanceof Element && target.closest("[data-radix-popper-content-wrapper]")) return;
+      onClose();
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
