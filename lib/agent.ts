@@ -1,20 +1,10 @@
-import { streamText } from "ai";
+import { streamText, stepCountIs } from "ai";
 import { deepSeek } from "@ai-sdk/deepseek";
-import { stepCountIs } from "ai";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { NOTE_ASSISTANT_PROMPT } from "./ai-prompts";
-import { createTools } from "./ai/tools";
+import { createTools, TOOL_LABELS, type ToolEvent } from "./ai/tools";
+import { extractText } from "./extract-text";
 import { logger } from "./logger";
-
-const TOOL_LABELS: Record<string, string> = {
-  searchNotes: "🔍 搜索笔记",
-  readNote: "📖 读取笔记",
-  createNote: "✍️ 创建笔记",
-  updateNote: "📝 更新内容",
-  renameNote: "🏷️ 重命名",
-  archiveNote: "📦 归档",
-  deleteNote: "🗑️ 删除",
-};
 
 /** SSE 事件类型（前端 ai-panel.tsx 按 type 分发解析） */
 export type AgentStreamEvent =
@@ -23,7 +13,8 @@ export type AgentStreamEvent =
   | { type: "note_created"; noteId: string }
   | { type: "confirm_delete"; noteId: string; title: string }
   | { type: "note_modified"; noteId: string }
-  | { type: "references"; references: AgentReference[] };
+  | { type: "references"; references: AgentReference[] }
+  | { type: "error"; message: string };
 
 /** 注入到 Agent 的对话历史消息 */
 export interface AgentHistoryMessage {
@@ -41,8 +32,15 @@ export interface AgentResult {
 /** AI 读取过的笔记（引用来源） */
 export type AgentReference = { noteId: string; title: string };
 
+// ---- 配置：集中管理，模型可经环境变量覆盖 ----
+const AI_MODEL = process.env.AI_MODEL || "deepseek-v4-flash";
+const MAX_STEPS = 5; // Agent 最大工具调用步数
 const HISTORY_LIMIT = 20; // 注入的历史消息条数上限
 const HISTORY_MSG_LIMIT = 2000; // 单条历史消息截断长度
+const HISTORY_CHAR_BUDGET = 12_000; // 历史消息总字符预算（从最近往前累加，超出即停）
+const DOC_CONTEXT_CHAR_LIMIT = 6_000; // 文档上下文注入长度上限（超出提示 AI 用 readNote 读全文）
+const STREAM_TIMEOUT_MS = 120_000; // 单次流读取超时
+const EVENT_POLL_INTERVAL_MS = 200; // 副作用事件轮询间隔（tool 与流层解耦后的兜底唤醒）
 
 const encoder = new TextEncoder();
 
@@ -51,34 +49,26 @@ function sseEvent(event: AgentStreamEvent): Uint8Array {
   return encoder.encode(`data: ${JSON.stringify(event)}\n\n`);
 }
 
-function extractText(content: string): string {
-  try {
-    const blocks = JSON.parse(content);
-    if (!Array.isArray(blocks)) return content;
-    return blocks
-      .map((b: any) => b.content?.map((c: any) => c.text || "").join("") || "")
-      .filter(Boolean)
-      .join("\n");
-  } catch {
-    return content;
-  }
-}
-
 export async function runNoteAgent(
   supabase: SupabaseClient,
   userId: string,
   prompt: string,
-  docContext?: { title: string; content: string },
+  docContext?: { id: string; title: string; content: string },
   options?: { history?: AgentHistoryMessage[]; signal?: AbortSignal },
 ) {
-  const messages: any[] = [];
+  const messages: Array<{ role: "user" | "assistant"; content: string }> = [];
 
   if (docContext) {
     const plainText = extractText(docContext.content);
-    logger.agent.info("注入文档上下文", { title: docContext.title, chars: plainText.length });
+    // 上下文预算：超长文档截断注入，并告知 AI 可 readNote 读全文
+    const truncated =
+      plainText.length > DOC_CONTEXT_CHAR_LIMIT
+        ? `${plainText.slice(0, DOC_CONTEXT_CHAR_LIMIT)}\n\n[文档过长已截断（共 ${plainText.length} 字符），如需全文可调用 readNote 读取（id: ${docContext.id}）]`
+        : plainText;
+    logger.agent.info("注入文档上下文", { title: docContext.title, chars: truncated.length, truncated: plainText.length > DOC_CONTEXT_CHAR_LIMIT });
     messages.push({
       role: "user",
-      content: `用户正在查看文档「${docContext.title}」，内容如下：\n\n${plainText}`,
+      content: `用户正在查看文档「${docContext.title}」，内容如下：\n\n${truncated}`,
     });
     messages.push({
       role: "assistant",
@@ -87,64 +77,121 @@ export async function runNoteAgent(
   }
 
   // 注入对话历史（PandaWiki 启发：多轮上下文让 AI 记住之前的问答，
-  // 多轮指代如"那篇""再详细点"不再需要重新 search + read）
+  // 多轮指代如"那篇""再详细点"不再需要重新 search + read）。
+  // 双预算：条数上限 + 总字符预算（从最近往前累加，防止历史+文档+工具结果撑爆上下文）。
   const history = (options?.history ?? []).slice(-HISTORY_LIMIT);
-  for (const h of history) {
-    messages.push({ role: h.role, content: h.content.slice(0, HISTORY_MSG_LIMIT) });
+  let budget = HISTORY_CHAR_BUDGET;
+  const injected: AgentHistoryMessage[] = [];
+  for (let i = history.length - 1; i >= 0; i--) {
+    const msg = history[i];
+    const clipped = msg.content.slice(0, HISTORY_MSG_LIMIT);
+    budget -= clipped.length;
+    if (budget < 0) break;
+    injected.unshift({ role: msg.role, content: clipped });
   }
-  if (history.length > 0) {
-    logger.agent.info("注入对话历史", { count: history.length });
+  for (const h of injected) {
+    messages.push({ role: h.role, content: h.content });
+  }
+  if (injected.length > 0) {
+    logger.agent.info("注入对话历史", { count: injected.length, totalChars: HISTORY_CHAR_BUDGET - budget });
   }
 
   messages.push({ role: "user", content: prompt });
-  logger.agent.info("开始 Agent 执行", { userId, prompt: prompt.slice(0, 100), withContext: !!docContext, historyCount: history.length });
+  logger.agent.info("开始 Agent 执行", { userId, prompt: prompt.slice(0, 100), withContext: !!docContext, historyCount: injected.length });
 
   let stepCount = 0;
   const startedAt = Date.now();
   let stepStart = startedAt;
-  // 共享变量：createNote tool 创建后写入 ID，流读取时检测并推送 note_created 事件
-  const pendingNoteId: { current: string | null } = { current: null };
-  // 共享变量：deleteNote tool 触发确认，等待用户在前端确认
-  const pendingConfirmDelete: { current: { noteId: string; title: string } | null } = { current: null };
-  // 共享变量：updateNote / renameNote 修改了文档，前端需要刷新
-  const pendingModifiedNoteId: { current: string | null } = { current: null };
-  // 进度队列：onStepFinish 写入，定时器轮询直接推送 progress 事件
-  const progressQueue: string[] = [];
-  // 引用来源：readNote 读取成功后写入，流结束时推送 references 事件
+
+  // 事件队列：tool 副作用 + progress 统一入队，SSE 包装层轮询取出推送。
+  // tool 通过 onEvent 回调上报（见 ToolEvent），不再共享可变对象。
+  const eventQueue: AgentStreamEvent[] = [];
+  // 引用来源：readNote 等写操作上报后聚合，流结束时一次性推送 references 事件
   const references: AgentReference[] = [];
-  // done promise：onFinish 时 resolve，route.ts 拿 assistant 全文 + usage 落库
+  // deleteNote 已触发确认：onStepFinish 检测到后中止本轮生成，删除流程挂起等用户确认
+  let confirmDeletePending = false;
+  // 中止句柄：onStepFinish 在 result 返回后才可能触发，此处延迟绑定
+  let abortFn: (() => void) | null = null;
+
+  const onToolEvent = (e: ToolEvent) => {
+    switch (e.type) {
+      case "note_created":
+        eventQueue.push({ type: "note_created", noteId: e.noteId });
+        break;
+      case "confirm_delete":
+        confirmDeletePending = true;
+        eventQueue.push({ type: "confirm_delete", noteId: e.noteId, title: e.title });
+        break;
+      case "note_modified":
+        eventQueue.push({ type: "note_modified", noteId: e.noteId });
+        break;
+      case "reference":
+        // 按 noteId 去重：重复 readNote 同一笔记不产生重复徽标
+        if (!references.some((r) => r.noteId === e.noteId)) {
+          references.push({ noteId: e.noteId, title: e.title });
+        }
+        break;
+    }
+  };
+
+  // done promise：onFinish 时 resolve，route.ts 拿 assistant 全文 + usage 落库。
+  // 幂等兜底：abort / 异常路径下 SDK 可能不触发 onFinish，流关闭时也 resolve，
+  // 避免 done 悬挂导致 assistant 消息静默不落库。
   let resolveDone: (r: AgentResult) => void = () => {};
+  let doneResolved = false;
+  const resolveDoneSafe = (r: AgentResult) => {
+    if (doneResolved) return;
+    doneResolved = true;
+    resolveDone(r);
+  };
   const done = new Promise<AgentResult>((res) => { resolveDone = res; });
   // onFinish 的 usage（onFinish 与流 done 的先后不保证，用变量桥接）
   let finishUsage: { inputTokens: number; outputTokens: number } | null = null;
 
+  // 程序化中止（deleteNote 触发确认后中断本轮生成）：
+  // 内部 AbortController 与前端 signal 联动，streamText 统一监听
+  const internalAbort = new AbortController();
+  if (options?.signal) {
+    if (options.signal.aborted) {
+      internalAbort.abort();
+    } else {
+      options.signal.addEventListener("abort", () => internalAbort.abort(), { once: true });
+    }
+  }
+
   const result = streamText({
-    model: deepSeek("deepseek-v4-flash"),
+    model: deepSeek(AI_MODEL),
     system: NOTE_ASSISTANT_PROMPT,
     messages,
-    tools: createTools(supabase, userId, pendingNoteId, pendingConfirmDelete, pendingModifiedNoteId, references),
-    stopWhen: stepCountIs(5),
-    abortSignal: options?.signal, // 前端终止会话时随 request 中断生成
+    tools: createTools(supabase, userId, onToolEvent),
+    stopWhen: stepCountIs(MAX_STEPS),
+    abortSignal: internalAbort.signal, // 前端终止 / deleteNote 确认后中断生成
     onStepFinish: ({ finishReason, toolCalls, text }) => {
       const stepMs = Date.now() - stepStart;
       stepStart = Date.now();
       stepCount++;
       if (toolCalls?.length) {
-        const names = toolCalls.map((tc: any) => {
-          const label = TOOL_LABELS[tc.toolName] || tc.toolName;
-          return label;
-        }).join(" → ");
-        progressQueue.push(names);
+        const names = toolCalls.map((tc: { toolName: string }) => TOOL_LABELS[tc.toolName] || tc.toolName).join(" → ");
+        eventQueue.push({ type: "progress", label: names });
+      }
+      // deleteNote 触发确认后立即中止本轮生成：避免 AI 在用户确认前
+      // 继续调用其他工具造成意外副作用（如先删后建）。
+      if (confirmDeletePending && toolCalls?.some((tc: { toolName: string }) => tc.toolName === "deleteNote")) {
+        logger.agent.info("deleteNote 已触发确认，中止本轮生成");
+        abortFn?.();
       }
       logger.agent.info(`Step ${stepCount} 完成`, {
         finishReason,
         stepMs,
-        toolCalls: toolCalls?.map((tc: any) => ({ name: tc.toolName, args: tc.args })),
+        toolCalls: toolCalls?.map((tc) => ({ name: tc.toolName, args: "args" in tc ? tc.args : undefined })),
         text: text ? (text.length > 200 ? text.slice(0, 200) + "…" : text) : undefined,
-        pendingNoteId: pendingNoteId.current,
-        pendingConfirmDelete: pendingConfirmDelete.current?.noteId,
-        pendingModifiedNoteId: pendingModifiedNoteId.current,
+        confirmDeletePending,
       });
+    },
+    onError: ({ error }) => {
+      // 生成中途出错（如模型 API 异常）：推送 error 事件让前端明确提示，而非静默断流
+      logger.agent.error("Agent 执行出错", { error: String(error) });
+      eventQueue.push({ type: "error", message: error instanceof Error ? error.message : String(error) });
     },
     onFinish: ({ finishReason, usage, text, steps }) => {
       finishUsage = usage
@@ -157,47 +204,27 @@ export async function runNoteAgent(
         usage: finishUsage,
         textLen: text?.length ?? 0,
         referenceCount: references.length,
-        pendingNoteId: pendingNoteId.current,
-        pendingModifiedNoteId: pendingModifiedNoteId.current,
+        confirmDeletePending,
         steps: steps?.map((s) => ({ toolCalls: s.toolCalls?.map((tc) => tc.toolName), finishReason: s.finishReason })),
       });
-      resolveDone({
+      resolveDoneSafe({
         text: text ?? "",
         usage: finishUsage,
         references: [...references],
       });
     },
   });
+  abortFn = () => internalAbort.abort();
 
   // 包装流：SSE 事件行输出（data: <json>\n\n），事件与文本分通道，前端按行解析
   const textStream = result.textStream;
   const reader = textStream.getReader();
-  const STREAM_TIMEOUT_MS = 120_000; // 单次读取超时 120 秒
 
   /** 推送即时事件（progress + 副作用），失败（背压/已关闭）时丢弃并返回 false */
   function flushImmediateEvents(controller: ReadableStreamDefaultController<Uint8Array>): boolean {
     try {
-      while (progressQueue.length > 0) {
-        controller.enqueue(sseEvent({ type: "progress", label: progressQueue.shift()! }));
-      }
-      if (pendingNoteId.current) {
-        logger.agent.info("推送 note_created 事件", { noteId: pendingNoteId.current });
-        controller.enqueue(sseEvent({ type: "note_created", noteId: pendingNoteId.current }));
-        pendingNoteId.current = null;
-      }
-      if (pendingConfirmDelete.current) {
-        logger.agent.info("推送 confirm_delete 事件", { noteId: pendingConfirmDelete.current.noteId });
-        controller.enqueue(sseEvent({
-          type: "confirm_delete",
-          noteId: pendingConfirmDelete.current.noteId,
-          title: pendingConfirmDelete.current.title,
-        }));
-        pendingConfirmDelete.current = null;
-      }
-      if (pendingModifiedNoteId.current) {
-        logger.agent.info("推送 note_modified 事件", { noteId: pendingModifiedNoteId.current });
-        controller.enqueue(sseEvent({ type: "note_modified", noteId: pendingModifiedNoteId.current }));
-        pendingModifiedNoteId.current = null;
+      while (eventQueue.length > 0) {
+        controller.enqueue(sseEvent(eventQueue.shift()!));
       }
       return true;
     } catch {
@@ -220,24 +247,29 @@ export async function runNoteAgent(
     }
   }
 
+  // 定时器清理句柄：start 里创建，pull 完成 / cancel / 超时兜底三处统一回收
+  let cleanupRef: (() => void) | null = null;
+
   const wrapped = new ReadableStream<Uint8Array>({
     start(controller) {
-      // 定时轮询进度队列，有消息就立即推送（不等文本 chunk）
+      // 定时轮询事件队列，有消息就立即推送（不等文本 chunk）
       const interval = setInterval(() => {
         flushImmediateEvents(controller);
-      }, 300);
-      // 流关闭时清理定时器
+      }, EVENT_POLL_INTERVAL_MS);
       let cleaned = false;
-      const cleanup = () => {
+      cleanupRef = () => {
         if (cleaned) return;
         cleaned = true;
         clearInterval(interval);
       };
       // ReadableStream 没有 close 回调，用 setTimeout 兜底
-      setTimeout(() => cleanup(), STREAM_TIMEOUT_MS + 5000);
+      setTimeout(() => cleanupRef?.(), STREAM_TIMEOUT_MS + 5000);
     },
     cancel() {
-      // 外部取消时清理（暂不实现自动清理以保持简洁）
+      // 外部取消（前端 abort / 客户端断开）时回收定时器，避免泄漏
+      cleanupRef?.();
+      // 兜底 resolve：取消后 done 不悬挂（真实删除由前端确认后执行，此处无需补文本）
+      resolveDoneSafe({ text: "", usage: finishUsage, references: [...references] });
     },
     async pull(controller) {
       // 先推送待处理的进度与副作用事件（保证事件先于后续文本）
@@ -246,29 +278,36 @@ export async function runNoteAgent(
       let done: boolean | undefined;
       let value: string | undefined;
 
+      // 可取消的超时：race 后清理定时器，避免长流下每个 chunk 累积 120s 存活定时器
+      let timeoutId: ReturnType<typeof setTimeout> | undefined;
+      const timeout = new Promise<never>((_, reject) => {
+        timeoutId = setTimeout(() => reject(new Error("STREAM_TIMEOUT")), STREAM_TIMEOUT_MS);
+      });
+
       try {
-        const result = await Promise.race([
-          reader.read(),
-          new Promise<never>((_, reject) =>
-            setTimeout(() => reject(new Error("STREAM_TIMEOUT")), STREAM_TIMEOUT_MS)
-          ),
-        ]);
+        const result = await Promise.race([reader.read(), timeout]);
         done = result.done;
         value = result.value;
-      } catch (e: any) {
-        if (e?.message === "STREAM_TIMEOUT") {
+      } catch (e: unknown) {
+        if ((e as { message?: string })?.message === "STREAM_TIMEOUT") {
           logger.agent.warn("流读取超时，强制关闭");
         }
         // 超时前尽力推送残留事件
         flushFinalEvents(controller);
         controller.close();
+        cleanupRef?.();
         return;
+      } finally {
+        if (timeoutId) clearTimeout(timeoutId);
       }
 
       if (done) {
         // 流结束时推送残留事件 + 引用来源
         flushFinalEvents(controller);
         controller.close();
+        cleanupRef?.();
+        // 兜底 resolve（onFinish 通常已触发，此处防 SDK 顺序差异导致 done 悬挂）
+        resolveDoneSafe({ text: "", usage: finishUsage, references: [...references] });
         return;
       }
 

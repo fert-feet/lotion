@@ -12,6 +12,29 @@ import { createDeleteNoteTool } from "./delete-note";
 /** 工具执行超时（毫秒）：防止 execute 卡死导致 Agent 挂起 */
 const TOOL_TIMEOUT_MS = 30_000;
 
+/**
+ * 工具副作用事件：tool 通过注入的 onEvent 回调上报，agent 层转成 SSE 事件推送。
+ * 取代旧的"共享可变对象（pendingNoteId.current 等）+ 轮询"通信方式：
+ * - 事件类型显式可枚举，新增副作用不会漏推
+ * - 不再有多个 tool 写同一个对象的顺序耦合
+ */
+export type ToolEvent =
+  | { type: "note_created"; noteId: string }
+  | { type: "confirm_delete"; noteId: string; title: string }
+  | { type: "note_modified"; noteId: string }
+  | { type: "reference"; noteId: string; title: string };
+
+/** 工具中文标签（agent 层 progress 事件展示用，与工具定义同处维护） */
+export const TOOL_LABELS: Record<string, string> = {
+  searchNotes: "🔍 搜索笔记",
+  readNote: "📖 读取笔记",
+  createNote: "✍️ 创建笔记",
+  updateNote: "📝 更新内容",
+  renameNote: "🏷️ 重命名",
+  archiveNote: "📦 归档",
+  deleteNote: "🗑️ 删除",
+};
+
 type AnyTool = {
   type?: unknown;
   description?: unknown;
@@ -72,22 +95,23 @@ function withToolLogging(name: string, t: AnyTool): AnyTool {
   };
 }
 
+/**
+ * 创建 Agent 工具集。副作用通过 onEvent 回调上报（见 ToolEvent），
+ * 不再接收共享可变状态对象——tool 实例按请求创建，闭包状态天然按请求隔离。
+ */
 export function createTools(
   supabase: SupabaseClient,
   userId: string,
-  pendingNoteId: { current: string | null } = { current: null },
-  pendingConfirmDelete: { current: { noteId: string; title: string } | null } = { current: null },
-  pendingModifiedNoteId: { current: string | null } = { current: null },
-  references: { noteId: string; title: string }[] = [],
+  onEvent: (event: ToolEvent) => void = () => {},
 ): ToolSet {
   const tools: Record<string, AnyTool> = {
     searchNotes: createSearchNotesTool(supabase, userId),
     readNote: createReadNoteTool(supabase, userId),
-    createNote: createCreateNoteTool(supabase, userId, pendingNoteId, references),
-    updateNote: createUpdateNoteTool(supabase, userId, pendingModifiedNoteId, references),
-    renameNote: createRenameNoteTool(supabase, userId, pendingModifiedNoteId, references),
+    createNote: createCreateNoteTool(supabase, userId, onEvent),
+    updateNote: createUpdateNoteTool(supabase, userId, onEvent),
+    renameNote: createRenameNoteTool(supabase, userId, onEvent),
     archiveNote: createArchiveNoteTool(supabase, userId),
-    deleteNote: createDeleteNoteTool(supabase, userId, pendingConfirmDelete),
+    deleteNote: createDeleteNoteTool(supabase, userId, onEvent),
   };
 
   const wrapped: Record<string, AnyTool> = {};

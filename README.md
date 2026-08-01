@@ -17,12 +17,12 @@
 
 ## 它如何工作
 
-用户输入经过 `/api/ai/chat` 进入 Agent 循环：`streamText` 驱动 DeepSeek 自主调用工具，副作用写入共享变量，再以 SSE 事件流逐条推送给前端：
+用户输入经过 `/api/ai/chat` 进入 Agent 循环：`streamText` 驱动 DeepSeek 自主调用工具，工具副作用经 `onEvent` 回调上报事件队列，再以 SSE 事件流逐条推送给前端：
 
 ```
-用户 prompt → POST /api/ai/chat → streamText({ model: deepseek-v4-flash, tools: 7 个, stopWhen: 5 步 })
+用户 prompt → POST /api/ai/chat → streamText({ model: AI_MODEL, tools: 7 个, stopWhen: 5 步 })
   → AI 调用 Tool（search/read/create/update/rename/archive/delete）
-  → 记录副作用（创建 / 修改 / 删除确认 / 引用）
+  → onEvent 上报副作用（创建 / 修改 / 删除确认 / 引用）
   → SSE 事件行 data: <json> → 前端解析 → 跳转 / 刷新 / 确认 / 进度展示
 ```
 
@@ -34,6 +34,7 @@
 | `confirm_delete` | 请求确认删除 |
 | `note_modified` | 笔记已被修改 |
 | `references` | 关联笔记引用 |
+| `error` | 生成中途出错（模型 API 异常等） |
 
 ## 快速开始
 

@@ -43,6 +43,8 @@ export type ChatMessageInput = {
   promptTokens?: number;
   completionTokens?: number;
   totalTokens?: number;
+  /** 幂等键（仅 user 消息携带）：靠 chat_messages(userId, requestId) 唯一约束防重复提交 */
+  requestId?: string;
 };
 
 function supabase() {
@@ -123,6 +125,7 @@ export async function insertChatMessage(
     promptTokens: msg.promptTokens || 0,
     completionTokens: msg.completionTokens || 0,
     totalTokens: msg.totalTokens || 0,
+    requestId: msg.requestId || null,
   });
   if (error) throw error;
 }
@@ -296,7 +299,7 @@ export async function restore(userId: string, id: string) {
     .eq("id", id)
     .single();
 
-  const updateFields: Record<string, any> = { isArchived: false };
+  const updateFields: Record<string, boolean | null> = { isArchived: false };
   if (doc?.parentDocument) {
     const { data: parent } = await supabase()
       .from("documents")

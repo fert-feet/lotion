@@ -3,20 +3,18 @@ import { runNoteAgent, type AgentHistoryMessage } from "@/lib/agent";
 import { getChatHistory, insertChatMessage } from "@/lib/db";
 import { logger } from "@/lib/logger";
 
-// 请求幂等：requestId → 处理时间戳，10 分钟内重复请求直接拒绝
-// （PandaWiki 启发：nonce 防重放，防止前端重试/重复点击造成重复写库）
-const processedRequests = new Map<string, number>();
-const IDEMPOTENCY_TTL_MS = 10 * 60 * 1000;
-
-function isDuplicateRequest(requestId: string): boolean {
-  const now = Date.now();
-  // 顺带清理过期条目
-  for (const [id, ts] of processedRequests) {
-    if (now - ts > IDEMPOTENCY_TTL_MS) processedRequests.delete(id);
-  }
-  if (processedRequests.has(requestId)) return true;
-  processedRequests.set(requestId, now);
-  return false;
+/**
+ * 请求幂等：靠 chat_messages(userId, requestId) 唯一约束（migration 006），
+ * 重复 requestId 落库时触发 23505 冲突 → 409。
+ * 相比进程内 Map：Serverless / 多实例部署下数据库约束天然共享，且无内存泄漏。
+ */
+function isUniqueViolation(e: unknown): boolean {
+  return (
+    typeof e === "object" &&
+    e !== null &&
+    ((e as { code?: string }).code === "23505" ||
+      String((e as { message?: string }).message ?? "").includes("duplicate key"))
+  );
 }
 
 export async function POST(request: Request) {
@@ -33,14 +31,6 @@ export async function POST(request: Request) {
   const { prompt, documentId, sessionId, requestId } = await request.json();
   logger.api.info("收到 AI 请求", { userId: user.id, promptLen: prompt.length, documentId, sessionId });
 
-  // 幂等检查：重复的 requestId 直接拒绝
-  if (requestId) {
-    if (isDuplicateRequest(requestId)) {
-      logger.api.warn("重复请求已拒绝", { requestId });
-      return Response.json({ error: "Duplicate request" }, { status: 409 });
-    }
-  }
-
   // 会话归属校验（RLS 兜底，这里显式检查给出清晰错误）
   if (!sessionId) {
     return Response.json({ error: "sessionId is required" }, { status: 400 });
@@ -55,7 +45,7 @@ export async function POST(request: Request) {
     return Response.json({ error: "Session not found" }, { status: 404 });
   }
 
-  let docContext: { title: string; content: string } | undefined;
+  let docContext: { id: string; title: string; content: string } | undefined;
   if (documentId) {
     const { data: doc } = await supabase
       .from("documents")
@@ -65,31 +55,40 @@ export async function POST(request: Request) {
       .single();
 
     if (doc) {
-      docContext = { title: doc.title, content: doc.content || "" };
+      docContext = { id: documentId, title: doc.title, content: doc.content || "" };
     }
   }
 
-  // 落库用户消息（失败不阻塞主流程）；首个问题自动命名会话
+  // 落库用户消息（携带 requestId 作幂等键；冲突=重复请求直接拒绝）。
+  // 其他失败不阻塞主流程。
   try {
     await insertChatMessage(supabase, {
       userId: user.id,
       sessionId,
       role: "user",
       content: prompt,
+      requestId: requestId || undefined,
     });
-    if (session.title === "新对话") {
-      await supabase
-        .from("chat_sessions")
-        .update({ title: prompt.slice(0, 20), updatedAt: new Date().toISOString() })
-        .eq("id", sessionId);
-    } else {
-      await supabase
-        .from("chat_sessions")
-        .update({ updatedAt: new Date().toISOString() })
-        .eq("id", sessionId);
-    }
   } catch (e) {
+    if (isUniqueViolation(e)) {
+      logger.api.warn("重复请求已拒绝", { requestId });
+      return Response.json({ error: "Duplicate request" }, { status: 409 });
+    }
     logger.api.error("用户消息落库失败", { error: String(e) });
+  }
+
+  // 首个问题自动命名会话，其余仅刷新 updatedAt（失败不阻塞主流程）
+  try {
+    const updateFields: Record<string, unknown> = { updatedAt: new Date().toISOString() };
+    if (session.title === "新对话") {
+      updateFields.title = prompt.slice(0, 20);
+    }
+    await supabase
+      .from("chat_sessions")
+      .update(updateFields)
+      .eq("id", sessionId);
+  } catch (e) {
+    logger.api.error("会话更新失败", { error: String(e) });
   }
 
   // 拉取该会话的对话历史注入 Agent（多轮上下文，全局跨文档）

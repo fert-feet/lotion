@@ -2,12 +2,12 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { tool } from "ai";
 import z from "zod";
 import { logger } from "@/lib/logger";
+import type { ToolEvent } from "./index";
 
 export function createRenameNoteTool(
   supabase: SupabaseClient,
   userId: string,
-  pendingModifiedNoteId: { current: string | null } = { current: null },
-  references: { noteId: string; title: string }[] = [],
+  onEvent: (event: ToolEvent) => void = () => {},
 ) {
   return tool({
     description: "重命名已有笔记的标题。",
@@ -29,9 +29,9 @@ export function createRenameNoteTool(
         return `重命名失败：${error.message}`;
       }
 
-      pendingModifiedNoteId.current = noteId;
-      // 写操作后记录引用：流结束注入 [REFERENCES:...] 标记，前端展示可点击胶囊
-      references.push({ noteId, title });
+      // 副作用通过 onEvent 上报：note_modified 驱动前端刷新，reference 流结束时汇总
+      onEvent({ type: "note_modified", noteId });
+      onEvent({ type: "reference", noteId, title });
       logger.tools.info("[renameNote] 重命名成功");
       return `标题已更新为「${title}」。`;
     },

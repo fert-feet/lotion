@@ -46,7 +46,8 @@ type SseEvent =
   | { type: "note_created"; noteId: string }
   | { type: "confirm_delete"; noteId: string; title: string }
   | { type: "note_modified"; noteId: string }
-  | { type: "references"; references: Reference[] };
+  | { type: "references"; references: Reference[] }
+  | { type: "error"; message: string };
 
 const AiPanel = () => {
   const { isOpen, onClose } = useAiPanel();
@@ -267,7 +268,10 @@ const AiPanel = () => {
         signal: controller.signal, // 终止按钮 abort 此请求
       });
 
-      if (!response.ok) throw new Error("Request failed");
+      if (!response.ok) {
+        // 409 = 幂等拒绝（重复提交），与网络错误区分提示
+        throw new Error(response.status === 409 ? "DuplicateRequest" : "RequestFailed");
+      }
 
       const reader = response.body?.getReader();
       if (!reader) throw new Error("No reader");
@@ -307,6 +311,10 @@ const AiPanel = () => {
           case "references":
             pendingRefs = event.references;
             break;
+          case "error":
+            // 生成中途出错（模型 API 异常等）：明确提示，避免静默断流
+            toast.error(`AI 生成出错：${event.message}`);
+            break;
         }
       };
 
@@ -344,7 +352,11 @@ const AiPanel = () => {
         setProgress("");
         toast.info("已停止生成");
       } else {
-        toast.error("AI 请求失败，请稍后再试");
+        toast.error(
+          err instanceof Error && err.message === "DuplicateRequest"
+            ? "请求已提交，请勿重复发送"
+            : "AI 请求失败，请稍后再试"
+        );
       }
     } finally {
       streamingRef.current = false;

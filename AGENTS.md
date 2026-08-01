@@ -66,7 +66,8 @@ vitest.config.mts           # Vitest 配置（node 环境 + @/ alias）
 - Zustand store 模式：`isOpen / onOpen / onClose / toggle`
 - 数据库操作统一通过 `lib/db.ts` 导出函数，不在组件中直接写 Supabase 查询
 - 文件上传到 Supabase Storage bucket `lotion`
-- AI 流协议：`POST /api/ai/chat` 返回 SSE（`text/event-stream`），每行 `data: <json>\n\n`，事件类型 `text / progress / note_created / confirm_delete / note_modified / references`（见 `lib/agent.ts` 的 `AgentStreamEvent`）；前端 `ai-panel.tsx` 按 `\n\n` 分隔解析事件行，**不要改成拼接文本 + 正则提取标记**
+- AI 流协议：`POST /api/ai/chat` 返回 SSE（`text/event-stream`），每行 `data: <json>\n\n`，事件类型 `text / progress / note_created / confirm_delete / note_modified / references / error`（见 `lib/agent.ts` 的 `AgentStreamEvent`）；前端 `ai-panel.tsx` 按 `\n\n` 分隔解析事件行，**不要改成拼接文本 + 正则提取标记**
+- Agent 通信：tool 副作用经注入的 `onEvent` 回调上报（`lib/ai/tools/index.ts` 的 `ToolEvent`），agent 层聚合为事件队列转 SSE，**不要恢复共享可变对象（`pendingNoteId.current` 等）+ 轮询模式**
 - 不要在 `messages` 数组中放 `role: "system"`，用 `streamText({ system: "..." })` 参数
 
 ## Notes

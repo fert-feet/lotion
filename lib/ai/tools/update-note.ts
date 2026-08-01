@@ -3,12 +3,12 @@ import { tool } from "ai";
 import z from "zod";
 import { logger } from "@/lib/logger";
 import { markdownToBlocks, extractTitle } from "@/lib/markdown-to-blocks";
+import type { ToolEvent } from "./index";
 
 export function createUpdateNoteTool(
   supabase: SupabaseClient,
   userId: string,
-  pendingModifiedNoteId: { current: string | null } = { current: null },
-  references: { noteId: string; title: string }[] = [],
+  onEvent: (event: ToolEvent) => void = () => {},
 ) {
   return tool({
     description: "修改已有笔记的内容。先通过 readNote 读取当前内容，再调用此工具更新。",
@@ -39,9 +39,9 @@ export function createUpdateNoteTool(
         return `更新失败：${error.message}`;
       }
 
-      pendingModifiedNoteId.current = noteId;
-      // 写操作后记录引用：流结束注入 [REFERENCES:...] 标记，前端展示可点击胶囊
-      references.push({ noteId, title: updated?.title || extractedTitle || "笔记" });
+      // 副作用通过 onEvent 上报：note_modified 驱动前端刷新，reference 流结束时汇总
+      onEvent({ type: "note_modified", noteId });
+      onEvent({ type: "reference", noteId, title: updated?.title || extractedTitle || "笔记" });
       logger.tools.info("[updateNote] 更新成功", { noteId, blockCount: contentBlocks.length, extractedTitle: extractedTitle ?? undefined });
       return `笔记内容已更新。`;
     },

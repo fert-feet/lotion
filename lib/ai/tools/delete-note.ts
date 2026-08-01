@@ -2,11 +2,12 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { tool } from "ai";
 import z from "zod";
 import { logger } from "@/lib/logger";
+import type { ToolEvent } from "./index";
 
 export function createDeleteNoteTool(
   supabase: SupabaseClient,
   userId: string,
-  pendingConfirmDelete: { current: { noteId: string; title: string } | null },
+  onEvent: (event: ToolEvent) => void = () => {},
 ) {
   return tool({
     description: "永久删除笔记。调用后系统会自动弹出确认框让用户二次确认，你不需要额外询问。",
@@ -28,8 +29,8 @@ export function createDeleteNoteTool(
         return "笔记不存在或无权删除。";
       }
 
-      // 不实际删除，设置待确认标记
-      pendingConfirmDelete.current = { noteId, title: doc.title };
+      // 不实际删除：通过 onEvent 上报确认请求，前端弹框由用户二次确认后才真正删除
+      onEvent({ type: "confirm_delete", noteId, title: doc.title });
 
       logger.tools.info("[deleteNote] 等待用户确认", { noteId, title: doc.title });
       return `删除确认已发送。`;

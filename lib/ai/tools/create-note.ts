@@ -3,13 +3,18 @@ import { tool } from "ai";
 import z from "zod";
 import { logger } from "@/lib/logger";
 import { markdownToBlocks, extractTitle } from "@/lib/markdown-to-blocks";
+import type { ToolEvent } from "./index";
 
 export function createCreateNoteTool(
   supabase: SupabaseClient,
   userId: string,
-  pendingNoteId: { current: string | null } = { current: null },
-  references: { noteId: string; title: string }[] = [],
+  onEvent: (event: ToolEvent) => void = () => {},
 ) {
+  // 幂等防重（PandaWiki 启发）：本次对话已创建过笔记时拒绝再次创建，
+  // 根治 AI 重复调用 createNote 留下多篇草稿。tool 实例按请求创建，
+  // 闭包状态天然按请求隔离，无需外部共享对象。
+  let createdNoteId: string | null = null;
+
   return tool({
     description: "创建一篇新笔记。标题应简洁地概括内容主题。",
     inputSchema: z.object({
@@ -17,11 +22,9 @@ export function createCreateNoteTool(
       content: z.string().describe("笔记内容，使用 Markdown 格式书写，支持标题、加粗、列表、代码块等"),
     }),
     execute: async ({ title, content }: { title: string; content: string }) => {
-      // 幂等防重（PandaWiki 启发）：本次对话已创建过笔记时拒绝再次创建，
-      // 根治 AI 重复调用 createNote 留下多篇草稿
-      if (pendingNoteId.current) {
-        logger.tools.warn("[createNote] 拒绝重复创建", { existingNoteId: pendingNoteId.current });
-        return `本次对话已经创建过笔记（ID: ${pendingNoteId.current}）。请直接使用该 ID 调用 updateNote 修改内容，不要重复创建新笔记。`;
+      if (createdNoteId) {
+        logger.tools.warn("[createNote] 拒绝重复创建", { existingNoteId: createdNoteId });
+        return `本次对话已经创建过笔记（ID: ${createdNoteId}）。请直接使用该 ID 调用 updateNote 修改内容，不要重复创建新笔记。`;
       }
 
       logger.tools.info("[createNote] 创建笔记", { title, contentLen: content.length });
@@ -43,9 +46,10 @@ export function createCreateNoteTool(
         return `创建笔记失败：${error?.message || "未知错误"}`;
       }
 
-      pendingNoteId.current = doc.id;
-      // 写操作后记录引用：流结束注入 [REFERENCES:...] 标记，前端展示可点击胶囊
-      references.push({ noteId: doc.id, title: finalTitle });
+      createdNoteId = doc.id;
+      // 副作用通过 onEvent 上报：note_created 驱动前端跳转，reference 在流结束时汇总展示胶囊
+      onEvent({ type: "note_created", noteId: doc.id });
+      onEvent({ type: "reference", noteId: doc.id, title: finalTitle });
       logger.tools.info("[createNote] 已创建", { noteId: doc.id, blockCount: contentBlocks.length, title: finalTitle });
 
       return `笔记「${title}」已创建（ID: ${doc.id}），内容已写入。如果觉得内容需要调整，可用此 ID 调用 updateNote 修改。`;
