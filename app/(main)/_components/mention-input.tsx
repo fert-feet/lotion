@@ -100,15 +100,9 @@ export default function MentionInput({
     chip.contentEditable = "false";
     chip.dataset.docId = doc.id;
     chip.dataset.docTitle = doc.title;
-    chip.title = doc.id;
-    chip.className =
-      "mention-chip inline-flex items-center gap-1 rounded-full border border-border bg-secondary px-2 py-0.5 text-xs font-medium align-middle select-none";
+    chip.title = doc.id; // 完整 id 放悬停提示，视觉只显示标题
+    chip.className = "mention-chip select-none";
     chip.textContent = doc.title;
-    const idTag = document.createElement("span");
-    idTag.className = "text-[10px] font-normal text-muted-foreground";
-    idTag.textContent = doc.id.slice(0, 8) + "…";
-    idTag.title = doc.id;
-    chip.appendChild(idTag);
 
     // 文本节点拆分为 keep + 胶囊 + rest
     node.textContent = keep;

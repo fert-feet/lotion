@@ -149,3 +149,21 @@ body,
   color: var(--muted-foreground);
   pointer-events: none;
 }
+
+/* 文档提及胶囊：输入框与对话消息共用同一视觉 */
+.mention-chip {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 9999px;
+  border: 1px solid var(--border);
+  background: var(--secondary);
+  padding: 0.125rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.4;
+  vertical-align: middle;
+  white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

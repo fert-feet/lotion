@@ -503,16 +503,34 @@ const AiPanel = () => {
                   {msg.role === "assistant" && msg.content ? (
                     <ReactMarkdown
                       components={{
-                        a: ({ href, children }) => (
-                          <a
-                            href={href}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-foreground underline"
-                          >
-                            {children}
-                          </a>
-                        ),
+                        a: ({ href, children }) => {
+                          // 文档提及胶囊：[@标题](文档id) → 与输入框胶囊同款样式，点击跳转文档
+                          const text = Array.isArray(children)
+                            ? children.map(String).join("")
+                            : String(children ?? "");
+                          if (text.startsWith("@") && href && /^[a-zA-Z0-9-]{3,64}$/.test(href)) {
+                            return (
+                              <button
+                                type="button"
+                                title={href}
+                                onClick={() => router.push(`/documents/${href}`)}
+                                className="mention-chip cursor-pointer transition-colors hover:bg-secondary/80"
+                              >
+                                {text.slice(1)}
+                              </button>
+                            );
+                          }
+                          return (
+                            <a
+                              href={href}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-foreground underline"
+                            >
+                              {children}
+                            </a>
+                          );
+                        },
                       }}
                     >
                       {msg.content}
