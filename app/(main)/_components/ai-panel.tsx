@@ -306,8 +306,7 @@ const AiPanel = () => {
     <>
       <div className="fixed inset-0 z-[100]" onClick={onClose} />
       <aside className={cn(
-        // z-[100000] > navbar/banner 的 z-[99999]：面板打开时不被顶部文档栏盖住
-        "fixed right-0 top-0 h-full w-96 border-l bg-white dark:bg-neutral-900 dark:border-neutral-800 z-[100000] flex flex-col shadow-xl"
+        "fixed right-0 top-0 h-full w-96 border-l bg-white dark:bg-neutral-900 dark:border-neutral-800 z-[101] flex flex-col shadow-xl"
       )}>
         <div className="flex items-center justify-between gap-2 border-b px-4 py-3 dark:border-neutral-800">
           <div className="flex items-center gap-2">
