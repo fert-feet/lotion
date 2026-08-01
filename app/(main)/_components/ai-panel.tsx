@@ -116,6 +116,11 @@ const AiPanel = () => {
 
   const handleNewSession = async () => {
     if (!user) return;
+    // 当前激活的已是空的新对话（标题未被自动命名 = 从未发过消息），不重复创建
+    const active = sessions.find((s) => s.id === activeSessionId);
+    if (active?.title === "新对话") {
+      return;
+    }
     try {
       const id = await createChatSession(user.id);
       setSessions((prev) => [
