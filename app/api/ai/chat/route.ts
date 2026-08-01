@@ -30,8 +30,8 @@ export async function POST(request: Request) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { prompt, documentId, requestId } = await request.json();
-  logger.api.info("收到 AI 请求", { userId: user.id, promptLen: prompt.length, documentId });
+  const { prompt, documentId, sessionId, requestId } = await request.json();
+  logger.api.info("收到 AI 请求", { userId: user.id, promptLen: prompt.length, documentId, sessionId });
 
   // 幂等检查：重复的 requestId 直接拒绝
   if (requestId) {
@@ -39,6 +39,20 @@ export async function POST(request: Request) {
       logger.api.warn("重复请求已拒绝", { requestId });
       return Response.json({ error: "Duplicate request" }, { status: 409 });
     }
+  }
+
+  // 会话归属校验（RLS 兜底，这里显式检查给出清晰错误）
+  if (!sessionId) {
+    return Response.json({ error: "sessionId is required" }, { status: 400 });
+  }
+  const { data: session } = await supabase
+    .from("chat_sessions")
+    .select("id, title")
+    .eq("id", sessionId)
+    .eq("userId", user.id)
+    .single();
+  if (!session) {
+    return Response.json({ error: "Session not found" }, { status: 404 });
   }
 
   let docContext: { title: string; content: string } | undefined;
@@ -55,22 +69,33 @@ export async function POST(request: Request) {
     }
   }
 
-  // 落库用户消息（失败不阻塞主流程）
+  // 落库用户消息（失败不阻塞主流程）；首个问题自动命名会话
   try {
     await insertChatMessage(supabase, {
       userId: user.id,
-      documentId: documentId ?? null,
+      sessionId,
       role: "user",
       content: prompt,
     });
+    if (session.title === "新对话") {
+      await supabase
+        .from("chat_sessions")
+        .update({ title: prompt.slice(0, 20), updatedAt: new Date().toISOString() })
+        .eq("id", sessionId);
+    } else {
+      await supabase
+        .from("chat_sessions")
+        .update({ updatedAt: new Date().toISOString() })
+        .eq("id", sessionId);
+    }
   } catch (e) {
     logger.api.error("用户消息落库失败", { error: String(e) });
   }
 
-  // 拉取该文档的对话历史注入 Agent（多轮上下文）
+  // 拉取该会话的对话历史注入 Agent（多轮上下文，全局跨文档）
   let history: AgentHistoryMessage[] = [];
   try {
-    const msgs = await getChatHistory(user.id, documentId ?? null, 20, supabase);
+    const msgs = await getChatHistory(user.id, sessionId, 20, supabase);
     history = msgs.map((m) => ({ role: m.role, content: m.content }));
     logger.api.info("注入对话历史", { count: history.length });
   } catch (e) {
@@ -84,7 +109,7 @@ export async function POST(request: Request) {
     .then((result) =>
       insertChatMessage(supabase, {
         userId: user.id,
-        documentId: documentId ?? null,
+        sessionId,
         role: "assistant",
         content: result.text,
         promptTokens: result.usage?.inputTokens ?? 0,

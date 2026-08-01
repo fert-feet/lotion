@@ -26,10 +26,18 @@ export type ChatMessage = {
   createdAt: string;
 };
 
+/** 全局会话（不绑定文档） */
+export type ChatSession = {
+  id: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
 /** 落库用的消息（server 端写入） */
 export type ChatMessageInput = {
   userId: string;
-  documentId?: string | null;
+  sessionId?: string | null;
   role: "user" | "assistant";
   content: string;
   promptTokens?: number;
@@ -45,10 +53,44 @@ function supabase() {
 
 // ---- Chat history ----
 
-/** 拉取某篇文档的最近对话历史（时间升序，用于注入 AI 上下文与前端渲染） */
+/** 列出当前用户全部会话（按最近更新倒序） */
+export async function getChatSessions(userId: string): Promise<ChatSession[]> {
+  const { data } = await supabase()
+    .from("chat_sessions")
+    .select("id, title, createdAt, updatedAt")
+    .eq("userId", userId)
+    .order("updatedAt", { ascending: false });
+
+  return (data || []) as ChatSession[];
+}
+
+/** 新建会话，返回 session id */
+export async function createChatSession(userId: string, title = "新对话"): Promise<string> {
+  const { data, error } = await supabase()
+    .from("chat_sessions")
+    .insert({ userId, title })
+    .select("id")
+    .single();
+
+  if (error || !data) throw error;
+  return data.id;
+}
+
+/** 删除会话（chat_messages 级联删除） */
+export async function deleteChatSession(userId: string, sessionId: string) {
+  const { error } = await supabase()
+    .from("chat_sessions")
+    .delete()
+    .eq("id", sessionId)
+    .eq("userId", userId);
+
+  if (error) throw error;
+}
+
+/** 拉取某会话的最近对话历史（时间升序，用于注入 AI 上下文与前端渲染） */
 export async function getChatHistory(
   userId: string,
-  documentId: string | null,
+  sessionId: string | null,
   limit = 20,
   client?: ReturnType<typeof supabase>,
 ): Promise<ChatMessage[]> {
@@ -60,8 +102,8 @@ export async function getChatHistory(
     .order("createdAt", { ascending: false })
     .limit(limit);
 
-  if (documentId) {
-    query = query.eq("documentId", documentId);
+  if (sessionId) {
+    query = query.eq("sessionId", sessionId);
   }
 
   const { data } = await query;
@@ -75,7 +117,7 @@ export async function insertChatMessage(
 ) {
   const { error } = await supabaseClient.from("chat_messages").insert({
     userId: msg.userId,
-    documentId: msg.documentId || null,
+    sessionId: msg.sessionId || null,
     role: msg.role,
     content: msg.content,
     promptTokens: msg.promptTokens || 0,

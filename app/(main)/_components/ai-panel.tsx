@@ -6,11 +6,18 @@ import { useSupabaseUser } from "@/hooks/use-supabase-user";
 import { useRefresh } from "@/hooks/use-refresh";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { Bot, Send, Sparkles, X, Loader2, AlertTriangle, Check, Ban } from "lucide-react";
+import { Bot, Send, Sparkles, X, Loader2, AlertTriangle, Check, Ban, MessageSquare, Plus, Trash2 } from "lucide-react";
 import { Button } from "../../../components/ui/button";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
-import { getChatHistory, remove } from "@/lib/db";
+import {
+  getChatHistory,
+  getChatSessions,
+  createChatSession,
+  deleteChatSession,
+  remove,
+  type ChatSession,
+} from "@/lib/db";
 
 interface PendingAction {
   type: "delete";
@@ -43,13 +50,43 @@ const AiPanel = () => {
   const [loading, setLoading] = useState(false);
   const [streaming, setStreaming] = useState("");
   const [progress, setProgress] = useState("");
+  const [sessions, setSessions] = useState<ChatSession[]>([]);
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+  const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
+  const confirmTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const messagesRef = useRef<HTMLDivElement>(null);
 
-  // 切换文档时加载该文档的对话历史（PandaWiki 启发：每篇文章独立对话线）
+  const userId = user?.id;
+
+  // 初始化：加载会话列表；无会话时自动创建一个（全局对话，不绑定文档）
   useEffect(() => {
-    if (!user || !params.documentId) return;
+    if (!userId) return;
     let alive = true;
-    getChatHistory(user.id, params.documentId as string, 20)
+    getChatSessions(userId)
+      .then(async (list) => {
+        if (!alive) return;
+        let sessionsList = list;
+        if (sessionsList.length === 0) {
+          await createChatSession(userId);
+          sessionsList = await getChatSessions(userId);
+        }
+        if (!alive) return;
+        setSessions(sessionsList);
+        setActiveSessionId(sessionsList[0].id);
+      })
+      .catch(() => {
+        // 拉取失败不阻塞，保持空状态
+      });
+    return () => {
+      alive = false;
+    };
+  }, [userId]);
+
+  // 切换会话时加载该会话的历史（跨文档全局对话）
+  useEffect(() => {
+    if (!userId || !activeSessionId) return;
+    let alive = true;
+    getChatHistory(userId, activeSessionId, 20)
       .then((msgs) => {
         if (!alive) return;
         setMessages(msgs.map((m) => ({ role: m.role, content: m.content })));
@@ -60,7 +97,7 @@ const AiPanel = () => {
     return () => {
       alive = false;
     };
-  }, [user?.id, params.documentId]);
+  }, [userId, activeSessionId]);
 
   useEffect(() => {
     messagesRef.current?.scrollTo(0, messagesRef.current.scrollHeight);
@@ -68,8 +105,64 @@ const AiPanel = () => {
 
   if (!isOpen) return null;
 
+  // ---- 会话操作 ----
+
+  const refreshSessions = () => {
+    if (!user) return;
+    getChatSessions(user.id)
+      .then(setSessions)
+      .catch(() => {});
+  };
+
+  const handleNewSession = async () => {
+    if (!user) return;
+    try {
+      const id = await createChatSession(user.id);
+      setSessions((prev) => [
+        { id, title: "新对话", createdAt: "", updatedAt: "" },
+        ...prev,
+      ]);
+      setActiveSessionId(id);
+      setMessages([]);
+      setStreaming("");
+      setProgress("");
+    } catch {
+      toast.error("创建会话失败");
+    }
+  };
+
+  const handleDeleteSession = async (sessionId: string) => {
+    if (!user) return;
+    // 二次确认：第一次点击进入确认态，3 秒内再点才删除
+    if (confirmingDeleteId !== sessionId) {
+      setConfirmingDeleteId(sessionId);
+      if (confirmTimer.current) clearTimeout(confirmTimer.current);
+      confirmTimer.current = setTimeout(() => setConfirmingDeleteId(null), 3000);
+      return;
+    }
+    setConfirmingDeleteId(null);
+    try {
+      await deleteChatSession(user.id, sessionId);
+      const next = sessions.filter((s) => s.id !== sessionId);
+      setSessions(next);
+      if (activeSessionId === sessionId) {
+        // 删除的是当前会话：激活下一个，没有则新建
+        if (next.length > 0) {
+          setActiveSessionId(next[0].id);
+        } else {
+          const id = await createChatSession(user.id);
+          setSessions([{ id, title: "新对话", createdAt: "", updatedAt: "" }]);
+          setActiveSessionId(id);
+          setMessages([]);
+        }
+      }
+    } catch {
+      toast.error("删除会话失败");
+    }
+  };
+
   const handleSend = async () => {
-    if (!input.trim() || loading) return;
+    if (!input.trim() || loading || !activeSessionId) return;
 
     const userMsg: Message = { role: "user", content: input };
     setMessages((prev) => [...prev, userMsg]);
@@ -85,6 +178,7 @@ const AiPanel = () => {
         body: JSON.stringify({
           prompt: input,
           documentId: params.documentId || undefined,
+          sessionId: activeSessionId,
           requestId: crypto.randomUUID(), // 服务端幂等，防重复提交
         }),
       });
@@ -162,6 +256,7 @@ const AiPanel = () => {
       setMessages((prev) => [...prev, newMsg]);
       setStreaming("");
       setProgress("");
+      refreshSessions(); // 刷新会话列表（首个问题会自动命名会话）
     } catch (err) {
       toast.error("AI 请求失败，请稍后再试");
     } finally {
@@ -210,6 +305,52 @@ const AiPanel = () => {
           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onClose}>
             <X className="h-4 w-4" />
           </Button>
+        </div>
+
+        {/* 会话列表：可新建/切换/删除，彼此独立，全局跨文档 */}
+        <div className="border-b dark:border-neutral-800 px-2 py-2 space-y-1 max-h-44 overflow-y-auto shrink-0">
+          {sessions.map((s) => (
+            <div
+              key={s.id}
+              role="button"
+              onClick={() => setActiveSessionId(s.id)}
+              className={cn(
+                "group flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm cursor-pointer",
+                s.id === activeSessionId
+                  ? "bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100"
+                  : "text-muted-foreground hover:bg-neutral-50 dark:hover:bg-neutral-900"
+              )}
+            >
+              <MessageSquare className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate flex-1">{s.title}</span>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDeleteSession(s.id);
+                }}
+                className={cn(
+                  "shrink-0 rounded p-0.5 hover:bg-red-100 dark:hover:bg-red-900/40 hover:text-red-500",
+                  confirmingDeleteId === s.id
+                    ? "text-red-500 bg-red-100 dark:bg-red-900/40"
+                    : "text-neutral-400 opacity-0 group-hover:opacity-100"
+                )}
+                title={confirmingDeleteId === s.id ? "再次点击确认删除" : "删除会话"}
+              >
+                {confirmingDeleteId === s.id ? (
+                  <span className="text-[10px] px-0.5 font-medium">确认?</span>
+                ) : (
+                  <Trash2 className="h-3.5 w-3.5" />
+                )}
+              </button>
+            </div>
+          ))}
+          <button
+            onClick={handleNewSession}
+            className="flex items-center gap-1.5 w-full rounded-md px-2 py-1.5 text-sm text-muted-foreground hover:bg-neutral-50 dark:hover:bg-neutral-900 cursor-pointer"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            <span>新对话</span>
+          </button>
         </div>
 
         <div ref={messagesRef} className="flex-1 overflow-y-auto p-4 space-y-4">
