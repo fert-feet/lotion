@@ -67,7 +67,7 @@ export default async function RootLayout({
           disableTransitionOnChange
           storageKey="Lotion-theme"
         >
-          <Toaster position="bottom-right" />
+          <Toaster position="top-right" />
           <ModalProvider />
           <UserProvider ssrUser={user}>{children}</UserProvider>
         </ThemeProvider>
