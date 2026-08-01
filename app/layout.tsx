@@ -4,6 +4,9 @@ import "./globals.css";
 import { ThemeProvider } from "../components/providers/theme-provider";
 import { Toaster } from "../components/ui/sonner";
 import ModalProvider from "../components/providers/modal-provider";
+import { UserProvider } from "../hooks/use-supabase-user";
+import { createClient } from "@/lib/supabase/server";
+import type { User } from "@supabase/supabase-js";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -36,11 +39,22 @@ export const metadata: Metadata = {
   }
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // SSR 时从 cookie 恢复 session，首帧 HTML 就包含 user，
+  // 侧边栏按钮/文档列表无需等待客户端 getUser
+  let user: User | null = null;
+  try {
+    const supabase = await createClient();
+    const { data } = await supabase.auth.getUser();
+    user = data.user;
+  } catch {
+    // Supabase 不可用时降级为匿名渲染（公开页仍可访问）
+  }
+
   return (
     <html lang="en" suppressHydrationWarning>
       <body
@@ -55,7 +69,7 @@ export default function RootLayout({
         >
           <Toaster position="bottom-right" />
           <ModalProvider />
-          {children}
+          <UserProvider ssrUser={user}>{children}</UserProvider>
         </ThemeProvider>
       </body>
     </html>
