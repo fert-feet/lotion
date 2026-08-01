@@ -363,9 +363,9 @@ const AiPanel = () => {
             type="button"
             title={m[2]}
             onClick={() => router.push(`/documents/${m[2]}`)}
-            className="mention-chip mention-chip-on-dark cursor-pointer"
+            className="mention-chip cursor-pointer"
           >
-            {m[1]}
+            @{m[1]}
           </button>
         );
       }
@@ -538,7 +538,7 @@ const AiPanel = () => {
                                 onClick={() => router.push(`/documents/${href}`)}
                                 className="mention-chip cursor-pointer"
                               >
-                                {text.slice(1)}
+                                {text}
                               </button>
                             );
                           }

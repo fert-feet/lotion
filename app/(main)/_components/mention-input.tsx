@@ -100,9 +100,9 @@ export default function MentionInput({
     chip.contentEditable = "false";
     chip.dataset.docId = doc.id;
     chip.dataset.docTitle = doc.title;
-    chip.title = doc.id; // 完整 id 放悬停提示，视觉只显示标题
+    chip.title = doc.id; // 完整 id 放悬停提示，视觉只显示 @标题
     chip.className = "mention-chip select-none";
-    chip.textContent = doc.title;
+    chip.textContent = "@" + doc.title;
 
     // 文本节点拆分为 keep + 胶囊 + rest
     node.textContent = keep;

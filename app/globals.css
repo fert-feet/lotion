@@ -150,17 +150,20 @@ body,
   pointer-events: none;
 }
 
-/* 文档提及胶囊：输入框与对话消息共用同一视觉 */
+/* 文档提及胶囊：统一 outline 风格（透明底 + 文字色细边框 + 继承文字色），
+   在输入框、AI 气泡、用户气泡（深浅主题）中均自适应，无需主题反转 */
 .mention-chip {
   display: inline-flex;
   align-items: center;
   border-radius: 9999px;
-  border: 1px solid var(--border);
-  background: var(--secondary);
-  padding: 0.125rem 0.5rem;
+  border: 1px solid;
+  border-color: color-mix(in srgb, currentColor 30%, transparent);
+  background: transparent;
+  padding: 1px 8px;
   font-size: 0.75rem;
   font-weight: 500;
-  line-height: 1.4;
+  line-height: 1.6;
+  color: inherit;
   vertical-align: middle;
   white-space: nowrap;
   max-width: 100%;
@@ -168,23 +171,7 @@ body,
   text-overflow: ellipsis;
 }
 
-/* 深色模式下 secondary 也是深色，胶囊反转成亮底深字，与浅色模式对称 */
-.dark .mention-chip {
-  background: var(--foreground);
-  color: var(--background);
-}
-
 /* 可点击胶囊的 hover 反馈 */
 .mention-chip.cursor-pointer:hover {
-  opacity: 0.8;
-}
-
-/* 深色气泡（用户消息黑底白字）内的胶囊：透明底 + 文字色描边，自动适配深浅主题 */
-.mention-chip.mention-chip-on-dark {
-  background: transparent;
-  border-color: currentColor;
-  color: inherit;
-}
-.mention-chip.mention-chip-on-dark:hover {
   opacity: 0.8;
 }
