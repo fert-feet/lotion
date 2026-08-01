@@ -351,6 +351,28 @@ const AiPanel = () => {
     setQueueItems([]);
   };
 
+  // 用户消息里的 [@标题](id) 提及 → 胶囊（不做完整 markdown 渲染，避免改变用户原文）
+  const renderMentions = (text: string) => {
+    const parts = text.split(/(\[@[^\]]+\]\([a-zA-Z0-9-]{3,64}\))/g);
+    return parts.map((part, index) => {
+      const m = part.match(/^\[@([^\]]+)\]\(([a-zA-Z0-9-]{3,64})\)$/);
+      if (m) {
+        return (
+          <button
+            key={index}
+            type="button"
+            title={m[2]}
+            onClick={() => router.push(`/documents/${m[2]}`)}
+            className="mention-chip cursor-pointer transition-colors hover:bg-secondary/80"
+          >
+            {m[1]}
+          </button>
+        );
+      }
+      return <span key={index}>{part}</span>;
+    });
+  };
+
 
   const handleConfirmDelete = (msgIndex: number, noteId: string, title: string) => {
     const promise = remove(noteId).then(() => {
@@ -538,7 +560,7 @@ const AiPanel = () => {
                   ) : msg.role === "assistant" ? (
                     <span className="text-muted-foreground italic">（空回复）</span>
                   ) : (
-                    msg.content
+                    renderMentions(msg.content)
                   )}
                 </div>
               </div>
