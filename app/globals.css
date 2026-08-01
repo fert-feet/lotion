@@ -166,7 +166,7 @@ body,
   color: inherit;
   max-width: 10rem;
   margin-inline: 3px; /* 与相邻文本之间留出空隙 */
-  vertical-align: middle;
+  vertical-align: baseline; /* 与相邻文字基线对齐，避免中线对齐造成视觉错位 */
   white-space: nowrap;
 }
 
