@@ -8,6 +8,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Bot, Send, Sparkles, X, Loader2, AlertTriangle, Check, Ban, MessageSquare, Plus, Trash2, History, Square } from "lucide-react";
 import { Button } from "../../../components/ui/button";
+import MentionInput, { type MentionInputHandle } from "./mention-input";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 import {
@@ -52,7 +53,7 @@ const AiPanel = () => {
   const router = useRouter();
 
   const [messages, setMessages] = useState<Message[]>([]);
-  const [input, setInput] = useState("");
+  const [inputEmpty, setInputEmpty] = useState(true);
   const [loading, setLoading] = useState(false);
   const [streaming, setStreaming] = useState("");
   const [progress, setProgress] = useState("");
@@ -67,6 +68,7 @@ const AiPanel = () => {
   const abortRef = useRef<AbortController | null>(null);
   const queueRef = useRef<string[]>([]);
   const [queueItems, setQueueItems] = useState<string[]>([]);
+  const mentionRef = useRef<MentionInputHandle>(null);
 
   // 面板顶部卡在 navbar/banner 下方：实时测量顶部文档栏高度
   // （banner 出现/消失、侧边栏折叠都会改变高度，用 ResizeObserver 跟随）
@@ -198,7 +200,6 @@ const AiPanel = () => {
 
     const userMsg: Message = { role: "user", content };
     setMessages((prev) => [...prev, userMsg]);
-    setInput("");
     setLoading(true);
     setStreaming("");
     setProgress("");
@@ -321,14 +322,12 @@ const AiPanel = () => {
   };
 
   // 输入框发送入口：流式进行中则入队排队，结束后自动发送
-  const handleSend = () => {
-    const content = input.trim();
+  const handleSend = (content: string) => {
     if (!content || !activeSessionId) return;
 
     if (streamingRef.current) {
       queueRef.current = [...queueRef.current, content];
       setQueueItems([...queueRef.current]);
-      setInput("");
       return;
     }
 
@@ -648,19 +647,19 @@ const AiPanel = () => {
             </div>
           )}
           <div className="flex gap-2">
-            <input
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSend()}
-              placeholder={loading ? "正在回答，输入后自动排队发送..." : "输入你的问题..."}
-              className="flex-1 rounded-md border border-border bg-muted px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-foreground/40"
+            <MentionInput
+              ref={mentionRef}
+              onSubmit={handleSend}
+              onEmptyChange={setInputEmpty}
+              placeholder={loading ? "正在回答，输入后自动排队发送..." : "输入你的问题，@ 可提及文档..."}
+              className="flex-1"
             />
             <div className="shrink-0">
               <Button
                 size="icon"
                 className="h-9 w-9 cursor-pointer bg-foreground text-background hover:bg-foreground/90"
-                onClick={loading ? handleStop : handleSend}
-                disabled={!loading && !input.trim()}
+                onClick={loading ? handleStop : () => mentionRef.current?.submit()}
+                disabled={!loading && inputEmpty}
                 title={loading ? "停止生成" : "发送"}
               >
                 {loading ? <Square className="h-4 w-4" /> : <Send className="h-4 w-4" />}

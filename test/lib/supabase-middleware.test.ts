@@ -8,7 +8,7 @@ const { getUserMock, createServerClientMock } = vi.hoisted(() => {
   const getUserMock = vi.fn();
   return {
     getUserMock,
-    createServerClientMock: vi.fn(() => ({
+    createServerClientMock: vi.fn((..._args: unknown[]) => ({
       auth: { getUser: getUserMock },
     })),
   };

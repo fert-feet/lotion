@@ -75,7 +75,7 @@ function makeQuery(script: Array<() => StepResult | Promise<StepResult>>, calls:
       return query;
     },
     single: () => query,
-    then(resolve: (v: StepResult) => void) {
+    then(resolve: (v: StepResult | Promise<StepResult>) => void) {
       const step = script.shift();
       resolve(step ? step() : { data: null, error: null });
     },

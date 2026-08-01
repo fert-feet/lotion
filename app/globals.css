@@ -142,3 +142,10 @@ body,
     @apply bg-background text-foreground;
   }
 }
+
+/* @提及胶囊输入框的 placeholder（contentEditable 无原生 placeholder） */
+.mention-editor:empty::before {
+  content: attr(data-placeholder);
+  color: var(--muted-foreground);
+  pointer-events: none;
+}
