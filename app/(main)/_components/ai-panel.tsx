@@ -5,7 +5,8 @@ import { cn } from "@/lib/utils";
 import { useSupabaseUser } from "@/hooks/use-supabase-user";
 import { useRefresh } from "@/hooks/use-refresh";
 import { useParams, useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ElementRef, type MouseEvent as ReactMouseEvent } from "react";
+import { useMediaQuery } from "usehooks-ts";
 import { Bot, Send, Sparkles, X, Loader2, AlertTriangle, Check, Ban, MessageSquare, Plus, Trash2, History, Square } from "lucide-react";
 import { Button } from "../../../components/ui/button";
 import MentionInput, { type MentionInputHandle } from "./mention-input";
@@ -55,6 +56,11 @@ const AiPanel = () => {
   const params = useParams();
   const router = useRouter();
 
+  // 桌面端为挤压式侧边栏（flex 占位，main 自动让位）；移动端为覆盖式全屏浮层
+  const isMobile = useMediaQuery("(max-width: 768px)");
+  const panelRef = useRef<ElementRef<"aside">>(null);
+  const isResizingRef = useRef(false);
+
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputEmpty, setInputEmpty] = useState(true);
   const [loading, setLoading] = useState(false);
@@ -85,6 +91,33 @@ const AiPanel = () => {
     ro.observe(el);
     return () => ro.disconnect();
   }, [isOpen]);
+
+  // ---- 面板宽度拖拽（参照左侧 navigation 的拖拽模式）----
+
+  const handleMouseDown = (e: ReactMouseEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    isResizingRef.current = true;
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+  };
+
+  const handleMouseMove = (e: MouseEvent) => {
+    if (!isResizingRef.current) return;
+    // 面板贴右，宽度 = 视口宽 - 鼠标 x
+    let newWidth = window.innerWidth - e.clientX;
+    if (newWidth < 320) newWidth = 320;
+    if (newWidth > 560) newWidth = 560;
+    if (panelRef.current) {
+      panelRef.current.style.width = `${newWidth}px`;
+    }
+  };
+
+  const handleMouseUp = () => {
+    isResizingRef.current = false;
+    document.removeEventListener("mousemove", handleMouseMove);
+    document.removeEventListener("mouseup", handleMouseUp);
+  };
 
   const userId = user?.id;
 
@@ -417,11 +450,26 @@ const AiPanel = () => {
   return (
     <>
       <aside
-        style={{ top: navHeight }}
+        ref={panelRef}
+        style={{
+          paddingTop: navHeight,
+          ...(isMobile ? {} : { width: "384px" }),
+        }}
         className={cn(
-          "fixed right-0 bottom-0 w-96 border-l border-t bg-background z-[101] flex flex-col shadow-xl"
+          "group/ai-panel border-l bg-background z-[101] flex flex-col shadow-xl",
+          // 桌面端：flex 占位（挤压式），main 自动让出宽度，内容不被遮挡、横向滚动条完整可见
+          // 移动端：覆盖式全屏浮层
+          isMobile ? "fixed inset-y-0 right-0 w-full" : "relative h-full"
         )}
       >
+        {/* 左缘拖拽条：调宽 320-560px（移动端全屏不可调） */}
+        {!isMobile && (
+          <div
+            onMouseDown={handleMouseDown}
+            title="拖拽调整宽度"
+            className="opacity-0 group-hover/ai-panel:opacity-100 transition cursor-ew-resize absolute left-0 top-0 h-full w-1 bg-primary/10 hover:bg-primary/25"
+          />
+        )}
         {/* 会话工具栏：当前标题 + 历史下拉 + 新增 + 关闭（原"AI 助手"标题栏已去掉，
             面板顶部刚好卡在 navbar/banner 下方） */}
         <div className="border-b px-3 py-2 flex items-center gap-1.5 shrink-0">
