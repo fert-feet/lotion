@@ -74,7 +74,7 @@
 
     <!-- AI Agent 事件流 -->
     <g id="ai-stream">
-      <rect x="748" y="272" width="364" height="60" rx="10" fill="#23232E"/>
+      <rect x="748" y="272" width="364" height="36" rx="10" fill="#23232E"/>
       <text x="764" y="290" font-family="ui-monospace, SFMono-Regular, Menlo, monospace"
             font-size="11" letter-spacing="1.5" fill="#8B8BA3">AI AGENT · DEEPSEEK</text>
       <rect x="764" y="302" width="96" height="19" rx="9.5" fill="#4D6BFE"/>
@@ -83,12 +83,10 @@
             font-size="11" fill="#FFFFFF">note_created</text>
       <text x="872" y="315.5" font-family="-apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, &quot;PingFang SC&quot;, &quot;Hiragino Sans GB&quot;, &quot;Microsoft YaHei&quot;, sans-serif"
             font-size="13" fill="#E8E8F2">草稿《会议纪要》已创建，待确认</text>
-      <rect x="764" y="326" width="82" height="19" rx="9.5" fill="#3A3948"/>
-      <text x="805" y="339.5" text-anchor="middle"
+      <rect x="872" y="302" width="82" height="19" rx="9.5" fill="#3A3948"/>
+      <text x="913" y="315.5" text-anchor="middle"
             font-family="ui-monospace, SFMono-Regular, Menlo, monospace"
             font-size="11" fill="#C9C8DC">references</text>
-      <text x="858" y="339.5" font-family="-apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, &quot;PingFang SC&quot;, &quot;Hiragino Sans GB&quot;, &quot;Microsoft YaHei&quot;, sans-serif"
-            font-size="13" fill="#B9B8CC">已关联 3 篇相关笔记</text>
     </g>
   </g>
 </svg>
