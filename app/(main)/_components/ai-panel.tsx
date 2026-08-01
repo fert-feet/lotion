@@ -360,14 +360,12 @@ const AiPanel = () => {
   };
 
   // 点击胶囊/引用跳转前先确认文档存在，已删除的文档提示而不跳转（避免 not found 页）
-  const openDocument = useCallback(
-    (id: string) => {
-      getById(id)
-        .then(() => router.push(`/documents/${id}`))
-        .catch(() => toast.error("文档不存在或已删除"));
-    },
-    [router]
-  );
+  // 注意：定义在 `if (!isOpen) return null` 之后，不能用 useCallback（条件 Hook）
+  const openDocument = (id: string) => {
+    getById(id)
+      .then(() => router.push(`/documents/${id}`))
+      .catch(() => toast.error("文档不存在或已删除"));
+  };
 
   // 移除队列中的一条消息
   const removeFromQueue = (index: number) => {
