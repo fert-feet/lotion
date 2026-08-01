@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronsLeft, ListChecks, MenuIcon, Plus, PlusCircle, Search, Settings, Sparkles, Trash } from "lucide-react";
+import { ChevronsLeft, ListChecks, MenuIcon, PlusCircle, Search, Settings, Sparkles, Trash } from "lucide-react";
 import { useParams, usePathname, useRouter } from "next/navigation";
 import React, { ElementRef, useEffect, useRef, useState } from "react";
 import { useMediaQuery } from "usehooks-ts";
@@ -204,16 +204,9 @@ const Navigation = () => {
                             selected={selected}
                             onToggleCheck={toggleCheck}
                         />
-                        <div className="pt-0.5">
-                            <Item
-                                onClick={onCreate}
-                                icon={Plus}
-                                label="Add a page"
-                            />
-                        </div>
 
                         <Item
-                            label="批量删除"
+                            label="Batch Delete"
                             icon={ListChecks}
                             onClick={() => setBatchMode(true)}
                         />
