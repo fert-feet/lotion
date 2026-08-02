@@ -26,7 +26,7 @@ vi.mock("ai", async (importOriginal) => {
       onError?: (info: { error: Error }) => void;
       onFinish?: (info: { finishReason: string; usage: unknown; text: string; steps: unknown[] }) => void;
     }) => {
-      // 捕获注入 streamText 的消息（断言文档上下文/历史预算用）
+      // 捕获注入 streamText 的消息（断言历史注入/中止行为用）
       mockConfig.capturedMessages = options.messages ?? [];
       // 捕获 abortSignal：断言 deleteNote 中止行为
       mockConfig.abortSignal = options.abortSignal ?? null;
@@ -245,56 +245,37 @@ describe("runNoteAgent error 事件", () => {
   });
 });
 
-describe("runNoteAgent 上下文预算", () => {
-  it("超长文档上下文截断注入，并提示可用 readNote 读全文（带 id）", async () => {
-    const longContent = "字".repeat(10_000);
-    const { stream } = await runNoteAgent(fakeSupabase, "user-1", "你好", {
-      id: "doc-1",
-      title: "长文档",
-      content: longContent,
-    });
-    await readEvents(stream);
-
-    const userMsg = mockConfig.capturedMessages.find((m) => m.role === "user")!;
-    expect(userMsg.content.length).toBeLessThan(7_000);
-    expect(userMsg.content).toContain("文档过长已截断");
-    expect(userMsg.content).toContain("readNote 读取（id: doc-1）");
-  });
-
-  it("正常长度文档不做截断", async () => {
-    const { stream } = await runNoteAgent(fakeSupabase, "user-1", "你好", {
-      id: "doc-1",
-      title: "短文档",
-      content: "短内容",
-    });
-    await readEvents(stream);
-
-    const userMsg = mockConfig.capturedMessages.find((m) => m.role === "user")!;
-    expect(userMsg.content).toContain("短内容");
-    expect(userMsg.content).not.toContain("文档过长已截断");
-  });
-
-  it("历史消息按总字符预算注入（条数上限 20，预算 12000，单条 1000 字 → 注入 12 条）", async () => {
+describe("runNoteAgent 历史注入（全量，无预算限制）", () => {
+  it("全部历史消息注入，不做条数限制", async () => {
     const history = Array.from({ length: 30 }, (_, i) => ({
       role: (i % 2 === 0 ? "user" : "assistant") as "user" | "assistant",
-      content: "字".repeat(1_000),
+      content: `消息 ${i}`,
     }));
-    const { stream } = await runNoteAgent(fakeSupabase, "user-1", "继续", undefined, { history });
+    const { stream } = await runNoteAgent(fakeSupabase, "user-1", "继续", { history });
     await readEvents(stream);
 
     // capturedMessages = 历史 + 当前 prompt（最后一条）
     const historyMsgs = mockConfig.capturedMessages.slice(0, -1);
-    expect(historyMsgs).toHaveLength(12);
-    // 保留最近的消息（从旧到新注入，最新的不被丢弃）
-    expect(historyMsgs[historyMsgs.length - 1].content).toBe(history[history.length - 1].content);
+    expect(historyMsgs).toHaveLength(30);
+    // 最早的消息也完整保留（不被预算丢弃）
+    expect(historyMsgs[0].content).toBe("消息 0");
+    expect(historyMsgs[historyMsgs.length - 1].content).toBe("消息 29");
   });
 
-  it("单条历史消息超长被截断（HISTORY_MSG_LIMIT 2000）", async () => {
-    const history = [{ role: "user" as const, content: "字".repeat(5_000) }];
-    const { stream } = await runNoteAgent(fakeSupabase, "user-1", "继续", undefined, { history });
+  it("单条历史消息不截断（原样注入）", async () => {
+    const longContent = "字".repeat(5_000);
+    const history = [{ role: "user" as const, content: longContent }];
+    const { stream } = await runNoteAgent(fakeSupabase, "user-1", "继续", { history });
     await readEvents(stream);
 
     const historyMsg = mockConfig.capturedMessages[0];
-    expect(historyMsg.content.length).toBe(2_000);
+    expect(historyMsg.content).toBe(longContent);
+  });
+
+  it("无历史时只注入当前 prompt", async () => {
+    const { stream } = await runNoteAgent(fakeSupabase, "user-1", "你好");
+    await readEvents(stream);
+
+    expect(mockConfig.capturedMessages).toEqual([{ role: "user", content: "你好" }]);
   });
 });

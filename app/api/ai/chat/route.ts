@@ -28,8 +28,8 @@ export async function POST(request: Request) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { prompt, documentId, sessionId, requestId } = await request.json();
-  logger.api.info("收到 AI 请求", { userId: user.id, promptLen: prompt.length, documentId, sessionId });
+  const { prompt, sessionId, requestId } = await request.json();
+  logger.api.info("收到 AI 请求", { userId: user.id, promptLen: prompt.length, sessionId });
 
   // 会话归属校验（RLS 兜底，这里显式检查给出清晰错误）
   if (!sessionId) {
@@ -43,20 +43,6 @@ export async function POST(request: Request) {
     .single();
   if (!session) {
     return Response.json({ error: "Session not found" }, { status: 404 });
-  }
-
-  let docContext: { id: string; title: string; content: string } | undefined;
-  if (documentId) {
-    const { data: doc } = await supabase
-      .from("documents")
-      .select("title, content")
-      .eq("id", documentId)
-      .eq("userId", user.id)
-      .single();
-
-    if (doc) {
-      docContext = { id: documentId, title: doc.title, content: doc.content || "" };
-    }
   }
 
   // 落库用户消息（携带 requestId 作幂等键；冲突=重复请求直接拒绝）。
@@ -91,17 +77,17 @@ export async function POST(request: Request) {
     logger.api.error("会话更新失败", { error: String(e) });
   }
 
-  // 拉取该会话的对话历史注入 Agent（多轮上下文，全局跨文档）
+  // 拉取该会话的对话历史注入 Agent（全量注入，无条数/字符限制）
   let history: AgentHistoryMessage[] = [];
   try {
-    const msgs = await getChatHistory(user.id, sessionId, 20, supabase);
+    const msgs = await getChatHistory(user.id, sessionId, undefined, supabase);
     history = msgs.map((m) => ({ role: m.role, content: m.content }));
     logger.api.info("注入对话历史", { count: history.length });
   } catch (e) {
     logger.api.warn("拉取对话历史失败，本次无上下文", { error: String(e) });
   }
 
-  const { stream, done } = await runNoteAgent(supabase, user.id, prompt, docContext, {
+  const { stream, done } = await runNoteAgent(supabase, user.id, prompt, {
     history,
     signal: request.signal, // 前端 abort fetch 时中断 DeepSeek 生成
   });

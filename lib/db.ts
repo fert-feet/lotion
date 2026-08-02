@@ -90,11 +90,11 @@ export async function deleteChatSession(userId: string, sessionId: string) {
   if (error) throw error;
 }
 
-/** 拉取某会话的最近对话历史（时间升序，用于注入 AI 上下文与前端渲染） */
+/** 拉取某会话的对话历史（时间升序，用于注入 AI 上下文与前端渲染） */
 export async function getChatHistory(
   userId: string,
   sessionId: string | null,
-  limit = 20,
+  limit?: number,
   client?: ReturnType<typeof supabase>,
 ): Promise<ChatMessage[]> {
   const db = client ?? supabase();
@@ -102,8 +102,12 @@ export async function getChatHistory(
     .from("chat_messages")
     .select("id, role, content, createdAt")
     .eq("userId", userId)
-    .order("createdAt", { ascending: false })
-    .limit(limit);
+    .order("createdAt", { ascending: false });
+
+  // limit 不传时为全量拉取（AI 上下文注入不做条数限制）
+  if (limit && limit > 0) {
+    query = query.limit(limit);
+  }
 
   if (sessionId) {
     query = query.eq("sessionId", sessionId);

@@ -193,7 +193,7 @@ const AiPanel = () => {
       cancelStreamingFlush();
     }
     let alive = true;
-    getChatHistory(userId, activeSessionId, 20)
+    getChatHistory(userId, activeSessionId)
       .then((msgs) => {
         if (!alive) return;
         setMessages(msgs.map((m) => ({ role: m.role, content: m.content })));
@@ -306,7 +306,6 @@ const AiPanel = () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           prompt: content,
-          documentId: params.documentId || undefined,
           sessionId,
           requestId: crypto.randomUUID(), // 服务端幂等，防重复提交
         }),

@@ -143,6 +143,12 @@ describe("chat 会话函数", () => {
     expect(calls.filter((c) => c.op === "eq" && c.col === "sessionId")).toHaveLength(0);
   });
 
+  it("getChatHistory 不传 limit 时全量拉取（不调用 limit()）", async () => {
+    const calls = mockSupabase([() => ({ data: [] })]);
+    await getChatHistory("u1", "s1");
+    expect(calls.some((c) => c.op === "limit")).toBe(false);
+  });
+
   it("insertChatMessage 字段映射：token 默认 0、sessionId 空转 null", async () => {
     const calls = mockSupabase([() => ({ error: null })]);
     await insertChatMessage(

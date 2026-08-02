@@ -3,7 +3,6 @@ import { deepSeek } from "@ai-sdk/deepseek";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { NOTE_ASSISTANT_PROMPT } from "./ai-prompts";
 import { createTools, TOOL_LABELS, type ToolEvent } from "./ai/tools";
-import { extractText } from "./extract-text";
 import { logger } from "./logger";
 
 /** SSE 事件类型（前端 ai-panel.tsx 按 type 分发解析） */
@@ -35,10 +34,6 @@ export type AgentReference = { noteId: string; title: string };
 // ---- 配置：集中管理，模型可经环境变量覆盖 ----
 const AI_MODEL = process.env.AI_MODEL || "deepseek-v4-flash";
 const MAX_STEPS = 5; // Agent 最大工具调用步数
-const HISTORY_LIMIT = 20; // 注入的历史消息条数上限
-const HISTORY_MSG_LIMIT = 2000; // 单条历史消息截断长度
-const HISTORY_CHAR_BUDGET = 12_000; // 历史消息总字符预算（从最近往前累加，超出即停）
-const DOC_CONTEXT_CHAR_LIMIT = 6_000; // 文档上下文注入长度上限（超出提示 AI 用 readNote 读全文）
 const STREAM_TIMEOUT_MS = 120_000; // 单次流读取超时
 const EVENT_POLL_INTERVAL_MS = 200; // 副作用事件轮询间隔（tool 与流层解耦后的兜底唤醒）
 
@@ -53,51 +48,23 @@ export async function runNoteAgent(
   supabase: SupabaseClient,
   userId: string,
   prompt: string,
-  docContext?: { id: string; title: string; content: string },
   options?: { history?: AgentHistoryMessage[]; signal?: AbortSignal },
 ) {
   const messages: Array<{ role: "user" | "assistant"; content: string }> = [];
 
-  if (docContext) {
-    const plainText = extractText(docContext.content);
-    // 上下文预算：超长文档截断注入，并告知 AI 可 readNote 读全文
-    const truncated =
-      plainText.length > DOC_CONTEXT_CHAR_LIMIT
-        ? `${plainText.slice(0, DOC_CONTEXT_CHAR_LIMIT)}\n\n[文档过长已截断（共 ${plainText.length} 字符），如需全文可调用 readNote 读取（id: ${docContext.id}）]`
-        : plainText;
-    logger.agent.info("注入文档上下文", { title: docContext.title, chars: truncated.length, truncated: plainText.length > DOC_CONTEXT_CHAR_LIMIT });
-    messages.push({
-      role: "user",
-      content: `用户正在查看文档「${docContext.title}」，内容如下：\n\n${truncated}`,
-    });
-    messages.push({
-      role: "assistant",
-      content: "我已阅读了文档内容，请告诉我你需要什么帮助？",
-    });
-  }
-
-  // 注入对话历史（PandaWiki 启发：多轮上下文让 AI 记住之前的问答，
-  // 多轮指代如"那篇""再详细点"不再需要重新 search + read）。
-  // 双预算：条数上限 + 总字符预算（从最近往前累加，防止历史+文档+工具结果撑爆上下文）。
-  const history = (options?.history ?? []).slice(-HISTORY_LIMIT);
-  let budget = HISTORY_CHAR_BUDGET;
-  const injected: AgentHistoryMessage[] = [];
-  for (let i = history.length - 1; i >= 0; i--) {
-    const msg = history[i];
-    const clipped = msg.content.slice(0, HISTORY_MSG_LIMIT);
-    budget -= clipped.length;
-    if (budget < 0) break;
-    injected.unshift({ role: msg.role, content: clipped });
-  }
-  for (const h of injected) {
+  // 注入全部对话历史（多轮上下文让 AI 记住之前的问答，
+  // 多轮指代如"那篇""再详细点"不需要重新 search + read）。
+  // 全量注入：不做条数/字符预算/截断，模型上下文窗口内完整保留早期信息。
+  const history = options?.history ?? [];
+  for (const h of history) {
     messages.push({ role: h.role, content: h.content });
   }
-  if (injected.length > 0) {
-    logger.agent.info("注入对话历史", { count: injected.length, totalChars: HISTORY_CHAR_BUDGET - budget });
+  if (history.length > 0) {
+    logger.agent.info("注入对话历史", { count: history.length });
   }
 
   messages.push({ role: "user", content: prompt });
-  logger.agent.info("开始 Agent 执行", { userId, prompt: prompt.slice(0, 100), withContext: !!docContext, historyCount: injected.length });
+  logger.agent.info("开始 Agent 执行", { userId, prompt: prompt.slice(0, 100), historyCount: history.length });
 
   let stepCount = 0;
   const startedAt = Date.now();
