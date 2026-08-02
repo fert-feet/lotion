@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { runNoteAgent, type AgentHistoryMessage } from "@/lib/agent";
 import { getChatHistory, insertChatMessage } from "@/lib/db";
+import { maybeCompressSession } from "@/lib/compress";
 import { logger } from "@/lib/logger";
 
 /**
@@ -37,7 +38,7 @@ export async function POST(request: Request) {
   }
   const { data: session } = await supabase
     .from("chat_sessions")
-    .select("id, title")
+    .select("id, title, summary")
     .eq("id", sessionId)
     .eq("userId", user.id)
     .single();
@@ -77,22 +78,24 @@ export async function POST(request: Request) {
     logger.api.error("会话更新失败", { error: String(e) });
   }
 
-  // 拉取该会话的对话历史注入 Agent（全量注入，无条数/字符限制）
+  // 拉取该会话未压缩的对话历史注入 Agent（早期对话已被压缩为 summary，全量注入剩余消息）
   let history: AgentHistoryMessage[] = [];
   try {
-    const msgs = await getChatHistory(user.id, sessionId, undefined, supabase);
+    const msgs = await getChatHistory(user.id, sessionId, undefined, supabase, { uncompressedOnly: true });
     history = msgs.map((m) => ({ role: m.role, content: m.content }));
-    logger.api.info("注入对话历史", { count: history.length });
+    logger.api.info("注入对话历史", { count: history.length, hasSummary: !!session.summary });
   } catch (e) {
     logger.api.warn("拉取对话历史失败，本次无上下文", { error: String(e) });
   }
 
   const { stream, done } = await runNoteAgent(supabase, user.id, prompt, {
     history,
+    summary: session.summary || undefined,
     signal: request.signal, // 前端 abort fetch 时中断 DeepSeek 生成
   });
 
-  // 流结束后后台落库 assistant 消息（含 token 统计，PandaWiki 启发）
+  // 流结束后后台落库 assistant 消息（含 token 统计，PandaWiki 启发），
+  // 随后触发上下文压缩检查（未压缩消息超阈值时生成摘要并标记，失败降级不影响主流程）
   const finish = done
     .then((result) =>
       insertChatMessage(supabase, {
@@ -105,6 +108,7 @@ export async function POST(request: Request) {
         totalTokens: (result.usage?.inputTokens ?? 0) + (result.usage?.outputTokens ?? 0),
       })
     )
+    .then(() => maybeCompressSession(supabase, user.id, sessionId))
     .catch((e) => {
       logger.api.error("assistant 消息落库失败", { error: String(e) });
     });

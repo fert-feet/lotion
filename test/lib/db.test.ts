@@ -5,6 +5,9 @@ import {
   deleteChatSession,
   getChatHistory,
   insertChatMessage,
+  getChatSessionSummary,
+  updateChatSessionSummary,
+  markMessagesCompressed,
   getSidebarAll,
   getTrash,
   getById,
@@ -29,7 +32,7 @@ vi.mock("@/lib/supabase/client", () => ({
 vi.mock("@/lib/logger", () => {
   const noop = () => {};
   const ns = new Proxy({}, { get: () => noop });
-  return { logger: { api: ns, agent: ns, tools: ns, db: ns } };
+  return { logger: { api: ns, agent: ns, tools: ns, db: ns, compress: ns } };
 });
 
 type StepResult = { data?: unknown; error?: { message: string } | null };
@@ -68,6 +71,10 @@ function makeQuery(script: Array<() => StepResult | Promise<StepResult>>, calls:
     },
     update: (fields: unknown) => {
       calls.push({ op: "update", fields });
+      return query;
+    },
+    in: (col: string, vals: unknown) => {
+      calls.push({ op: "in", col, vals });
       return query;
     },
     delete: () => {
@@ -147,6 +154,48 @@ describe("chat 会话函数", () => {
     const calls = mockSupabase([() => ({ data: [] })]);
     await getChatHistory("u1", "s1");
     expect(calls.some((c) => c.op === "limit")).toBe(false);
+  });
+
+  it("getChatHistory uncompressedOnly 时过滤已压缩消息", async () => {
+    const calls = mockSupabase([() => ({ data: [] })]);
+    await getChatHistory("u1", "s1", undefined, undefined, { uncompressedOnly: true });
+    expect(calls).toContainEqual({ op: "eq", col: "compressed", val: false });
+  });
+
+  it("getChatHistory 默认不过滤已压缩消息（前端渲染全量）", async () => {
+    const calls = mockSupabase([() => ({ data: [] })]);
+    await getChatHistory("u1", "s1");
+    expect(calls.filter((c) => c.col === "compressed")).toHaveLength(0);
+  });
+
+  it("getChatSessionSummary 按 id+userId 读取会话摘要", async () => {
+    const calls = mockSupabase([() => ({ data: { summary: "摘要内容" } })]);
+    const summary = await getChatSessionSummary(createClient() as never, "u1", "s1");
+    expect(summary).toBe("摘要内容");
+    expect(calls).toContainEqual({ op: "eq", col: "id", val: "s1" });
+    expect(calls).toContainEqual({ op: "eq", col: "userId", val: "u1" });
+  });
+
+  it("getChatSessionSummary 无摘要时返回 null", async () => {
+    const calls = mockSupabase([() => ({ data: { summary: null } })]);
+    const summary = await getChatSessionSummary(createClient() as never, "u1", "s1");
+    expect(summary).toBeNull();
+  });
+
+  it("updateChatSessionSummary 按 id+userId 更新摘要", async () => {
+    const calls = mockSupabase([() => ({ error: null })]);
+    await updateChatSessionSummary(createClient() as never, "u1", "s1", "新摘要");
+    expect(calls).toContainEqual({ op: "update", fields: { summary: "新摘要" } });
+    expect(calls).toContainEqual({ op: "eq", col: "id", val: "s1" });
+    expect(calls).toContainEqual({ op: "eq", col: "userId", val: "u1" });
+  });
+
+  it("markMessagesCompressed 按 userId 限定并批量标记 id", async () => {
+    const calls = mockSupabase([() => ({ error: null })]);
+    await markMessagesCompressed(createClient() as never, "u1", ["m1", "m2"]);
+    expect(calls).toContainEqual({ op: "update", fields: { compressed: true } });
+    expect(calls).toContainEqual({ op: "eq", col: "userId", val: "u1" });
+    expect(calls).toContainEqual({ op: "in", col: "id", vals: ["m1", "m2"] });
   });
 
   it("insertChatMessage 字段映射：token 默认 0、sessionId 空转 null", async () => {

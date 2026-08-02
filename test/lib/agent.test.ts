@@ -10,6 +10,7 @@ const { mockConfig } = vi.hoisted(() => ({
     emitStepFinish: false,
     emitError: false,
     capturedMessages: [] as Array<{ role: string; content: string }>,
+    capturedSystem: "" as string,
     abortSignal: null as AbortSignal | null,
   },
 }));
@@ -19,6 +20,7 @@ vi.mock("ai", async (importOriginal) => {
   return {
     ...actual,
     streamText: (options: {
+      system?: string;
       messages?: Array<{ role: string; content: string }>;
       tools?: Record<string, { execute?: (args: unknown, opts?: unknown) => Promise<unknown> }>;
       abortSignal?: AbortSignal;
@@ -28,6 +30,7 @@ vi.mock("ai", async (importOriginal) => {
     }) => {
       // 捕获注入 streamText 的消息（断言历史注入/中止行为用）
       mockConfig.capturedMessages = options.messages ?? [];
+      mockConfig.capturedSystem = options.system ?? "";
       // 捕获 abortSignal：断言 deleteNote 中止行为
       mockConfig.abortSignal = options.abortSignal ?? null;
       return {
@@ -74,7 +77,7 @@ vi.mock("ai", async (importOriginal) => {
 vi.mock("@/lib/logger", () => {
   const noop = () => {};
   const ns = new Proxy({}, { get: () => noop });
-  return { logger: { api: ns, agent: ns, tools: ns } };
+  return { logger: { api: ns, agent: ns, tools: ns, db: ns, compress: ns } };
 });
 
 // ---- fake supabase：只支持 documents 表 ----
@@ -277,5 +280,24 @@ describe("runNoteAgent 历史注入（全量，无预算限制）", () => {
     await readEvents(stream);
 
     expect(mockConfig.capturedMessages).toEqual([{ role: "user", content: "你好" }]);
+  });
+});
+
+describe("runNoteAgent 会话摘要注入", () => {
+  it("summary 存在时注入 system 摘要段", async () => {
+    const { stream } = await runNoteAgent(fakeSupabase, "user-1", "继续", {
+      summary: "早期对话摘要：用户创建了笔记《路线图》",
+    });
+    await readEvents(stream);
+
+    expect(mockConfig.capturedSystem).toContain("早期对话摘要：用户创建了笔记《路线图》");
+    expect(mockConfig.capturedSystem).toContain("以下是本会话早期对话的摘要");
+  });
+
+  it("无 summary 时 system 不含摘要段", async () => {
+    const { stream } = await runNoteAgent(fakeSupabase, "user-1", "你好");
+    await readEvents(stream);
+
+    expect(mockConfig.capturedSystem).not.toContain("以下是本会话早期对话的摘要");
   });
 });

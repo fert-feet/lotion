@@ -86,6 +86,7 @@ export const logger = {
   tools: createLogger("tools"),
   api: createLogger("api"),
   db: createLogger("db"),
+  compress: createLogger("compress"),
 };
 
 export type Logger = ReturnType<typeof createLogger>;

@@ -96,6 +96,7 @@ export async function getChatHistory(
   sessionId: string | null,
   limit?: number,
   client?: ReturnType<typeof supabase>,
+  options?: { uncompressedOnly?: boolean },
 ): Promise<ChatMessage[]> {
   const db = client ?? supabase();
   let query = db
@@ -113,8 +114,57 @@ export async function getChatHistory(
     query = query.eq("sessionId", sessionId);
   }
 
+  // 上下文压缩后：AI 注入只取未压缩消息（前端渲染仍全量）
+  if (options?.uncompressedOnly) {
+    query = query.eq("compressed", false);
+  }
+
   const { data } = await query;
   return ((data || []) as ChatMessage[]).reverse(); // 转回时间升序
+}
+
+/** 读取会话已压缩部分的摘要（上下文压缩用；无摘要返回 null） */
+export async function getChatSessionSummary(
+  client: ReturnType<typeof supabase>,
+  userId: string,
+  sessionId: string,
+): Promise<string | null> {
+  const { data } = await client
+    .from("chat_sessions")
+    .select("summary")
+    .eq("id", sessionId)
+    .eq("userId", userId)
+    .single();
+  return (data?.summary as string | null) ?? null;
+}
+
+/** 重写式更新会话摘要（上下文压缩用） */
+export async function updateChatSessionSummary(
+  client: ReturnType<typeof supabase>,
+  userId: string,
+  sessionId: string,
+  summary: string,
+) {
+  const { error } = await client
+    .from("chat_sessions")
+    .update({ summary })
+    .eq("id", sessionId)
+    .eq("userId", userId);
+  if (error) throw error;
+}
+
+/** 批量标记消息已压缩（带 userId 条件防跨用户；id 快照标记，天然防重入） */
+export async function markMessagesCompressed(
+  client: ReturnType<typeof supabase>,
+  userId: string,
+  ids: string[],
+) {
+  const { error } = await client
+    .from("chat_messages")
+    .update({ compressed: true })
+    .eq("userId", userId)
+    .in("id", ids);
+  if (error) throw error;
 }
 
 /** 写入一条对话消息（server 端：route.ts 落库 user/assistant 消息） */

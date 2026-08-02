@@ -48,7 +48,7 @@ export async function runNoteAgent(
   supabase: SupabaseClient,
   userId: string,
   prompt: string,
-  options?: { history?: AgentHistoryMessage[]; signal?: AbortSignal },
+  options?: { history?: AgentHistoryMessage[]; summary?: string; signal?: AbortSignal },
 ) {
   const messages: Array<{ role: "user" | "assistant"; content: string }> = [];
 
@@ -64,7 +64,7 @@ export async function runNoteAgent(
   }
 
   messages.push({ role: "user", content: prompt });
-  logger.agent.info("开始 Agent 执行", { userId, prompt: prompt.slice(0, 100), historyCount: history.length });
+  logger.agent.info("开始 Agent 执行", { userId, prompt: prompt.slice(0, 100), historyCount: history.length, hasSummary: !!options?.summary });
 
   let stepCount = 0;
   const startedAt = Date.now();
@@ -128,7 +128,10 @@ export async function runNoteAgent(
 
   const result = streamText({
     model: deepSeek(AI_MODEL),
-    system: NOTE_ASSISTANT_PROMPT,
+    // 上下文压缩：早期对话以摘要形式注入 system（重写式摘要保留语义与文档 id 引用）
+    system: options?.summary
+      ? `${NOTE_ASSISTANT_PROMPT}\n\n以下是本会话早期对话的摘要（已压缩，细节以摘要为准）：\n${options.summary}`
+      : NOTE_ASSISTANT_PROMPT,
     messages,
     tools: createTools(supabase, userId, onToolEvent),
     stopWhen: stepCountIs(MAX_STEPS),

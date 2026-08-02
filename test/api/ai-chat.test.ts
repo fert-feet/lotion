@@ -5,6 +5,7 @@ import { POST } from "@/app/api/ai/chat/route";
 
 const runNoteAgent = vi.fn();
 const createClient = vi.fn();
+const maybeCompressSession = vi.fn();
 
 vi.mock("@/lib/supabase/server", () => ({
   createClient: () => createClient(),
@@ -14,10 +15,14 @@ vi.mock("@/lib/agent", () => ({
   runNoteAgent: (...args: unknown[]) => runNoteAgent(...args),
 }));
 
+vi.mock("@/lib/compress", () => ({
+  maybeCompressSession: (...args: unknown[]) => maybeCompressSession(...args),
+}));
+
 vi.mock("@/lib/logger", () => {
   const noop = () => {};
   const ns = new Proxy({}, { get: () => noop });
-  return { logger: { api: ns, agent: ns, tools: ns } };
+  return { logger: { api: ns, agent: ns, tools: ns, db: ns, compress: ns } };
 });
 
 const encoder = new TextEncoder();
@@ -51,7 +56,7 @@ function makeSupabase(overrides: Record<string, unknown> = {}) {
           select: () => ({
             eq: () => ({
               eq: () => ({
-                single: async () => ({ data: { id: "s1", title: "测试会话" }, error: null }),
+                single: async () => ({ data: { id: "s1", title: "测试会话", summary: null }, error: null }),
               }),
             }),
           }),
@@ -84,6 +89,7 @@ beforeEach(() => {
     stream: mockStream(),
     done: Promise.resolve({ text: "mock response", usage: null, references: [] }),
   });
+  maybeCompressSession.mockResolvedValue(undefined);
 });
 
 afterEach(() => {
@@ -216,7 +222,7 @@ describe("POST /api/ai/chat", () => {
               select: () => ({
                 eq: () => ({
                   eq: () => ({
-                    single: async () => ({ data: { id: "s1", title: "新对话" }, error: null }),
+                    single: async () => ({ data: { id: "s1", title: "新对话", summary: null }, error: null }),
                   }),
                 }),
               }),
@@ -245,5 +251,59 @@ describe("POST /api/ai/chat", () => {
     expect(updateMock).toHaveBeenCalledWith(
       expect.objectContaining({ title: "帮我写一篇关于 React 的文章".slice(0, 20) })
     );
+  });
+
+  it("assistant 落库后触发上下文压缩检查", async () => {
+    runNoteAgent.mockResolvedValue({
+      stream: mockStream(),
+      done: Promise.resolve({ text: "回答", usage: null, references: [] }),
+    });
+    const res = await POST(makeRequest({ prompt: "hi", sessionId: "s1", requestId: "r-compress" }));
+    await res.text();
+    await vi.waitFor(() => {
+      expect(maybeCompressSession).toHaveBeenCalledWith(
+        expect.anything(), "user-1", "s1",
+      );
+    });
+  });
+
+  it("会话已有摘要时传给 agent 注入", async () => {
+    createClient.mockReturnValue(
+      makeSupabase({
+        from: (table: string) => {
+          if (table === "chat_sessions") {
+            return {
+              select: () => ({
+                eq: () => ({
+                  eq: () => ({
+                    single: async () => ({
+                      data: { id: "s1", title: "会话", summary: "早期摘要" },
+                      error: null,
+                    }),
+                  }),
+                }),
+              }),
+              update: () => ({ eq: () => ({}) }),
+            };
+          }
+          if (table === "chat_messages") return { insert: insertChatMessageMock };
+          if (table === "documents") {
+            return {
+              select: () => ({
+                eq: () => ({
+                  single: async () => ({ data: { title: "文档", content: "内容" }, error: null }),
+                }),
+              }),
+            };
+          }
+          throw new Error(`unexpected table: ${table}`);
+        },
+      })
+    );
+    const res = await POST(makeRequest({ prompt: "hi", sessionId: "s1", requestId: "r-sum" }));
+    await res.text();
+
+    const agentArgs = runNoteAgent.mock.calls[0][3] as { summary?: string };
+    expect(agentArgs.summary).toBe("早期摘要");
   });
 });
