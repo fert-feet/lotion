@@ -156,7 +156,7 @@ const DocumentListRoot = ({ batchMode, selected, onToggleCheck }: DocumentListRo
         return (
             <div className="px-3 py-1.5">
                 <p className="text-xs leading-relaxed text-muted-foreground">
-                    还没有笔记 —— 新建一篇，或让 AI 帮你写
+                    还没有笔记，点 + 新建一篇，或让 AI 帮你写
                 </p>
             </div>
         );

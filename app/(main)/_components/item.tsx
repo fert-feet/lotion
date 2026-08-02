@@ -4,7 +4,7 @@ import { ChevronDown, ChevronRight, LucideIcon, MoreHorizontal, Plus, Trash } fr
 import { Skeleton } from "../../../components/ui/skeleton";
 import { cn } from "../../../lib/utils";
 import { useRouter } from "next/navigation";
-import { memo, useCallback } from "react";
+import { memo } from "react";
 import { toast } from "sonner";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "../../../components/ui/dropdown-menu";
 import { useSupabaseUser } from "@/hooks/use-supabase-user";
@@ -125,11 +125,12 @@ const Item = memo(({
             }}
             role="button"
             style={{
-                paddingLeft: level ? `${(level * 12) + 12}px` : "12px"
+                paddingLeft: level ? `${(level * 14) + 14}px` : "14px"
             }}
-            className={cn("group relative min-h-[30px] cursor-pointer text-sm py-1 pr-3 w-full hover:bg-primary/5 flex items-center text-muted-foreground font-medium transition-colors duration-150",
-                active && "bg-primary/10 text-primary before:absolute before:left-0 before:top-[5px] before:bottom-[5px] before:w-[3px] before:rounded-r-full before:bg-ai"
-            )}        >
+            className={cn("group relative min-h-[32px] cursor-pointer text-sm py-1 pr-2.5 w-full hover:bg-sidebar-accent/70 flex items-center text-muted-foreground font-medium transition-colors duration-150",
+                active && "bg-primary/8 text-primary before:absolute before:left-0 before:top-[6px] before:bottom-[6px] before:w-[3px] before:rounded-r-full before:bg-ai hover:bg-primary/8"
+            )}
+        >
             {batchMode && !!id && (
                 <input
                     type="checkbox"
@@ -146,40 +147,39 @@ const Item = memo(({
             {!!id && (
                 <div
                     role="button"
-                    className="h-full rounded-sm hover:bg-secondary mr-1"
+                    className="h-full rounded-sm hover:bg-sidebar-accent mr-1.5"
                     onClick={handleExpand}
                 >
                     <ChevronIcon
-                        className="h-4 w-4 shrink-0 text-muted-foreground/65"
+                        className="h-4 w-4 shrink-0 text-muted-foreground/60"
                     />
                 </div>
             )}
 
             {documentIcon ? (
-                <div className="shrink-0 mr-2 text-[18px]">
+                <div className="shrink-0 mr-2 text-[17px] leading-none">
                     {documentIcon}
                 </div>
             ) : highlighted ? (
                 <div className="mr-2 flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-ai text-ai-foreground">
-                    <Icon className="h-3.5 w-3.5" />
+                    <Icon className="h-3 w-3" strokeWidth={2.25} />
                 </div>
             ) : (
-                <Icon className={cn("mr-2 h-[18px] w-[18px] shrink-0 text-muted-foreground", iconClassName)} />
+                <Icon className={cn("mr-2 h-4 w-4 shrink-0 text-muted-foreground/80", iconClassName)} strokeWidth={1.75} />
             )}
             <span className="truncate">
                 {label}
             </span>
             {isSearch && (
-                <kbd className="ml-auto pointer-events-none inline-flex items-center h-5 select-none gap-1 rounded border bg-muted px-1.5 font-mono text-[11px] font-medium text-muted-foreground opacity-100 ">
-                    <span className="text-xs">CTRL</span>
-                    <span className="text-xs">J</span>
+                <kbd className="ml-auto pointer-events-none inline-flex items-center h-5 select-none gap-1 rounded-md border border-sidebar-border bg-sidebar-accent/60 px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
+                    CTRL J
                 </kbd>
             )}
             {!!id && (
-                <div className="flex ml-auto items-center gap-x-2">
+                <div className="flex ml-auto items-center gap-x-1.5 pl-1">
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                            <div role="button" onClick={(e) => e.stopPropagation()} className="cursor-pointer opacity-0 group-hover:opacity-100 max-md:opacity-100 h-full ml-auto rounded-sm hover:bg-secondary">
+                            <div role="button" onClick={(e) => e.stopPropagation()} className="cursor-pointer opacity-0 group-hover:opacity-100 max-md:opacity-100 h-full rounded-md hover:bg-sidebar-accent">
                                 <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
                             </div>
                         </DropdownMenuTrigger>
@@ -200,7 +200,7 @@ const Item = memo(({
                         </DropdownMenuContent>
                     </DropdownMenu>
 
-                    <div role="button" onClick={onCreate} className="opacity-0 group-hover:opacity-100 max-md:opacity-100 h-full ml-auto rounded-sm hover:bg-secondary">
+                    <div role="button" onClick={onCreate} className="opacity-0 group-hover:opacity-100 max-md:opacity-100 h-full rounded-md hover:bg-sidebar-accent">
                         <Plus className="h-4 w-4 text-muted-foreground" />
                     </div>
                 </div>
@@ -215,7 +215,7 @@ const ItemSkeleton = function ItemSkeleton({ level }: { level?: number; }) {
     return (
         <div
             style={{
-                paddingLeft: level ? `${(level * 12) + 25}px` : "12px"
+                paddingLeft: level ? `${(level * 14) + 25}px` : "14px"
             }}
             className="flex gap-x-2 py-[3px]"
         >

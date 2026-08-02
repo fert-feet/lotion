@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronsLeft, ListChecks, MenuIcon, PlusCircle, Search, Settings, Sparkles, Trash } from "lucide-react";
+import { ChevronsLeft, ListChecks, MenuIcon, PenLine, Plus, Search, Settings, Sparkles, Trash } from "lucide-react";
 import { useParams, usePathname, useRouter } from "next/navigation";
 import React, { ElementRef, useEffect, useRef, useState } from "react";
 import { useMediaQuery } from "usehooks-ts";
@@ -164,84 +164,97 @@ const Navigation = () => {
             <aside
                 ref={sidebarRef}
                 className={cn(
-                    "group/sidebar h-full bg-sidebar overflow-y-auto relative flex w-60 flex-col z-[99999] before:absolute before:top-0 before:left-0 before:h-[3px] before:w-full before:bg-ai",
+                    "group/sidebar h-full bg-sidebar relative flex w-60 flex-col z-[99999] before:absolute before:top-0 before:left-0 before:h-[3px] before:w-full before:bg-ai",
                     isResetting && "transition-[width] ease-in-out duration-300",
                     isMobile && "w-0"
                 )}>
-                <div
-                    onClick={collapse}
-                    role="button"
-                    className={cn(
-                        "h-6 w-6 text-muted-foreground rounded-sm hover:bg-accent absolute top-2 right-2 opacity-0 group-hover/sidebar:opacity-100 transition",
-                        isMobile && "opacity-100"
-                    )}
-                >
-                    <ChevronsLeft className="h-6 w-6" />
+                {/* 品牌区：荧光笔标记 + 字标 + 折叠按钮（固定顶部，替代原悬浮按钮） */}
+                <div className="flex items-center gap-2 px-3 pt-3.5 pb-1 shrink-0">
+                    <div className="flex h-6 w-6 items-center justify-center rounded-md bg-ai text-ai-foreground">
+                        <PenLine className="h-3.5 w-3.5" strokeWidth={2.5} />
+                    </div>
+                    <span className="font-display text-[15px] font-semibold tracking-tight">
+                        Lotion
+                    </span>
+                    <div
+                        onClick={collapse}
+                        role="button"
+                        title="折叠侧边栏"
+                        className={cn(
+                            "ml-auto flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-sidebar-accent hover:text-foreground transition-colors cursor-pointer",
+                            isMobile && "opacity-100"
+                        )}
+                    >
+                        <ChevronsLeft className="h-4 w-4" />
+                    </div>
                 </div>
-                <div className="flex-1 overflow-y-auto">
+
+                {/* 用户区（固定顶部） */}
+                <div className="shrink-0">
                     <UserItem />
-                    <div className="mx-3 border-t border-sidebar-border" />
+                </div>
 
-                    <div className="pt-1">
-                        <Item
-                            label="搜索"
-                            icon={Search}
-                            isSearch
-                            onClick={toggle}
-                        />
-                        <Item
-                            label="设置"
-                            icon={Settings}
-                            onClick={settingsOnOpen}
-                        />
-                        <Item
-                            label="AI 助手"
-                            icon={Sparkles}
-                            highlighted
-                            onClick={aiPanelToggle}
-                        />
-                        <Item
-                            onClick={onCreate}
-                            label="新建笔记"
-                            icon={PlusCircle}
-                        />
-                    </div>
+                {/* 工具区：搜索 + AI 助手（固定顶部） */}
+                <div className="px-2.5 pt-1 space-y-0.5 shrink-0">
+                    <Item
+                        label="搜索"
+                        icon={Search}
+                        isSearch
+                        onClick={toggle}
+                    />
+                    <Item
+                        label="AI 助手"
+                        icon={Sparkles}
+                        highlighted
+                        onClick={aiPanelToggle}
+                    />
+                </div>
 
-                    <div className="mx-3 mt-2 border-t border-sidebar-border" />
-
-                    <div className="mt-1">
-                        <div className="px-3 pt-2.5 pb-1 text-[11px] font-medium tracking-wide text-muted-foreground/70">
+                {/* 文档区：独立滚动（长列表不挤占工具与管理区） */}
+                <div className="flex-1 overflow-y-auto min-h-0 mt-3">
+                    <div className="flex items-center px-3 pb-1">
+                        <span className="text-[11px] font-medium tracking-wide text-muted-foreground/70">
                             我的文档
-                        </div>
-                        <DocumentList
-                            batchMode={batchMode}
-                            selected={selected}
-                            onToggleCheck={toggleCheck}
-                        />
+                        </span>
+                        <button
+                            onClick={onCreate}
+                            title="新建笔记"
+                            className="ml-auto flex h-5 w-5 items-center justify-center rounded-md text-muted-foreground hover:bg-sidebar-accent hover:text-foreground transition-colors cursor-pointer"
+                        >
+                            <Plus className="h-3.5 w-3.5" />
+                        </button>
                     </div>
+                    <DocumentList
+                        batchMode={batchMode}
+                        selected={selected}
+                        onToggleCheck={toggleCheck}
+                    />
+                </div>
 
-                    <div className="mx-3 mt-2 border-t border-sidebar-border" />
+                {/* 管理区：固定在底部（设置/批量删除/回收站随时可达） */}
+                <div className="border-t border-sidebar-border px-2.5 pt-1.5 pb-2 space-y-0.5 shrink-0">
+                    <Item
+                        label="设置"
+                        icon={Settings}
+                        onClick={settingsOnOpen}
+                    />
+                    <Item
+                        label="批量删除"
+                        icon={ListChecks}
+                        onClick={() => setBatchMode(true)}
+                    />
+                    <Popover>
+                        <PopoverTrigger className="w-full">
+                            <Item label="回收站" icon={Trash} />
+                        </PopoverTrigger>
 
-                    <div className="pt-1">
-                        <Item
-                            label="批量删除"
-                            icon={ListChecks}
-                            onClick={() => setBatchMode(true)}
-                        />
-
-                        <Popover>
-                            <PopoverTrigger className="w-full">
-                                <Item label="回收站" icon={Trash} />
-                            </PopoverTrigger>
-
-                            <PopoverContent
-                                className="p-0 w-72"
-                                side={isMobile ? "bottom" : "right"}
-                            >
-                                <TrashBox />
-                            </PopoverContent>
-                        </Popover>
-                    </div>
+                        <PopoverContent
+                            className="p-0 w-72"
+                            side={isMobile ? "bottom" : "right"}
+                        >
+                            <TrashBox />
+                        </PopoverContent>
+                    </Popover>
                 </div>
 
                 {batchMode && (
@@ -273,7 +286,7 @@ const Navigation = () => {
                 <div
                     onMouseDown={(e) => { handleMouseDown(e); }}
                     onClick={() => { if (dragMoved.current) return; resetWidth(); }}
-                    className="opacity-0 group-hover/sidebar:opacity-100 transition cursor-ew-resize absolute h-full w-1 bg-primary/10 hover:bg-ai/50 right-0 top-0" />
+                    className="opacity-0 group-hover/sidebar:opacity-100 transition cursor-ew-resize absolute h-full w-[3px] bg-primary/10 hover:bg-ai/60 right-0 top-0" />
             </aside>
 
             <div ref={navbarRef} id="main-navbar" className={cn(
