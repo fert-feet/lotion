@@ -1,2 +1,0 @@
-[permissions]
-allow = ["Bash(sed -n '100,140p' lib/db.ts; echo \"=====route.ts 落库=====\"; sed -n '55,100p' app/api/ai/chat/route.ts)"]

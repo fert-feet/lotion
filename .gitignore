@@ -154,3 +154,4 @@ next-env.d.ts
 
 # logs
 /logs/
+reasonix.toml
