@@ -1,9 +1,9 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import {
-  buildCompressPrompt,
-  parseCompressResult,
-  applyCompressConstraints,
+  buildSummaryPrompt,
+  extractSummary,
   maybeCompressSession,
+  WINDOW_SIZE,
   type CompressMessage,
 } from "@/lib/compress";
 import {
@@ -40,16 +40,19 @@ function makeMsg(id: string, content: string, role: "user" | "assistant" = "user
   return { id, role, content };
 }
 
-/** 构造 messages：count 条，每条 charPerMsg 字符，id 为 m0..mN */
-function makeMessages(count: number, charPerMsg = 100): CompressMessage[] {
-  return Array.from({ length: count }, (_, i) =>
-    makeMsg(`m${i}`, `内容${i}`.padEnd(charPerMsg, "字"))
-  );
+/** 构造 messages：count 条，id 为 m0..mN（最旧在前） */
+function makeMessages(count: number, content = "内容"): CompressMessage[] {
+  return Array.from({ length: count }, (_, i) => makeMsg(`m${i}`, content));
+}
+
+/** 转成 db 返回形态 */
+function asDbMessages(msgs: CompressMessage[]) {
+  return msgs.map((m) => ({ id: m.id, role: m.role, content: m.content, createdAt: "" }));
 }
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mockGenerateText.mockResolvedValue({ text: '{"keep":[],"summary":"会话摘要"}' });
+  mockGenerateText.mockResolvedValue({ text: "会话摘要" });
   (getChatHistory as ReturnType<typeof vi.fn>).mockResolvedValue([]);
   (getChatSessionSummary as ReturnType<typeof vi.fn>).mockResolvedValue(null);
   (updateChatSessionSummary as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
@@ -58,150 +61,93 @@ beforeEach(() => {
 
 // ---- 纯函数：prompt 构造 ----
 
-describe("buildCompressPrompt", () => {
-  it("包含消息正文、旧摘要与约束参数", () => {
-    const prompt = buildCompressPrompt(
+describe("buildSummaryPrompt", () => {
+  it("包含窗口外消息正文、旧摘要与长度约束", () => {
+    const prompt = buildSummaryPrompt(
       [makeMsg("m1", "第一条"), makeMsg("m2", "第二条", "assistant")],
       "旧摘要内容",
     );
     expect(prompt).toContain("[user] 第一条");
     expect(prompt).toContain("[assistant] 第二条");
     expect(prompt).toContain("旧摘要内容");
-    expect(prompt).toContain("最多 40 条");
-    expect(prompt).toContain("最近 5 条");
+    expect(prompt).toContain("合并重写");
     expect(prompt).toContain("800 字符");
   });
 
   it("无旧摘要时省略摘要段", () => {
-    const prompt = buildCompressPrompt([makeMsg("m1", "第一条")], null);
+    const prompt = buildSummaryPrompt([makeMsg("m1", "第一条")], null);
     expect(prompt).not.toContain("已有早期摘要");
   });
 });
 
-// ---- 纯函数：JSON 解析 ----
+// ---- 纯函数：摘要提取 ----
 
-describe("parseCompressResult", () => {
-  it("解析纯 JSON", () => {
-    expect(parseCompressResult('{"keep":["m1"],"summary":"摘要"}')).toEqual({
-      keep: ["m1"],
-      summary: "摘要",
-    });
+describe("extractSummary", () => {
+  it("直接输出原文", () => {
+    expect(extractSummary("会话摘要")).toBe("会话摘要");
   });
 
   it("容忍代码围栏与前后杂文本", () => {
-    const text = '好的，结果如下：\n```json\n{"keep":["m1","m2"],"summary":"摘要"}\n```\n希望有帮助';
-    expect(parseCompressResult(text)).toEqual({ keep: ["m1", "m2"], summary: "摘要" });
+    expect(extractSummary('好的：\n```text\n摘要内容\n```\n希望有帮助')).toBe("摘要内容");
   });
 
-  it("过滤 keep 中的非字符串元素", () => {
-    expect(parseCompressResult('{"keep":["m1",42,null],"summary":"摘要"}')).toEqual({
-      keep: ["m1"],
-      summary: "摘要",
-    });
+  it("超长时截断到 800 字符", () => {
+    const out = extractSummary("长".repeat(2_000));
+    expect(out!.length).toBe(800);
   });
 
-  it("非法 JSON 返回 null", () => {
-    expect(parseCompressResult("这不是 JSON")).toBeNull();
-    expect(parseCompressResult('{"keep":[]')).toBeNull();
-  });
-
-  it("结构不符返回 null", () => {
-    expect(parseCompressResult('{"keep":"m1","summary":"摘要"}')).toBeNull();
-    expect(parseCompressResult('{"keep":[],"summary":123}')).toBeNull();
-  });
-});
-
-// ---- 纯函数：硬约束 ----
-
-describe("applyCompressConstraints", () => {
-  const messages = makeMessages(10); // m0..m9
-
-  it("最近 KEEP_FLOOR 条必留（模型 keep 为空时仍保留地板）", () => {
-    const result = applyCompressConstraints({ keep: [], summary: "摘要" }, messages);
-    expect(result).not.toBeNull();
-    expect(result!.keepSet).toEqual(new Set(["m5", "m6", "m7", "m8", "m9"]));
-    expect(result!.summary).toBe("摘要");
-  });
-
-  it("模型 keep 只接受候选池内的 id", () => {
-    const result = applyCompressConstraints(
-      { keep: ["m1", "不存在", "m9"], summary: "摘要" },
-      messages,
-    );
-    expect(result!.keepSet).toContain("m1");
-    expect(result!.keepSet).toContain("m9"); // 地板内
-    expect(result!.keepSet).not.toContain("不存在");
-  });
-
-  it("keep 超上限时截断（含地板不超过 40）", () => {
-    const many = makeMessages(50);
-    const result = applyCompressConstraints(
-      { keep: many.map((m) => m.id), summary: "摘要" },
-      many,
-    );
-    expect(result!.keepSet.size).toBeLessThanOrEqual(40);
-  });
-
-  it("摘要超长时截断到 800 字符", () => {
-    const result = applyCompressConstraints({ keep: [], summary: "长".repeat(2_000) }, messages);
-    expect(result!.summary.length).toBe(800);
-  });
-
-  it("全部保留时返回 null 降级", () => {
-    const result = applyCompressConstraints(
-      { keep: messages.map((m) => m.id), summary: "摘要" },
-      messages,
-    );
-    expect(result).toBeNull();
-  });
-
-  it("摘要为空时返回 null 降级", () => {
-    const result = applyCompressConstraints({ keep: [], summary: "   " }, messages);
-    expect(result).toBeNull();
+  it("空输出返回 null", () => {
+    expect(extractSummary("   ")).toBeNull();
+    expect(extractSummary("```text\n```")).toBeNull();
   });
 });
 
 // ---- 集成：maybeCompressSession ----
 
 describe("maybeCompressSession", () => {
-  it("未达阈值不调用模型", async () => {
+  it("未超过滑动窗口（含恰好等于窗口）不调用模型", async () => {
     (getChatHistory as ReturnType<typeof vi.fn>).mockResolvedValue(
-      makeMessages(10, 100).map((m) => ({ id: m.id, role: m.role, content: m.content, createdAt: "" })),
+      asDbMessages(makeMessages(WINDOW_SIZE)),
     );
     await maybeCompressSession(fakeSupabase, "user-1", "s1");
     expect(mockGenerateText).not.toHaveBeenCalled();
     expect(updateChatSessionSummary).not.toHaveBeenCalled();
   });
 
-  it("超阈值：写摘要并标记非保留消息为 compressed", async () => {
-    // 30 条 × 1200 字符 = 36000 > 30000 阈值
-    const msgs = makeMessages(30, 1_200).map((m) => ({
-      id: m.id, role: m.role, content: m.content, createdAt: "",
-    }));
-    (getChatHistory as ReturnType<typeof vi.fn>).mockResolvedValue(msgs);
-    mockGenerateText.mockResolvedValue({ text: '{"keep":["m0"],"summary":"压缩后的摘要"}' });
+  it("超过窗口：只压最旧溢出部分，最近 WINDOW_SIZE 条不标记", async () => {
+    // 120 条：溢出 = 最旧 20 条（m0..m19），窗口内 m20..m119 保留原文
+    const msgs = makeMessages(WINDOW_SIZE + 20);
+    (getChatHistory as ReturnType<typeof vi.fn>).mockResolvedValue(asDbMessages(msgs));
 
     await maybeCompressSession(fakeSupabase, "user-1", "s1");
 
     expect(mockGenerateText).toHaveBeenCalledTimes(1);
-    // 摘要写入：重写式
-    expect(updateChatSessionSummary).toHaveBeenCalledWith(
-      fakeSupabase, "user-1", "s1", "压缩后的摘要",
-    );
-    // 标记：模型 keep(m0) + 地板(最近 5 条)保留，其余标记
+    expect(updateChatSessionSummary).toHaveBeenCalledWith(fakeSupabase, "user-1", "s1", "会话摘要");
     const marked = (markMessagesCompressed as ReturnType<typeof vi.fn>).mock.calls[0][2] as string[];
-    expect(marked).not.toContain("m0");
-    expect(marked).not.toContain("m25"); // 地板内
-    expect(marked).toContain("m1");
-    expect(marked).toContain("m24");
-    expect(marked.length).toBe(30 - 1 - 5);
+    expect(marked).toHaveLength(20);
+    expect(marked[0]).toBe("m0");
+    expect(marked[19]).toBe("m19");
+    expect(marked).not.toContain("m20"); // 窗口边界第一条
+    expect(marked).not.toContain("m119");
   });
 
-  it("模型输出解析失败时降级不写库", async () => {
+  it("重写式：旧摘要传入 prompt（合并而非替换）", async () => {
+    (getChatSessionSummary as ReturnType<typeof vi.fn>).mockResolvedValue("早期摘要");
     (getChatHistory as ReturnType<typeof vi.fn>).mockResolvedValue(
-      makeMessages(30, 1_200).map((m) => ({ id: m.id, role: m.role, content: m.content, createdAt: "" })),
+      asDbMessages(makeMessages(WINDOW_SIZE + 10)),
     );
-    mockGenerateText.mockResolvedValue({ text: "抱歉，我无法理解" });
+
+    await maybeCompressSession(fakeSupabase, "user-1", "s1");
+
+    const prompt = (mockGenerateText as ReturnType<typeof vi.fn>).mock.calls[0][0].prompt as string;
+    expect(prompt).toContain("早期摘要");
+  });
+
+  it("摘要输出无效时降级不写库", async () => {
+    (getChatHistory as ReturnType<typeof vi.fn>).mockResolvedValue(
+      asDbMessages(makeMessages(WINDOW_SIZE + 10)),
+    );
+    mockGenerateText.mockResolvedValue({ text: "   " });
     await maybeCompressSession(fakeSupabase, "user-1", "s1");
     expect(updateChatSessionSummary).not.toHaveBeenCalled();
     expect(markMessagesCompressed).not.toHaveBeenCalled();
@@ -209,45 +155,44 @@ describe("maybeCompressSession", () => {
 
   it("模型异常时降级不抛错", async () => {
     (getChatHistory as ReturnType<typeof vi.fn>).mockResolvedValue(
-      makeMessages(30, 1_200).map((m) => ({ id: m.id, role: m.role, content: m.content, createdAt: "" })),
+      asDbMessages(makeMessages(WINDOW_SIZE + 10)),
     );
     mockGenerateText.mockRejectedValue(new Error("api down"));
     await expect(maybeCompressSession(fakeSupabase, "user-1", "s1")).resolves.toBeUndefined();
     expect(updateChatSessionSummary).not.toHaveBeenCalled();
   });
 
-  it("超输入预算时只保留最近消息参与压缩（最旧部分不参与也不标记）", async () => {
-    // 7 条 × 10000 = 70000 > 60000 输入预算 → 输入 = 最近 6 条（m1..m6），m0 被截掉
-    const msgs = makeMessages(7, 10_000).map((m) => ({
-      id: m.id, role: m.role, content: m.content, createdAt: "",
-    }));
-    (getChatHistory as ReturnType<typeof vi.fn>).mockResolvedValue(msgs);
-    mockGenerateText.mockResolvedValue({ text: '{"keep":[],"summary":"摘要"}' });
+  it("溢出消息超过批次上限时只压最近一部分（最旧部分不参与也不标记）", async () => {
+    // 800 条：溢出 700 条（m0..m699），批次上限 500 → 输入 = 最近 500 条（m200..m699）
+    const msgs = makeMessages(WINDOW_SIZE + 700);
+    (getChatHistory as ReturnType<typeof vi.fn>).mockResolvedValue(asDbMessages(msgs));
 
     await maybeCompressSession(fakeSupabase, "user-1", "s1");
 
-    // 输入 = m1..m6：地板(m2..m6)保留，m1 被标记；被截掉的 m0 不参与也不标记
     const marked = (markMessagesCompressed as ReturnType<typeof vi.fn>).mock.calls[0][2] as string[];
-    expect(marked).toEqual(["m1"]);
-    expect(updateChatSessionSummary).toHaveBeenCalledWith(fakeSupabase, "user-1", "s1", "摘要");
+    expect(marked).toHaveLength(500);
+    expect(marked[0]).toBe("m200");
+    expect(marked[499]).toBe("m699");
+    expect(marked).not.toContain("m0"); // 被截掉的最旧部分不标记，下次重试
+    expect(marked).not.toContain("m199");
   });
 
   it("同一会话并发调用串行执行（后到的等待先到的完成）", async () => {
     (getChatHistory as ReturnType<typeof vi.fn>).mockResolvedValue(
-      makeMessages(30, 1_200).map((m) => ({ id: m.id, role: m.role, content: m.content, createdAt: "" })),
+      asDbMessages(makeMessages(WINDOW_SIZE + 10)),
     );
     let resolveFirst!: (v: { text: string }) => void;
     mockGenerateText.mockImplementationOnce(
       () => new Promise((res) => { resolveFirst = res; }),
     );
-    mockGenerateText.mockResolvedValue({ text: '{"keep":[],"summary":"第二轮摘要"}' });
+    mockGenerateText.mockResolvedValue({ text: "第二轮摘要" });
 
     const p1 = maybeCompressSession(fakeSupabase, "user-1", "s1");
     const p2 = maybeCompressSession(fakeSupabase, "user-1", "s1");
 
     // 第二次调用尚未进入模型（被锁链阻塞）
     await vi.waitFor(() => expect(mockGenerateText).toHaveBeenCalledTimes(1));
-    resolveFirst({ text: '{"keep":[],"summary":"第一轮摘要"}' });
+    resolveFirst({ text: "第一轮摘要" });
     await Promise.all([p1, p2]);
 
     // 两次压缩依次完成
@@ -258,19 +203,19 @@ describe("maybeCompressSession", () => {
 
   it("不同会话互不阻塞", async () => {
     (getChatHistory as ReturnType<typeof vi.fn>).mockResolvedValue(
-      makeMessages(30, 1_200).map((m) => ({ id: m.id, role: m.role, content: m.content, createdAt: "" })),
+      asDbMessages(makeMessages(WINDOW_SIZE + 10)),
     );
     let resolveFirst!: (v: { text: string }) => void;
     mockGenerateText.mockImplementationOnce(
       () => new Promise((res) => { resolveFirst = res; }),
     );
-    mockGenerateText.mockResolvedValue({ text: '{"keep":[],"summary":"s2 摘要"}' });
+    mockGenerateText.mockResolvedValue({ text: "s2 摘要" });
 
     const p1 = maybeCompressSession(fakeSupabase, "user-1", "s1");
     const p2 = maybeCompressSession(fakeSupabase, "user-1", "s2");
     await vi.waitFor(() => expect(mockGenerateText).toHaveBeenCalledTimes(2)); // 不同会话直接并行
 
-    resolveFirst({ text: '{"keep":[],"summary":"s1 摘要"}' });
+    resolveFirst({ text: "s1 摘要" });
     await Promise.all([p1, p2]);
   });
 });

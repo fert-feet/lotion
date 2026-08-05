@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { runNoteAgent, type AgentHistoryMessage } from "@/lib/agent";
 import { getChatHistory, insertChatMessage } from "@/lib/db";
-import { maybeCompressSession } from "@/lib/compress";
+import { maybeCompressSession, WINDOW_SIZE } from "@/lib/compress";
 import { logger } from "@/lib/logger";
 
 /**
@@ -78,10 +78,11 @@ export async function POST(request: Request) {
     logger.api.error("会话更新失败", { error: String(e) });
   }
 
-  // 拉取该会话未压缩的对话历史注入 Agent（早期对话已被压缩为 summary，全量注入剩余消息）
+  // 拉取该会话未压缩的对话历史注入 Agent（滑动窗口：早期对话已压缩为 summary，
+  // 注入最近 WINDOW_SIZE 条原文，其余靠摘要承载；压缩见 lib/compress.ts）
   let history: AgentHistoryMessage[] = [];
   try {
-    const msgs = await getChatHistory(user.id, sessionId, undefined, supabase, { uncompressedOnly: true });
+    const msgs = await getChatHistory(user.id, sessionId, WINDOW_SIZE, supabase, { uncompressedOnly: true });
     history = msgs.map((m) => ({ role: m.role, content: m.content }));
     logger.api.info("注入对话历史", { count: history.length, hasSummary: !!session.summary });
   } catch (e) {
