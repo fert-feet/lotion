@@ -6,19 +6,31 @@ import { createReadNoteTool } from "./read-note";
 import { createCreateNoteTool } from "./create-note";
 import { createUpdateNoteTool } from "./update-note";
 import { createRenameNoteTool } from "./rename-note";
+import { createMoveNoteTool } from "./move-note";
+import { createSetNoteIconTool } from "./set-note-icon";
+import { createPublishNoteTool } from "./publish-note";
 import { createArchiveNoteTool } from "./archive-note";
+import { createRestoreNoteTool } from "./restore-note";
+import { createListTrashTool } from "./list-trash";
 import { createDeleteNoteTool } from "./delete-note";
+import { createListNotesTool } from "./list-notes";
 
 /** 工具执行超时（毫秒）：防止 execute 卡死导致 Agent 挂起 */
 const TOOL_TIMEOUT_MS = 30_000;
 
 export type ToolName =
   | "searchNotes"
+  | "listNotes"
   | "readNote"
   | "createNote"
   | "updateNote"
   | "renameNote"
+  | "moveNote"
+  | "setNoteIcon"
+  | "publishNote"
   | "archiveNote"
+  | "restoreNote"
+  | "listTrash"
   | "deleteNote";
 
 /**
@@ -37,13 +49,19 @@ export type ToolEvent =
 
 /** 工具元数据：名称 / 展示标签 / 图标 / 描述（工具定义与展示同处维护） */
 export const TOOL_META: Record<ToolName, { label: string; icon: string; description: string }> = {
-  searchNotes: { label: "搜索笔记", icon: "🔍", description: "按标题关键词搜索笔记" },
+  searchNotes: { label: "搜索笔记", icon: "🔍", description: "按标题和正文关键词搜索笔记" },
+  listNotes: { label: "浏览笔记", icon: "📂", description: "浏览笔记目录（全部或指定父笔记的子文档）" },
   readNote: { label: "读取笔记", icon: "📖", description: "读取笔记完整内容" },
   createNote: { label: "创建笔记", icon: "✍️", description: "创建一篇新笔记" },
   updateNote: { label: "更新笔记", icon: "📝", description: "修改已有笔记内容" },
   renameNote: { label: "重命名", icon: "🏷️", description: "重命名笔记标题" },
-  archiveNote: { label: "归档笔记", icon: "📦", description: "归档到回收站（可恢复）" },
-  deleteNote: { label: "删除笔记", icon: "🗑️", description: "永久删除（需用户确认）" },
+  moveNote: { label: "移动笔记", icon: "📦", description: "移动笔记到其他父笔记下（嵌套组织）" },
+  setNoteIcon: { label: "设置图标", icon: "🎨", description: "设置或清除笔记的 emoji 图标" },
+  publishNote: { label: "发布笔记", icon: "🌐", description: "发布或取消发布笔记（公开预览）" },
+  archiveNote: { label: "归档笔记", icon: "🗄️", description: "归档到回收站（可恢复）" },
+  restoreNote: { label: "恢复笔记", icon: "♻️", description: "从回收站恢复笔记" },
+  listTrash: { label: "查看回收站", icon: "🗑️", description: "列出回收站中的笔记" },
+  deleteNote: { label: "删除笔记", icon: "💥", description: "永久删除（需用户确认）" },
 };
 
 /** 兼容旧引用：工具中文标签映射 */
@@ -112,6 +130,24 @@ function summarizeResult(tool: ToolName, result: string): string {
       const t = pick(/「([^」]+)」/);
       return t ? "已重命名为「" + t + "」" : "已重命名";
     }
+    case "listNotes":
+    case "listTrash": {
+      const n = pick(/找到 (\d+) 篇笔记/) ?? pick(/回收站中有 (\d+) 篇笔记/);
+      return n !== null ? "找到 " + n + " 篇笔记" : "完成浏览";
+    }
+    case "moveNote": {
+      const t = pick(/「([^」]+)」已移动/);
+      return t ? "已移动「" + t + "」" : "已完成移动";
+    }
+    case "setNoteIcon": return "图标已更新";
+    case "publishNote": {
+      const p = pick(/已取消发布/);
+      return p !== null ? "已取消发布" : "已发布";
+    }
+    case "restoreNote": {
+      const t = pick(/「([^」]+)」已从回收站恢复/);
+      return t ? "已恢复「" + t + "」" : "已恢复";
+    }
     case "archiveNote": return "已归档到回收站";
     case "deleteNote": return "等待用户确认删除";
   }
@@ -172,11 +208,17 @@ export function createTools(
 ): ToolSet {
   const tools: Record<ToolName, AnyTool> = {
     searchNotes: createSearchNotesTool(db, userId),
+    listNotes: createListNotesTool(db, userId),
     readNote: createReadNoteTool(db, userId, onEvent),
     createNote: createCreateNoteTool(db, userId, onEvent),
     updateNote: createUpdateNoteTool(db, userId, onEvent),
     renameNote: createRenameNoteTool(db, userId, onEvent),
+    moveNote: createMoveNoteTool(db, userId, onEvent),
+    setNoteIcon: createSetNoteIconTool(db, userId, onEvent),
+    publishNote: createPublishNoteTool(db, userId, onEvent),
     archiveNote: createArchiveNoteTool(db, userId),
+    restoreNote: createRestoreNoteTool(db, userId, onEvent),
+    listTrash: createListTrashTool(db, userId),
     deleteNote: createDeleteNoteTool(db, userId, onEvent),
   };
 

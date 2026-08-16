@@ -3,7 +3,7 @@ import { tool } from "ai";
 import z from "zod";
 import { logger } from "@/lib/logger";
 import { markdownToBlocks, extractTitle } from "@/lib/markdown-to-blocks";
-import { createDocument, updateDocument } from "@/lib/local/db";
+import { createDocument, getDocumentById, updateDocument } from "@/lib/local/db";
 import type { ToolEvent } from "./index";
 
 export function createCreateNoteTool(
@@ -17,18 +17,27 @@ export function createCreateNoteTool(
   let createdNoteId: string | null = null;
 
   return tool({
-    description: "创建一篇新笔记。标题应简洁地概括内容主题。",
+    description:
+      "创建一篇新笔记。标题应简洁地概括内容主题。可指定 parentDocumentId 在该笔记下创建子笔记（不指定则创建在根目录）。",
     inputSchema: z.object({
       title: z.string().describe("笔记标题"),
       content: z.string().describe("笔记内容，使用 Markdown 格式书写，支持标题、加粗、列表、代码块等"),
+      parentDocumentId: z.string().optional().describe("父笔记 ID（可选）：在该笔记下创建子笔记"),
     }),
-    execute: async ({ title, content }: { title: string; content: string }) => {
+    execute: async ({ title, content, parentDocumentId }: { title: string; content: string; parentDocumentId?: string }) => {
       if (createdNoteId) {
         logger.tools.warn("[createNote] 拒绝重复创建", { existingNoteId: createdNoteId });
         return `本次对话已经创建过笔记（ID: ${createdNoteId}）。请直接使用该 ID 调用 updateNote 修改内容，不要重复创建新笔记。`;
       }
 
-      logger.tools.info("[createNote] 创建笔记", { title, contentLen: content.length });
+      if (parentDocumentId) {
+        const parent = getDocumentById(db, parentDocumentId, userId);
+        if (!parent || parent.isArchived) {
+          return `父笔记 ${parentDocumentId} 不存在、已归档或无权访问，无法在其下创建子笔记。`;
+        }
+      }
+
+      logger.tools.info("[createNote] 创建笔记", { title, contentLen: content.length, parentDocumentId });
 
       // 先转换 Markdown 再插入：转换失败不会留下空笔记
       const blocks = markdownToBlocks(content);
@@ -37,7 +46,7 @@ export function createCreateNoteTool(
       const finalTitle = extractedTitle || title;
 
       // 本地库插入草稿（isDraft=true 与 PG 版语义一致；content 一并写入）
-      const docId = createDocument(db, userId, finalTitle);
+      const docId = createDocument(db, userId, finalTitle, parentDocumentId ?? null);
       updateDocument(db, docId, { content: JSON.stringify(contentBlocks), isDraft: true });
 
       createdNoteId = docId;

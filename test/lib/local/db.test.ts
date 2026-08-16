@@ -22,6 +22,10 @@ import {
   setChatSessionSummary,
   markMessagesCompressed,
   insertChatMessage,
+  searchDocuments,
+  listDocumentsOverview,
+  getDescendantIds,
+  moveDocument,
 } from "@/lib/local/db";
 
 function seedUser(db: Database.Database, email = "a@x.com"): string {
@@ -146,6 +150,100 @@ describe("lib/local/db 文档操作", () => {
 
     const other = seedUser(db, "c@x.com");
     expect(listSidebarAll(db, other)).toHaveLength(0); // userId 隔离
+  });
+});
+
+describe("lib/local/db Agent 搜索与组织", () => {
+  let db: Database.Database;
+  let userId: string;
+
+  beforeEach(() => {
+    db = openTestDb();
+    userId = seedUser(db);
+  });
+
+  it("searchDocuments 标题与正文均可命中，只搜当前用户，按 updatedAt 倒序", () => {
+    const a = seedDoc(db, userId, "React 学习笔记"); // 标题命中
+    const b = seedDoc(db, userId, "无标题");
+    updateDocument(db, b, { content: "前端路线图 react 教程" }); // 正文命中，且更新 → 排前
+    const other = seedUser(db, "e@x.com");
+    seedDoc(db, other, "React 别人的"); // 跨用户，不应出现
+
+    const hits = searchDocuments(db, userId, "react");
+    expect(hits.map((d) => d.id)).toEqual([b, a]);
+    expect(hits.some((d) => d.title === "React 别人的")).toBe(false);
+  });
+
+  it("searchDocuments 空 query 返回全部未归档（按最近更新倒序），归档不出现", async () => {
+    const a = seedDoc(db, userId, "a");
+    await new Promise((r) => setTimeout(r, 5));
+    const b = seedDoc(db, userId, "b");
+    archiveDocument(db, userId, a);
+
+    const all = searchDocuments(db, userId, "");
+    expect(all.map((d) => d.id)).toEqual([b]);
+  });
+
+  it("searchDocuments 通配符转义：% _ 不扩大匹配", () => {
+    seedDoc(db, userId, "100%_完成");
+    seedDoc(db, userId, "100X完成");
+    const hits = searchDocuments(db, userId, "100%_完成");
+    expect(hits.map((d) => d.title)).toEqual(["100%_完成"]);
+  });
+
+  it("listDocumentsOverview 全量/按父过滤 + childCount，归档不计入", () => {
+    const root1 = seedDoc(db, userId, "根1");
+    const child = seedDoc(db, userId, "子", root1);
+    seedDoc(db, userId, "孙", child);
+    const root2 = seedDoc(db, userId, "根2");
+    archiveDocument(db, userId, child); // 归档子 → 不计入根1 的 childCount，也不出现在根1 的子列表
+
+    const all = listDocumentsOverview(db, userId);
+    expect(all.map((d) => d.id)).toEqual([root2, root1]); // updatedAt 倒序
+    expect(all.find((d) => d.id === root1)!.childCount).toBe(0);
+
+    const children = listDocumentsOverview(db, userId, root1);
+    expect(children).toHaveLength(0);
+  });
+
+  it("moveDocument 移动到根/其他父/防循环/目标校验/跨用户隔离", () => {
+    const a = seedDoc(db, userId, "a");
+    const b = seedDoc(db, userId, "b", a);
+    const c = seedDoc(db, userId, "c");
+    const other = seedUser(db, "f@x.com");
+    const foreign = seedDoc(db, other, "foreign");
+
+    // 移动到指定父
+    expect(moveDocument(db, userId, c, a)).toBe(true);
+    expect(getDocumentById(db, c, userId)!.parentDocument).toBe(a);
+
+    // 移到根目录
+    expect(moveDocument(db, userId, c, null)).toBe(true);
+    expect(getDocumentById(db, c, userId)!.parentDocument).toBeNull();
+
+    // 防循环：b 是 a 的子，a 不能移动到 b 下
+    expect(moveDocument(db, userId, a, b)).toBe(false);
+    expect(getDocumentById(db, a, userId)!.parentDocument).toBeNull();
+
+    // 自身不能作为父
+    expect(moveDocument(db, userId, a, a)).toBe(false);
+
+    // 目标不存在 / 跨用户 / 已归档
+    expect(moveDocument(db, userId, a, newId())).toBe(false);
+    expect(moveDocument(db, userId, a, foreign)).toBe(false);
+    const archived = seedDoc(db, userId, "archived");
+    archiveDocument(db, userId, archived);
+    expect(moveDocument(db, userId, a, archived)).toBe(false);
+  });
+
+  it("getDescendantIds 返回整棵子孙链（含多级）", () => {
+    const a = seedDoc(db, userId, "a");
+    const b = seedDoc(db, userId, "b", a);
+    const cc = seedDoc(db, userId, "c", b);
+    const d = seedDoc(db, userId, "d");
+    const ids = getDescendantIds(db, userId, a);
+    expect(ids.sort()).toEqual([a, b, cc].sort());
+    expect(ids).not.toContain(d);
   });
 });
 

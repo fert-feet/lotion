@@ -282,23 +282,118 @@ export function listSearch(db: Database.Database, userId: string): SidebarDocume
 }
 
 /**
- * 标题关键词搜索（AI searchNotes 工具用）：
- * 对应 PG 版 ilike 语义——SQLite LIKE 对 ASCII 默认大小写不敏感，通配符已转义。
+ * AI 全文搜索（searchNotes 工具用）：标题 + 正文 LIKE 过滤（ASCII 大小写不敏感，通配符已转义）。
+ * query 为空时列出全部未归档笔记（按最近更新倒序），支撑"查看我的所有笔记"类请求。
  */
-export function searchDocumentTitles(
+export function searchDocuments(
   db: Database.Database,
   userId: string,
-  pattern: string,
+  query: string,
   limit = 20,
-): { id: string; title: string; content: string | null }[] {
-  const escaped = pattern.replace(/[\\%_]/g, (m) => `\\${m}`);
+): { id: string; title: string; content: string | null; updatedAt: string }[] {
+  if (!query.trim()) {
+    return db
+      .prepare(
+        `SELECT id, title, content, updatedAt FROM documents
+         WHERE userId = ? AND isArchived = 0
+         ORDER BY updatedAt DESC, rowid DESC LIMIT ?`,
+      )
+      .all(userId, limit) as { id: string; title: string; content: string | null; updatedAt: string }[];
+  }
+  const escaped = query.replace(/[\\%_]/g, (m) => `\\${m}`);
   return db
     .prepare(
-      `SELECT id, title, content FROM documents
-       WHERE userId = ? AND isArchived = 0 AND title LIKE ? ESCAPE '\\'
-       ORDER BY createdAt DESC, rowid DESC LIMIT ?`,
+      `SELECT id, title, content, updatedAt FROM documents
+       WHERE userId = ? AND isArchived = 0 AND (title LIKE ? ESCAPE '\\' OR content LIKE ? ESCAPE '\\')
+       ORDER BY updatedAt DESC, rowid DESC LIMIT ?`,
     )
-    .all(userId, `%${escaped}%`, limit) as { id: string; title: string; content: string | null }[];
+    .all(userId, `%${escaped}%`, `%${escaped}%`, limit) as {
+    id: string;
+    title: string;
+    content: string | null;
+    updatedAt: string;
+  }[];
+}
+
+/** 笔记目录浏览（listNotes 工具用）：未归档文档 + 直接子文档数，按最近更新倒序 */
+export function listDocumentsOverview(
+  db: Database.Database,
+  userId: string,
+  parentDocumentId: string | null = null,
+  limit = 100,
+): { id: string; title: string; updatedAt: string; childCount: number }[] {
+  const rows = db
+    .prepare(
+      `SELECT d.id, d.title, d.updatedAt,
+              (SELECT COUNT(*) FROM documents c
+               WHERE c.parentDocument = d.id AND c.userId = ? AND c.isArchived = 0) AS childCount
+       FROM documents d
+       WHERE d.userId = ? AND d.isArchived = 0 AND d.parentDocument IS ?
+       ORDER BY d.updatedAt DESC, d.rowid DESC LIMIT ?`,
+    )
+    .all(userId, userId, parentDocumentId, limit) as {
+    id: string;
+    title: string;
+    updatedAt: string;
+    childCount: number;
+  }[];
+  return rows;
+}
+
+/** 指定文档的整棵子孙 id 集合（moveNote 循环检测用，含自身所在层级校验） */
+export function getDescendantIds(db: Database.Database, userId: string, id: string): string[] {
+  return (
+    db
+      .prepare(
+        `WITH RECURSIVE subtree(id) AS (
+           SELECT id FROM documents WHERE id = ? AND userId = ?
+           UNION ALL
+           SELECT d.id FROM documents d JOIN subtree s ON d.parentDocument = s.id WHERE d.userId = ?
+         )
+         SELECT id FROM subtree`,
+      )
+      .all(id, userId, userId) as { id: string }[]
+  ).map((r) => r.id);
+}
+
+/**
+ * 移动文档（设置 parentDocument；null = 移到根目录）。
+ * 目标父文档必须存在、属于当前用户且未归档；不能移动到自身或自己的子孙下。
+ * 返回 false 表示文档不存在或目标不合法（调用方可用 getDescendantIds 等区分原因）。
+ */
+export function moveDocument(
+  db: Database.Database,
+  userId: string,
+  id: string,
+  newParentId: string | null,
+): boolean {
+  if (newParentId === null) {
+    const res = db
+      .prepare(`UPDATE documents SET parentDocument = NULL, updatedAt = ? WHERE id = ? AND userId = ?`)
+      .run(isoNow(), id, userId);
+    return res.changes > 0;
+  }
+  if (newParentId === id) return false;
+  const parent = db
+    .prepare(`SELECT id FROM documents WHERE id = ? AND userId = ? AND isArchived = 0`)
+    .get(newParentId, userId);
+  if (!parent) return false;
+  // 防循环：目标父文档不能位于被移动文档的子树中
+  const inSubtree = db
+    .prepare(
+      `WITH RECURSIVE subtree(id) AS (
+         SELECT id FROM documents WHERE id = ? AND userId = ?
+         UNION ALL
+         SELECT d.id FROM documents d JOIN subtree s ON d.parentDocument = s.id WHERE d.userId = ?
+       )
+       SELECT id FROM subtree WHERE id = ? LIMIT 1`,
+    )
+    .get(id, userId, userId, newParentId);
+  if (inSubtree) return false;
+  const res = db
+    .prepare(`UPDATE documents SET parentDocument = ?, updatedAt = ? WHERE id = ? AND userId = ?`)
+    .run(newParentId, isoNow(), id, userId);
+  return res.changes > 0;
 }
 
 /**
