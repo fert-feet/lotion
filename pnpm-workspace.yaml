@@ -1,0 +1,8 @@
+# pnpm 11 设置文件（单包项目）。
+# allowBuilds：pnpm 11 默认拦截所有依赖的安装脚本，此处显式放行
+# 需要原生编译/二进制下载的构建依赖，否则 fresh install 后无法加载。
+allowBuilds:
+  "@tailwindcss/oxide": true
+  better-sqlite3: true
+  sharp: true
+  unrs-resolver: true
