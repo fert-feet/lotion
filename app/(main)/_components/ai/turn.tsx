@@ -2,7 +2,7 @@
 
 // 单个回合（turn）渲染：用户气泡 + AI 工具卡片序列 + 文档副作用卡片 + 叙述文本 + 引用 + 回合 footer。
 import { useEffect, useState } from "react";
-import ReactMarkdown from "react-markdown";
+import { MarkdownText } from "@/components/markdown/MarkdownText";
 import { truncateMentionTitle } from "@/lib/mention";
 import { cn } from "@/lib/utils";
 import type { Turn } from "./types";
@@ -91,38 +91,15 @@ export function TurnView({ turn, onOpenDocument, onConfirmDelete, onCancelDelete
           </div>
         )}
 
-        {/* 叙述文本：DSH 全宽平铺 markdown */}
+        {/* 叙述文本：DSH 对齐 markdown（md-content 样式由 markdown.css 提供，流式增量渲染） */}
         {(turn.text || turn.status === "running") && (
-          <div className={cn("prose prose-sm dark:prose-invert max-w-none text-[15px] leading-6 text-shell-label-primary prose-headings:my-1.5 prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-code:bg-shell-row-active prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-xs prose-pre:bg-shell-row-active prose-pre:text-xs")}>
+          <div className={cn("text-[15px] leading-6 text-shell-label-primary")}>
             {turn.text ? (
-              <ReactMarkdown
-                components={{
-                  a: ({ href, children }) => {
-                    const text = Array.isArray(children)
-                      ? children.map(String).join("")
-                      : String(children ?? "");
-                    if (text.startsWith("@") && href && /^[a-zA-Z0-9-]{3,64}$/.test(href)) {
-                      return (
-                        <button
-                          type="button"
-                          title={href}
-                          onClick={() => onOpenDocument(href)}
-                          className="mention-chip cursor-pointer"
-                        >
-                          <span>{"@" + truncateMentionTitle(text.slice(1))}</span>
-                        </button>
-                      );
-                    }
-                    return (
-                      <a href={href} target="_blank" rel="noopener noreferrer" className="text-foreground underline">
-                        {children}
-                      </a>
-                    );
-                  },
-                }}
-              >
-                {turn.text}
-              </ReactMarkdown>
+              <MarkdownText
+                text={turn.text}
+                streaming={turn.status === "running"}
+                onOpenDocument={onOpenDocument}
+              />
             ) : turn.status === "running" ? (
               <RunningClock startedAt={turn.createdAt} />
             ) : null}

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { Fraunces, Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import "../components/markdown/markdown.css";
 import { ThemeProvider } from "../components/providers/theme-provider";
 import { Toaster } from "../components/ui/sonner";
 import ModalProvider from "../components/providers/modal-provider";

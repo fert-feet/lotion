@@ -1,0 +1,295 @@
+/* 对齐 DSH MarkdownText.module.css（deepsuite markdown.css 基线）：
+   token 映射到 Lotion shell 变量；表格/代码块/列表样式语义与 DSH 一致。
+   作用域：.md-content（AI 叙述文本容器） */
+
+.md-content {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 15px;
+  line-height: 24px;
+  color: var(--shell-label-primary);
+}
+
+.md-content strong {
+  font-weight: 600;
+}
+
+.md-content h1 {
+  font-size: 26px;
+  line-height: 34px;
+  font-weight: 600;
+  margin: 32px 0 16px;
+}
+
+.md-content h2 {
+  font-size: 22px;
+  line-height: 30px;
+  font-weight: 600;
+  margin: 32px 0 16px;
+}
+
+.md-content h3 {
+  font-size: 19px;
+  line-height: 26px;
+  font-weight: 600;
+  margin: 32px 0 16px;
+}
+
+.md-content h4 {
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 600;
+  margin: 16px 0;
+}
+
+.md-content :where(h5, h6) {
+  font-size: 15px;
+  line-height: 24px;
+  font-weight: 600;
+  margin: 16px 0;
+}
+
+.md-content :where(h1, h2, h3, h4, h5, h6) strong {
+  font-weight: inherit;
+}
+
+.md-content p {
+  margin: 16px 0;
+}
+
+/* h4–h6 后跟列表收紧（设计：8px 间隙，对齐 DSH） */
+.md-content :where(h4, h5, h6) + :where(ul, ol) {
+  margin-top: 8px;
+}
+
+.md-content :where(h4, h5, h6):has(+ :where(ul, ol)) {
+  margin-bottom: 8px;
+}
+
+.md-content a {
+  color: var(--shell-accent);
+  text-decoration: none;
+  transition: box-shadow var(--ds-transition-duration-slow) var(--ds-ease-in-out);
+  /* 透明命中区内边距（只扩点击区，不产生可见色块） */
+  border-left: 3px solid rgb(255 255 255 / 0);
+  border-right: 3px solid rgb(255 255 255 / 0);
+  border-top: 2px solid rgb(255 255 255 / 0);
+  border-bottom: 2px solid rgb(255 255 255 / 0);
+  margin-left: -3px;
+  margin-right: -3px;
+}
+
+.md-content a:hover,
+.md-content a:focus {
+  outline: none;
+  text-decoration: underline var(--shell-accent);
+}
+
+.md-content a:focus-visible {
+  box-shadow: 0 0 0 2px var(--shell-accent);
+}
+
+.md-content :where(ul, ol) {
+  margin: 16px 0;
+  padding-left: 18px;
+}
+
+.md-content li:not(:first-child) {
+  margin-top: 6px;
+}
+
+.md-content li > :where(ul, ol) {
+  margin-top: 4px;
+}
+
+.md-content li::marker {
+  line-height: 28px;
+  color: var(--shell-label-secondary);
+}
+
+/* 嵌套 ol（模型有时输出该形状）：marker 在内部 */
+.md-content :where(ul, ol) ol {
+  list-style-position: inside;
+  padding-left: 0;
+}
+
+.md-content :where(ul, ol) ol li p {
+  display: inline;
+}
+
+.md-content li > p {
+  margin: 8px 0;
+}
+
+.md-content li > *:first-child {
+  margin-top: 0;
+}
+
+.md-content li > *:last-child {
+  margin-bottom: 0;
+}
+
+.md-content hr {
+  display: block;
+  border: none;
+  height: 1px;
+  margin: 32px 0;
+  background: var(--shell-border-l2);
+}
+
+.md-content blockquote {
+  border-left: 2px solid var(--shell-label-caption);
+  margin: 16px 0 0;
+  padding-left: 14px;
+  color: var(--shell-label-secondary);
+}
+
+.md-content pre {
+  margin: 16px 0;
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  overflow: auto;
+}
+
+.md-content :not(pre) > code {
+  display: inline-flex;
+  align-items: center;
+  box-sizing: border-box;
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 0.875em;
+  background-color: var(--shell-row-active);
+  border-radius: 6px;
+  padding: 0 5px;
+}
+
+.md-content :where(h1, h2, h3, h4, h5, h6) code {
+  font: inherit;
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+}
+
+.md-content input[type="checkbox"] {
+  margin: 0 8px 0 0;
+  accent-color: var(--shell-label-secondary);
+}
+
+/* ---- 表格（对齐 DSH tableScroll：窄列横向滚动，宽高由内容决定） ---- */
+
+.md-table-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
+
+.md-table-scroll table {
+  border-collapse: collapse;
+  width: max-content;
+  max-width: max-content;
+}
+
+.md-table-scroll th {
+  text-align: start;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--shell-border-l2);
+  border-top: none;
+  font-weight: 600;
+  max-width: min(30vw, 320px);
+  min-width: 100px;
+}
+
+.md-table-scroll td {
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--shell-border);
+  max-width: min(30vw, 320px);
+  min-width: 100px;
+}
+
+.md-table-scroll th:first-child,
+.md-table-scroll td:first-child {
+  padding-left: 0;
+}
+
+.md-table-scroll td:last-child {
+  padding-right: 0;
+}
+
+.md-table-scroll table code {
+  font-size: 13px;
+}
+
+/* ---- 围栏代码块（对齐 DSH CodeBlock：语言横幅 + 复制按钮，无高亮） ---- */
+
+.md-code-block {
+  margin: 16px 0;
+  border-radius: 8px;
+  background: var(--shell-row-active);
+  overflow: hidden;
+}
+
+.md-code-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 12px;
+  border-bottom: 1px solid var(--shell-border);
+}
+
+.md-code-lang {
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--shell-label-tertiary);
+}
+
+.md-code-copy {
+  cursor: pointer;
+  border: none;
+  background: none;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--shell-label-tertiary);
+  border-radius: 4px;
+  padding: 0 6px;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.md-code-copy:hover {
+  color: var(--shell-label-primary);
+  background: var(--shell-row-hover);
+}
+
+.md-code-block pre {
+  margin: 0;
+  padding: 12px 16px;
+  overflow: auto;
+  font-size: 13px;
+  line-height: 20px;
+  background: transparent;
+}
+
+/* ---- 图片（对齐 DSH .image/.imageAlt） ---- */
+
+.md-image {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  height: auto;
+  margin: 0;
+  border-radius: 8px;
+  background: var(--shell-bg-base);
+  object-fit: contain;
+}
+
+.md-image-alt {
+  color: var(--shell-label-tertiary);
+  font-style: italic;
+}
+
+/* 首尾块去外距（对齐 DSH） */
+.md-content > *:first-child,
+.md-content p:first-child {
+  margin-top: 0 !important;
+}
+
+.md-content > *:last-child,
+.md-content p:last-child {
+  margin-bottom: 0 !important;
+}
