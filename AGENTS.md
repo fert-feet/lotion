@@ -11,7 +11,7 @@
 - **框架**: Next.js 15.5.4 (App Router, Turbopack)
 - **后端**: 本地 SQLite（better-sqlite3，WAL 模式，单机自托管）
 - **Auth**: 自研极简（scrypt 哈希 + sessions 表 + HttpOnly cookie，无第三方库）
-- **编辑器**: BlockNote 0.41（**阶段 1 过渡中**：文档模型已切 Markdown，编辑器仅作渲染/编辑 UI，产物经 blocksToMarkdownLossy 存回 Markdown；自研块编辑器规划见 lib/content.ts 注释）
+- **编辑器**: **自研块编辑器**（阶段 2 完成，替换 BlockNote）：Markdown 文档模型 + 块级编辑（`components/editor/block-editor.tsx` + `lib/editor/` 内核），对齐 SiYuan protyle 块模型 / DSH 渲染管线；旧 BlockNote JSON 存量数据经 `lib/content.ts` 惰性转换
 - **AI**: @ai-sdk/deepseek (deepseek-v4-flash)
 - **状态管理**: Zustand
 - **样式**: Tailwind CSS 4 + shadcn/ui（自研对齐 DSH 组件）
@@ -59,7 +59,8 @@ lib/
 ├── ai/tools/               # 17 个 Tool（search/list/read/create/update/rename/move/icon/publish/archive/restore/trash/delete/askUser/todoWrite/docInfo/docOutline）
 ├── ai-prompts.ts           # AI 系统提示词（领域概念/使用模式/规范/安全）
 ├── content.ts              # 文档内容适配层：Markdown 存储（旧 BlockNote JSON 惰性转换）
-├── blocks-to-markdown.ts   # 自研 BlockNote JSON → Markdown（服务端读旧数据，无运行时依赖）
+├── blocks-to-markdown.ts   # 自研 BlockNote JSON → Markdown（读旧数据，无运行时依赖）
+├── editor/                 # 自研块编辑器内核：blocks.ts(可编辑块模型)/ops.ts(编辑操作)/dom-to-markdown.ts
 ├── compress.ts             # 上下文压缩（滑动窗口 100 条 + 模型重写式摘要）
 hooks/                      # Zustand stores + use-user
 components/                 # shadcn/ui + Toolbar + SearchCommand + Upload
