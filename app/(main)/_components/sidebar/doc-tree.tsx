@@ -4,7 +4,7 @@
 // 行高 32px、radius 8、缩进步进 22px；hover 时时间让位于操作按钮（+ 子笔记 / ... 菜单）；
 // 选中整行底色（shell-row-active）。批量删除模式下行内出现复选框。
 import { useParams, useRouter } from "next/navigation";
-import { memo, useMemo, useRef } from "react";
+import { memo, useEffect, useMemo, useState } from "react";
 import { ChevronRight, FileIcon, MoreHorizontal, Plus, Trash } from "@/components/icons";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -62,7 +62,9 @@ const DocRow = memo(function DocRow({
   checked,
   onToggleCheck,
 }: DocRowProps) {
-  const now = useRef(Date.now()).current;
+  // SSR 水合安全：首渲 now=0（统一"刚刚"，服务端/客户端一致），挂载后取真实时间
+  const [now, setNow] = useState(0);
+  useEffect(() => { setNow(Date.now()); }, []);
 
   return (
     <div

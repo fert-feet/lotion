@@ -55,6 +55,9 @@ function DropdownMenuContent({ className, align = "start", side = "bottom", forc
   const { open, setOpen, getTriggerEl } = useMenu();
   const contentRef = useRef<HTMLDivElement | null>(null);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  // SSR 水合门控：服务端不渲染 portal，挂载后再出现（避免 forceMount 下 HTML 不一致）
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
 
   useEffect(() => {
     if (!open) { setPos(null); return; }
@@ -106,6 +109,7 @@ function DropdownMenuContent({ className, align = "start", side = "bottom", forc
     };
   }, [open, setOpen, getTriggerEl]);
 
+  if (!mounted) return null;
   if (!open && !_forceMount) return null;
   if (typeof document === "undefined") return null;
   return createPortal(

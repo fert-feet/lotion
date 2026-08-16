@@ -126,7 +126,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   const narrowExpanded = useLayout((s) => s.narrowExpanded);
   const details = useLayout((s) => s.details);
   const frameRef = useRef<HTMLDivElement | null>(null);
-  const [viewport, setViewport] = useState(() => (typeof window === "undefined" ? 1440 : window.innerWidth));
+  // SSR 水合安全：首渲用固定宽（与服务端一致），挂载后 ResizeObserver 立即校正真实宽度
+  const [viewport, setViewport] = useState(1440);
 
   // 窄屏自动折叠：折叠在 shell 层决定，求解器保持无断点。
   const autoNarrow = viewport < SIDEBAR_AUTO_COLLAPSE;

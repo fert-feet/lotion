@@ -33,6 +33,9 @@ function PopoverContent({ className, align = "center", side = "bottom", sideOffs
   const { open, setOpen, getTriggerEl } = useContext(Ctx);
   const contentRef = useRef<HTMLDivElement | null>(null);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  // SSR 水合门控：服务端不渲染 portal，挂载后再出现
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
   useEffect(() => {
     if (!open) { setPos(null); return; }
     const place = () => {
@@ -70,6 +73,7 @@ function PopoverContent({ className, align = "center", side = "bottom", sideOffs
     document.addEventListener("keydown", onKey);
     return () => { document.removeEventListener("pointerdown", onDown); document.removeEventListener("keydown", onKey); };
   }, [open, setOpen, getTriggerEl]);
+  if (!mounted) return null;
   if (!open) return null;
   if (typeof document === "undefined") return null;
   return createPortal(
