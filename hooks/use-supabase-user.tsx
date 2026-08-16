@@ -1,11 +1,14 @@
 "use client";
 
-import { createClient } from "@/lib/supabase/client";
-import type { User } from "@supabase/supabase-js";
+// 本地版用户上下文（原 Supabase 版本改造而来）：
+// - SSR 由 app/layout.tsx 经本地会话注入，首帧即有 user
+// - 客户端兜底改为 GET /api/me（本地 Auth 的会话查询端点）
+// 组件里 user.id / user.email 用法不变（LocalUser 与 Supabase User 字段对齐）。
 import { createContext, useContext, useEffect, useState } from "react";
+import type { LocalUser } from "@/lib/local/auth";
 
 type UserState = {
-  user: User | null;
+  user: LocalUser | null;
   loading: boolean;
 };
 
@@ -14,14 +17,14 @@ const UserContext = createContext<UserState>({ user: null, loading: true });
 /**
  * 在 root layout（server）中注入 SSR 得到的 user。
  * 所有 useSupabaseUser 调用方共享同一份 user state：
- * - 首帧即有 user，Search/Settings/文档列表无需等待客户端 getUser
+ * - 首帧即有 user，Search/Settings/文档列表无需等待客户端请求
  * - 所有 Item 同时拿到 user，一次 commit 渲染，消除"文档逐个出现"
  */
 export function UserProvider({
   ssrUser,
   children,
 }: {
-  ssrUser: User | null;
+  ssrUser: LocalUser | null;
   children: React.ReactNode;
 }) {
   // SSR 已注入 user 立即就绪；否则保持 loading，由兜底请求恢复
@@ -37,13 +40,14 @@ export function UserProvider({
       setState({ user: ssrUser, loading: false });
       return;
     }
-    // 兜底：cookie 与 localStorage 可能不一致（如登录后 cookie 过期），
-    // 客户端再恢复一次。全应用仅此一个 getUser 请求。
-    createClient()
-      .auth.getUser()
-      .then(({ data }) => {
-        setState({ user: data.user, loading: false });
+    // 兜底：cookie 与页面状态可能不一致，客户端再恢复一次。全应用仅此一个 /api/me 请求。
+    fetch("/api/me", { cache: "no-store" })
+      .then(async (res) => {
+        if (!res.ok) return null;
+        const data = await res.json();
+        return (data.user as LocalUser) ?? null;
       })
+      .then((user) => setState({ user, loading: false }))
       .catch(() => {
         setState({ user: null, loading: false });
       });

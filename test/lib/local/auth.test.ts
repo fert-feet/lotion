@@ -6,6 +6,7 @@ import {
   hashPassword,
   verifyPassword,
   isValidEmail,
+  parseCookies,
   createUser,
   loginUser,
   createSession,
@@ -14,6 +15,15 @@ import {
   AuthError,
   SESSION_TTL_DAYS,
 } from "@/lib/local/auth";
+
+describe("lib/local/auth parseCookies", () => {
+  it("解析多个 cookie、忽略空白与无等号片段、空头返回空表", () => {
+    expect(parseCookies(null)).toEqual({});
+    expect(parseCookies("")).toEqual({});
+    expect(parseCookies("a=1; b=2 ; c=3")).toEqual({ a: "1", b: "2", c: "3" });
+    expect(parseCookies("a=1; malformed; =x; b=2")).toEqual({ a: "1", b: "2" });
+  });
+});
 
 describe("lib/local/auth 密码哈希", () => {
   it("哈希可验证，错误密码/畸形存储返回 false", () => {

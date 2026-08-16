@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import { Fraunces, Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "../components/providers/theme-provider";
 import { Toaster } from "../components/ui/sonner";
 import ModalProvider from "../components/providers/modal-provider";
 import { UserProvider } from "../hooks/use-supabase-user";
-import { createClient } from "@/lib/supabase/server";
-import type { User } from "@supabase/supabase-js";
+import { getDb } from "@/lib/local/sqlite";
+import { getSessionUser, SESSION_COOKIE, type LocalUser } from "@/lib/local/auth";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -52,15 +53,14 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // SSR 时从 cookie 恢复 session，首帧 HTML 就包含 user，
-  // 侧边栏按钮/文档列表无需等待客户端 getUser
-  let user: User | null = null;
+  // SSR 时从 cookie 恢复本地会话，首帧 HTML 就包含 user，
+  // 侧边栏按钮/文档列表无需等待客户端请求
+  let user: LocalUser | null = null;
   try {
-    const supabase = await createClient();
-    const { data } = await supabase.auth.getUser();
-    user = data.user;
+    const cookieStore = await cookies();
+    user = getSessionUser(getDb(), cookieStore.get(SESSION_COOKIE)?.value);
   } catch {
-    // Supabase 不可用时降级为匿名渲染（公开页仍可访问）
+    // 本地数据库不可用时降级为匿名渲染（公开页仍可访问）
   }
 
   return (
