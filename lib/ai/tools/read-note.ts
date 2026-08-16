@@ -33,15 +33,17 @@ export function createReadNoteTool(
 
       const text = extractText(doc.content || "");
       if (!text) {
-        return `笔记「${doc.title}」内容为空。`;
+        return `笔记「${doc.title}」内容为空。（ID: ${doc.id}，更新于 ${doc.updatedAt}）`;
       }
+
+      const header = `笔记「${doc.title}」（ID: ${doc.id}，${text.length} 字，更新于 ${doc.updatedAt}）：`;
 
       if (text.length > READ_NOTE_CHAR_LIMIT) {
         logger.tools.info("[readNote] 内容超长已截断", { noteId, total: text.length, limit: READ_NOTE_CHAR_LIMIT });
-        return `笔记「${doc.title}」内容（前 ${READ_NOTE_CHAR_LIMIT} 字符，全文共 ${text.length} 字符）：\n\n${text.slice(0, READ_NOTE_CHAR_LIMIT)}`;
+        return `${header}\n\n（前 ${READ_NOTE_CHAR_LIMIT} 字符，全文共 ${text.length} 字符）\n\n${text.slice(0, READ_NOTE_CHAR_LIMIT)}`;
       }
 
-      return `笔记「${doc.title}」内容：\n\n${text}`;
+      return `${header}\n\n${text}`;
     },
   });
 }

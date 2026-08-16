@@ -37,7 +37,7 @@ export function createSearchNotesTool(db: Database.Database, userId: string) {
 
       const lines = matches.map((d) => {
         const snippet = extractText(d.content || "").slice(0, SNIPPET_CHAR_LIMIT);
-        return `- ${d.title} (id: ${d.id})${snippet ? ` | 摘要: ${snippet}...` : ""}`;
+        return `- ${d.title} (id: ${d.id}, 更新于 ${d.updatedAt})${snippet ? ` | 摘要: ${snippet}...` : ""}`;
       });
 
       return `找到 ${matches.length} 篇笔记：\n${lines.join("\n")}`;

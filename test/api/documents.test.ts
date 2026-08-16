@@ -6,6 +6,7 @@ import { GET as listDocs, POST as createDoc } from "@/app/api/documents/route";
 import { GET as getDoc, PATCH as patchDoc, DELETE as deleteDoc } from "@/app/api/documents/[documentId]/route";
 import { PATCH as archiveDoc } from "@/app/api/documents/[documentId]/archive/route";
 import { PATCH as restoreDoc } from "@/app/api/documents/[documentId]/restore/route";
+import { PUT as moveDoc } from "@/app/api/documents/[documentId]/move/route";
 
 const state = vi.hoisted(() => ({ db: null as Database.Database | null }));
 
@@ -128,5 +129,69 @@ describe("documents API", () => {
   it("POST 缺 title 返回 400", async () => {
     const { cookie } = await authCookie();
     expect((await createDoc(req("http://x", "POST", cookie, {}))).status).toBe(400);
+  });
+
+  it("PUT move 移动文档：移到根目录 / 移到指定父文档 / 防循环 / 权限隔离", async () => {
+    const { cookie, userId } = await authCookie();
+    const a = await (await createDoc(req("http://x", "POST", cookie, { title: "a" }))).json();
+    const b = await (await createDoc(req("http://x", "POST", cookie, { title: "b" }))).json();
+    const c = await (
+      await createDoc(req("http://x", "POST", cookie, { title: "c", parentDocument: b.id }))
+    ).json();
+
+    // 移动到指定父文档
+    const moved = await moveDoc(
+      req(`http://x/api/documents/${a.id}/move`, "PUT", cookie, { parentDocument: b.id }),
+      ctx(a.id),
+    );
+    expect(moved.status).toBe(200);
+    expect(((await moved.json()) as { parentDocument: string }).parentDocument).toBe(b.id);
+
+    // 防循环：b（父）不能移动到 c（子）下
+    const cycle = await moveDoc(
+      req(`http://x/api/documents/${b.id}/move`, "PUT", cookie, { parentDocument: c.id }),
+      ctx(b.id),
+    );
+    expect(cycle.status).toBe(400);
+
+    // 移到根目录（null）
+    const toRoot = await moveDoc(
+      req(`http://x/api/documents/${a.id}/move`, "PUT", cookie, { parentDocument: null }),
+      ctx(a.id),
+    );
+    expect(toRoot.status).toBe(200);
+    const docA = await (await getDoc(req(`http://x/api/documents/${a.id}`, "GET", cookie), ctx(a.id))).json();
+    expect(docA.parentDocument).toBeNull();
+
+    // 跨用户：他人文档 404
+    const other = await authCookie("other@x.com");
+    const foreign = await moveDoc(
+      req(`http://x/api/documents/${b.id}/move`, "PUT", other.cookie, { parentDocument: null }),
+      ctx(b.id),
+    );
+    expect(foreign.status).toBe(404);
+
+    // 未登录 401
+    expect((await moveDoc(req(`http://x/api/documents/${b.id}/move`, "PUT"), ctx(b.id))).status).toBe(401);
+    expect(userId.length).toBeGreaterThan(0);
+  });
+
+  it("PUT move 目标父文档不存在/已归档时返回 400", async () => {
+    const { cookie } = await authCookie();
+    const a = await (await createDoc(req("http://x", "POST", cookie, { title: "a" }))).json();
+
+    const missing = await moveDoc(
+      req(`http://x/api/documents/${a.id}/move`, "PUT", cookie, { parentDocument: "no-such-id" }),
+      ctx(a.id),
+    );
+    expect(missing.status).toBe(400);
+
+    const archived = await (await createDoc(req("http://x", "POST", cookie, { title: "arch" }))).json();
+    await archiveDoc(req(`http://x/api/documents/${archived.id}/archive`, "PATCH", cookie), ctx(archived.id));
+    const toArchived = await moveDoc(
+      req(`http://x/api/documents/${a.id}/move`, "PUT", cookie, { parentDocument: archived.id }),
+      ctx(a.id),
+    );
+    expect(toArchived.status).toBe(400);
   });
 });

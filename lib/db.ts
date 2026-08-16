@@ -187,6 +187,15 @@ export async function restore(_userId: string, id: string) {
   docCache.delete(id);
 }
 
+export async function move(id: string, parentDocument: string | null) {
+  await api(`/api/documents/${id}/move`, {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ parentDocument }),
+  });
+  docCache.delete(id);
+}
+
 export async function remove(id: string) {
   await api(`/api/documents/${id}`, { method: "DELETE" });
   docCache.delete(id);

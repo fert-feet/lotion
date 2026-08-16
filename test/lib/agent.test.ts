@@ -8,7 +8,7 @@ import { runNoteAgent } from "@/lib/agent";
 
 const { mockConfig } = vi.hoisted(() => ({
   mockConfig: {
-    tool: "none" as "createNote" | "readNote" | "updateNote" | "deleteNote" | "searchNotes" | "none",
+    tool: "none" as "createNote" | "readNote" | "updateNote" | "deleteNote" | "moveNote" | "searchNotes" | "none",
     noteId: "doc-123" as string, // beforeEach 按真实种子数据覆盖
     emitStepFinish: false,
     emitError: false,
@@ -49,14 +49,21 @@ vi.mock("ai", async (importOriginal) => {
                     ? { noteId: mockConfig.noteId, content: "新内容" }
                     : toolName === "searchNotes"
                       ? { query: "目标" }
-                      : { noteId: mockConfig.noteId };
+                      : toolName === "moveNote"
+                        ? { noteId: mockConfig.noteId, newParentId: null }
+                        : { noteId: mockConfig.noteId };
               await options.tools[toolName]!.execute!(args, { toolCallId: "t1" });
             }
-            // 模拟工具调用完成回调 → 触发 progress 事件注入 / deleteNote 中止检测
-            if (mockConfig.emitStepFinish || toolName === "deleteNote") {
+            // 模拟工具调用完成回调 → 触发 progress 事件注入 / 确认类工具中止检测
+            if (mockConfig.emitStepFinish || toolName === "deleteNote" || toolName === "moveNote") {
               options.onStepFinish?.({
                 finishReason: "tool-calls",
-                toolCalls: [{ toolName: toolName === "deleteNote" ? "deleteNote" : "searchNotes", args: {} }],
+                toolCalls: [
+                  {
+                    toolName: toolName === "deleteNote" ? "deleteNote" : toolName === "moveNote" ? "moveNote" : "searchNotes",
+                    args: {},
+                  },
+                ],
                 text: "",
               });
             }
@@ -222,12 +229,25 @@ describe("runNoteAgent deleteNote 中止语义", () => {
     expect(mockConfig.abortSignal?.aborted).toBe(true);
   });
 
-  it("非 deleteNote 的工具调用不会中止生成", async () => {
+  it("非 deleteNote/moveNote 的工具调用不会中止生成", async () => {
     mockConfig.tool = "createNote";
     const { stream } = await runNoteAgent(db, "user-1", "创建笔记");
     await readEvents(stream);
 
     expect(mockConfig.abortSignal?.aborted).toBe(false);
+  });
+
+  it("moveNote 触发确认后中止本轮生成（对齐 SiYuan 写操作确认）", async () => {
+    mockConfig.tool = "moveNote";
+    const { stream } = await runNoteAgent(db, "user-1", "把笔记移到根目录");
+    const events = await readEvents(stream);
+
+    // confirm_move 事件已推送，且内部 AbortController 已触发
+    const confirm = events.find((e) => e.type === "confirm_move");
+    expect(confirm?.noteId).toBe(mockConfig.noteId);
+    expect(confirm?.title).toBe("引用笔记");
+    expect(confirm?.toRoot).toBe(true);
+    expect(mockConfig.abortSignal?.aborted).toBe(true);
   });
 });
 

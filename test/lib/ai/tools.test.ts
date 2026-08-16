@@ -21,6 +21,10 @@ import { createRestoreNoteTool } from "@/lib/ai/tools/restore-note";
 import { createListTrashTool } from "@/lib/ai/tools/list-trash";
 import { createPublishNoteTool } from "@/lib/ai/tools/publish-note";
 import { createSetNoteIconTool } from "@/lib/ai/tools/set-note-icon";
+import { createAskUserTool } from "@/lib/ai/tools/ask-user";
+import { createTodoWriteTool } from "@/lib/ai/tools/todo-write";
+import { createGetDocInfoTool } from "@/lib/ai/tools/doc-info";
+import { createGetDocOutlineTool } from "@/lib/ai/tools/doc-outline";
 import type { ToolEvent } from "@/lib/ai/tools";
 
 vi.mock("@/lib/logger", () => {
@@ -379,40 +383,44 @@ describe("listNotes 工具", () => {
 
 // ---- moveNote ----
 
-describe("moveNote 工具", () => {
-  it("移动到目标父笔记下，上报 note_modified + reference 事件", async () => {
+describe("moveNote 工具（确认模式）", () => {
+  it("校验通过后上报 confirm_move 事件（含目标标题），不实际移动", async () => {
     const target = seedDoc("目标父", "");
     const moving = seedDoc("要移动的", "");
     const { events, onEvent } = collectEvents();
     const t = createMoveNoteTool(db, "u1", onEvent);
     const result = await t.execute({ noteId: moving, newParentId: target } as never, {} as never);
 
-    expect(result).toContain("已移动");
-    expect(getDocumentById(db, moving, "u1")!.parentDocument).toBe(target);
+    expect(result).toContain("确认");
     expect(events).toEqual([
-      { type: "note_modified", noteId: moving, title: "要移动的" },
-      { type: "reference", noteId: moving, title: "要移动的" },
+      { type: "confirm_move", noteId: moving, title: "要移动的", targetTitle: "目标父", toRoot: false },
     ]);
-  });
-
-  it("newParentId 传 null 移到根目录", async () => {
-    const target = seedDoc("目标父", "");
-    const moving = createDocument(db, "u1", "要移动的", target);
-    const t = createMoveNoteTool(db, "u1");
-    const result = await t.execute({ noteId: moving, newParentId: null } as never, {} as never);
-
-    expect(result).toContain("根目录");
+    // 未实际移动（等用户确认后走 REST）
     expect(getDocumentById(db, moving, "u1")!.parentDocument).toBeNull();
   });
 
-  it("防循环：不能移动到自身子笔记下", async () => {
+  it("newParentId 传 null 时 toRoot=true", async () => {
+    const target = seedDoc("目标父", "");
+    const moving = createDocument(db, "u1", "要移动的", target);
+    const { events, onEvent } = collectEvents();
+    const t = createMoveNoteTool(db, "u1", onEvent);
+    await t.execute({ noteId: moving, newParentId: null } as never, {} as never);
+
+    expect(events).toEqual([
+      { type: "confirm_move", noteId: moving, title: "要移动的", targetTitle: null, toRoot: true },
+    ]);
+    expect(getDocumentById(db, moving, "u1")!.parentDocument).toBe(target);
+  });
+
+  it("防循环：不能移动到自身子笔记下（不发确认事件）", async () => {
     const parent = seedDoc("父", "");
     const child = createDocument(db, "u1", "子", parent);
-    const t = createMoveNoteTool(db, "u1");
+    const { events, onEvent } = collectEvents();
+    const t = createMoveNoteTool(db, "u1", onEvent);
     const result = await t.execute({ noteId: parent, newParentId: child } as never, {} as never);
 
     expect(result).toContain("循环");
-    expect(getDocumentById(db, parent, "u1")!.parentDocument).toBeNull();
+    expect(events).toHaveLength(0);
   });
 
   it("目标不存在/已归档/跨用户时拒绝且不上报事件", async () => {
@@ -545,5 +553,123 @@ describe("setNoteIcon 工具", () => {
     const t = createSetNoteIconTool(db, "u1");
     const result = await t.execute({ noteId: newId(), icon: "📚" } as never, {} as never);
     expect(result).toContain("不存在");
+  });
+});
+// ---- askUser ----
+
+describe("askUser 工具", () => {
+  const questions = [
+    {
+      header: "目标",
+      question: "要把笔记移动到哪个文件夹？",
+      options: [
+        { label: "工作", description: "工作相关笔记" },
+        { label: "学习", description: "学习相关笔记" },
+      ],
+    },
+  ];
+
+  it("上报 question 事件（结构化问题 + 选项）并返回等待提示", async () => {
+    const { events, onEvent } = collectEvents();
+    const t = createAskUserTool(db, "u1", onEvent);
+    const result = await t.execute({ questions } as never, {} as never);
+
+    expect(result).toContain("等待");
+    expect(events).toEqual([{ type: "question", questions }]);
+  });
+
+  it("同一实例重复提问被拒绝（一次请求只问一轮）", async () => {
+    const { events, onEvent } = collectEvents();
+    const t = createAskUserTool(db, "u1", onEvent);
+    await t.execute({ questions } as never, {} as never);
+    const second = await t.execute({ questions } as never, {} as never);
+
+    expect(second).toContain("不要重复提问");
+    expect(events).toHaveLength(1);
+  });
+
+  it("空 questions / 超量 questions 被拒绝", async () => {
+    const t = createAskUserTool(db, "u1");
+    expect(await t.execute({ questions: [] } as never, {} as never)).toContain("不能为空");
+    const tooMany = Array.from({ length: 2 }, () => questions[0]);
+    expect(await t.execute({ questions: tooMany } as never, {} as never)).toContain("最多问");
+  });
+});
+
+// ---- todoWrite ----
+
+describe("todoWrite 工具", () => {
+  it("上报 todo_update 事件（整体替换）并返回统计", async () => {
+    const items = [
+      { content: "搜索相关笔记", status: "completed" as const },
+      { content: "阅读内容", status: "in_progress" as const },
+      { content: "撰写总结", status: "pending" as const },
+    ];
+    const { events, onEvent } = collectEvents();
+    const t = createTodoWriteTool(db, "u1", onEvent);
+    const result = await t.execute({ todos: items } as never, {} as never);
+
+    expect(result).toContain("共 3 项");
+    expect(result).toContain("已完成 1 项");
+    expect(events).toEqual([{ type: "todo_update", items }]);
+  });
+
+  it("空列表返回已清空", async () => {
+    const t = createTodoWriteTool(db, "u1");
+    const result = await t.execute({ todos: [] } as never, {} as never);
+    expect(result).toContain("已清空");
+  });
+});
+
+// ---- getDocInfo ----
+
+describe("getDocInfo 工具", () => {
+  it("返回元数据：标题/字数/子文档数/状态/时间，不含正文", async () => {
+    const parent = seedDoc("父笔记", JSON.stringify([{ content: [{ text: "正文内容" }] }]));
+    createDocument(db, "u1", "子笔记", parent);
+    const t = createGetDocInfoTool(db, "u1");
+    const result = await t.execute({ noteId: parent } as never, {} as never);
+
+    expect(result).toContain("父笔记");
+    expect(result).toContain("4 字");
+    expect(result).toContain("子文档: 1 篇");
+    expect(result).toContain("私密");
+    expect(result).toContain("创建:");
+    expect(result).not.toContain("正文内容");
+  });
+
+  it("笔记不存在/跨用户时返回错误文案", async () => {
+    const foreign = seedDoc("别人的", "", "u2");
+    const t = createGetDocInfoTool(db, "u1");
+    expect(await t.execute({ noteId: newId() } as never, {} as never)).toContain("不存在");
+    expect(await t.execute({ noteId: foreign } as never, {} as never)).toContain("不存在");
+  });
+});
+
+// ---- getDocOutline ----
+
+describe("getDocOutline 工具", () => {
+  it("提取标题层级大纲（含嵌套 children）", async () => {
+    const content = JSON.stringify([
+      { type: "heading2", content: [{ text: "快速开始" }] },
+      { type: "heading3", content: [{ text: "安装" }] },
+      { type: "paragraph", content: [{ text: "正文" }] },
+      { type: "heading2", content: [{ text: "写作小贴士" }] },
+    ]);
+    const id = seedDoc("指南", content);
+    const t = createGetDocOutlineTool(db, "u1");
+    const result = await t.execute({ noteId: id } as never, {} as never);
+
+    expect(result).toContain("快速开始");
+    expect(result).toContain("写作小贴士");
+    expect(result).toContain("  - 安装"); // h3 缩进一级
+    expect(result).not.toContain("正文");
+  });
+
+  it("无标题结构时返回提示", async () => {
+    const id = seedDoc("无标题文档", "纯文本内容");
+    const t = createGetDocOutlineTool(db, "u1");
+    const result = await t.execute({ noteId: id } as never, {} as never);
+    expect(result).toContain("大纲为空");
   });
 });

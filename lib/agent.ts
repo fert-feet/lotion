@@ -2,7 +2,13 @@ import { streamText, stepCountIs } from "ai";
 import { deepSeek } from "@ai-sdk/deepseek";
 import type Database from "better-sqlite3";
 import { NOTE_ASSISTANT_PROMPT } from "./ai-prompts";
-import { createTools, TOOL_META, type ToolEvent, type ToolName } from "./ai/tools";
+import {
+  createTools,
+  createDoomLoopTracker,
+  TOOL_META,
+  type ToolEvent,
+  type ToolName,
+} from "./ai/tools";
 import { logger } from "./logger";
 
 /**
@@ -10,7 +16,9 @@ import { logger } from "./logger";
  * - turn_start / turn_end：回合边界（turn_end 带耗时与 token 统计，DSH TurnTail 同款）
  * - text：AI 叙述流式增量
  * - tool_start / tool_end：工具调用生命周期（卡片：running → done/error）
- * - note_created / note_modified / confirm_delete / reference：文档副作用事件
+ * - note_created / note_modified / confirm_delete / confirm_move / reference：文档副作用事件
+ * - question / todo_update：结构化提问（前端选项卡片，回答作为后续消息回传）与会话任务清单
+ * - warning：doom loop 重复失败警告（对齐 SiYuan：3 次警告、5 次终止）
  * - error：生成中途出错
  */
 export type AgentStreamEvent =
@@ -21,7 +29,17 @@ export type AgentStreamEvent =
   | { type: "note_created"; noteId: string; title: string }
   | { type: "note_modified"; noteId: string; title: string }
   | { type: "confirm_delete"; noteId: string; title: string }
+  | {
+      type: "confirm_move";
+      noteId: string;
+      title: string;
+      targetTitle: string | null;
+      toRoot: boolean;
+    }
+  | { type: "question"; questions: Array<{ header: string; question: string; options: Array<{ label: string; description: string }>; multiple?: boolean; custom?: boolean }> }
+  | { type: "todo_update"; items: Array<{ content: string; status: "pending" | "in_progress" | "completed" | "cancelled" }> }
   | { type: "reference"; noteId: string; title: string }
+  | { type: "warning"; message: string }
   | { type: "turn_end"; turn: number; durationMs: number; tokens: { input: number; output: number } | null }
   | { type: "error"; message: string };
 
@@ -88,8 +106,9 @@ export async function runNoteAgent(
   const eventQueue: AgentStreamEvent[] = [];
   // 引用来源：tool 上报后聚合，落库用（流内已即时推送）
   const references: AgentReference[] = [];
-  // deleteNote 已触发确认：onStepFinish 检测到后中止本轮生成，删除流程挂起等用户确认
-  let confirmDeletePending = false;
+  // deleteNote/moveNote 已触发确认：onStepFinish 检测到后中止本轮生成，
+  // 确认流程挂起等用户确认（前端确认后走 REST 执行）
+  let confirmPending = false;
   // 中止句柄：onStepFinish 在 result 返回后才可能触发，此处延迟绑定
   let abortFn: (() => void) | null = null;
 
@@ -122,8 +141,24 @@ export async function runNoteAgent(
         eventQueue.push({ type: "note_modified", noteId: e.noteId, title: e.title });
         break;
       case "confirm_delete":
-        confirmDeletePending = true;
+        confirmPending = true;
         eventQueue.push({ type: "confirm_delete", noteId: e.noteId, title: e.title });
+        break;
+      case "confirm_move":
+        confirmPending = true;
+        eventQueue.push({
+          type: "confirm_move",
+          noteId: e.noteId,
+          title: e.title,
+          targetTitle: e.targetTitle,
+          toRoot: e.toRoot,
+        });
+        break;
+      case "question":
+        eventQueue.push({ type: "question", questions: e.questions });
+        break;
+      case "todo_update":
+        eventQueue.push({ type: "todo_update", items: e.items });
         break;
       case "reference":
         // 流内即时推送（前端直接渲染引用 chip）
@@ -168,24 +203,43 @@ export async function runNoteAgent(
       ? `${NOTE_ASSISTANT_PROMPT}\n\n以下是本会话早期对话的摘要（已压缩，细节以摘要为准）：\n${options.summary}`
       : NOTE_ASSISTANT_PROMPT,
     messages,
-    tools: createTools(db, userId, onToolEvent),
+    // doom loop 检测（对齐 SiYuan）：相同工具+参数连续失败 3 次前端警告、5 次中止
+    tools: createTools(db, userId, onToolEvent, createDoomLoopTracker({
+      onWarn: (name, count) => {
+        logger.agent.warn("doom loop 警告", { name, count });
+        eventQueue.push({
+          type: "warning",
+          message: `检测到 AI 连续 ${count} 次以相同参数调用「${TOOL_META[name].label}」均未成功，请换一种方式操作。`,
+        });
+      },
+      onStop: (name, count) => {
+        logger.agent.error("doom loop 终止", { name, count });
+        eventQueue.push({
+          type: "error",
+          message: `检测到重复工具调用（「${TOOL_META[name].label}」连续 ${count} 次相同参数失败），已终止本轮生成。`,
+        });
+        abortFn?.();
+      },
+    })),
     stopWhen: stepCountIs(MAX_STEPS),
-    abortSignal: internalAbort.signal, // 前端终止 / deleteNote 确认后中断生成
+    abortSignal: internalAbort.signal, // 前端终止 / deleteNote/moveNote 确认后中断生成
     onStepFinish: ({ finishReason, toolCalls }) => {
       const stepMs = Date.now() - stepStart;
       stepStart = Date.now();
       stepCount++;
-      // deleteNote 触发确认后立即中止本轮生成：避免 AI 在用户确认前
-      // 继续调用其他工具造成意外副作用（如先删后建）。
-      if (confirmDeletePending && toolCalls?.some((tc: { toolName: string }) => tc.toolName === "deleteNote")) {
-        logger.agent.info("deleteNote 已触发确认，中止本轮生成");
+      // deleteNote / moveNote 触发确认后立即中止本轮生成：避免 AI 在用户确认前
+      // 继续调用其他工具造成意外副作用（如先删后建、先移后改）。
+      const confirmTool = (tc: { toolName: string }) =>
+        tc.toolName === "deleteNote" || tc.toolName === "moveNote";
+      if (confirmPending && toolCalls?.some(confirmTool)) {
+        logger.agent.info("确认类工具已触发，中止本轮生成");
         abortFn?.();
       }
       logger.agent.info(`Step ${stepCount} 完成`, {
         finishReason,
         stepMs,
         toolCalls: toolCalls?.map((tc) => ({ name: tc.toolName, args: "args" in tc ? tc.args : undefined })),
-        confirmDeletePending,
+        confirmPending,
       });
     },
     onError: ({ error }) => {
@@ -204,7 +258,7 @@ export async function runNoteAgent(
         usage: finishUsage,
         textLen: text?.length ?? 0,
         referenceCount: references.length,
-        confirmDeletePending,
+        confirmPending,
         steps: steps?.map((s) => ({ toolCalls: s.toolCalls?.map((tc) => tc.toolName), finishReason: s.finishReason })),
       });
       resolveDoneSafe({

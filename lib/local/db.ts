@@ -356,6 +356,16 @@ export function getDescendantIds(db: Database.Database, userId: string, id: stri
   ).map((r) => r.id);
 }
 
+/** 未归档直接子文档数（getDocInfo 工具用） */
+export function countChildDocuments(db: Database.Database, userId: string, id: string): number {
+  const row = db
+    .prepare(
+      `SELECT COUNT(*) AS n FROM documents WHERE parentDocument = ? AND userId = ? AND isArchived = 0`,
+    )
+    .get(id, userId) as { n: number };
+  return row.n;
+}
+
 /**
  * 移动文档（设置 parentDocument；null = 移到根目录）。
  * 目标父文档必须存在、属于当前用户且未归档；不能移动到自身或自己的子孙下。

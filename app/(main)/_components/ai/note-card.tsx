@@ -1,8 +1,9 @@
 "use client";
 
 // 文档副作用卡片（对齐 DSH command/notice 卡片家族）：
-// created → "已创建草稿"卡片（可打开）；modified → 轻量 chip；delete_confirm → danger 确认卡。
-import { AlertTriangle, Ban, Check, FileText, PenLine } from "@/components/icons";
+// created → "已创建草稿"卡片（可打开）；modified → 轻量 chip；
+// delete_confirm → danger 确认卡；move_confirm → 移动确认卡（对齐 SiYuan 写操作确认）。
+import { AlertTriangle, ArrowRight, Ban, Check, FileText, PenLine } from "@/components/icons";
 import { cn } from "@/lib/utils";
 import type { NoteEvent } from "./types";
 
@@ -11,9 +12,11 @@ interface NoteCardProps {
   onOpen: (noteId: string) => void;
   onConfirmDelete: (noteId: string, title: string) => void;
   onCancelDelete: (noteId: string) => void;
+  onConfirmMove: (noteId: string, title: string, parentDocument: string | null) => void;
+  onCancelMove: (noteId: string) => void;
 }
 
-export function NoteCard({ note, onOpen, onConfirmDelete, onCancelDelete }: NoteCardProps) {
+export function NoteCard({ note, onOpen, onConfirmDelete, onCancelDelete, onConfirmMove, onCancelMove }: NoteCardProps) {
   if (note.kind === "created") {
     return (
       <div className="flex items-center gap-2.5 rounded-xl border border-shell-border-l2 bg-shell-row-hover/70 px-3 py-2.5">
@@ -48,6 +51,44 @@ export function NoteCard({ note, onOpen, onConfirmDelete, onCancelDelete }: Note
         >
           查看
         </button>
+      </div>
+    );
+  }
+
+  // move_confirm：移动确认卡（对齐 SiYuan 写操作确认：结构性操作需二次确认）
+  if (note.kind === "move_confirm") {
+    const target = note.toRoot ? "根目录" : note.targetTitle ? `「${note.targetTitle}」` : "新位置";
+    return (
+      <div className="rounded-xl border border-shell-border-l2 bg-shell-row-hover/50 px-4 py-3">
+        <div className="flex items-start gap-2.5">
+          <ArrowRight className="mt-0.5 h-4 w-4 shrink-0 text-shell-accent" />
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium text-shell-label-primary">
+              确认将「{note.title}」移动到{target}？
+            </p>
+            <p className="mt-0.5 text-xs text-shell-label-tertiary">移动会改变笔记的嵌套位置</p>
+          </div>
+        </div>
+        <div className="mt-2.5 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={() => onCancelMove(note.noteId)}
+            className="inline-flex h-7 cursor-pointer items-center gap-1 rounded-lg px-2.5 text-xs font-medium text-shell-label-secondary transition-colors hover:bg-shell-row-hover"
+          >
+            <Ban className="h-3.5 w-3.5" />
+            取消
+          </button>
+          <button
+            type="button"
+            onClick={() => onConfirmMove(note.noteId, note.title, note.toRoot ? null : note.targetTitle)}
+            className={cn(
+              "inline-flex h-7 cursor-pointer items-center gap-1 rounded-lg bg-shell-accent px-2.5 text-xs font-medium text-white transition-opacity hover:opacity-90"
+            )}
+          >
+            <Check className="h-3.5 w-3.5" />
+            确认移动
+          </button>
+        </div>
       </div>
     );
   }

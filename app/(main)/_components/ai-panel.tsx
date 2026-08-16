@@ -17,6 +17,7 @@ import {
   getById,
   getChatHistory,
   getChatSessions,
+  move,
   remove,
   type ChatSession,
 } from "@/lib/db";
@@ -293,6 +294,30 @@ const AiPanel = () => {
             }
             commit();
             break;
+          case "confirm_move":
+            if (!t.notes.some((n) => n.kind === "move_confirm" && !n.resolved)) {
+              t.notes.push({
+                kind: "move_confirm",
+                noteId: event.noteId,
+                title: event.title,
+                targetTitle: event.targetTitle,
+                toRoot: event.toRoot,
+                resolved: false,
+              });
+            }
+            commit();
+            break;
+          case "question":
+            t.questions = event.questions;
+            commit();
+            break;
+          case "todo_update":
+            t.todos = event.items;
+            commit();
+            break;
+          case "warning":
+            toast.warning(event.message);
+            break;
           case "reference":
             if (!t.references.some((r) => r.noteId === event.noteId)) {
               t.references.push({ noteId: event.noteId, title: event.title });
@@ -431,6 +456,45 @@ const AiPanel = () => {
     toast.info("已取消删除");
   };
 
+  // 移动确认（对齐 SiYuan 写操作确认）：确认后走 REST 真正移动并刷新
+  const markMoveResolved = (noteId: string) => {
+    setTurns((prev) =>
+      prev.map((t) => ({
+        ...t,
+        notes: t.notes.map((n) =>
+          n.kind === "move_confirm" && n.noteId === noteId ? { ...n, resolved: true } : n
+        ),
+      })),
+    );
+  };
+
+  const handleConfirmMove = (noteId: string, title: string, parentDocument: string | null) => {
+    const promise = move(noteId, parentDocument).then(() => {
+      triggerSidebar();
+      triggerDocument(noteId);
+      markMoveResolved(noteId);
+    });
+    toast.promise(promise, {
+      loading: "正在移动「" + title + "」...",
+      success: "「" + title + "」已移动",
+      error: "移动失败",
+    });
+  };
+
+  const handleCancelMove = (noteId: string) => {
+    markMoveResolved(noteId);
+    toast.info("已取消移动");
+  };
+
+  // 问题回答回传（对齐 SiYuan question 工具）：把用户选择拼接为新的用户消息发送，
+  // AI 在下一轮看到回答后继续执行
+  const handleQuestionAnswer = (question: string, answers: string[], customText?: string) => {
+    const parts = answers.filter(Boolean);
+    if (customText?.trim()) parts.push(customText.trim());
+    const content = parts.length > 0 ? `【回答】${question}\n${parts.join("；")}` : `【回答】${question}\n（用户未选择，跳过）`;
+    handleSend(content);
+  };
+
   // 移除/清空队列
   const removeFromQueue = (index: number) => {
     queueRef.current = queueRef.current.filter((_, i) => i !== index);
@@ -551,6 +615,9 @@ const AiPanel = () => {
               onOpenDocument={openDocument}
               onConfirmDelete={handleConfirmDelete}
               onCancelDelete={handleCancelDelete}
+              onConfirmMove={handleConfirmMove}
+              onCancelMove={handleCancelMove}
+              onAnswerQuestion={handleQuestionAnswer}
             />
           ))}
         </div>
