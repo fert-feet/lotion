@@ -1,19 +1,22 @@
-# Lotion — AI-Powered Notes
+# Lotion — AI 笔记（本地单机版）
 
 <p align="center">
-  <img src="./assets/readme/hero.svg?v=3" width="100%" alt="Lotion：全栈 AI 笔记应用——无限层级文档树、BlockNote 富文本编辑，DeepSeek Agent 通过 SSE 事件流实时管理笔记">
+  <img src="./assets/readme/hero.svg?v=3" width="100%" alt="Lotion：全栈 AI 笔记应用——DSH 风格三栏布局、无限层级文档树、BlockNote 富文本编辑，DeepSeek Agent 通过 SSE 事件流实时管理笔记">
 </p>
 
-全栈 AI 笔记应用：Supabase 提供认证、数据库与存储，BlockNote 负责富文本编辑，DeepSeek Agent 帮你搜索、创建、修改和整理笔记。
+> 本分支（`feature/local-db`）是**永久独立的本地单机版**：SQLite 本地数据库 + 自研 Auth + REST API，**永不合并回 main**（main 是 Supabase 网络数据库版）。详见 [docs/本地数据库版.md](docs/本地数据库版.md)。
+
+全栈 AI 笔记应用：**SQLite 本地数据库**存储，**BlockNote** 负责富文本编辑，**DeepSeek Agent** 帮你搜索、创建、修改和整理笔记。前端采用 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 同款三栏 shell 侧边栏设计。
 
 ## 特性
 
-- **无限层级文档树** — `parentDocument` 自引用嵌套，任意深度组织笔记
+- **DSH 风格三栏布局** — `sidebar | center | details` 可拖拽三栏（侧边栏 264-420px、AI 面板 300-520px），侧边栏可折叠成 56px 图标 rail，窄屏自动折叠；让步链保证中心列不被挤压
+- **无限层级文档树** — `parentDocument` 自引用嵌套，任意深度组织笔记；行高 32px、hover 浮现「新建子笔记 / 更多」操作与相对时间
 - **BlockNote 富文本编辑** — 图片上传、封面图、Emoji 图标，内容实时保存
-- **DeepSeek Agent** — 7 个 Tool 自主决策（搜索/读取/创建/更新/重命名/归档/删除），SSE 事件流实时推送每一步进度
-- **发布与分享** — 一键发布生成公开链接，未发布文档由 RLS 拦截
-- **回收站与草稿** — 归档/恢复/永久删除；AI 新建笔记默认进入确认制草稿
-- **全局搜索** — `Cmd/Ctrl + J` 命令面板，模糊搜索所有笔记
+- **DeepSeek Agent** — 7 个 Tool 自主决策（搜索/读取/创建/更新/重命名/归档/删除），SSE 事件流实时推送每一步进度；AI 面板为常驻 details 列，关闭不丢状态
+- **内嵌搜索胶囊** — 侧边栏头部点击展开全宽输入框，即时过滤文档树；`Cmd/Ctrl + J` 全局命令面板
+- **回收站与草稿** — 归档/恢复/永久删除（支持批量）；AI 新建笔记默认进入确认制草稿
+- **发布预览** — 一键发布生成公开链接（无鉴权端点仅吐已发布文档，单机语义）
 
 ## 它如何工作
 
@@ -41,8 +44,7 @@
 ### 前置要求
 
 - Node.js 18+ 与 pnpm
-- Supabase 项目（免费）
-- DeepSeek API Key
+- DeepSeek API Key（可选，仅 AI 功能需要）
 
 ### 安装
 
@@ -51,16 +53,9 @@
 pnpm install
 
 # 2. 配置环境变量 — 创建 .env.local
-NEXT_PUBLIC_SUPABASE_URL=https://xxxxxxxxxxxx.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_xxxxxxxx
 DEEPSEEK_API_KEY=sk-xxxxxxxx
 
-# 3. 在 Supabase SQL Editor 依次执行 supabase/migrations/ 下全部迁移文件
-
-# 4. Supabase 面板：开启 Email Auth（关闭邮箱验证）、
-#    创建公开 Storage bucket "lotion"
-
-# 5. 启动
+# 3. 启动（首个请求自动建库 data/lotion.db，无需手动跑 SQL）
 pnpm dev
 ```
 
@@ -70,58 +65,63 @@ pnpm dev
 
 ```
 app/
-├── (main)/                       # 认证用户主界面
-│   ├── _components/              # navigation, editor, ai-panel, document-list, ...
-│   └── (routes)/documents/       # /documents/[documentId]
-├── (marketing)/                  # 着陆页
-├── (public)/preview/             # 公开文档预览
-├── api/ai/chat/route.ts          # Agent API 端点（SSE）
-├── login/ + register/            # Supabase Auth
+├── (main)/                       # 认证用户主界面（layout.tsx 服务端会话守卫）
+│   ├── _components/
+│   │   ├── app-shell.tsx         # DSH 风格三栏 shell（sidebar|center|details + 拖拽手柄）
+│   │   ├── sidebar/              # 侧边栏：header 搜索胶囊 / 文档树 / 底部图标栏 / rail
+│   │   ├── ai-panel.tsx          # AI 面板（details 列常驻挂载，SSE 流式渲染）
+│   │   ├── editor.tsx / navbar.tsx / cover.tsx / ...
+│   └── (routes)/documents/[documentId]/   # 文档编辑页
+├── (marketing)/                  # 公开着陆页
+├── (public)/(routes)/preview/[documentId]/  # 公开预览（无鉴权，仅已发布）
+├── api/                          # auth / documents / chat / ai/chat(SSE) / upload / public
+├── login/ + register/            # 本地 Auth
 lib/
-├── db.ts                         # 全部数据库 CRUD + 请求去重 + 内存缓存
+├── db.ts                         # 数据访问分派：server 直查 SQLite / client fetch REST
+├── layout/columns.ts             # 三栏让步链纯函数（常量 + computeColumns）
 ├── agent.ts                      # Agent 核心：streamText + SSE 事件流包装
 ├── ai/tools/                     # 7 个 Agent Tool
-├── supabase/                     # 三层客户端（client / server / middleware）
-hooks/                            # Zustand stores
-components/                       # shadcn/ui + Toolbar + SearchCommand + Upload
-supabase/migrations/              # SQL 迁移（建表 + RLS + 索引）
+├── local/                        # ⚠️ 服务端专用：sqlite / migrations / db / auth / request-user
+hooks/use-layout.ts               # 布局 store（sidebar/details 宽度、窄屏、toggle）
+components/                       # shadcn/ui + SearchCommand + Upload
+test/                            # Vitest 单测（与 lib/、api/ 同构）
 ```
 
-## 数据模型
+## 数据模型（SQLite 5 张表）
 
-单表 `documents`（PostgreSQL，RLS 保护）：
+`users` / `sessions` / `documents` / `chat_sessions` / `chat_messages`，每次启动自动迁移（`lib/local/migrations.ts` 内嵌 DDL + `_migrations` 记录表）。
+
+`documents` 表（应用层显式 `userId` 过滤，无 RLS）：
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| `id` | UUID PK | `gen_random_uuid()` |
-| `userId` | UUID FK | 所有者（→ `auth.users`） |
+| `id` | TEXT PK | 应用层 `crypto.randomUUID()` |
+| `userId` | TEXT FK | 所有者 |
 | `title` | TEXT | 标题 |
-| `isArchived` | BOOLEAN | 软删除标记 |
-| `isDraft` | BOOLEAN | AI 创建草稿，需确认 |
-| `parentDocument` | UUID FK | 父文档（自引用嵌套） |
+| `isArchived` | INTEGER | 软删除标记（0/1） |
+| `isDraft` | INTEGER | AI 创建草稿，需确认 |
+| `parentDocument` | TEXT FK | 父文档（自引用嵌套） |
 | `content` | TEXT | BlockNote JSON 块 |
 | `coverImage` / `icon` | TEXT | 封面图 / Emoji 图标 |
-| `isPublished` | BOOLEAN | 是否公开 |
-| `createdAt` / `updatedAt` | TIMESTAMPTZ | 创建 / 更新时间（触发器自动） |
-
-RLS：全部操作受 `auth.uid() = "userId"` 约束（SELECT / INSERT / UPDATE / DELETE）。
+| `isPublished` | INTEGER | 是否公开 |
+| `createdAt` / `updatedAt` | TEXT | ISO 8601（应用层显式更新） |
 
 ## 开发
 
 ```bash
-pnpm dev          # Turbopack 开发服务器
+pnpm dev          # Turbopack 开发服务器（禁止在本仓库内由 agent 启动）
 pnpm build        # 生产构建
-pnpm start        # 运行构建产物
+pnpm start        # 运行构建产物（单机自托管）
 pnpm lint         # ESLint
-pnpm test         # Vitest 单测（88 个用例）
+pnpm test         # Vitest 单测（173 个用例，内存 SQLite + 真实 REST handler）
+npx tsc --noEmit  # 类型检查
 ```
 
 ## 部署
 
-1. 推送到 GitHub，Vercel 导入项目
-2. 设置环境变量（`NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` / `DEEPSEEK_API_KEY`）
-3. 在 Supabase SQL Editor 执行全部迁移 SQL
-4. Deploy
+单机自托管：`pnpm build && pnpm start`。数据落在 `data/lotion.db`（可用 `LOTION_DB_PATH` 覆盖）与 `data/uploads/`（可用 `UPLOAD_DIR` 覆盖）。
+
+> ⚠️ TODO（代码内已注释）：图床迁移（`app/api/upload/route.ts`）；上 Vercel 时 SQLite 文件会丢失，需迁远程 libsql 并重新评估公开面（`app/api/public/documents/`）。
 
 ## License
 
