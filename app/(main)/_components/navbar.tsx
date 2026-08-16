@@ -10,7 +10,6 @@ import Publish from "./publish";
 import { useEffect, useState } from "react";
 import { getById, type Document } from "@/lib/db";
 import { useRefresh } from "@/hooks/use-refresh";
-import { Skeleton } from "../../../components/ui/skeleton";
 
 interface NavbarProps {
     isCollapsed: boolean;
@@ -40,7 +39,7 @@ const Navbar = ({
 
     if (document === undefined) {
         return (
-            <nav className="flex bg-background px-3 py-2 w-full items-center gap-x-4">
+            <nav className="flex w-full shrink-0 items-center gap-x-4 bg-background px-3 py-2">
                 <div className="flex items-center justify-between w-full">
                     <Title.Skeleton />
                     <div className="flex gap-x-2 items-center">
@@ -57,7 +56,7 @@ const Navbar = ({
 
     return (
         <>
-            <nav className="flex bg-background px-3 py-2 w-full items-center gap-x-4">
+            <nav className="flex w-full shrink-0 items-center gap-x-4 bg-background px-3 py-2">
                 {isCollapsed && (
                     <MenuIcon
                         role="button"

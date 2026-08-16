@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import Navigation from "./_components/navigation";
-import { LazyAiPanel, LazySearchCommand } from "./_components/lazy-panels";
+import AppShell from "./_components/app-shell";
+import { LazySearchCommand } from "./_components/lazy-panels";
 import { getDb } from "@/lib/local/sqlite";
 import { getSessionUser, SESSION_COOKIE } from "@/lib/local/auth";
 
@@ -18,13 +18,12 @@ const MainLayout = async ({
     }
 
     return (
-        <div className="h-full flex">
-            <Navigation />
-            <main className="flex-1 h-full overflow-y-auto">
+        <div className="h-full">
+            {/* DSH 风格三栏 shell：sidebar | center | details，见 app-shell.tsx */}
+            <AppShell>
                 <LazySearchCommand />
                 {children}
-            </main>
-            <LazyAiPanel />
+            </AppShell>
         </div>
     );
 };

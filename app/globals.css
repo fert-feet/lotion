@@ -28,6 +28,21 @@
   --color-sidebar-primary: var(--sidebar-primary);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar: var(--sidebar);
+  /* DSH 风格三栏 shell（侧边栏/详情栏专用冷调 bluish 语义色） */
+  --color-shell-sidebar: var(--shell-sidebar);
+  --color-shell-label-primary: var(--shell-label-primary);
+  --color-shell-label-secondary: var(--shell-label-secondary);
+  --color-shell-label-tertiary: var(--shell-label-tertiary);
+  --color-shell-label-caption: var(--shell-label-caption);
+  --color-shell-row-hover: var(--shell-row-hover);
+  --color-shell-row-active: var(--shell-row-active);
+  --color-shell-row-active-accent: var(--shell-row-active-accent);
+  --color-shell-accent: var(--shell-accent);
+  --color-shell-accent-strong: var(--shell-accent-strong);
+  --color-shell-bg-base: var(--shell-bg-base);
+  --color-shell-border: var(--shell-border);
+  --color-shell-border-l2: var(--shell-border-l2);
+  --color-shell-scrollbar: var(--shell-scrollbar);
   --color-chart-5: var(--chart-5);
   --color-chart-4: var(--chart-4);
   --color-chart-3: var(--chart-3);
@@ -99,6 +114,24 @@
   /* 网格纸纹理线 */
   --grid-line: rgba(28, 30, 34, 0.045);
   --grid-line-strong: rgba(28, 30, 34, 0.09);
+  /* DSH 风格三栏 shell tokens（冷调 bluish；light） */
+  --shell-sidebar: #F9FAFB;
+  --shell-label-primary: #0F1115;
+  --shell-label-secondary: #61666B;
+  --shell-label-tertiary: #81858C;
+  --shell-label-caption: #ADB2B8;
+  --shell-row-hover: rgba(38, 49, 72, 0.06);
+  --shell-row-active: #EBEEF2;
+  --shell-row-active-accent: #E4EDFD;
+  --shell-accent: #4176E6;
+  --shell-accent-strong: #679EFE;
+  --shell-bg-base: #FFFFFF;
+  --shell-border: rgba(0, 0, 0, 0.04);
+  --shell-border-l2: rgba(0, 0, 0, 0.1);
+  --shell-scrollbar: #DCDCDC;
+  /* 三栏动效（DSH 缓动曲线） */
+  --ds-ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --ds-transition-duration-slow: 0.3s;
 }
 
 .dark {
@@ -138,6 +171,21 @@
   --sidebar-ring: rgba(255, 255, 255, 0.28);
   --grid-line: rgba(255, 255, 255, 0.04);
   --grid-line-strong: rgba(255, 255, 255, 0.075);
+  /* DSH 风格三栏 shell tokens（冷调 bluish；dark） */
+  --shell-sidebar: #1B1B1C;
+  --shell-label-primary: #F9FAFB;
+  --shell-label-secondary: #CFD3D6;
+  --shell-label-tertiary: #ADB2B8;
+  --shell-label-caption: #81858C;
+  --shell-row-hover: rgba(255, 255, 255, 0.08);
+  --shell-row-active: #43454A;
+  --shell-row-active-accent: #344B7A;
+  --shell-accent: #679EFE;
+  --shell-accent-strong: #679EFE;
+  --shell-bg-base: #151517;
+  --shell-border: rgba(255, 255, 255, 0.06);
+  --shell-border-l2: rgba(255, 255, 255, 0.12);
+  --shell-scrollbar: #3D3D3D;
 }
 
 /* full pages */
@@ -157,6 +205,17 @@ body,
   ::selection {
     background: var(--hl);
     color: var(--ink);
+  }
+}
+
+/* 文档行入场淡入（DSH row-in） */
+@keyframes row-in {
+  from { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [class*="animate-"] {
+    animation: none !important;
   }
 }
 

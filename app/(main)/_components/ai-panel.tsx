@@ -1,12 +1,11 @@
 "use client";
 
-import { useAiPanel } from "@/hooks/use-ai-panel";
+import { useLayout } from "@/hooks/use-layout";
 import { cn } from "@/lib/utils";
 import { useUser } from "@/hooks/use-user";
 import { useRefresh } from "@/hooks/use-refresh";
 import { useParams, useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState, type ElementRef, type MouseEvent as ReactMouseEvent } from "react";
-import { useMediaQuery } from "usehooks-ts";
+import { useEffect, useRef, useState } from "react";
 import { Bot, Send, Sparkles, X, Loader2, AlertTriangle, Check, Ban, MessageSquare, Plus, Trash2, History, Square } from "lucide-react";
 import { Button } from "../../../components/ui/button";
 import MentionInput, { type MentionInputHandle } from "./mention-input";
@@ -50,17 +49,14 @@ type SseEvent =
   | { type: "error"; message: string };
 
 const AiPanel = () => {
-  const { isOpen, onClose } = useAiPanel();
+  // details 列由布局 store 控制：0 宽 = 关闭（保持挂载），>0 = 打开。
+  const detailsOpen = useLayout((s) => s.details > 0);
+  const closeDetails = useLayout((s) => s.closeDetails);
   const { user } = useUser();
   const triggerSidebar = useRefresh((s) => s.triggerSidebar);
   const triggerDocument = useRefresh((s) => s.triggerDocument);
   const params = useParams();
   const router = useRouter();
-
-  // 桌面端为挤压式侧边栏（flex 占位，main 自动让位）；移动端为覆盖式全屏浮层
-  const isMobile = useMediaQuery("(max-width: 768px)");
-  const panelRef = useRef<ElementRef<"aside">>(null);
-  const isResizingRef = useRef(false);
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputEmpty, setInputEmpty] = useState(true);
@@ -70,7 +66,6 @@ const AiPanel = () => {
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
-  const [navHeight, setNavHeight] = useState(0);
   const confirmTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // setStreaming 的 rAF 节流：SSE 文本 chunk 到达频率可能高于帧率，
   // 同一帧内多次 setStreaming 合并为一次渲染（ReactMarkdown 全量重解析开销大）
@@ -113,45 +108,7 @@ const AiPanel = () => {
   const activeSessionRef = useRef<string | null>(null);
   activeSessionRef.current = activeSessionId;
 
-  // 面板顶部卡在 navbar/banner 下方：实时测量顶部文档栏高度
-  // （banner 出现/消失、侧边栏折叠都会改变高度，用 ResizeObserver 跟随）
-  useEffect(() => {
-    if (!isOpen) return;
-    const el = document.getElementById("main-navbar");
-    if (!el) return;
-    const measure = () => setNavHeight(el.getBoundingClientRect().height);
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [isOpen]);
-
-  // ---- 面板宽度拖拽（参照左侧 navigation 的拖拽模式）----
-
-  const handleMouseDown = (e: ReactMouseEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-    isResizingRef.current = true;
-    document.addEventListener("mousemove", handleMouseMove);
-    document.addEventListener("mouseup", handleMouseUp);
-  };
-
-  const handleMouseMove = (e: MouseEvent) => {
-    if (!isResizingRef.current) return;
-    // 面板贴右，宽度 = 视口宽 - 鼠标 x
-    let newWidth = window.innerWidth - e.clientX;
-    if (newWidth < 320) newWidth = 320;
-    if (newWidth > 560) newWidth = 560;
-    if (panelRef.current) {
-      panelRef.current.style.width = `${newWidth}px`;
-    }
-  };
-
-  const handleMouseUp = () => {
-    isResizingRef.current = false;
-    document.removeEventListener("mousemove", handleMouseMove);
-    document.removeEventListener("mouseup", handleMouseUp);
-  };
+  // 宽度由 AppShell 拖拽手柄 + 布局 store 控制（本面板不再自拖拽）。
 
   const userId = user?.id;
 
@@ -212,12 +169,10 @@ const AiPanel = () => {
 
   // 每次打开面板都滚到最新消息（关闭时 state 保留，消息不变化不会触发上面的 effect）
   useEffect(() => {
-    if (isOpen) {
+    if (detailsOpen) {
       messagesRef.current?.scrollTo(0, messagesRef.current.scrollHeight);
     }
-  }, [isOpen]);
-
-  if (!isOpen) return null;
+  }, [detailsOpen]);
 
   // ---- 会话操作 ----
 
@@ -447,7 +402,6 @@ const AiPanel = () => {
   };
 
   // 点击胶囊/引用跳转前先确认文档存在，已删除的文档提示而不跳转（避免 not found 页）
-  // 注意：定义在 `if (!isOpen) return null` 之后，不能用 useCallback（条件 Hook）
   const openDocument = (id: string) => {
     getById(id)
       .then(() => router.push(`/documents/${id}`))
@@ -517,31 +471,9 @@ const AiPanel = () => {
   };
 
   return (
-    <>
-      <aside
-        ref={panelRef}
-        style={{
-          paddingTop: navHeight,
-          ...(isMobile ? {} : { width: "384px" }),
-        }}
-        className={cn(
-          "group/ai-panel border-l bg-background z-[101] flex flex-col shadow-xl before:absolute before:top-0 before:left-0 before:h-[3px] before:w-full before:bg-ai",
-          // 桌面端：flex 占位（挤压式），main 自动让出宽度，内容不被遮挡、横向滚动条完整可见
-          // 移动端：覆盖式全屏浮层
-          isMobile ? "fixed inset-y-0 right-0 w-full" : "relative h-full"
-        )}
-      >
-        {/* 左缘拖拽条：调宽 320-560px（移动端全屏不可调） */}
-        {!isMobile && (
-          <div
-            onMouseDown={handleMouseDown}
-            title="拖拽调整宽度"
-            className="opacity-0 group-hover/ai-panel:opacity-100 transition cursor-ew-resize absolute left-0 top-0 h-full w-1 bg-primary/10 hover:bg-ai/50"
-          />
-        )}
-        {/* 会话工具栏：当前标题 + 历史下拉 + 新增 + 关闭（原"AI 助手"标题栏已去掉，
-            面板顶部刚好卡在 navbar/banner 下方） */}
-        <div className="border-b px-3 py-2 flex items-center gap-1.5 shrink-0">
+    <aside className="flex h-full min-w-0 flex-col overflow-hidden border-l border-shell-border bg-shell-bg-base">
+      {/* 会话工具栏：当前标题 + 历史下拉 + 新增 + 关闭（details 列整列承载，宽度由 shell 控制） */}
+      <div className="flex shrink-0 items-center gap-1.5 border-b border-shell-border px-3 py-2">
           <span className="flex-1 truncate text-sm font-medium text-muted-foreground min-w-0">
             {sessions.find((s) => s.id === activeSessionId)?.title ?? "新对话"}
           </span>
@@ -601,7 +533,7 @@ const AiPanel = () => {
             variant="ghost"
             size="icon"
             className="h-8 w-8 text-muted-foreground cursor-pointer"
-            onClick={onClose}
+            onClick={closeDetails}
             title="关闭"
           >
             <X className="h-4 w-4" />
@@ -836,8 +768,7 @@ const AiPanel = () => {
             </div>
           </div>
         </div>
-      </aside>
-    </>
+    </aside>
   );
 };
 
