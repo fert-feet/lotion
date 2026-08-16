@@ -26,7 +26,7 @@ export function createRenameNoteTool(
       updateDocument(db, noteId, { title });
 
       // 副作用通过 onEvent 上报：note_modified 驱动前端刷新，reference 流结束时汇总
-      onEvent({ type: "note_modified", noteId });
+      onEvent({ type: "note_modified", noteId, title });
       onEvent({ type: "reference", noteId, title });
       logger.tools.info("[renameNote] 重命名成功");
       return `标题已更新为「${title}」。`;

@@ -42,7 +42,7 @@ export function createCreateNoteTool(
 
       createdNoteId = docId;
       // 副作用通过 onEvent 上报：note_created 驱动前端跳转，reference 在流结束时汇总展示胶囊
-      onEvent({ type: "note_created", noteId: docId });
+      onEvent({ type: "note_created", noteId: docId, title: finalTitle });
       onEvent({ type: "reference", noteId: docId, title: finalTitle });
       logger.tools.info("[createNote] 已创建", { noteId: docId, blockCount: contentBlocks.length, title: finalTitle });
 

@@ -213,6 +213,28 @@ body,
   from { opacity: 0; }
 }
 
+/* 工具卡片 running 流光扫过（DSH GenericCommandCard） */
+@keyframes tool-sweep {
+  0% { left: -300px; }
+  90%, 100% { left: 100%; }
+}
+
+.tool-row-running::after {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  left: 0;
+  width: 300px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    color-mix(in srgb, var(--shell-bg-base) 60%, transparent) 55%,
+    transparent 100%
+  );
+  animation: tool-sweep 2.6s ease-out infinite;
+  pointer-events: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   [class*="animate-"] {
     animation: none !important;

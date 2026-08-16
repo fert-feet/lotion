@@ -8,7 +8,7 @@ import { runNoteAgent } from "@/lib/agent";
 
 const { mockConfig } = vi.hoisted(() => ({
   mockConfig: {
-    tool: "none" as "createNote" | "readNote" | "updateNote" | "deleteNote" | "none",
+    tool: "none" as "createNote" | "readNote" | "updateNote" | "deleteNote" | "searchNotes" | "none",
     noteId: "doc-123" as string, // beforeEach 按真实种子数据覆盖
     emitStepFinish: false,
     emitError: false,
@@ -47,7 +47,9 @@ vi.mock("ai", async (importOriginal) => {
                   ? { title: "测试笔记", content: "笔记内容" }
                   : toolName === "updateNote"
                     ? { noteId: mockConfig.noteId, content: "新内容" }
-                    : { noteId: mockConfig.noteId };
+                    : toolName === "searchNotes"
+                      ? { query: "目标" }
+                      : { noteId: mockConfig.noteId };
               await options.tools[toolName]!.execute!(args, { toolCallId: "t1" });
             }
             // 模拟工具调用完成回调 → 触发 progress 事件注入 / deleteNote 中止检测
@@ -150,42 +152,50 @@ describe("runNoteAgent SSE 事件注入", () => {
     expect(textEvents).toEqual(["正在处理..."]);
   });
 
-  it("updateNote 执行后流结束前推送 references 事件（标题不编码）", async () => {
+  it("updateNote 执行后即时推送 reference 事件（不再攒到流结束）", async () => {
     mockConfig.tool = "updateNote";
     const { stream, done } = await runNoteAgent(db, "user-1", "改一下笔记");
     const events = await readEvents(stream);
 
-    const refs = events.find((e) => e.type === "references");
-    expect(refs?.references).toEqual([{ noteId: mockConfig.noteId, title: "引用笔记" }]);
-    // done 携带引用信息供 route 落库
+    // 引用逐条即时推送（前端直接渲染引用 chip）
+    expect(events.some((e) => e.type === "reference" && e.noteId === mockConfig.noteId && e.title === "引用笔记")).toBe(true);
+    // done 仍聚合引用信息供 route 落库
     const result = await done;
     expect(result.references).toEqual([{ noteId: mockConfig.noteId, title: "引用笔记" }]);
   });
 
-  it("readNote 执行后不推送 references 事件（纯读取不展示胶囊）", async () => {
+  it("readNote 执行后推送 reference 事件（读取过的笔记即引用来源）", async () => {
     mockConfig.tool = "readNote";
     const { stream, done } = await runNoteAgent(db, "user-1", "读一下笔记");
     const events = await readEvents(stream);
 
-    expect(events.some((e) => e.type === "references")).toBe(false);
+    expect(events.some((e) => e.type === "reference" && e.noteId === mockConfig.noteId && e.title === "引用笔记")).toBe(true);
     const result = await done;
-    expect(result.references).toEqual([]);
+    expect(result.references).toEqual([{ noteId: mockConfig.noteId, title: "引用笔记" }]);
   });
 
-  it("onStepFinish 工具调用触发 progress 事件（带工具中文标签）", async () => {
-    mockConfig.emitStepFinish = true;
+  it("工具执行自动推送 tool_start / tool_end 生命周期事件（带中文标签）", async () => {
+    mockConfig.tool = "searchNotes";
     const { stream } = await runNoteAgent(db, "user-1", "搜索一下");
     const events = await readEvents(stream);
 
-    const prog = events.find((e) => e.type === "progress");
-    expect(prog?.label).toContain("🔍 搜索笔记");
+    const start = events.find((e) => e.type === "tool_start");
+    expect(start?.tool).toBe("searchNotes");
+    expect(start?.label).toBe("搜索笔记");
+    expect(typeof start?.seq).toBe("number");
+    const end = events.find((e) => e.type === "tool_end" && e.seq === start?.seq);
+    expect(end?.ok).toBe(true);
   });
 
-  it("无工具调用时只有 text 事件，无副作用事件", async () => {
+  it("无工具调用时只有 turn 边界 + text 事件，无副作用事件", async () => {
     const { stream } = await runNoteAgent(db, "user-1", "你好");
     const events = await readEvents(stream);
 
-    expect(events).toEqual([{ type: "text", text: "正在处理..." }]);
+    const types = events.map((e) => e.type);
+    expect(types).toEqual(["turn_start", "text", "turn_end"]);
+    expect(events.find((e) => e.type === "text")?.text).toBe("正在处理...");
+    const end = events.find((e) => e.type === "turn_end");
+    expect(typeof end?.durationMs).toBe("number");
   });
 
   it("done promise 在流结束后 resolve 出文本与 usage", async () => {

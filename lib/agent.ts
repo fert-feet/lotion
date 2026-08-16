@@ -2,17 +2,27 @@ import { streamText, stepCountIs } from "ai";
 import { deepSeek } from "@ai-sdk/deepseek";
 import type Database from "better-sqlite3";
 import { NOTE_ASSISTANT_PROMPT } from "./ai-prompts";
-import { createTools, TOOL_LABELS, type ToolEvent } from "./ai/tools";
+import { createTools, TOOL_META, type ToolEvent, type ToolName } from "./ai/tools";
 import { logger } from "./logger";
 
-/** SSE 事件类型（前端 ai-panel.tsx 按 type 分发解析） */
+/**
+ * SSE 事件类型（前端 ai-panel 按 type 分发，渲染为 turn 时间线节点）：
+ * - turn_start / turn_end：回合边界（turn_end 带耗时与 token 统计，DSH TurnTail 同款）
+ * - text：AI 叙述流式增量
+ * - tool_start / tool_end：工具调用生命周期（卡片：running → done/error）
+ * - note_created / note_modified / confirm_delete / reference：文档副作用事件
+ * - error：生成中途出错
+ */
 export type AgentStreamEvent =
+  | { type: "turn_start"; turn: number; startedAt: string }
   | { type: "text"; text: string }
-  | { type: "progress"; label: string }
-  | { type: "note_created"; noteId: string }
+  | { type: "tool_start"; tool: ToolName; seq: number; label: string; argsText: string }
+  | { type: "tool_end"; tool: ToolName; seq: number; ok: boolean; summary: string; error?: string }
+  | { type: "note_created"; noteId: string; title: string }
+  | { type: "note_modified"; noteId: string; title: string }
   | { type: "confirm_delete"; noteId: string; title: string }
-  | { type: "note_modified"; noteId: string }
-  | { type: "references"; references: AgentReference[] }
+  | { type: "reference"; noteId: string; title: string }
+  | { type: "turn_end"; turn: number; durationMs: number; tokens: { input: number; output: number } | null }
   | { type: "error"; message: string };
 
 /** 注入到 Agent 的对话历史消息 */
@@ -26,6 +36,8 @@ export interface AgentResult {
   text: string;
   usage: { inputTokens: number; outputTokens: number } | null;
   references: { noteId: string; title: string }[];
+  durationMs: number;
+  toolCount: number;
 }
 
 /** AI 读取过的笔记（引用来源） */
@@ -41,7 +53,7 @@ const encoder = new TextEncoder();
 
 /** 序列化一条 SSE 事件（data: <json> + 空行） */
 function sseEvent(event: AgentStreamEvent): Uint8Array {
-  return encoder.encode(`data: ${JSON.stringify(event)}\n\n`);
+  return encoder.encode("data: " + JSON.stringify(event) + "\n\n");
 }
 
 export async function runNoteAgent(
@@ -67,13 +79,14 @@ export async function runNoteAgent(
   logger.agent.info("开始 Agent 执行", { userId, prompt: prompt.slice(0, 100), historyCount: history.length, hasSummary: !!options?.summary });
 
   let stepCount = 0;
+  let toolCount = 0;
   const startedAt = Date.now();
   let stepStart = startedAt;
+  const turn = 1; // 单请求单回合
 
-  // 事件队列：tool 副作用 + progress 统一入队，SSE 包装层轮询取出推送。
-  // tool 通过 onEvent 回调上报（见 ToolEvent），不再共享可变对象。
+  // 事件队列：tool 事件 + 副作用统一入队，SSE 包装层轮询取出推送
   const eventQueue: AgentStreamEvent[] = [];
-  // 引用来源：readNote 等写操作上报后聚合，流结束时一次性推送 references 事件
+  // 引用来源：tool 上报后聚合，落库用（流内已即时推送）
   const references: AgentReference[] = [];
   // deleteNote 已触发确认：onStepFinish 检测到后中止本轮生成，删除流程挂起等用户确认
   let confirmDeletePending = false;
@@ -82,18 +95,40 @@ export async function runNoteAgent(
 
   const onToolEvent = (e: ToolEvent) => {
     switch (e.type) {
+      case "tool_start":
+        toolCount++;
+        eventQueue.push({
+          type: "tool_start",
+          tool: e.tool,
+          seq: e.seq,
+          label: TOOL_META[e.tool].label,
+          argsText: e.argsText,
+        });
+        break;
+      case "tool_end":
+        eventQueue.push({
+          type: "tool_end",
+          tool: e.tool,
+          seq: e.seq,
+          ok: e.ok,
+          summary: e.summary,
+          error: e.error,
+        });
+        break;
       case "note_created":
-        eventQueue.push({ type: "note_created", noteId: e.noteId });
+        eventQueue.push({ type: "note_created", noteId: e.noteId, title: e.title });
+        break;
+      case "note_modified":
+        eventQueue.push({ type: "note_modified", noteId: e.noteId, title: e.title });
         break;
       case "confirm_delete":
         confirmDeletePending = true;
         eventQueue.push({ type: "confirm_delete", noteId: e.noteId, title: e.title });
         break;
-      case "note_modified":
-        eventQueue.push({ type: "note_modified", noteId: e.noteId });
-        break;
       case "reference":
-        // 按 noteId 去重：重复 readNote 同一笔记不产生重复徽标
+        // 流内即时推送（前端直接渲染引用 chip）
+        eventQueue.push({ type: "reference", noteId: e.noteId, title: e.title });
+        // 同时聚合，供 AgentResult 落库
         if (!references.some((r) => r.noteId === e.noteId)) {
           references.push({ noteId: e.noteId, title: e.title });
         }
@@ -136,14 +171,10 @@ export async function runNoteAgent(
     tools: createTools(db, userId, onToolEvent),
     stopWhen: stepCountIs(MAX_STEPS),
     abortSignal: internalAbort.signal, // 前端终止 / deleteNote 确认后中断生成
-    onStepFinish: ({ finishReason, toolCalls, text }) => {
+    onStepFinish: ({ finishReason, toolCalls }) => {
       const stepMs = Date.now() - stepStart;
       stepStart = Date.now();
       stepCount++;
-      if (toolCalls?.length) {
-        const names = toolCalls.map((tc: { toolName: string }) => TOOL_LABELS[tc.toolName] || tc.toolName).join(" → ");
-        eventQueue.push({ type: "progress", label: names });
-      }
       // deleteNote 触发确认后立即中止本轮生成：避免 AI 在用户确认前
       // 继续调用其他工具造成意外副作用（如先删后建）。
       if (confirmDeletePending && toolCalls?.some((tc: { toolName: string }) => tc.toolName === "deleteNote")) {
@@ -154,7 +185,6 @@ export async function runNoteAgent(
         finishReason,
         stepMs,
         toolCalls: toolCalls?.map((tc) => ({ name: tc.toolName, args: "args" in tc ? tc.args : undefined })),
-        text: text ? (text.length > 200 ? text.slice(0, 200) + "…" : text) : undefined,
         confirmDeletePending,
       });
     },
@@ -181,6 +211,8 @@ export async function runNoteAgent(
         text: text ?? "",
         usage: finishUsage,
         references: [...references],
+        durationMs: Date.now() - startedAt,
+        toolCount,
       });
     },
   });
@@ -190,7 +222,7 @@ export async function runNoteAgent(
   const textStream = result.textStream;
   const reader = textStream.getReader();
 
-  /** 推送即时事件（progress + 副作用），失败（背压/已关闭）时丢弃并返回 false */
+  /** 推送即时事件，失败（背压/已关闭）时丢弃并返回 false */
   function flushImmediateEvents(controller: ReadableStreamDefaultController<Uint8Array>): boolean {
     try {
       while (eventQueue.length > 0) {
@@ -202,18 +234,19 @@ export async function runNoteAgent(
     }
   }
 
-  /** 流结束时推送残留事件 + 引用来源（references 一次性汇总） */
+  /** 流结束时推送残留事件 + turn_end（耗时 / token 统计） */
   function flushFinalEvents(controller: ReadableStreamDefaultController<Uint8Array>) {
     const ok = flushImmediateEvents(controller);
     if (!ok) return;
-    if (references.length > 0) {
-      logger.agent.info("推送 references 事件", { count: references.length });
-      try {
-        controller.enqueue(sseEvent({ type: "references", references: [...references] }));
-        references.length = 0;
-      } catch {
-        // 流已关闭，丢弃
-      }
+    try {
+      controller.enqueue(sseEvent({
+        type: "turn_end",
+        turn,
+        durationMs: Date.now() - startedAt,
+        tokens: finishUsage ? { input: finishUsage.inputTokens, output: finishUsage.outputTokens } : null,
+      }));
+    } catch {
+      // 流已关闭，丢弃
     }
   }
 
@@ -222,6 +255,12 @@ export async function runNoteAgent(
 
   const wrapped = new ReadableStream<Uint8Array>({
     start(controller) {
+      // 回合开始事件（前端据此初始化 turn 状态）
+      try {
+        controller.enqueue(sseEvent({ type: "turn_start", turn, startedAt: new Date(startedAt).toISOString() }));
+      } catch {
+        // 流已关闭，忽略
+      }
       // 定时轮询事件队列，有消息就立即推送（不等文本 chunk）
       const interval = setInterval(() => {
         flushImmediateEvents(controller);
@@ -239,7 +278,13 @@ export async function runNoteAgent(
       // 外部取消（前端 abort / 客户端断开）时回收定时器，避免泄漏
       cleanupRef?.();
       // 兜底 resolve：取消后 done 不悬挂（真实删除由前端确认后执行，此处无需补文本）
-      resolveDoneSafe({ text: "", usage: finishUsage, references: [...references] });
+      resolveDoneSafe({
+        text: "",
+        usage: finishUsage,
+        references: [...references],
+        durationMs: Date.now() - startedAt,
+        toolCount,
+      });
     },
     async pull(controller) {
       // 先推送待处理的进度与副作用事件（保证事件先于后续文本）
@@ -272,12 +317,18 @@ export async function runNoteAgent(
       }
 
       if (done) {
-        // 流结束时推送残留事件 + 引用来源
+        // 流结束时推送残留事件 + turn_end
         flushFinalEvents(controller);
         controller.close();
         cleanupRef?.();
         // 兜底 resolve（onFinish 通常已触发，此处防 SDK 顺序差异导致 done 悬挂）
-        resolveDoneSafe({ text: "", usage: finishUsage, references: [...references] });
+        resolveDoneSafe({
+          text: "",
+          usage: finishUsage,
+          references: [...references],
+          durationMs: Date.now() - startedAt,
+          toolCount,
+        });
         return;
       }
 

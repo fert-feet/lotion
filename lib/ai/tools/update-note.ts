@@ -34,7 +34,7 @@ export function createUpdateNoteTool(
       updateDocument(db, noteId, fields);
 
       // 副作用通过 onEvent 上报：note_modified 驱动前端刷新，reference 流结束时汇总
-      onEvent({ type: "note_modified", noteId });
+      onEvent({ type: "note_modified", noteId, title: extractedTitle || existing.title || "笔记" });
       onEvent({ type: "reference", noteId, title: extractedTitle || existing.title || "笔记" });
       logger.tools.info("[updateNote] 更新成功", { noteId, blockCount: contentBlocks.length, extractedTitle: extractedTitle ?? undefined });
       return `笔记内容已更新。`;

@@ -91,13 +91,15 @@ describe("createNote 工具", () => {
 // ---- readNote ----
 
 describe("readNote 工具", () => {
-  it("读取成功但不记录引用来源（只有写操作才展示胶囊）", async () => {
+  it("读取成功即上报 reference 事件（AI 读过的笔记都算引用来源）", async () => {
     const id = seedDoc("目标笔记", "正文");
-    const t = createReadNoteTool(db, "u1");
+    const { events, onEvent } = collectEvents();
+    const t = createReadNoteTool(db, "u1", onEvent);
     const result = await t.execute({ noteId: id } as never, {} as never);
 
     expect(result).toContain("目标笔记");
     expect(result).toContain("正文");
+    expect(events).toContainEqual({ type: "reference", noteId: id, title: "目标笔记" });
   });
 
   it("跨用户读取被拒绝（所有权过滤）", async () => {
@@ -137,7 +139,7 @@ describe("updateNote 工具", () => {
 
     expect(result).toBe("笔记内容已更新。");
     expect(events).toEqual([
-      { type: "note_modified", noteId: id },
+      { type: "note_modified", noteId: id, title: "目标笔记" },
       { type: "reference", noteId: id, title: "目标笔记" },
     ]);
     const doc = getDocumentById(db, id, "u1");
@@ -174,7 +176,7 @@ describe("renameNote 工具", () => {
 
     expect(result).toContain("新标题");
     expect(events).toEqual([
-      { type: "note_modified", noteId: id },
+      { type: "note_modified", noteId: id, title: "新标题" },
       { type: "reference", noteId: id, title: "新标题" },
     ]);
     expect(getDocumentById(db, id, "u1")!.title).toBe("新标题");
