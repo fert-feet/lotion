@@ -5,12 +5,12 @@ import { cn } from "../../../lib/utils";
 import Logo from "./logo";
 import { Button } from "../../../components/ui/button";
 import { ModeToggle } from "../../../components/lightButton";
-import { useSupabaseUser } from "@/hooks/use-supabase-user";
+import { useUser } from "@/hooks/use-user";
 import Link from "next/link";
 import { Skeleton } from "../../../components/ui/skeleton";
 
 const Navbar = () => {
-    const { user, loading } = useSupabaseUser()
+    const { user, loading } = useUser()
     const isAuthenticated = !!user
     const scrolled = useScrollTop()
 

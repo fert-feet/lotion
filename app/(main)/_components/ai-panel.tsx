@@ -2,7 +2,7 @@
 
 import { useAiPanel } from "@/hooks/use-ai-panel";
 import { cn } from "@/lib/utils";
-import { useSupabaseUser } from "@/hooks/use-supabase-user";
+import { useUser } from "@/hooks/use-user";
 import { useRefresh } from "@/hooks/use-refresh";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, type ElementRef, type MouseEvent as ReactMouseEvent } from "react";
@@ -51,7 +51,7 @@ type SseEvent =
 
 const AiPanel = () => {
   const { isOpen, onClose } = useAiPanel();
-  const { user } = useSupabaseUser();
+  const { user } = useUser();
   const triggerSidebar = useRefresh((s) => s.triggerSidebar);
   const triggerDocument = useRefresh((s) => s.triggerDocument);
   const params = useParams();

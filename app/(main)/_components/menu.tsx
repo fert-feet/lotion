@@ -5,7 +5,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { toast } from "sonner";
 import { archive } from "@/lib/db";
 import { useRefresh } from "@/hooks/use-refresh";
-import { useSupabaseUser } from "@/hooks/use-supabase-user";
+import { useUser } from "@/hooks/use-user";
 import { Skeleton } from "../../../components/ui/skeleton";
 import { useRouter } from "next/navigation";
 
@@ -19,7 +19,7 @@ const Menu = ({
     isArchive
 }: MenuProps) => {
     const router = useRouter()
-    const { user } = useSupabaseUser();
+    const { user } = useUser();
     const triggerSidebar = useRefresh((s) => s.triggerSidebar);
 
     if (!user) return null;

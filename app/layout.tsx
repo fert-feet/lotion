@@ -5,7 +5,7 @@ import "./globals.css";
 import { ThemeProvider } from "../components/providers/theme-provider";
 import { Toaster } from "../components/ui/sonner";
 import ModalProvider from "../components/providers/modal-provider";
-import { UserProvider } from "../hooks/use-supabase-user";
+import { UserProvider } from "../hooks/use-user";
 import { getDb } from "@/lib/local/sqlite";
 import { getSessionUser, SESSION_COOKIE, type LocalUser } from "@/lib/local/auth";
 

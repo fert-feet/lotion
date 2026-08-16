@@ -1,6 +1,6 @@
 "use client";
 
-import { useSupabaseUser } from "@/hooks/use-supabase-user";
+import { useUser } from "@/hooks/use-user";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import useSearch from "@/hooks/use-search";
@@ -9,7 +9,7 @@ import { CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, C
 import { File } from "lucide-react";
 
 const SearchCommand = () => {
-    const { user } = useSupabaseUser();
+    const { user } = useUser();
     const router = useRouter();
     const [documents, setDocuments] = useState<SidebarDocument[]>([]);
     const [isMounted, setIsMounted] = useState(false);

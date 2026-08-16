@@ -2,7 +2,7 @@
 
 import { useParams, useRouter } from "next/navigation";
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
-import { useSupabaseUser } from "@/hooks/use-supabase-user";
+import { useUser } from "@/hooks/use-user";
 import { useRefresh } from "@/hooks/use-refresh";
 import { getSidebarAll, type SidebarDocument } from "@/lib/db";
 import Item from "./item";
@@ -123,7 +123,7 @@ interface DocumentListRootProps {
 }
 
 const DocumentListRoot = ({ batchMode, selected, onToggleCheck }: DocumentListRootProps) => {
-    const { user } = useSupabaseUser();
+    const { user } = useUser();
     const sidebarKey = useRefresh((s) => s.sidebarKey);
     const [allDocs, setAllDocs] = useState<SidebarDocument[] | undefined>(undefined);
     const initialLoaded = useRef(false);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useSupabaseUser } from "@/hooks/use-supabase-user";
+import { useUser } from "@/hooks/use-user";
 import { useRefresh } from "@/hooks/use-refresh";
 import { getSearch, type SidebarDocument } from "@/lib/db";
 import { truncateMentionTitle } from "@/lib/mention";
@@ -39,7 +39,7 @@ export default function MentionInput({
   className,
   ref,
 }: MentionInputProps) {
-  const { user } = useSupabaseUser();
+  const { user } = useUser();
   const sidebarKey = useRefresh((s) => s.sidebarKey);
   const editorRef = useRef<HTMLDivElement>(null);
   const [docs, setDocs] = useState<SidebarDocument[]>([]);

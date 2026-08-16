@@ -1,6 +1,6 @@
 "use client";
 
-import { useSupabaseUser } from "@/hooks/use-supabase-user";
+import { useUser } from "@/hooks/use-user";
 import { Button } from "../../../../components/ui/button";
 import { FileText, Sparkles } from "lucide-react";
 import { create } from "@/lib/db";
@@ -9,7 +9,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 const DocumentsPage = () => {
-  const { user } = useSupabaseUser();
+  const { user } = useUser();
   const router = useRouter();
   const [creating, setCreating] = useState(false);
 

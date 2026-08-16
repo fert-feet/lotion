@@ -1,13 +1,13 @@
 "use client"
 
 import { Button } from "@/components/ui/button";
-import { useSupabaseUser } from "@/hooks/use-supabase-user";
+import { useUser } from "@/hooks/use-user";
 import { ArrowRight, Sparkles } from "lucide-react";
 import { Spinner } from "../../../components/ui/spinner";
 import Link from "next/link";
 
 const Heading = () => {
-    const { user, loading } = useSupabaseUser()
+    const { user, loading } = useUser()
     const isAuthenticated = !!user
 
     return (

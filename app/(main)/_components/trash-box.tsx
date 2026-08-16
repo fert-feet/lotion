@@ -5,13 +5,13 @@ import { Spinner } from "../../../components/ui/spinner";
 import { Search, Trash, Undo } from "lucide-react";
 import { Input } from "../../../components/ui/input";
 import ConfirmModal from "../../../components/modals/confirm-modal";
-import { useSupabaseUser } from "@/hooks/use-supabase-user";
+import { useUser } from "@/hooks/use-user";
 import { useRefresh } from "@/hooks/use-refresh";
 import { getTrash, restore, remove, type SidebarDocument } from "@/lib/db";
 
 const TrashBox = () => {
     const router = useRouter();
-    const { user } = useSupabaseUser();
+    const { user } = useUser();
     const triggerSidebar = useRefresh((s) => s.triggerSidebar);
 
     const [documents, setDocuments] = useState<SidebarDocument[] | undefined>(undefined);

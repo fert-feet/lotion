@@ -1,13 +1,13 @@
 "use client"
 
-import { useSupabaseUser } from "@/hooks/use-supabase-user";
+import { useUser } from "@/hooks/use-user";
 import { DropdownMenuContent, DropdownMenu, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuItem } from "../../../components/ui/dropdown-menu";
 import { Avatar } from "../../../components/ui/avatar";
 import { ChevronsLeftRight } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 const UserItem = () => {
-    const { user } = useSupabaseUser()
+    const { user } = useUser()
     const router = useRouter()
 
     const handleSignOut = async () => {

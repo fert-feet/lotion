@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { Button } from "../../../components/ui/button";
 import ConfirmModal from "../../../components/modals/confirm-modal";
-import { useSupabaseUser } from "@/hooks/use-supabase-user";
+import { useUser } from "@/hooks/use-user";
 import { useRefresh } from "@/hooks/use-refresh";
 import { remove, restore } from "@/lib/db";
 import { Archive, Trash2, Undo2 } from "lucide-react";
@@ -17,7 +17,7 @@ const Banner = ({
     documentId
 }: BannerProps) => {
     const router = useRouter();
-    const { user } = useSupabaseUser();
+    const { user } = useUser();
     const triggerSidebar = useRefresh((s) => s.triggerSidebar);
     const triggerDocument = useRefresh((s) => s.triggerDocument);
 

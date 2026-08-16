@@ -16,7 +16,7 @@ const UserContext = createContext<UserState>({ user: null, loading: true });
 
 /**
  * 在 root layout（server）中注入 SSR 得到的 user。
- * 所有 useSupabaseUser 调用方共享同一份 user state：
+ * 所有 useUser 调用方共享同一份 user state：
  * - 首帧即有 user，Search/Settings/文档列表无需等待客户端请求
  * - 所有 Item 同时拿到 user，一次 commit 渲染，消除"文档逐个出现"
  */
@@ -56,6 +56,6 @@ export function UserProvider({
   return <UserContext.Provider value={state}>{children}</UserContext.Provider>;
 }
 
-export function useSupabaseUser() {
+export function useUser() {
   return useContext(UserContext);
 }

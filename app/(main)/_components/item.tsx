@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { memo } from "react";
 import { toast } from "sonner";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "../../../components/ui/dropdown-menu";
-import { useSupabaseUser } from "@/hooks/use-supabase-user";
+import { useUser } from "@/hooks/use-user";
 import { useRefresh } from "@/hooks/use-refresh";
 import { create, archive, prefetchById } from "@/lib/db";
 
@@ -46,7 +46,7 @@ const Item = memo(({
     checked,
     onToggleCheck,
 }: ItemProps) => {
-    const { user } = useSupabaseUser();
+    const { user } = useUser();
     const triggerSidebar = useRefresh((s) => s.triggerSidebar);
     const router = useRouter();
 

@@ -7,7 +7,7 @@ import { useMediaQuery } from "usehooks-ts";
 import { cn } from "../../../lib/utils";
 import UserItem from "./user-item";
 import { create, remove } from "@/lib/db";
-import { useSupabaseUser } from "@/hooks/use-supabase-user";
+import { useUser } from "@/hooks/use-user";
 import { useRefresh } from "@/hooks/use-refresh";
 import Item from "./item";
 import { toast } from "sonner";
@@ -25,7 +25,7 @@ const Navigation = () => {
     const pathName = usePathname();
     const params = useParams();
     const isMobile = useMediaQuery("(max-width: 768px)");
-    const { user } = useSupabaseUser();
+    const { user } = useUser();
     const toggle = useSearch((store) => store.toggle);
     // 只订阅用到的 action：整 store 订阅会在任何字段变化时重渲染 Navigation
     const settingsOnOpen = useSettings((s) => s.onOpen);
