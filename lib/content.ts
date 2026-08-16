@@ -6,8 +6,16 @@
 //   Markdown 由编辑器实例方法 tryParseMarkdownToBlocks 处理（见 editor.tsx）
 // 迁移策略：惰性双格式兼容，不强制写回；阶段 2 自研编辑器落地后统一迁移存量数据。
 
-import type { PartialBlock } from "@blocknote/core";
 import { blocksToMarkdown } from "./blocks-to-markdown";
+
+/** 编辑器可消费的块结构最小形状（旧 BlockNote JSON 结构；运行时无 BlockNote 依赖） */
+export interface EditorBlockLike {
+  id?: string;
+  type?: string;
+  props?: Record<string, unknown>;
+  content?: unknown[];
+  children?: EditorBlockLike[];
+}
 
 /** 判断内容是否为 BlockNote JSON 数组（旧格式；Markdown 文本原样返回 false） */
 export function isBlockNoteJson(content: string | null | undefined): boolean {
@@ -36,10 +44,10 @@ export function toMarkdown(content: string | null | undefined): string {
  * - Markdown（新格式）：返回 undefined——编辑器挂载后经 editor.tryParseMarkdownToBlocks
  *   填充（模块级 markdownToBlocks 需要 prosemirror Schema，见 editor.tsx）
  */
-export function toEditorBlocks(content: string | null | undefined): PartialBlock[] | undefined {
+export function toEditorBlocks(content: string | null | undefined): EditorBlockLike[] | undefined {
   if (!content || !isBlockNoteJson(content)) return undefined;
   try {
-    return JSON.parse(content) as PartialBlock[];
+    return JSON.parse(content) as EditorBlockLike[];
   } catch {
     return undefined;
   }

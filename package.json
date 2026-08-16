@@ -12,9 +12,6 @@
   },
   "dependencies": {
     "@ai-sdk/deepseek": "^3.0.13",
-    "@blocknote/core": "^0.41.1",
-    "@blocknote/react": "^0.41.1",
-    "@blocknote/shadcn": "^0.41.1",
     "@tailwindcss/typography": "^0.5.20",
     "ai": "^7.0.37",
     "better-sqlite3": "^13.0.3",
