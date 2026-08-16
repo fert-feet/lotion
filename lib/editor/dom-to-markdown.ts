@@ -51,9 +51,22 @@ export function domToMarkdown(node: NodeLike): string {
 
 /**
  * 从 contentEditable 元素序列化 Markdown（去掉末尾换行）。
- * @param root - contentEditable 元素（或任意容器）。
+ * 真实 DOM 节点经适配转为 NodeLike（NodeList 转数组），
+ * 单测可直接传 fake NodeLike 给 domToMarkdown。
+ * @param el - contentEditable 元素。
  * @returns 行内 Markdown 文本（段落内换行保留）。
  */
-export function serializeEditable(root: NodeLike): string {
-  return domToMarkdown(root).replace(/\n+$/, "");
+export function serializeEditable(el: HTMLElement): string {
+  return domToMarkdown(adaptDom(el)).replace(/\n+$/, "");
+}
+
+/** 真实 DOM 节点 → NodeLike（childNodes 转数组） */
+function adaptDom(el: Node): NodeLike {
+  return {
+    nodeType: el.nodeType,
+    nodeName: el.nodeName,
+    textContent: el.textContent,
+    href: (el as HTMLAnchorElement).href,
+    childNodes: Array.from(el.childNodes).map(adaptDom),
+  };
 }

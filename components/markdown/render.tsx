@@ -155,9 +155,8 @@ function childrenToText(children: ReactNode[]): string {
     .join("");
 }
 
-function renderNode(node: Md.RootContent, key: Key, context: MarkdownRenderContext): ReactNode {
-  switch (node.type) {
-    case "text":
+export function renderNode(node: Md.RootContent, key: Key, context: MarkdownRenderContext): ReactNode {
+  switch (node.type) {    case "text":
       return node.value;
     case "paragraph":
       return <p key={key}>{renderChildren(node.children, context)}</p>;

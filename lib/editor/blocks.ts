@@ -43,7 +43,7 @@ export interface EditableBlock {
 }
 
 /** 空文档保底段落 */
-function emptyParagraph(md: string): EditableBlock {
+function emptyParagraph(): EditableBlock {
   return {
     index: 0,
     kind: "paragraph",
@@ -97,7 +97,7 @@ function listItemText(source: string): string {
 }
 
 /** 顶层块 → 可编辑块（列表展开为 item 序列） */
-function pushBlocks(node: RootContent, md: string, out: EditableBlock[], listContext?: { ordered: boolean; checked?: boolean }): void {
+function pushBlocks(node: RootContent, md: string, out: EditableBlock[]): void {
   const source = sourceOf(node, md);
   const base: Omit<EditableBlock, "kind" | "mdType" | "text" | "meta"> = {
     index: 0,
@@ -215,7 +215,7 @@ export function parseEditableBlocks(markdown: string): EditableBlock[] {
     pushBlocks(node, markdown, out);
   }
   if (out.length === 0) {
-    out.push(emptyParagraph(markdown));
+    out.push(emptyParagraph());
   }
   out.forEach((b, i) => (b.index = i));
   return out;
