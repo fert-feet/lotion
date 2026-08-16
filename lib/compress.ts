@@ -1,6 +1,12 @@
 import { generateText } from "ai";
 import { deepSeek } from "@ai-sdk/deepseek";
-import { getChatHistory, getChatSessionSummary, updateChatSessionSummary, markMessagesCompressed } from "./db";
+import { getDb } from "./local/sqlite";
+import {
+  listChatHistory,
+  getChatSessionSummary,
+  setChatSessionSummary,
+  markMessagesCompressed,
+} from "./local/db";
 import { logger } from "./logger";
 
 /**
@@ -91,9 +97,10 @@ async function runCompress(
   sessionId: string,
 ): Promise<void> {
   try {
+    const db = getDb();
     const [oldSummary, history] = await Promise.all([
-      getChatSessionSummary(userId, sessionId),
-      getChatHistory(userId, sessionId, undefined, { uncompressedOnly: true }),
+      getChatSessionSummary(db, userId, sessionId),
+      listChatHistory(db, userId, sessionId, undefined, { uncompressedOnly: true }),
     ]);
 
     const messages: CompressMessage[] = history.map((m) => ({
@@ -143,8 +150,8 @@ async function runCompress(
     }
 
     // 先写摘要再标记消息：摘要落库失败则消息保持未压缩（下次重试），不产生"已标记但无摘要"的中间态
-    await updateChatSessionSummary(userId, sessionId, summary);
-    await markMessagesCompressed(userId, input.map((m) => m.id));
+    setChatSessionSummary(db, userId, sessionId, summary);
+    markMessagesCompressed(db, userId, input.map((m) => m.id));
 
     logger.compress.info("压缩完成", {
       sessionId,

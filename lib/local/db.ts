@@ -6,6 +6,7 @@
 // lib/db.ts（浏览器可用）未来经环境分派调用本模块（server 直查）或 /api/*（client fetch），
 // 见 T6；本模块本身只面向服务端。
 
+import "server-only";
 import type Database from "better-sqlite3";
 import { isoNow, newId } from "./sqlite";
 

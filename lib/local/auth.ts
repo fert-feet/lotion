@@ -2,6 +2,7 @@
 // 自研极简 Auth（D2 决策）：scrypt 密码哈希 + DB session 表 + HttpOnly cookie。
 // 不做 JWT：token 存库，服务端可吊销、可查过期，本地单机场景足够且更简单。
 
+import "server-only";
 import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 import type Database from "better-sqlite3";
 import { isoNow, newId } from "./sqlite";

@@ -9,6 +9,8 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "."),
+      // server-only 包在非 Next 打包环境会抛错，测试中用空模块替代
+      "server-only": path.resolve(__dirname, "test/mocks/server-only.ts"),
     },
   },
 });

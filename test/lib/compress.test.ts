@@ -7,11 +7,11 @@ import {
   type CompressMessage,
 } from "@/lib/compress";
 import {
-  getChatHistory,
+  listChatHistory,
   getChatSessionSummary,
-  updateChatSessionSummary,
+  setChatSessionSummary,
   markMessagesCompressed,
-} from "@/lib/db";
+} from "@/lib/local/db";
 
 // ---- mocks ----
 
@@ -21,10 +21,14 @@ vi.mock("ai", () => ({
   generateText: (...args: unknown[]) => mockGenerateText(...args),
 }));
 
-vi.mock("@/lib/db", () => ({
-  getChatHistory: vi.fn(),
+vi.mock("@/lib/local/sqlite", () => ({
+  getDb: () => ({} as never), // db 相关函数全部被 mock，getDb 只需可调用
+}));
+
+vi.mock("@/lib/local/db", () => ({
+  listChatHistory: vi.fn(),
   getChatSessionSummary: vi.fn(),
-  updateChatSessionSummary: vi.fn(),
+  setChatSessionSummary: vi.fn(),
   markMessagesCompressed: vi.fn(),
 }));
 
@@ -52,9 +56,9 @@ function asDbMessages(msgs: CompressMessage[]) {
 beforeEach(() => {
   vi.clearAllMocks();
   mockGenerateText.mockResolvedValue({ text: "会话摘要" });
-  (getChatHistory as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+  (listChatHistory as ReturnType<typeof vi.fn>).mockResolvedValue([]);
   (getChatSessionSummary as ReturnType<typeof vi.fn>).mockResolvedValue(null);
-  (updateChatSessionSummary as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
+  (setChatSessionSummary as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
   (markMessagesCompressed as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
 });
 
@@ -105,24 +109,24 @@ describe("extractSummary", () => {
 
 describe("maybeCompressSession", () => {
   it("未超过滑动窗口（含恰好等于窗口）不调用模型", async () => {
-    (getChatHistory as ReturnType<typeof vi.fn>).mockResolvedValue(
+    (listChatHistory as ReturnType<typeof vi.fn>).mockResolvedValue(
       asDbMessages(makeMessages(WINDOW_SIZE)),
     );
     await maybeCompressSession("user-1", "s1");
     expect(mockGenerateText).not.toHaveBeenCalled();
-    expect(updateChatSessionSummary).not.toHaveBeenCalled();
+    expect(setChatSessionSummary).not.toHaveBeenCalled();
   });
 
   it("超过窗口：只压最旧溢出部分，最近 WINDOW_SIZE 条不标记", async () => {
     // 120 条：溢出 = 最旧 20 条（m0..m19），窗口内 m20..m119 保留原文
     const msgs = makeMessages(WINDOW_SIZE + 20);
-    (getChatHistory as ReturnType<typeof vi.fn>).mockResolvedValue(asDbMessages(msgs));
+    (listChatHistory as ReturnType<typeof vi.fn>).mockResolvedValue(asDbMessages(msgs));
 
     await maybeCompressSession("user-1", "s1");
 
     expect(mockGenerateText).toHaveBeenCalledTimes(1);
-    expect(updateChatSessionSummary).toHaveBeenCalledWith("user-1", "s1", "会话摘要");
-    const marked = (markMessagesCompressed as ReturnType<typeof vi.fn>).mock.calls[0][1] as string[];
+    expect(setChatSessionSummary).toHaveBeenCalledWith(expect.anything(), "user-1", "s1", "会话摘要");
+    const marked = (markMessagesCompressed as ReturnType<typeof vi.fn>).mock.calls[0][2] as string[];
     expect(marked).toHaveLength(20);
     expect(marked[0]).toBe("m0");
     expect(marked[19]).toBe("m19");
@@ -132,7 +136,7 @@ describe("maybeCompressSession", () => {
 
   it("重写式：旧摘要传入 prompt（合并而非替换）", async () => {
     (getChatSessionSummary as ReturnType<typeof vi.fn>).mockResolvedValue("早期摘要");
-    (getChatHistory as ReturnType<typeof vi.fn>).mockResolvedValue(
+    (listChatHistory as ReturnType<typeof vi.fn>).mockResolvedValue(
       asDbMessages(makeMessages(WINDOW_SIZE + 10)),
     );
 
@@ -143,32 +147,32 @@ describe("maybeCompressSession", () => {
   });
 
   it("摘要输出无效时降级不写库", async () => {
-    (getChatHistory as ReturnType<typeof vi.fn>).mockResolvedValue(
+    (listChatHistory as ReturnType<typeof vi.fn>).mockResolvedValue(
       asDbMessages(makeMessages(WINDOW_SIZE + 10)),
     );
     mockGenerateText.mockResolvedValue({ text: "   " });
     await maybeCompressSession("user-1", "s1");
-    expect(updateChatSessionSummary).not.toHaveBeenCalled();
+    expect(setChatSessionSummary).not.toHaveBeenCalled();
     expect(markMessagesCompressed).not.toHaveBeenCalled();
   });
 
   it("模型异常时降级不抛错", async () => {
-    (getChatHistory as ReturnType<typeof vi.fn>).mockResolvedValue(
+    (listChatHistory as ReturnType<typeof vi.fn>).mockResolvedValue(
       asDbMessages(makeMessages(WINDOW_SIZE + 10)),
     );
     mockGenerateText.mockRejectedValue(new Error("api down"));
     await expect(maybeCompressSession("user-1", "s1")).resolves.toBeUndefined();
-    expect(updateChatSessionSummary).not.toHaveBeenCalled();
+    expect(setChatSessionSummary).not.toHaveBeenCalled();
   });
 
   it("溢出消息超过批次上限时只压最近一部分（最旧部分不参与也不标记）", async () => {
     // 800 条：溢出 700 条（m0..m699），批次上限 500 → 输入 = 最近 500 条（m200..m699）
     const msgs = makeMessages(WINDOW_SIZE + 700);
-    (getChatHistory as ReturnType<typeof vi.fn>).mockResolvedValue(asDbMessages(msgs));
+    (listChatHistory as ReturnType<typeof vi.fn>).mockResolvedValue(asDbMessages(msgs));
 
     await maybeCompressSession("user-1", "s1");
 
-    const marked = (markMessagesCompressed as ReturnType<typeof vi.fn>).mock.calls[0][1] as string[];
+    const marked = (markMessagesCompressed as ReturnType<typeof vi.fn>).mock.calls[0][2] as string[];
     expect(marked).toHaveLength(500);
     expect(marked[0]).toBe("m200");
     expect(marked[499]).toBe("m699");
@@ -177,7 +181,7 @@ describe("maybeCompressSession", () => {
   });
 
   it("同一会话并发调用串行执行（后到的等待先到的完成）", async () => {
-    (getChatHistory as ReturnType<typeof vi.fn>).mockResolvedValue(
+    (listChatHistory as ReturnType<typeof vi.fn>).mockResolvedValue(
       asDbMessages(makeMessages(WINDOW_SIZE + 10)),
     );
     let resolveFirst!: (v: { text: string }) => void;
@@ -196,12 +200,12 @@ describe("maybeCompressSession", () => {
 
     // 两次压缩依次完成
     expect(mockGenerateText).toHaveBeenCalledTimes(2);
-    const summaries = (updateChatSessionSummary as ReturnType<typeof vi.fn>).mock.calls.map((c) => c[2]);
+    const summaries = (setChatSessionSummary as ReturnType<typeof vi.fn>).mock.calls.map((c) => c[3]);
     expect(summaries).toEqual(["第一轮摘要", "第二轮摘要"]);
   });
 
   it("不同会话互不阻塞", async () => {
-    (getChatHistory as ReturnType<typeof vi.fn>).mockResolvedValue(
+    (listChatHistory as ReturnType<typeof vi.fn>).mockResolvedValue(
       asDbMessages(makeMessages(WINDOW_SIZE + 10)),
     );
     let resolveFirst!: (v: { text: string }) => void;
