@@ -1,11 +1,12 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type Database from "better-sqlite3";
 import { tool } from "ai";
 import z from "zod";
 import { logger } from "@/lib/logger";
+import { getDocumentById } from "@/lib/local/db";
 import type { ToolEvent } from "./index";
 
 export function createDeleteNoteTool(
-  supabase: SupabaseClient,
+  db: Database.Database,
   userId: string,
   onEvent: (event: ToolEvent) => void = () => {},
 ) {
@@ -17,14 +18,8 @@ export function createDeleteNoteTool(
     execute: async ({ noteId }: { noteId: string }) => {
       logger.tools.info("[deleteNote] 请求删除确认", { noteId });
 
-      // 查找标题用于确认提示
-      const { data: doc } = await supabase
-        .from("documents")
-        .select("title")
-        .eq("id", noteId)
-        .eq("userId", userId)
-        .single();
-
+      // 查找标题用于确认提示（带所有权过滤）
+      const doc = getDocumentById(db, noteId, userId);
       if (!doc) {
         return "笔记不存在或无权删除。";
       }

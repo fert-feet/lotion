@@ -1,11 +1,12 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type Database from "better-sqlite3";
 import { tool } from "ai";
 import z from "zod";
 import { logger } from "@/lib/logger";
+import { getDocumentById, updateDocument } from "@/lib/local/db";
 import type { ToolEvent } from "./index";
 
 export function createRenameNoteTool(
-  supabase: SupabaseClient,
+  db: Database.Database,
   userId: string,
   onEvent: (event: ToolEvent) => void = () => {},
 ) {
@@ -18,16 +19,11 @@ export function createRenameNoteTool(
     execute: async ({ noteId, title }: { noteId: string; title: string }) => {
       logger.tools.info("[renameNote] 重命名笔记", { noteId, title });
 
-      const { error } = await supabase
-        .from("documents")
-        .update({ title })
-        .eq("id", noteId)
-        .eq("userId", userId);
-
-      if (error) {
-        logger.tools.error("[renameNote] 重命名失败", { error: String(error) });
-        return `重命名失败：${error.message}`;
+      const existing = getDocumentById(db, noteId, userId);
+      if (!existing) {
+        return `笔记 ${noteId} 不存在或无权重命名。`;
       }
+      updateDocument(db, noteId, { title });
 
       // 副作用通过 onEvent 上报：note_modified 驱动前端刷新，reference 流结束时汇总
       onEvent({ type: "note_modified", noteId });

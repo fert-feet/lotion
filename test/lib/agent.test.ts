@@ -1,5 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type Database from "better-sqlite3";
+import { openTestDb, isoNow } from "@/lib/local/sqlite";
+import { createDocument, updateDocument } from "@/lib/local/db";
 import { runNoteAgent } from "@/lib/agent";
 
 // ---- hoisted 共享状态（vi.mock factory 不能引用外部变量） ----
@@ -7,6 +9,7 @@ import { runNoteAgent } from "@/lib/agent";
 const { mockConfig } = vi.hoisted(() => ({
   mockConfig: {
     tool: "none" as "createNote" | "readNote" | "updateNote" | "deleteNote" | "none",
+    noteId: "doc-123" as string, // beforeEach 按真实种子数据覆盖
     emitStepFinish: false,
     emitError: false,
     capturedMessages: [] as Array<{ role: string; content: string }>,
@@ -43,8 +46,8 @@ vi.mock("ai", async (importOriginal) => {
                 toolName === "createNote"
                   ? { title: "测试笔记", content: "笔记内容" }
                   : toolName === "updateNote"
-                    ? { noteId: "doc-123", content: "新内容" }
-                    : { noteId: "doc-123" };
+                    ? { noteId: mockConfig.noteId, content: "新内容" }
+                    : { noteId: mockConfig.noteId };
               await options.tools[toolName]!.execute!(args, { toolCallId: "t1" });
             }
             // 模拟工具调用完成回调 → 触发 progress 事件注入 / deleteNote 中止检测
@@ -80,42 +83,9 @@ vi.mock("@/lib/logger", () => {
   return { logger: { api: ns, agent: ns, tools: ns, db: ns, compress: ns } };
 });
 
-// ---- fake supabase：只支持 documents 表 ----
+// ---- 真实内存 SQLite（替代旧 fake supabase 查询链） ----
 
-const fakeSupabase = {
-  from: (table: string) => {
-    if (table !== "documents") throw new Error(`unexpected table: ${table}`);
-    return {
-      insert: () => ({
-        select: () => ({
-          single: async () => ({ data: { id: "doc-123" }, error: null }),
-        }),
-      }),
-      select: () => ({
-        eq: () => ({
-          eq: () => ({
-            single: async () => ({
-              data: { id: "doc-123", title: "引用笔记", content: "笔记内容" },
-              error: null,
-            }),
-          }),
-        }),
-      }),
-      update: () => ({
-        eq: () => ({
-          eq: () => ({
-            select: () => ({
-              single: async () => ({
-                data: { id: "doc-123", title: "引用笔记", content: "笔记内容" },
-                error: null,
-              }),
-            }),
-          }),
-        }),
-      }),
-    };
-  },
-} as unknown as SupabaseClient;
+let db: Database.Database;
 
 // ---- helpers ----
 
@@ -147,7 +117,16 @@ async function readEvents(stream: ReadableStream<Uint8Array>): Promise<SseEvent[
 }
 
 beforeEach(() => {
+  db = openTestDb();
+  // 种子：user-1 用户 + 一篇归属 user-1 的笔记（read/update/delete 工具的真实数据源）
+  db.prepare(
+    "INSERT INTO users (id, email, passwordHash, createdAt, updatedAt) VALUES (?,?,?,?,?)",
+  ).run("user-1", "user-1@x.com", "hash", isoNow(), isoNow());
+  const docId = createDocument(db, "user-1", "引用笔记");
+  updateDocument(db, docId, { content: "笔记内容" });
+
   mockConfig.tool = "none";
+  mockConfig.noteId = docId;
   mockConfig.emitStepFinish = false;
   mockConfig.emitError = false;
   mockConfig.capturedMessages = [];
@@ -159,11 +138,13 @@ beforeEach(() => {
 describe("runNoteAgent SSE 事件注入", () => {
   it("createNote 执行后推送 note_created 事件（独立事件行，不混入文本）", async () => {
     mockConfig.tool = "createNote";
-    const { stream } = await runNoteAgent(fakeSupabase, "user-1", "帮我创建一篇笔记");
+    const { stream } = await runNoteAgent(db, "user-1", "帮我创建一篇笔记");
     const events = await readEvents(stream);
 
     const created = events.find((e) => e.type === "note_created");
-    expect(created?.noteId).toBe("doc-123");
+    const createdNoteId = created?.noteId as string;
+    expect(typeof createdNoteId).toBe("string");
+    expect(createdNoteId.length).toBeGreaterThan(0);
     // 文本走 text 事件通道，事件行不被拼进文本内容
     const textEvents = events.filter((e) => e.type === "text").map((e) => e.text);
     expect(textEvents).toEqual(["正在处理..."]);
@@ -171,19 +152,19 @@ describe("runNoteAgent SSE 事件注入", () => {
 
   it("updateNote 执行后流结束前推送 references 事件（标题不编码）", async () => {
     mockConfig.tool = "updateNote";
-    const { stream, done } = await runNoteAgent(fakeSupabase, "user-1", "改一下笔记");
+    const { stream, done } = await runNoteAgent(db, "user-1", "改一下笔记");
     const events = await readEvents(stream);
 
     const refs = events.find((e) => e.type === "references");
-    expect(refs?.references).toEqual([{ noteId: "doc-123", title: "引用笔记" }]);
+    expect(refs?.references).toEqual([{ noteId: mockConfig.noteId, title: "引用笔记" }]);
     // done 携带引用信息供 route 落库
     const result = await done;
-    expect(result.references).toEqual([{ noteId: "doc-123", title: "引用笔记" }]);
+    expect(result.references).toEqual([{ noteId: mockConfig.noteId, title: "引用笔记" }]);
   });
 
   it("readNote 执行后不推送 references 事件（纯读取不展示胶囊）", async () => {
     mockConfig.tool = "readNote";
-    const { stream, done } = await runNoteAgent(fakeSupabase, "user-1", "读一下笔记");
+    const { stream, done } = await runNoteAgent(db, "user-1", "读一下笔记");
     const events = await readEvents(stream);
 
     expect(events.some((e) => e.type === "references")).toBe(false);
@@ -193,7 +174,7 @@ describe("runNoteAgent SSE 事件注入", () => {
 
   it("onStepFinish 工具调用触发 progress 事件（带工具中文标签）", async () => {
     mockConfig.emitStepFinish = true;
-    const { stream } = await runNoteAgent(fakeSupabase, "user-1", "搜索一下");
+    const { stream } = await runNoteAgent(db, "user-1", "搜索一下");
     const events = await readEvents(stream);
 
     const prog = events.find((e) => e.type === "progress");
@@ -201,14 +182,14 @@ describe("runNoteAgent SSE 事件注入", () => {
   });
 
   it("无工具调用时只有 text 事件，无副作用事件", async () => {
-    const { stream } = await runNoteAgent(fakeSupabase, "user-1", "你好");
+    const { stream } = await runNoteAgent(db, "user-1", "你好");
     const events = await readEvents(stream);
 
     expect(events).toEqual([{ type: "text", text: "正在处理..." }]);
   });
 
   it("done promise 在流结束后 resolve 出文本与 usage", async () => {
-    const { done } = await runNoteAgent(fakeSupabase, "user-1", "你好");
+    const { done } = await runNoteAgent(db, "user-1", "你好");
     const result = await done;
     expect(typeof result.text).toBe("string");
     expect(result.usage).toMatchObject({
@@ -221,17 +202,19 @@ describe("runNoteAgent SSE 事件注入", () => {
 describe("runNoteAgent deleteNote 中止语义", () => {
   it("deleteNote 触发确认后中止本轮生成（避免确认前继续执行其他工具）", async () => {
     mockConfig.tool = "deleteNote";
-    const { stream } = await runNoteAgent(fakeSupabase, "user-1", "删除这篇笔记");
+    const { stream } = await runNoteAgent(db, "user-1", "删除这篇笔记");
     const events = await readEvents(stream);
 
     // confirm_delete 事件已推送，且内部 AbortController 已触发（生成被中止）
-    expect(events.some((e) => e.type === "confirm_delete")).toBe(true);
+    const confirm = events.find((e) => e.type === "confirm_delete");
+    expect(confirm?.noteId).toBe(mockConfig.noteId);
+    expect(confirm?.title).toBe("引用笔记");
     expect(mockConfig.abortSignal?.aborted).toBe(true);
   });
 
   it("非 deleteNote 的工具调用不会中止生成", async () => {
     mockConfig.tool = "createNote";
-    const { stream } = await runNoteAgent(fakeSupabase, "user-1", "创建笔记");
+    const { stream } = await runNoteAgent(db, "user-1", "创建笔记");
     await readEvents(stream);
 
     expect(mockConfig.abortSignal?.aborted).toBe(false);
@@ -241,7 +224,7 @@ describe("runNoteAgent deleteNote 中止语义", () => {
 describe("runNoteAgent error 事件", () => {
   it("生成中途出错推送 error 事件（前端明确提示，而非静默断流）", async () => {
     mockConfig.emitError = true;
-    const { stream } = await runNoteAgent(fakeSupabase, "user-1", "你好");
+    const { stream } = await runNoteAgent(db, "user-1", "你好");
     const events = await readEvents(stream);
 
     expect(events.some((e) => e.type === "error" && e.message === "mock boom")).toBe(true);
@@ -254,7 +237,7 @@ describe("runNoteAgent 历史注入（全量，无预算限制）", () => {
       role: (i % 2 === 0 ? "user" : "assistant") as "user" | "assistant",
       content: `消息 ${i}`,
     }));
-    const { stream } = await runNoteAgent(fakeSupabase, "user-1", "继续", { history });
+    const { stream } = await runNoteAgent(db, "user-1", "继续", { history });
     await readEvents(stream);
 
     // capturedMessages = 历史 + 当前 prompt（最后一条）
@@ -268,7 +251,7 @@ describe("runNoteAgent 历史注入（全量，无预算限制）", () => {
   it("单条历史消息不截断（原样注入）", async () => {
     const longContent = "字".repeat(5_000);
     const history = [{ role: "user" as const, content: longContent }];
-    const { stream } = await runNoteAgent(fakeSupabase, "user-1", "继续", { history });
+    const { stream } = await runNoteAgent(db, "user-1", "继续", { history });
     await readEvents(stream);
 
     const historyMsg = mockConfig.capturedMessages[0];
@@ -276,7 +259,7 @@ describe("runNoteAgent 历史注入（全量，无预算限制）", () => {
   });
 
   it("无历史时只注入当前 prompt", async () => {
-    const { stream } = await runNoteAgent(fakeSupabase, "user-1", "你好");
+    const { stream } = await runNoteAgent(db, "user-1", "你好");
     await readEvents(stream);
 
     expect(mockConfig.capturedMessages).toEqual([{ role: "user", content: "你好" }]);
@@ -285,7 +268,7 @@ describe("runNoteAgent 历史注入（全量，无预算限制）", () => {
 
 describe("runNoteAgent 会话摘要注入", () => {
   it("summary 存在时注入 system 摘要段", async () => {
-    const { stream } = await runNoteAgent(fakeSupabase, "user-1", "继续", {
+    const { stream } = await runNoteAgent(db, "user-1", "继续", {
       summary: "早期对话摘要：用户创建了笔记《路线图》",
     });
     await readEvents(stream);
@@ -295,7 +278,7 @@ describe("runNoteAgent 会话摘要注入", () => {
   });
 
   it("无 summary 时 system 不含摘要段", async () => {
-    const { stream } = await runNoteAgent(fakeSupabase, "user-1", "你好");
+    const { stream } = await runNoteAgent(db, "user-1", "你好");
     await readEvents(stream);
 
     expect(mockConfig.capturedSystem).not.toContain("以下是本会话早期对话的摘要");

@@ -1,6 +1,5 @@
 import { generateText } from "ai";
 import { deepSeek } from "@ai-sdk/deepseek";
-import type { SupabaseClient } from "@supabase/supabase-js";
 import { getChatHistory, getChatSessionSummary, updateChatSessionSummary, markMessagesCompressed } from "./db";
 import { logger } from "./logger";
 
@@ -70,12 +69,11 @@ export function extractSummary(text: string): string | null {
 const sessionLocks = new Map<string, Promise<void>>();
 
 export async function maybeCompressSession(
-  supabase: SupabaseClient,
   userId: string,
   sessionId: string,
 ): Promise<void> {
   const prev = sessionLocks.get(sessionId) ?? Promise.resolve();
-  const run = prev.then(() => runCompress(supabase, userId, sessionId));
+  const run = prev.then(() => runCompress(userId, sessionId));
   // 锁链存"永不 reject"的版本：runCompress 内部已兜底，此处防意外 reject 污染后续调用
   const tracked = run.catch(() => {});
   sessionLocks.set(sessionId, tracked);
@@ -89,14 +87,13 @@ export async function maybeCompressSession(
 }
 
 async function runCompress(
-  supabase: SupabaseClient,
   userId: string,
   sessionId: string,
 ): Promise<void> {
   try {
     const [oldSummary, history] = await Promise.all([
-      getChatSessionSummary(supabase, userId, sessionId),
-      getChatHistory(userId, sessionId, undefined, supabase, { uncompressedOnly: true }),
+      getChatSessionSummary(userId, sessionId),
+      getChatHistory(userId, sessionId, undefined, { uncompressedOnly: true }),
     ]);
 
     const messages: CompressMessage[] = history.map((m) => ({
@@ -146,8 +143,8 @@ async function runCompress(
     }
 
     // 先写摘要再标记消息：摘要落库失败则消息保持未压缩（下次重试），不产生"已标记但无摘要"的中间态
-    await updateChatSessionSummary(supabase, userId, sessionId, summary);
-    await markMessagesCompressed(supabase, userId, input.map((m) => m.id));
+    await updateChatSessionSummary(userId, sessionId, summary);
+    await markMessagesCompressed(userId, input.map((m) => m.id));
 
     logger.compress.info("压缩完成", {
       sessionId,

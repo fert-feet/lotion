@@ -1,6 +1,6 @@
 import { streamText, stepCountIs } from "ai";
 import { deepSeek } from "@ai-sdk/deepseek";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type Database from "better-sqlite3";
 import { NOTE_ASSISTANT_PROMPT } from "./ai-prompts";
 import { createTools, TOOL_LABELS, type ToolEvent } from "./ai/tools";
 import { logger } from "./logger";
@@ -45,7 +45,7 @@ function sseEvent(event: AgentStreamEvent): Uint8Array {
 }
 
 export async function runNoteAgent(
-  supabase: SupabaseClient,
+  db: Database.Database,
   userId: string,
   prompt: string,
   options?: { history?: AgentHistoryMessage[]; summary?: string; signal?: AbortSignal },
@@ -133,7 +133,7 @@ export async function runNoteAgent(
       ? `${NOTE_ASSISTANT_PROMPT}\n\n以下是本会话早期对话的摘要（已压缩，细节以摘要为准）：\n${options.summary}`
       : NOTE_ASSISTANT_PROMPT,
     messages,
-    tools: createTools(supabase, userId, onToolEvent),
+    tools: createTools(db, userId, onToolEvent),
     stopWhen: stepCountIs(MAX_STEPS),
     abortSignal: internalAbort.signal, // 前端终止 / deleteNote 确认后中断生成
     onStepFinish: ({ finishReason, toolCalls, text }) => {

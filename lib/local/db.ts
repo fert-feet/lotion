@@ -119,9 +119,39 @@ export function listChatHistory(
   return db.prepare(sql).all(...params) as ChatMessage[];
 }
 
-/** 读取会话压缩摘要 */
-export function getChatSessionSummary(
+/** 读取会话（含标题与摘要，AI 路由归属校验用） */
+export function getChatSession(
   db: Database.Database,
+  userId: string,
+  sessionId: string,
+): { id: string; title: string; summary: string | null } | null {
+  const row = db
+    .prepare(`SELECT id, title, summary FROM chat_sessions WHERE id = ? AND userId = ?`)
+    .get(sessionId, userId) as { id: string; title: string; summary: string | null } | undefined;
+  return row ?? null;
+}
+
+/** 更新会话标题（并刷新 updatedAt；首个问题自动命名用） */
+export function setChatSessionTitle(db: Database.Database, userId: string, sessionId: string, title: string): void {
+  db.prepare(`UPDATE chat_sessions SET title = ?, updatedAt = ? WHERE id = ? AND userId = ?`).run(
+    title,
+    isoNow(),
+    sessionId,
+    userId,
+  );
+}
+
+/** 刷新会话 updatedAt（新消息到达时） */
+export function touchChatSession(db: Database.Database, userId: string, sessionId: string): void {
+  db.prepare(`UPDATE chat_sessions SET updatedAt = ? WHERE id = ? AND userId = ?`).run(
+    isoNow(),
+    sessionId,
+    userId,
+  );
+}
+
+/** 读取会话压缩摘要 */
+export function getChatSessionSummary(db: Database.Database,
   userId: string,
   sessionId: string,
 ): string | null {
@@ -235,6 +265,26 @@ export function listSearch(db: Database.Database, userId: string): SidebarDocume
 }
 
 /**
+ * 标题关键词搜索（AI searchNotes 工具用）：
+ * 对应 PG 版 ilike 语义——SQLite LIKE 对 ASCII 默认大小写不敏感，通配符已转义。
+ */
+export function searchDocumentTitles(
+  db: Database.Database,
+  userId: string,
+  pattern: string,
+  limit = 20,
+): { id: string; title: string; content: string | null }[] {
+  const escaped = pattern.replace(/[\\%_]/g, (m) => `\\${m}`);
+  return db
+    .prepare(
+      `SELECT id, title, content FROM documents
+       WHERE userId = ? AND isArchived = 0 AND title LIKE ? ESCAPE '\\'
+       ORDER BY createdAt DESC, rowid DESC LIMIT ?`,
+    )
+    .all(userId, `%${escaped}%`, limit) as { id: string; title: string; content: string | null }[];
+}
+
+/**
  * 单文档查询（无缓存；缓存/去重由 lib/db.ts 适配层负责）。
  * userId 可选：本地版无 RLS，需所有权的调用方必须传入 userId 强制校验；
  * 不传仅用于公开预览页（该页自行校验 isPublished）。
@@ -271,8 +321,7 @@ export function createDocument(
 }
 
 /** 更新文档字段（显式刷 updatedAt；本地版无 PG 触发器） */
-export function updateDocument(
-  db: Database.Database,
+export function updateDocument(  db: Database.Database,
   id: string,
   fields: Partial<
     Pick<Document, "title" | "content" | "coverImage" | "icon" | "isPublished" | "isDraft">
@@ -346,6 +395,14 @@ export function restoreDocument(db: Database.Database, userId: string, id: strin
 /** 永久删除文档（子文档经 FK ON DELETE SET NULL 摘除父引用） */
 export function deleteDocument(db: Database.Database, id: string): void {
   db.prepare(`DELETE FROM documents WHERE id = ?`).run(id);
+}
+
+/** 单笔记归档/恢复（AI archiveNote 工具用：与 PG 版一致，只影响单条，不递归子树） */
+export function setDocumentArchived(db: Database.Database, userId: string, id: string, archived: boolean): boolean {
+  const res = db
+    .prepare(`UPDATE documents SET isArchived = ?, updatedAt = ? WHERE id = ? AND userId = ?`)
+    .run(archived ? 1 : 0, isoNow(), id, userId);
+  return res.changes > 0;
 }
 
 /** 移除图标 / 封面（置 NULL 并刷新 updatedAt） */

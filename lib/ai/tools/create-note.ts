@@ -1,12 +1,13 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type Database from "better-sqlite3";
 import { tool } from "ai";
 import z from "zod";
 import { logger } from "@/lib/logger";
 import { markdownToBlocks, extractTitle } from "@/lib/markdown-to-blocks";
+import { createDocument, updateDocument } from "@/lib/local/db";
 import type { ToolEvent } from "./index";
 
 export function createCreateNoteTool(
-  supabase: SupabaseClient,
+  db: Database.Database,
   userId: string,
   onEvent: (event: ToolEvent) => void = () => {},
 ) {
@@ -35,24 +36,17 @@ export function createCreateNoteTool(
       const { title: extractedTitle, blocks: contentBlocks } = extractTitle(blocks);
       const finalTitle = extractedTitle || title;
 
-      const { data: doc, error } = await supabase
-        .from("documents")
-        .insert({ title: finalTitle, userId, content: JSON.stringify(contentBlocks), isArchived: false, isPublished: false, isDraft: true })
-        .select("id")
-        .single();
+      // 本地库插入草稿（isDraft=true 与 PG 版语义一致；content 一并写入）
+      const docId = createDocument(db, userId, finalTitle);
+      updateDocument(db, docId, { content: JSON.stringify(contentBlocks), isDraft: true });
 
-      if (error || !doc) {
-        logger.tools.error("[createNote] 创建失败", { error: String(error) });
-        return `创建笔记失败：${error?.message || "未知错误"}`;
-      }
-
-      createdNoteId = doc.id;
+      createdNoteId = docId;
       // 副作用通过 onEvent 上报：note_created 驱动前端跳转，reference 在流结束时汇总展示胶囊
-      onEvent({ type: "note_created", noteId: doc.id });
-      onEvent({ type: "reference", noteId: doc.id, title: finalTitle });
-      logger.tools.info("[createNote] 已创建", { noteId: doc.id, blockCount: contentBlocks.length, title: finalTitle });
+      onEvent({ type: "note_created", noteId: docId });
+      onEvent({ type: "reference", noteId: docId, title: finalTitle });
+      logger.tools.info("[createNote] 已创建", { noteId: docId, blockCount: contentBlocks.length, title: finalTitle });
 
-      return `笔记「${title}」已创建（ID: ${doc.id}），内容已写入。如果觉得内容需要调整，可用此 ID 调用 updateNote 修改。`;
+      return `笔记「${title}」已创建（ID: ${docId}），内容已写入。如果觉得内容需要调整，可用此 ID 调用 updateNote 修改。`;
     },
   });
 }

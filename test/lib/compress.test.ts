@@ -34,7 +34,6 @@ vi.mock("@/lib/logger", () => {
   return { logger: { api: ns, agent: ns, tools: ns, db: ns, compress: ns } };
 });
 
-const fakeSupabase = {} as never;
 
 function makeMsg(id: string, content: string, role: "user" | "assistant" = "user"): CompressMessage {
   return { id, role, content };
@@ -109,7 +108,7 @@ describe("maybeCompressSession", () => {
     (getChatHistory as ReturnType<typeof vi.fn>).mockResolvedValue(
       asDbMessages(makeMessages(WINDOW_SIZE)),
     );
-    await maybeCompressSession(fakeSupabase, "user-1", "s1");
+    await maybeCompressSession("user-1", "s1");
     expect(mockGenerateText).not.toHaveBeenCalled();
     expect(updateChatSessionSummary).not.toHaveBeenCalled();
   });
@@ -119,11 +118,11 @@ describe("maybeCompressSession", () => {
     const msgs = makeMessages(WINDOW_SIZE + 20);
     (getChatHistory as ReturnType<typeof vi.fn>).mockResolvedValue(asDbMessages(msgs));
 
-    await maybeCompressSession(fakeSupabase, "user-1", "s1");
+    await maybeCompressSession("user-1", "s1");
 
     expect(mockGenerateText).toHaveBeenCalledTimes(1);
-    expect(updateChatSessionSummary).toHaveBeenCalledWith(fakeSupabase, "user-1", "s1", "会话摘要");
-    const marked = (markMessagesCompressed as ReturnType<typeof vi.fn>).mock.calls[0][2] as string[];
+    expect(updateChatSessionSummary).toHaveBeenCalledWith("user-1", "s1", "会话摘要");
+    const marked = (markMessagesCompressed as ReturnType<typeof vi.fn>).mock.calls[0][1] as string[];
     expect(marked).toHaveLength(20);
     expect(marked[0]).toBe("m0");
     expect(marked[19]).toBe("m19");
@@ -137,7 +136,7 @@ describe("maybeCompressSession", () => {
       asDbMessages(makeMessages(WINDOW_SIZE + 10)),
     );
 
-    await maybeCompressSession(fakeSupabase, "user-1", "s1");
+    await maybeCompressSession("user-1", "s1");
 
     const prompt = (mockGenerateText as ReturnType<typeof vi.fn>).mock.calls[0][0].prompt as string;
     expect(prompt).toContain("早期摘要");
@@ -148,7 +147,7 @@ describe("maybeCompressSession", () => {
       asDbMessages(makeMessages(WINDOW_SIZE + 10)),
     );
     mockGenerateText.mockResolvedValue({ text: "   " });
-    await maybeCompressSession(fakeSupabase, "user-1", "s1");
+    await maybeCompressSession("user-1", "s1");
     expect(updateChatSessionSummary).not.toHaveBeenCalled();
     expect(markMessagesCompressed).not.toHaveBeenCalled();
   });
@@ -158,7 +157,7 @@ describe("maybeCompressSession", () => {
       asDbMessages(makeMessages(WINDOW_SIZE + 10)),
     );
     mockGenerateText.mockRejectedValue(new Error("api down"));
-    await expect(maybeCompressSession(fakeSupabase, "user-1", "s1")).resolves.toBeUndefined();
+    await expect(maybeCompressSession("user-1", "s1")).resolves.toBeUndefined();
     expect(updateChatSessionSummary).not.toHaveBeenCalled();
   });
 
@@ -167,9 +166,9 @@ describe("maybeCompressSession", () => {
     const msgs = makeMessages(WINDOW_SIZE + 700);
     (getChatHistory as ReturnType<typeof vi.fn>).mockResolvedValue(asDbMessages(msgs));
 
-    await maybeCompressSession(fakeSupabase, "user-1", "s1");
+    await maybeCompressSession("user-1", "s1");
 
-    const marked = (markMessagesCompressed as ReturnType<typeof vi.fn>).mock.calls[0][2] as string[];
+    const marked = (markMessagesCompressed as ReturnType<typeof vi.fn>).mock.calls[0][1] as string[];
     expect(marked).toHaveLength(500);
     expect(marked[0]).toBe("m200");
     expect(marked[499]).toBe("m699");
@@ -187,8 +186,8 @@ describe("maybeCompressSession", () => {
     );
     mockGenerateText.mockResolvedValue({ text: "第二轮摘要" });
 
-    const p1 = maybeCompressSession(fakeSupabase, "user-1", "s1");
-    const p2 = maybeCompressSession(fakeSupabase, "user-1", "s1");
+    const p1 = maybeCompressSession("user-1", "s1");
+    const p2 = maybeCompressSession("user-1", "s1");
 
     // 第二次调用尚未进入模型（被锁链阻塞）
     await vi.waitFor(() => expect(mockGenerateText).toHaveBeenCalledTimes(1));
@@ -197,7 +196,7 @@ describe("maybeCompressSession", () => {
 
     // 两次压缩依次完成
     expect(mockGenerateText).toHaveBeenCalledTimes(2);
-    const summaries = (updateChatSessionSummary as ReturnType<typeof vi.fn>).mock.calls.map((c) => c[3]);
+    const summaries = (updateChatSessionSummary as ReturnType<typeof vi.fn>).mock.calls.map((c) => c[2]);
     expect(summaries).toEqual(["第一轮摘要", "第二轮摘要"]);
   });
 
@@ -211,8 +210,8 @@ describe("maybeCompressSession", () => {
     );
     mockGenerateText.mockResolvedValue({ text: "s2 摘要" });
 
-    const p1 = maybeCompressSession(fakeSupabase, "user-1", "s1");
-    const p2 = maybeCompressSession(fakeSupabase, "user-1", "s2");
+    const p1 = maybeCompressSession("user-1", "s1");
+    const p2 = maybeCompressSession("user-1", "s2");
     await vi.waitFor(() => expect(mockGenerateText).toHaveBeenCalledTimes(2)); // 不同会话直接并行
 
     resolveFirst({ text: "s1 摘要" });

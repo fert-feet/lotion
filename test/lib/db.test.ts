@@ -1,15 +1,12 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
+// lib/db.ts 环境分派适配器单测：
+// - 服务端分支：mock getDb 指向真实内存 SQLite，验证分派到本地层的行为
+// - 客户端分支：stub window + fetch，验证 REST URL/方法/错误处理
+import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
+import type Database from "better-sqlite3";
 import {
-  getChatSessions,
-  createChatSession,
-  deleteChatSession,
-  getChatHistory,
-  insertChatMessage,
-  getChatSessionSummary,
-  updateChatSessionSummary,
-  markMessagesCompressed,
   getSidebarAll,
   getTrash,
+  getSearch,
   getById,
   getByIdFresh,
   create,
@@ -19,15 +16,23 @@ import {
   remove,
   removeIcon,
   removeCoverImage,
+  getChatSessions,
+  createChatSession,
+  deleteChatSession,
+  getChatHistory,
+  getChatSessionSummary,
+  updateChatSessionSummary,
+  markMessagesCompressed,
+  insertChatMessage,
+  _resetDocCacheForTest,
 } from "@/lib/db";
 
-// ---- mocks ----
+const state = vi.hoisted(() => ({ db: null as Database.Database | null }));
 
-const createClient = vi.fn();
-
-vi.mock("@/lib/supabase/client", () => ({
-  createClient: () => createClient(),
-}));
+vi.mock("@/lib/local/sqlite", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/local/sqlite")>();
+  return { ...actual, getDb: () => state.db! };
+});
 
 vi.mock("@/lib/logger", () => {
   const noop = () => {};
@@ -35,358 +40,206 @@ vi.mock("@/lib/logger", () => {
   return { logger: { api: ns, agent: ns, tools: ns, db: ns, compress: ns } };
 });
 
-type StepResult = { data?: unknown; error?: { message: string } | null };
-
-interface CallRecord {
-  op: string;
-  [key: string]: unknown;
+async function freshDb(): Promise<Database.Database> {
+  const { initDatabase } = await import("@/lib/local/sqlite");
+  const { default: Database } = await import("better-sqlite3");
+  const db = new Database(":memory:");
+  initDatabase(db);
+  return db;
 }
 
-/**
- * 可编程 thenable fake：每次 await 查询链消耗脚本队列中的一项；
- * 同时记录 update/eq/insert 等调用供断言。
- */
-function makeQuery(script: Array<() => StepResult | Promise<StepResult>>, calls: CallRecord[]) {
-  const query: Record<string, unknown> = {
-    select: () => query,
-    eq: (col: string, val: unknown) => {
-      calls.push({ op: "eq", col, val });
-      return query;
-    },
-    order: () => {
-      calls.push({ op: "order" });
-      return query;
-    },
-    limit: () => {
-      calls.push({ op: "limit" });
-      return query;
-    },
-    is: (col: string, val: unknown) => {
-      calls.push({ op: "is", col, val });
-      return query;
-    },
-    insert: (fields: unknown) => {
-      calls.push({ op: "insert", fields });
-      return query;
-    },
-    update: (fields: unknown) => {
-      calls.push({ op: "update", fields });
-      return query;
-    },
-    in: (col: string, vals: unknown) => {
-      calls.push({ op: "in", col, vals });
-      return query;
-    },
-    delete: () => {
-      calls.push({ op: "delete" });
-      return query;
-    },
-    single: () => query,
-    then(resolve: (v: StepResult | Promise<StepResult>) => void) {
-      const step = script.shift();
-      resolve(step ? step() : { data: null, error: null });
-    },
-  };
-  return query;
+/** 在测试库种一个用户（本地层多文档操作需要外键） */
+async function seedUser(db: Database.Database, email = "a@x.com"): Promise<string> {
+  const { createUser } = await import("@/lib/local/auth");
+  return createUser(db, email, "password123").id;
 }
 
-function mockSupabase(script: Array<() => StepResult | Promise<StepResult>>) {
-  const calls: CallRecord[] = [];
-  createClient.mockReturnValue({ from: () => makeQuery(script, calls) });
-  return calls;
-}
-
-beforeEach(() => {
-  vi.clearAllMocks();
+beforeEach(async () => {
+  state.db = await freshDb();
+  _resetDocCacheForTest();
 });
 
-// ---- chat ----
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
-describe("chat 会话函数", () => {
-  it("getChatSessions 按用户查询并按 updatedAt 倒序", async () => {
-    const calls = mockSupabase([
-      () => ({ data: [{ id: "s1", title: "会话" }] }),
-    ]);
-    const sessions = await getChatSessions("u1");
-    expect(sessions).toEqual([{ id: "s1", title: "会话" }]);
-    const eqs = calls.filter((c) => c.op === "eq");
-    expect(eqs).toContainEqual({ op: "eq", col: "userId", val: "u1" });
-    expect(calls.some((c) => c.op === "order")).toBe(true);
-    // 最多 50 条，防止会话多时全量拉取
-    expect(calls.some((c) => c.op === "limit")).toBe(true);
+// ---- 服务端分支（node 环境默认走此分支） ----
+
+describe("lib/db 服务端分派（直查 SQLite）", () => {
+  it("getSidebarAll/getTrash/getSearch 正确分派（归档过滤）", async () => {
+    const userId = await seedUser(state.db!);
+    const a = await create(userId, "a");
+    const b = await create(userId, "b");
+    await archive(userId, b);
+
+    const sidebar = await getSidebarAll(userId);
+    expect(sidebar.map((d) => d.id)).toEqual([a]);
+    expect(sidebar[0]).not.toHaveProperty("content");
+
+    expect((await getTrash(userId)).map((d) => d.id)).toEqual([b]);
+    expect((await getSearch(userId)).map((d) => d.id)).toEqual([a]);
   });
 
-  it("createChatSession 返回新会话 id", async () => {
-    mockSupabase([() => ({ data: { id: "new-s1" }, error: null })]);
-    await expect(createChatSession("u1")).resolves.toBe("new-s1");
+  it("create/update/archive/restore/remove/removeIcon/removeCoverImage 写库", async () => {
+    const userId = await seedUser(state.db!);
+    const id = await create(userId, "标题");
+    await update(id, { title: "新标题", isPublished: true });
+    expect((await getById(id)).title).toBe("新标题");
+
+    await update(id, { icon: "📝" });
+    expect((await getById(id)).icon).toBe("📝");
+    await removeIcon(id);
+    expect((await getById(id)).icon).toBeNull();
+
+    await archive(userId, id);
+    expect((await getById(id)).isArchived).toBe(true);
+    await restore(userId, id);
+    expect((await getById(id)).isArchived).toBe(false);
+
+    await update(id, { coverImage: "/uploads/x.png" });
+    await removeCoverImage(id);
+    expect((await getById(id)).coverImage).toBeNull();
+
+    await remove(id);
+    await expect(getById(id)).rejects.toThrow("Not found");
   });
 
-  it("createChatSession 失败时抛出", async () => {
-    mockSupabase([() => ({ data: null, error: { message: "insert failed" } })]);
-    await expect(createChatSession("u1")).rejects.toThrow("insert failed");
+  it("getById 缓存生效：直改库后仍返回旧值，getByIdFresh 绕过缓存", async () => {
+    const userId = await seedUser(state.db!);
+    const id = await create(userId, "标题");
+    const first = await getById(id);
+    expect(first.title).toBe("标题");
+
+    // 模拟 AI 服务端直写（不经 lib/db.ts update）
+    const { updateDocument } = await import("@/lib/local/db");
+    updateDocument(state.db!, id, { title: "服务端直写" });
+
+    expect((await getById(id)).title).toBe("标题"); // 命中缓存
+    expect((await getByIdFresh(id)).title).toBe("服务端直写"); // 绕过缓存
   });
 
-  it("deleteChatSession 按 id+userId 删除", async () => {
-    const calls = mockSupabase([() => ({ error: null })]);
-    await deleteChatSession("u1", "s1");
-    expect(calls).toContainEqual({ op: "delete" });
-    expect(calls).toContainEqual({ op: "eq", col: "id", val: "s1" });
-    expect(calls).toContainEqual({ op: "eq", col: "userId", val: "u1" });
+  it("chat 函数正确分派（会话 CRUD + 历史 + 压缩链路）", async () => {
+    const userId = await seedUser(state.db!);
+    const sid = await createChatSession(userId, "会话");
+    expect(await getChatSessions(userId)).toHaveLength(1);
+
+    await insertChatMessage({ userId, sessionId: sid, role: "user", content: "q" });
+    await insertChatMessage({ userId, sessionId: sid, role: "assistant", content: "a" });
+    const history = await getChatHistory(userId, sid);
+    expect(history.map((m) => m.content)).toEqual(["q", "a"]);
+
+    expect(await getChatSessionSummary(userId, sid)).toBeNull();
+    await updateChatSessionSummary(userId, sid, "摘要");
+    expect(await getChatSessionSummary(userId, sid)).toBe("摘要");
+
+    await markMessagesCompressed(userId, history.map((m) => m.id));
+    const uncompressed = await getChatHistory(userId, sid, undefined, { uncompressedOnly: true });
+    expect(uncompressed).toHaveLength(0);
+
+    await deleteChatSession(userId, sid);
+    expect(await getChatSessions(userId)).toHaveLength(0);
   });
 
-  it("getChatHistory 带 sessionId 过滤并转为时间升序", async () => {
-    const calls = mockSupabase([
-      () => ({ data: [{ id: "m1" }, { id: "m2" }] }),
-    ]);
-    const msgs = await getChatHistory("u1", "s1", 20);
-    expect(msgs.map((m) => m.id)).toEqual(["m2", "m1"]); // reverse 升序
-    expect(calls).toContainEqual({ op: "eq", col: "sessionId", val: "s1" });
-    expect(calls.some((c) => c.op === "limit")).toBe(true);
+  it("insertChatMessage 重复 requestId 抛出 SQLITE_CONSTRAINT_UNIQUE", async () => {
+    const userId = await seedUser(state.db!);
+    const sid = await createChatSession(userId);
+    await insertChatMessage({ userId, sessionId: sid, role: "user", content: "x", requestId: "r1" });
+    await expect(
+      insertChatMessage({ userId, sessionId: sid, role: "user", content: "x", requestId: "r1" }),
+    ).rejects.toMatchObject({ code: "SQLITE_CONSTRAINT_UNIQUE" });
   });
+});
 
-  it("getChatHistory 无 sessionId 时不加过滤条件", async () => {
-    const calls = mockSupabase([() => ({ data: [] })]);
-    await getChatHistory("u1", null, 20);
-    expect(calls.filter((c) => c.op === "eq" && c.col === "sessionId")).toHaveLength(0);
-  });
+// ---- 客户端分支（stub window → 走 fetch） ----
 
-  it("getChatHistory 不传 limit 时全量拉取（不调用 limit()）", async () => {
-    const calls = mockSupabase([() => ({ data: [] })]);
-    await getChatHistory("u1", "s1");
-    expect(calls.some((c) => c.op === "limit")).toBe(false);
-  });
+describe("lib/db 客户端分派（fetch REST）", () => {
+  const fetchMock = vi.fn();
 
-  it("getChatHistory uncompressedOnly 时过滤已压缩消息", async () => {
-    const calls = mockSupabase([() => ({ data: [] })]);
-    await getChatHistory("u1", "s1", undefined, undefined, { uncompressedOnly: true });
-    expect(calls).toContainEqual({ op: "eq", col: "compressed", val: false });
-  });
-
-  it("getChatHistory 默认不过滤已压缩消息（前端渲染全量）", async () => {
-    const calls = mockSupabase([() => ({ data: [] })]);
-    await getChatHistory("u1", "s1");
-    expect(calls.filter((c) => c.col === "compressed")).toHaveLength(0);
-  });
-
-  it("getChatSessionSummary 按 id+userId 读取会话摘要", async () => {
-    const calls = mockSupabase([() => ({ data: { summary: "摘要内容" } })]);
-    const summary = await getChatSessionSummary(createClient() as never, "u1", "s1");
-    expect(summary).toBe("摘要内容");
-    expect(calls).toContainEqual({ op: "eq", col: "id", val: "s1" });
-    expect(calls).toContainEqual({ op: "eq", col: "userId", val: "u1" });
-  });
-
-  it("getChatSessionSummary 无摘要时返回 null", async () => {
-    const calls = mockSupabase([() => ({ data: { summary: null } })]);
-    const summary = await getChatSessionSummary(createClient() as never, "u1", "s1");
-    expect(summary).toBeNull();
-  });
-
-  it("updateChatSessionSummary 按 id+userId 更新摘要", async () => {
-    const calls = mockSupabase([() => ({ error: null })]);
-    await updateChatSessionSummary(createClient() as never, "u1", "s1", "新摘要");
-    expect(calls).toContainEqual({ op: "update", fields: { summary: "新摘要" } });
-    expect(calls).toContainEqual({ op: "eq", col: "id", val: "s1" });
-    expect(calls).toContainEqual({ op: "eq", col: "userId", val: "u1" });
-  });
-
-  it("markMessagesCompressed 按 userId 限定并批量标记 id", async () => {
-    const calls = mockSupabase([() => ({ error: null })]);
-    await markMessagesCompressed(createClient() as never, "u1", ["m1", "m2"]);
-    expect(calls).toContainEqual({ op: "update", fields: { compressed: true } });
-    expect(calls).toContainEqual({ op: "eq", col: "userId", val: "u1" });
-    expect(calls).toContainEqual({ op: "in", col: "id", vals: ["m1", "m2"] });
-  });
-
-  it("insertChatMessage 字段映射：token 默认 0、sessionId 空转 null", async () => {
-    const calls = mockSupabase([() => ({ error: null })]);
-    await insertChatMessage(
-      { from: () => makeQuery([], calls) } as never,
-      { userId: "u1", sessionId: null, role: "user", content: "hi" }
-    );
-    expect(calls).toContainEqual({
-      op: "insert",
-      fields: expect.objectContaining({
-        userId: "u1",
-        sessionId: null,
-        content: "hi",
-        promptTokens: 0,
-        completionTokens: 0,
-        totalTokens: 0,
-      }),
+  function jsonRes(data: unknown, ok = true, status = 200) {
+    return new Response(JSON.stringify(data), {
+      status,
+      headers: { "content-type": "application/json" },
     });
-  });
-});
+  }
 
-// ---- documents 查询 ----
-
-describe("文档查询", () => {
-  it("getSidebarAll 只查未归档文档", async () => {
-    const calls = mockSupabase([() => ({ data: [{ id: "d1" }] })]);
-    const docs = await getSidebarAll("u1");
-    expect(docs).toEqual([{ id: "d1" }]);
-    expect(calls).toContainEqual({ op: "eq", col: "userId", val: "u1" });
-    expect(calls).toContainEqual({ op: "eq", col: "isArchived", val: false });
+  beforeEach(() => {
+    vi.stubGlobal("window", { location: { href: "http://localhost" } });
+    vi.stubGlobal("fetch", fetchMock);
+    fetchMock.mockReset();
   });
 
-  it("getTrash 只查已归档文档", async () => {
-    const calls = mockSupabase([() => ({ data: [{ id: "t1" }] })]);
-    const docs = await getTrash("u1");
-    expect(docs).toEqual([{ id: "t1" }]);
-    expect(calls).toContainEqual({ op: "eq", col: "isArchived", val: true });
-  });
-});
+  it("文档列表/创建/更新/归档/恢复/删除走对应 REST 端点", async () => {
+    fetchMock.mockResolvedValueOnce(jsonRes([])); // sidebar
+    await getSidebarAll("u1");
+    expect(fetchMock).toHaveBeenLastCalledWith("/api/documents?scope=sidebar", undefined);
 
-// ---- getById 缓存/去重 ----
+    fetchMock.mockResolvedValueOnce(jsonRes({ id: "d1" }));
+    const id = await create("u1", "t", "p");
+    expect(id).toBe("d1");
+    const createCall = fetchMock.mock.calls[1] as [string, RequestInit];
+    expect(createCall[0]).toBe("/api/documents");
+    expect(JSON.parse(createCall[1].body as string)).toEqual({ title: "t", parentDocument: "p" });
 
-describe("getById 缓存与去重", () => {
-  it("命中缓存时不重复请求", async () => {
-    const script = [() => ({ data: { id: "c1", title: "t" } })];
-    mockSupabase(script);
-    const first = await getById("c1");
-    const second = await getById("c1");
-    expect(second).toBe(first);
-    expect(script).toHaveLength(0); // 第二次未发请求
-  });
+    fetchMock.mockResolvedValueOnce(jsonRes({ ok: true }));
+    await update("d1", { title: "x" });
+    const patchCall = fetchMock.mock.calls[2] as [string, RequestInit];
+    expect(patchCall[0]).toBe("/api/documents/d1");
+    expect(patchCall[1].method).toBe("PATCH");
 
-  it("并发请求同一 id 只发一次请求", async () => {
-    let release!: () => void;
-    const gate = new Promise<void>((r) => { release = r; });
-    const script = [() => gate.then(() => ({ data: { id: "c2", title: "t" } }))];
-    mockSupabase(script);
-    const p1 = getById("c2");
-    const p2 = getById("c2");
-    release();
-    const [a, b] = await Promise.all([p1, p2]);
-    expect(a).toEqual(b);
-    expect(script).toHaveLength(0); // 只消耗一项
-  });
+    fetchMock.mockResolvedValueOnce(jsonRes({ ok: true }));
+    await archive("u1", "d1");
+    expect(fetchMock.mock.calls[3][0]).toBe("/api/documents/d1/archive");
 
-  it("文档不存在时抛出 Not found", async () => {
-    mockSupabase([() => ({ data: null, error: null })]);
-    await expect(getById("missing")).rejects.toThrow("Not found");
-  });
-
-  it("getByIdFresh 绕过缓存重新拉取", async () => {
-    mockSupabase([
-      () => ({ data: { id: "c3", title: "旧" } }),
-      () => ({ data: { id: "c3", title: "新" } }),
-    ]);
-    await getById("c3");
-    const fresh = await getByIdFresh("c3");
-    expect(fresh.title).toBe("新");
-  });
-
-  it("缓存超过上限（200）时淘汰最旧条目，防止内存无限增长", async () => {
-    const script = Array.from({ length: 201 }, (_, i) => () => ({ data: { id: `d${i}`, title: `t${i}` } }));
-    mockSupabase(script);
-    for (let i = 0; i < 201; i++) {
-      await getById(`d${i}`);
-    }
-    // d0 已被淘汰：再次请求需重新拉取（script 已耗尽 → Not found）
-    await expect(getById("d0")).rejects.toThrow("Not found");
-    // d200 仍在缓存：命中不消耗 script
-    await expect(getById("d200")).resolves.toMatchObject({ id: "d200" });
-    expect(script).toHaveLength(0);
-  });
-});
-
-// ---- mutations ----
-
-describe("文档变更", () => {
-  it("create 插入默认字段并返回 id", async () => {
-    const calls = mockSupabase([() => ({ data: { id: "d1" }, error: null })]);
-    await expect(create("u1", "标题", "parent-1")).resolves.toBe("d1");
-    expect(calls).toContainEqual({
-      op: "insert",
-      fields: expect.objectContaining({
-        title: "标题",
-        userId: "u1",
-        parentDocument: "parent-1",
-        isArchived: false,
-        isPublished: false,
-      }),
-    });
-  });
-
-  it("create 无父文档时 parentDocument 为 null", async () => {
-    const calls = mockSupabase([() => ({ data: { id: "d1" }, error: null })]);
-    await create("u1", "标题");
-    expect(calls).toContainEqual({
-      op: "insert",
-      fields: expect.objectContaining({ parentDocument: null }),
-    });
-  });
-
-  it("update 提交字段并使缓存失效", async () => {
-    const calls = mockSupabase([
-      () => ({ data: { id: "u1", title: "旧" } }), // 首次加载进缓存
-      () => ({ error: null }),                     // update
-      () => ({ data: { id: "u1", title: "新" } }), // 缓存失效后重新拉取
-    ]);
-    await getById("u1");
-    await update("u1", { title: "新" });
-    const after = await getById("u1");
-    expect(after.title).toBe("新");
-    expect(calls).toContainEqual({ op: "update", fields: { title: "新" } });
-  });
-
-  it("archive 递归归档所有子文档后再归档自身", async () => {
-    mockSupabase([
-      () => ({ data: [{ id: "child1" }, { id: "child2" }] }), // parent 的子文档
-      () => ({ data: [] }),                                    // child1 无子文档
-      () => ({ error: null }),                                 // archive child1
-      () => ({ data: [] }),                                    // child2 无子文档
-      () => ({ error: null }),                                 // archive child2
-      () => ({ error: null }),                                 // archive parent
-    ]);
-    await archive("u1", "parent");
-    // 三个 update({ isArchived: true })：child1、child2、parent
-  });
-
-  it("restore 普通恢复（父文档未归档，不 detach）", async () => {
-    const calls = mockSupabase([
-      () => ({ data: [] }),                        // 子文档
-      () => ({ data: { parentDocument: "p1" } }),  // 自身 parentDocument
-      () => ({ data: { isArchived: false } }),     // 父未归档
-      () => ({ error: null }),                     // update
-    ]);
+    fetchMock.mockResolvedValueOnce(jsonRes({ ok: true }));
     await restore("u1", "d1");
-    const updateCall = calls.find((c) => c.op === "update");
-    expect(updateCall?.fields).toEqual({ isArchived: false });
-  });
+    expect(fetchMock.mock.calls[4][0]).toBe("/api/documents/d1/restore");
 
-  it("restore 父文档仍归档时解绑 parentDocument", async () => {
-    const calls = mockSupabase([
-      () => ({ data: [] }),                        // 子文档
-      () => ({ data: { parentDocument: "p1" } }),  // 自身 parentDocument
-      () => ({ data: { isArchived: true } }),      // 父已归档
-      () => ({ error: null }),                     // update
-    ]);
-    await restore("u1", "d1");
-    const updateCall = calls.find((c) => c.op === "update");
-    expect(updateCall?.fields).toEqual({ isArchived: false, parentDocument: null });
-  });
-
-  it("remove 按 id 删除", async () => {
-    const calls = mockSupabase([() => ({ error: null })]);
+    fetchMock.mockResolvedValueOnce(jsonRes({ ok: true }));
     await remove("d1");
-    expect(calls).toContainEqual({ op: "delete" });
-    expect(calls).toContainEqual({ op: "eq", col: "id", val: "d1" });
+    const delCall = fetchMock.mock.calls[5] as [string, RequestInit];
+    expect(delCall[0]).toBe("/api/documents/d1");
+    expect(delCall[1].method).toBe("DELETE");
   });
 
-  it("removeIcon / removeCoverImage 更新为 null", async () => {
-    const calls1 = mockSupabase([() => ({ error: null })]);
-    await removeIcon("d1");
-    expect(calls1).toContainEqual({ op: "update", fields: { icon: null } });
+  it("getById 走 GET 端点并缓存；trash/search/chat 端点正确", async () => {
+    fetchMock.mockResolvedValueOnce(jsonRes({ id: "d1", title: "文档" }));
+    expect((await getById("d1")).title).toBe("文档");
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/documents/d1");
 
-    const calls2 = mockSupabase([() => ({ error: null })]);
-    await removeCoverImage("d1");
-    expect(calls2).toContainEqual({ op: "update", fields: { coverImage: null } });
+    // 每次返回新 Response 对象（Response body 只能消费一次）
+    fetchMock.mockImplementation(() => Promise.resolve(jsonRes([])));
+    await getTrash("u1");
+    expect(fetchMock.mock.calls[1][0]).toBe("/api/documents?scope=trash");
+    await getSearch("u1");
+    expect(fetchMock.mock.calls[2][0]).toBe("/api/documents?scope=search");
+
+    await getChatSessions("u1");
+    expect(fetchMock.mock.calls[3][0]).toBe("/api/chat/sessions");
+
+    fetchMock.mockResolvedValueOnce(jsonRes({ id: "s1" }));
+    await createChatSession("u1", "新对话");
+    expect(fetchMock.mock.calls[4][0]).toBe("/api/chat/sessions");
+
+    fetchMock.mockResolvedValueOnce(jsonRes({ ok: true }));
+    await deleteChatSession("u1", "s1");
+    const del = fetchMock.mock.calls[5] as [string, RequestInit];
+    expect(del[0]).toBe("/api/chat/sessions/s1");
+    expect(del[1].method).toBe("DELETE");
+
+    fetchMock.mockResolvedValueOnce(jsonRes([]));
+    await getChatHistory("u1", "s1", 10);
+    expect(fetchMock.mock.calls[6][0]).toBe("/api/chat/sessions/s1/messages?limit=10");
   });
 
-  it("update 失败时抛错且不动缓存", async () => {
-    mockSupabase([() => ({ error: { message: "update failed" } })]);
-    await expect(update("d1", { title: "x" })).rejects.toThrow("update failed");
+  it("HTTP 错误抛出服务端 error 信息", async () => {
+    fetchMock.mockResolvedValueOnce(jsonRes({ error: "Unauthorized" }, false, 401));
+    await expect(getSidebarAll("u1")).rejects.toThrow("Unauthorized");
+  });
+
+  it("客户端调用服务端专用函数直接抛错", async () => {
+    await expect(getChatSessionSummary("u1", "s1")).rejects.toThrow("仅服务端可用");
+    await expect(insertChatMessage({ userId: "u1", role: "user", content: "x" })).rejects.toThrow(
+      "仅服务端可用",
+    );
   });
 });

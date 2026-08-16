@@ -1,12 +1,13 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type Database from "better-sqlite3";
 import { tool } from "ai";
 import z from "zod";
 import { logger } from "@/lib/logger";
 import { markdownToBlocks, extractTitle } from "@/lib/markdown-to-blocks";
+import { getDocumentById, updateDocument } from "@/lib/local/db";
 import type { ToolEvent } from "./index";
 
 export function createUpdateNoteTool(
-  supabase: SupabaseClient,
+  db: Database.Database,
   userId: string,
   onEvent: (event: ToolEvent) => void = () => {},
 ) {
@@ -23,25 +24,18 @@ export function createUpdateNoteTool(
       // 正文开头的 # 一级标题提取为文档 title，避免页面重复标题
       const { title: extractedTitle, blocks: contentBlocks } = extractTitle(blocks);
 
+      const existing = getDocumentById(db, noteId, userId);
+      if (!existing) {
+        return `笔记 ${noteId} 不存在或无权修改。`;
+      }
+
       const fields: Record<string, string> = { content: JSON.stringify(contentBlocks) };
       if (extractedTitle) fields.title = extractedTitle;
-
-      const { data: updated, error } = await supabase
-        .from("documents")
-        .update(fields)
-        .eq("id", noteId)
-        .eq("userId", userId)
-        .select("title")
-        .single();
-
-      if (error) {
-        logger.tools.error("[updateNote] 更新失败", { error: String(error) });
-        return `更新失败：${error.message}`;
-      }
+      updateDocument(db, noteId, fields);
 
       // 副作用通过 onEvent 上报：note_modified 驱动前端刷新，reference 流结束时汇总
       onEvent({ type: "note_modified", noteId });
-      onEvent({ type: "reference", noteId, title: updated?.title || extractedTitle || "笔记" });
+      onEvent({ type: "reference", noteId, title: extractedTitle || existing.title || "笔记" });
       logger.tools.info("[updateNote] 更新成功", { noteId, blockCount: contentBlocks.length, extractedTitle: extractedTitle ?? undefined });
       return `笔记内容已更新。`;
     },

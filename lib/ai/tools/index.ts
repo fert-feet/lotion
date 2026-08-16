@@ -1,4 +1,4 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type Database from "better-sqlite3";
 import type { ToolSet } from "ai";
 import { logger } from "@/lib/logger";
 import { createSearchNotesTool } from "./search-notes";
@@ -96,22 +96,23 @@ function withToolLogging(name: string, t: AnyTool): AnyTool {
 }
 
 /**
- * 创建 Agent 工具集。副作用通过 onEvent 回调上报（见 ToolEvent），
+ * 创建 Agent 工具集（本地版：直接接收 SQLite 连接实例）。
+ * 副作用通过 onEvent 回调上报（见 ToolEvent），
  * 不再接收共享可变状态对象——tool 实例按请求创建，闭包状态天然按请求隔离。
  */
 export function createTools(
-  supabase: SupabaseClient,
+  db: Database.Database,
   userId: string,
   onEvent: (event: ToolEvent) => void = () => {},
 ): ToolSet {
   const tools: Record<string, AnyTool> = {
-    searchNotes: createSearchNotesTool(supabase, userId),
-    readNote: createReadNoteTool(supabase, userId),
-    createNote: createCreateNoteTool(supabase, userId, onEvent),
-    updateNote: createUpdateNoteTool(supabase, userId, onEvent),
-    renameNote: createRenameNoteTool(supabase, userId, onEvent),
-    archiveNote: createArchiveNoteTool(supabase, userId),
-    deleteNote: createDeleteNoteTool(supabase, userId, onEvent),
+    searchNotes: createSearchNotesTool(db, userId),
+    readNote: createReadNoteTool(db, userId),
+    createNote: createCreateNoteTool(db, userId, onEvent),
+    updateNote: createUpdateNoteTool(db, userId, onEvent),
+    renameNote: createRenameNoteTool(db, userId, onEvent),
+    archiveNote: createArchiveNoteTool(db, userId),
+    deleteNote: createDeleteNoteTool(db, userId, onEvent),
   };
 
   const wrapped: Record<string, AnyTool> = {};
