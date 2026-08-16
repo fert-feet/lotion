@@ -75,7 +75,7 @@ export function listChatSessions(db: Database.Database, userId: string, limit = 
   return db
     .prepare(
       `SELECT id, title, createdAt, updatedAt FROM chat_sessions
-       WHERE userId = ? ORDER BY updatedAt DESC LIMIT ?`,
+       WHERE userId = ? ORDER BY updatedAt DESC, rowid DESC LIMIT ?`,
     )
     .all(userId, limit) as ChatSession[];
 }
@@ -186,7 +186,7 @@ export function listSidebarAll(db: Database.Database, userId: string): SidebarDo
   const rows = db
     .prepare(
       `SELECT ${SIDEBAR_COLUMNS} FROM documents
-       WHERE userId = ? AND isArchived = 0 ORDER BY createdAt DESC`,
+       WHERE userId = ? AND isArchived = 0 ORDER BY createdAt DESC, rowid DESC`,
     )
     .all(userId) as DocumentRow[];
   return rows.map(rowToDocument).map(({ content: _c, coverImage: _cv, ...rest }) => rest);
@@ -203,7 +203,7 @@ export function listSidebar(
       db
         .prepare(
           `SELECT ${DOCUMENT_COLUMNS} FROM documents
-           WHERE userId = ? AND isArchived = 0 AND parentDocument = ? ORDER BY createdAt DESC`,
+           WHERE userId = ? AND isArchived = 0 AND parentDocument = ? ORDER BY createdAt DESC, rowid DESC`,
         )
         .all(userId, parentDocument) as DocumentRow[]
     ).map(rowToDocument);
@@ -212,7 +212,7 @@ export function listSidebar(
     db
       .prepare(
         `SELECT ${DOCUMENT_COLUMNS} FROM documents
-         WHERE userId = ? AND isArchived = 0 AND parentDocument IS NULL ORDER BY createdAt DESC`,
+         WHERE userId = ? AND isArchived = 0 AND parentDocument IS NULL ORDER BY createdAt DESC, rowid DESC`,
       )
       .all(userId) as DocumentRow[]
   ).map(rowToDocument);
@@ -223,7 +223,7 @@ export function listTrash(db: Database.Database, userId: string): SidebarDocumen
   const rows = db
     .prepare(
       `SELECT ${SIDEBAR_COLUMNS} FROM documents
-       WHERE userId = ? AND isArchived = 1 ORDER BY createdAt DESC`,
+       WHERE userId = ? AND isArchived = 1 ORDER BY createdAt DESC, rowid DESC`,
     )
     .all(userId) as DocumentRow[];
   return rows.map(rowToDocument).map(({ content: _c, coverImage: _cv, ...rest }) => rest);
