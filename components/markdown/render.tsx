@@ -132,6 +132,22 @@ function renderChildren(
   return nodes.map((node, index) => renderNode(node, index, context));
 }
 
+/**
+ * 渲染 inline 节点序列（编辑器编辑块的初始内容用）。
+ * 上下文取最小化：静态渲染 + 空引用目标 + 可选文档打开回调（提及胶囊）。
+ */
+export function renderInlineChildren(
+  nodes: readonly Md.RootContent[],
+  onOpenDocument?: (id: string) => void,
+): ReactNode[] {
+  const context: MarkdownRenderContext = {
+    streaming: false,
+    targets: createReferenceTargets(),
+    onOpenDocument,
+  };
+  return renderChildren(nodes, context);
+}
+
 /** 子节点纯文本（mention 检测用）。 */
 function childrenToText(children: ReactNode[]): string {
   return children
