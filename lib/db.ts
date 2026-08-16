@@ -303,6 +303,20 @@ async function _getById(documentId: string): Promise<Document> {
   return api<Document>(`/api/documents/${documentId}`);
 }
 
+/**
+ * 公开预览用：读取已发布文档（无鉴权端点，本地版"仅本机访问"语义）。
+ * 服务端分支同样校验 isPublished，防止绕过。
+ */
+export async function getPublishedDocument(documentId: string): Promise<Document> {
+  if (isServer()) {
+    const { db, local } = await serverLocal();
+    const doc = local.getDocumentById(db, documentId);
+    if (!doc || !doc.isPublished) throw new Error("Not found");
+    return doc;
+  }
+  return api<Document>(`/api/public/documents/${documentId}`);
+}
+
 // ---- Mutations ----
 
 export async function create(userId: string, title: string, parentDocument?: string | null) {

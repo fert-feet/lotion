@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { getById, update, type Document } from "@/lib/db";
+import { getPublishedDocument, update, type Document } from "@/lib/db";
 import { Skeleton } from "../../../../../components/ui/skeleton";
 import { useMemo } from "react";
 import dynamic from "next/dynamic";
@@ -12,6 +12,9 @@ import { ArrowRight } from "lucide-react";
 import Toolbar from "../../../../../components/toobar";
 import Cover from "../../../../(main)/_components/cover";
 
+// 公开预览（本地版降级为"仅本机访问"，见 app/api/public/documents/[documentId]/route.ts）：
+// - 读取走无鉴权的公开端点，仅返回 isPublished=true 的文档
+// - TODO(后期 D9)：上 Vercel 公网部署时需重新评估公开面（分享令牌/访问控制 + 图床迁移）
 const DocumentIdPage = () => {
     const params = useParams();
     const router = useRouter();
@@ -21,7 +24,7 @@ const DocumentIdPage = () => {
 
     useEffect(() => {
         if (params.documentId) {
-            getById(params.documentId as string)
+            getPublishedDocument(params.documentId as string)
                 .then(setDocument)
                 .catch(() => setDocument(null));
         }

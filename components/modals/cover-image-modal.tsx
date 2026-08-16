@@ -3,7 +3,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog";
 import { SingleImageDropzone } from "../upload/single-image";
 import { useParams } from "next/navigation";
 import { UploaderProvider, UploadFn } from "../upload/uploader-provider";
-import { createClient } from "@/lib/supabase/client";
 import { update } from "@/lib/db";
 import { useRefresh } from "@/hooks/use-refresh";
 
@@ -16,26 +15,20 @@ const CoverImageModal = () => {
         coverImage.onClose();
     };
 
+    // 本地版：POST /api/upload（本地磁盘存储，见 app/api/upload/route.ts 的图床 TODO）
     const uploadFn: UploadFn = async ({ file }) => {
-        const supabase = createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) throw new Error("Not authenticated");
+        const form = new FormData();
+        form.append("file", file);
+        const res = await fetch("/api/upload", { method: "POST", body: form });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "上传失败");
 
-        const fileExt = file.name.split(".").pop();
-        const path = `${user.id}/${Date.now()}.${fileExt}`;
-
-        const { error } = await supabase.storage.from("lotion").upload(path, file);
-
-        if (error) throw error;
-
-        const { data: urlData } = supabase.storage.from("lotion").getPublicUrl(path);
-
-        await update(params.documentId as string, { coverImage: urlData.publicUrl });
+        await update(params.documentId as string, { coverImage: data.url });
         triggerDocument(params.documentId as string);
 
         onClose();
 
-        return { url: urlData.publicUrl };
+        return { url: data.url };
     };
 
     return (

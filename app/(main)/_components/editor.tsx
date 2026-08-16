@@ -11,7 +11,6 @@ import "@blocknote/core/style.css";
 import { useCreateBlockNote } from "@blocknote/react";
 import { useTheme } from "next-themes";
 import { useCallback, useEffect, useRef } from "react";
-import { createClient } from "@/lib/supabase/client";
 
 interface EditorProps {
     onChange: (value: string) => void;
@@ -26,19 +25,14 @@ const Editor = ({
 }: EditorProps) => {
     const { resolvedTheme } = useTheme();
 
+    // 本地版图片上传：POST /api/upload（本地磁盘存储，见 app/api/upload/route.ts 的图床 TODO）
     const handleUpload = async (file: File) => {
-        const supabase = createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) throw new Error("Not authenticated");
-
-        const fileExt = file.name.split(".").pop();
-        const path = `uploads/${user.id}/${Date.now()}.${fileExt}`;
-
-        const { error } = await supabase.storage.from("lotion").upload(path, file);
-        if (error) throw error;
-
-        const { data: urlData } = supabase.storage.from("lotion").getPublicUrl(path);
-        return urlData.publicUrl;
+        const form = new FormData();
+        form.append("file", file);
+        const res = await fetch("/api/upload", { method: "POST", body: form });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "上传失败");
+        return data.url as string;
     };
 
     // 挂载时解析文档内容：损坏 JSON（AI 工具写入截断等）不崩溃，退化为空文档

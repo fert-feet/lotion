@@ -6,7 +6,6 @@ import { Button } from "../../../components/ui/button";
 import { ImageIcon, X } from "lucide-react";
 import useCoverImage from "../../../hooks/use-cover-image";
 import { useParams } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
 import { removeCoverImage } from "@/lib/db";
 import { useRefresh } from "@/hooks/use-refresh";
 import { Skeleton } from "../../../components/ui/skeleton";
@@ -29,17 +28,17 @@ const Cover = ({
         if (!documentId) return;
         try {
             if (url) {
-                const supabase = createClient();
-                const pathMatch = url.match(/\/lotion\/(.+)$/);
+                // 本地版：本地磁盘文件经 /api/uploads/[filename] 清理（失败不阻塞移除封面字段）
+                const pathMatch = url.match(/\/api\/uploads\/([^/]+)$/);
                 if (pathMatch) {
-                    await supabase.storage.from("lotion").remove([pathMatch[1]]);
+                    await fetch(`/api/uploads/${pathMatch[1]}`, { method: "DELETE" });
                 }
             }
             removeCoverImage(documentId)
                 .then(() => triggerDocument(documentId))
                 .catch(console.error);
         } catch {
-            // storage 删除失败不阻塞移除封面字段
+            // 文件清理失败不阻塞移除封面字段
             removeCoverImage(documentId)
                 .then(() => triggerDocument(documentId))
                 .catch(console.error);
