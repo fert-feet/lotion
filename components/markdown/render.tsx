@@ -268,12 +268,16 @@ function renderList(node: Md.List, key: Key, context: MarkdownRenderContext): Re
   );
 }
 
-function renderListItem(
+/**
+ * 渲染列表项内容（不含外层 <li>）——编辑器组件层自定义 li 包裹（块壳点击）时复用，
+ * 避免 <li> 内嵌 <li> 的非法 DOM。
+ * @returns task 是否为任务项（调用方决定 li 的 task-list-item 类）；parts 为 li 内容。
+ */
+export function renderListItemContent(
   item: Md.ListItem,
   loose: boolean,
-  key: Key,
   context: MarkdownRenderContext,
-): ReactNode {
+): { task: boolean; parts: ReactNode[] } {
   const entries = renderBlockEntries(item.children, context);
   const task = typeof item.checked === "boolean";
   if (task) {
@@ -296,6 +300,16 @@ function renderListItem(
   }
   const tail = entries[entries.length - 1];
   if (tail !== undefined && (loose || !("paragraph" in tail))) parts.push("\n");
+  return { task, parts };
+}
+
+function renderListItem(
+  item: Md.ListItem,
+  loose: boolean,
+  key: Key,
+  context: MarkdownRenderContext,
+): ReactNode {
+  const { task, parts } = renderListItemContent(item, loose, context);
   return (
     <li key={key} className={task ? "task-list-item" : undefined}>
       {parts}

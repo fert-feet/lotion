@@ -19,6 +19,7 @@ import { parseGfm } from "@/components/markdown/parse";
 import {
   createReferenceTargets,
   renderInlineChildren,
+  renderListItemContent,
   renderNode,
   type MarkdownRenderContext,
 } from "@/components/markdown/render";
@@ -491,14 +492,20 @@ export default function BlockEditor({ onChange, initialContent, editable = true 
                 );
               }
               const itemIndex = indexByStartRef.current.get(itemStart) ?? i;
+              // 非编辑项：renderListItemContent 渲染 li 内容（不含外层 <li>），
+              // 组件层包 <li><div 块壳>，避免 renderNode(listItem) 输出 <li> 造成
+              // <li> 嵌套 <li> 的非法 DOM（嵌套子列表由 render.tsx 内部合法渲染）
+              const loose =
+                (node.spread ?? false) || node.children.some((it) => it.spread ?? it.children.length > 1);
+              const { task, parts } = renderListItemContent(item, loose, STATIC_CONTEXT);
               return (
-                <li key={itemStart}>
+                <li key={itemStart} className={task ? "task-list-item" : undefined}>
                   <div
                     data-block-index={itemIndex}
                     className="md-block-shell"
                     onClick={handleBlockClick}
                   >
-                    {renderNode(item, itemStart, STATIC_CONTEXT)}
+                    {parts}
                   </div>
                 </li>
               );

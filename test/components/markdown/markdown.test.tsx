@@ -8,6 +8,8 @@ import { describe, expect, it } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { MarkdownText } from "@/components/markdown/MarkdownText";
+import { createReferenceTargets, renderListItemContent } from "@/components/markdown/render";
+import { parseGfm } from "@/components/markdown/parse";
 
 function render(text: string, onOpenDocument?: (id: string) => void): string {
   return renderToStaticMarkup(
@@ -141,5 +143,26 @@ describe("markdown 渲染（对齐 DSH）", () => {
     const html = render("**x**");
     expect(html).not.toContain('"type"');
     expect(html).not.toContain("mdast");
+  });
+});
+
+// 防复发：编辑器组件层复用 renderListItemContent 时不得再嵌套 <li>
+// （阶段 2b 曾因 <li><div>{renderNode(listItem)}</div></li> 产生 <li> 嵌套 <li> 水合错误）
+describe("renderListItemContent（防 <li> 嵌套）", () => {
+  it("返回的 parts 不含 <li> 包裹，且保留任务 checkbox 与内容", () => {
+    const root = parseGfm("- [x] 完成\n- 普通项");
+    const listNode = root.children[0];
+    expect(listNode.type).toBe("list");
+    const list = listNode as { children: Array<{ checked?: boolean }> };
+    const html = (parts: unknown[]) => renderToStaticMarkup(createElement("div", null, ...(parts as never[])));
+    const item0 = list.children[0] as never;
+    const r0 = renderListItemContent(item0, false, { streaming: false, targets: createReferenceTargets() });
+    expect(r0.task).toBe(true);
+    expect(html(r0.parts)).toContain('type="checkbox" disabled="" checked=""');
+    expect(html(r0.parts)).not.toContain("<li");
+    const r1 = renderListItemContent(list.children[1] as never, false, { streaming: false, targets: createReferenceTargets() });
+    expect(r1.task).toBe(false);
+    expect(html(r1.parts)).toContain("普通项");
+    expect(html(r1.parts)).not.toContain("<li");
   });
 });
