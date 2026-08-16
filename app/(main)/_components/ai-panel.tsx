@@ -472,17 +472,27 @@ const AiPanel = () => {
 
   return (
     <aside className="flex h-full min-w-0 flex-col overflow-hidden border-l border-shell-border bg-shell-bg-base">
-      {/* 会话工具栏：当前标题 + 历史下拉 + 新增 + 关闭（details 列整列承载，宽度由 shell 控制） */}
-      <div className="flex shrink-0 items-center gap-1.5 border-b border-shell-border px-3 py-2">
-          <span className="flex-1 truncate text-sm font-medium text-muted-foreground min-w-0">
+      {/* DSH DetailsPanel 风格头部：pad 14/12/12/12，标题 14/20 wt500，28px 圆形操作 */}
+      <div className="flex shrink-0 items-center justify-between gap-2 border-b border-shell-border-l2 px-3 pb-3 pt-3.5">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="flex h-6 w-6 flex-none items-center justify-center rounded-full bg-ai text-ai-foreground">
+            <Sparkles className="h-3.5 w-3.5" />
+          </span>
+          <span className="truncate text-sm font-medium leading-5 text-shell-label-primary">
             {sessions.find((s) => s.id === activeSessionId)?.title ?? "新对话"}
           </span>
+        </div>
+        <div className="flex flex-none items-center gap-1">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-muted-foreground cursor-pointer">
+              <button
+                type="button"
+                aria-label="历史会话"
+                title="历史会话"
+                className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-full text-shell-label-secondary hover:bg-shell-row-hover"
+              >
                 <History className="h-4 w-4" />
-                <span>历史</span>
-              </Button>
+              </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-64 max-h-80 overflow-y-auto">
               {sessions.length === 0 && (
@@ -520,37 +530,39 @@ const AiPanel = () => {
               ))}
             </DropdownMenuContent>
           </DropdownMenu>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 gap-1.5 text-muted-foreground cursor-pointer"
+          <button
+            type="button"
+            aria-label="新增会话"
+            title="新增会话"
             onClick={handleNewSession}
+            className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-full text-shell-label-secondary hover:bg-shell-row-hover"
           >
             <Plus className="h-4 w-4" />
-            <span>新增</span>
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 text-muted-foreground cursor-pointer"
-            onClick={closeDetails}
+          </button>
+          <button
+            type="button"
+            aria-label="关闭"
             title="关闭"
+            onClick={closeDetails}
+            className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-full text-shell-label-secondary hover:bg-shell-row-hover"
           >
             <X className="h-4 w-4" />
-          </Button>
+          </button>
         </div>
+      </div>
 
-        <div ref={messagesRef} className="flex-1 overflow-y-auto p-4 space-y-4">
+        <div ref={messagesRef} className="relative min-h-0 flex-1 overflow-y-auto">
+          <div className="flex min-h-full flex-col gap-5 px-4 py-5">
           {messages.length === 0 && !loading && (
-            <div className="flex flex-col items-center justify-center h-full text-center gap-3 text-muted-foreground">
+            <div className="flex flex-1 flex-col items-center justify-center gap-4 pb-16 text-center">
               <div className="flex h-14 w-14 items-center justify-center rounded-full bg-ai text-ai-foreground shadow-md">
                 <Bot className="h-7 w-7" />
               </div>
-              <div className="space-y-1">
-                <p className="text-sm font-medium text-foreground">
+              <div className="space-y-1.5">
+                <p className="text-[26px] font-medium leading-8 text-shell-label-primary">
                   你好，我是你的笔记助手
                 </p>
-                <p className="text-xs">
+                <p className="text-[13px] leading-5 text-shell-label-tertiary">
                   帮你总结文档、改进写作、回答问题。
                   <br />
                   写新笔记时我会直接创建，你确认或丢弃即可。
@@ -561,29 +573,16 @@ const AiPanel = () => {
 
           {messages.map((msg, i) => (
             <div key={i} className="space-y-2">
-              <div
-                className={cn(
-                  "flex gap-2",
-                  msg.role === "user" ? "justify-end" : "justify-start"
-                )}
-              >
-                {msg.role === "assistant" && (
-                  <div className="flex flex-col items-center gap-0.5 shrink-0 mt-0.5">
-                    <div className="flex h-6 w-6 items-center justify-center rounded-full bg-ai text-ai-foreground">
-                      <Sparkles className="h-3.5 w-3.5" />
-                    </div>
-                    <span className="text-[9px] font-semibold leading-none text-muted-foreground">AI</span>
+              {msg.role === "user" ? (
+                <div className="flex justify-end">
+                  {/* DSH 用户气泡：右对齐、22px 圆角、专用气泡色（ai-muted 呼应荧光笔品牌） */}
+                  <div className="max-w-[85%] whitespace-pre-wrap break-words rounded-[22px] bg-ai-muted px-4 py-2.5 text-[15px] leading-6 text-shell-label-primary">
+                    {renderMentions(msg.content)}
                   </div>
-                )}
-                <div
-                  className={cn(
-                    "rounded-lg px-3 py-2 text-sm max-w-[85%]",
-                    msg.role === "user"
-                      ? "bg-muted whitespace-pre-wrap"
-                      : "bg-muted prose prose-sm dark:prose-invert max-w-none prose-headings:my-1 prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-code:bg-muted prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-xs prose-pre:bg-muted prose-pre:text-xs"
-                  )}
-                >
-                  {msg.role === "assistant" && msg.content ? (
+                </div>
+              ) : (
+                <div className="prose prose-sm dark:prose-invert max-w-none text-[15px] leading-6 text-shell-label-primary prose-headings:my-1.5 prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-code:bg-shell-row-active prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-xs prose-pre:bg-shell-row-active prose-pre:text-xs">
+                  {msg.content ? (
                     <ReactMarkdown
                       components={{
                         a: ({ href, children }) => {
@@ -599,7 +598,7 @@ const AiPanel = () => {
                                 onClick={() => openDocument(href)}
                                 className="mention-chip cursor-pointer"
                               >
-                                <span>{`@${truncateMentionTitle(text.slice(1))}`}</span>
+                                <span>{"@" + truncateMentionTitle(text.slice(1))}</span>
                               </button>
                             );
                           }
@@ -618,22 +617,20 @@ const AiPanel = () => {
                     >
                       {msg.content}
                     </ReactMarkdown>
-                  ) : msg.role === "assistant" ? (
-                    <span className="text-muted-foreground italic">（空回复）</span>
                   ) : (
-                    renderMentions(msg.content)
+                    <span className="italic text-shell-label-tertiary">（空回复）</span>
                   )}
                 </div>
-              </div>
+              )}
 
-              {/* 引用来源：AI 读取过的笔记，可点击跳转 */}
+              {/* 引用来源：DSH refChip——accent 色调小圆片，点击跳转 */}
               {msg.role === "assistant" && msg.references && msg.references.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 pl-6">
+                <div className="flex flex-wrap gap-1.5">
                   {msg.references.map((ref) => (
                     <button
                       key={ref.noteId}
                       onClick={() => openDocument(ref.noteId)}
-                      className="inline-flex items-center gap-1 rounded-full border border-border bg-muted/50 px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground hover:border-foreground/40 transition-colors cursor-pointer max-w-[240px]"
+                      className="inline-flex max-w-[240px] cursor-pointer items-center gap-1.5 rounded-lg bg-[color-mix(in_srgb,var(--shell-accent)_18%,transparent)] px-2.5 py-1 text-xs text-shell-label-primary transition-colors hover:bg-[color-mix(in_srgb,var(--shell-accent)_28%,transparent)]"
                     >
                       <span className="shrink-0">📄</span>
                       <span className="truncate">{ref.title}</span>
@@ -642,10 +639,9 @@ const AiPanel = () => {
                 </div>
               )}
 
-              {/* 删除确认按钮 */}
+              {/* 删除确认：DSH danger notice 卡片 */}
               {msg.pendingAction?.type === "delete" && (
-                <div className="flex justify-start pl-6">
-                  <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2.5 w-full max-w-[85%]">
+                <div className="rounded-xl border border-destructive/25 bg-destructive/5 px-4 py-3">
                     <div className="flex items-start gap-2.5">
                       <AlertTriangle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
                       <div className="flex-1 min-w-0">
@@ -680,65 +676,59 @@ const AiPanel = () => {
                       </Button>
                     </div>
                   </div>
-                </div>
               )}
             </div>
           ))}
 
           {streaming && (
-            <div className="flex gap-2 justify-start">
-              <div className="flex flex-col items-center gap-0.5 shrink-0 mt-0.5">
-                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-ai text-ai-foreground">
-                  <Sparkles className="h-3.5 w-3.5" />
-                </div>
-                <span className="text-[9px] font-semibold leading-none text-muted-foreground">AI</span>
-              </div>
-              <div className="rounded-lg px-3 py-2 text-sm max-w-[85%] bg-muted whitespace-pre-wrap">
-                {streaming}
-                <span className="inline-block w-1 h-4 bg-foreground ml-0.5 animate-pulse" />
-              </div>
+            <div className="whitespace-pre-wrap break-words text-[15px] leading-6 text-shell-label-primary">
+              {streaming}
+              <span className="ml-0.5 inline-block h-4 w-1 animate-pulse bg-shell-accent align-middle" />
             </div>
           )}
 
           {loading && !streaming && (
-            <div className="flex items-center gap-2 text-muted-foreground pl-1">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              <span className="text-xs">{progress || "正在查找结果..."}</span>
+            <div className="flex items-center gap-2 text-shell-label-tertiary">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              <span className="text-xs leading-[18px]">{progress || "正在查找结果..."}</span>
             </div>
           )}
           {loading && streaming && (
-            <div className="flex items-center gap-2 text-muted-foreground pl-1">
-              <Loader2 className="h-3.5 w-3.5" />
-              <span className="text-xs">正在回答...</span>
+            <div className="flex items-center gap-2 text-shell-label-tertiary">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              <span className="text-xs leading-[18px]">正在回答...</span>
             </div>
           )}
+          </div>
+          {/* 消息流底部渐变 fade（DSH composer mask） */}
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-9 bg-gradient-to-t from-shell-bg-base to-transparent" />
         </div>
 
-        <div className="border-t p-4">
+        <div className="shrink-0 px-3 pb-3 pt-1">
           {queueItems.length > 0 && (
-            <div className="mb-3 rounded-md border border-border bg-muted/50 p-2.5">
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-xs font-medium text-muted-foreground">
+            <div className="mb-3 rounded-xl border border-shell-border-l2 bg-shell-row-hover p-2.5">
+              <div className="mb-1.5 flex items-center justify-between">
+                <span className="text-xs font-medium text-shell-label-secondary">
                   待发送队列（{queueItems.length}）
                 </span>
                 <button
                   onClick={clearQueue}
-                  className="text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                  className="cursor-pointer text-xs text-shell-label-tertiary transition-colors hover:text-shell-label-primary"
                 >
                   清空
                 </button>
               </div>
-              <div className="space-y-1 max-h-28 overflow-y-auto">
+              <div className="max-h-28 space-y-1 overflow-y-auto">
                 {queueItems.map((item, index) => (
                   <div
-                    key={`${index}-${item.content}`}
-                    className="flex items-center gap-2 rounded-sm bg-background/60 px-2 py-1"
+                    key={index + "-" + item.content}
+                    className="flex items-center gap-2 rounded-md bg-shell-bg-base/70 px-2 py-1"
                   >
-                    <span className="flex-1 truncate text-xs text-foreground/80">{item.content}</span>
+                    <span className="flex-1 truncate text-xs text-shell-label-primary/80">{item.content}</span>
                     <button
                       onClick={() => removeFromQueue(index)}
                       title="移除该条"
-                      className="shrink-0 rounded-sm p-0.5 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors cursor-pointer"
+                      className="shrink-0 cursor-pointer rounded-sm p-0.5 text-shell-label-tertiary transition-colors hover:bg-shell-row-hover hover:text-shell-label-primary"
                     >
                       <X className="h-3 w-3" />
                     </button>
@@ -747,24 +737,35 @@ const AiPanel = () => {
               </div>
             </div>
           )}
-          <div className="flex gap-2">
+          {/* DSH 悬浮输入卡：22px 圆角、l2 描边、input-major 填充、lv2 阴影 */}
+          <div className="rounded-[22px] border border-shell-border-l2 bg-card shadow-sm">
             <MentionInput
               ref={mentionRef}
               onSubmit={handleSend}
               onEmptyChange={setInputEmpty}
               placeholder={loading ? "正在回答，输入后自动排队发送..." : "输入你的问题，@ 可提及文档..."}
-              className="flex-1"
+              className="px-1 pt-2.5"
             />
-            <div className="shrink-0">
-              <Button
-                size="icon"
-                className="h-9 w-9 cursor-pointer bg-ai text-ai-foreground hover:bg-ai/90"
+            <div className="flex items-center justify-between gap-3 px-2 pb-1.5 pt-1">
+              <div className="flex min-w-0 items-center gap-2 text-[11px] leading-[16px] text-shell-label-tertiary">
+                {loading ? (
+                  <>
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    <span className="truncate">{progress || "正在查找结果..."}</span>
+                  </>
+                ) : (
+                  <span className="truncate">@ 可提及文档</span>
+                )}
+              </div>
+              <button
+                type="button"
+                title={loading ? "停止生成" : "发送"}
                 onClick={loading ? handleStop : () => mentionRef.current?.submit()}
                 disabled={!loading && inputEmpty}
-                title={loading ? "停止生成" : "发送"}
+                className="flex h-[34px] w-[34px] flex-none cursor-pointer items-center justify-center rounded-full bg-ai text-ai-foreground transition-colors hover:bg-ai/90 disabled:cursor-default disabled:opacity-40"
               >
                 {loading ? <Square className="h-4 w-4" /> : <Send className="h-4 w-4" />}
-              </Button>
+              </button>
             </div>
           </div>
         </div>

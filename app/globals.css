@@ -272,22 +272,22 @@ body,
   pointer-events: none;
 }
 
-/* 文档提及胶囊：与 AI 回复下方的引用来源 chip 同款样式（灰底 + 边框 + muted 灰字） */
+/* 文档提及胶囊：DSH refChip 风格（accent 色调小圆片，无边框） */
 .mention-chip {
   display: inline-flex;
   align-items: center;
-  border-radius: 9999px;
-  border: 1px solid var(--border);
-  background: color-mix(in srgb, var(--muted) 50%, transparent);
-  padding: 0.25rem 0.625rem;
+  border-radius: 6px;
+  border: none;
+  background: color-mix(in srgb, var(--shell-accent) 22%, transparent);
+  padding: 0.125rem 0.5rem;
   font-size: 0.75rem;
   font-weight: 400;
-  line-height: 1.4;
-  color: var(--muted-foreground);
+  line-height: 1.5;
+  color: var(--shell-label-primary);
   vertical-align: baseline;
   white-space: nowrap;
   max-width: 10rem;
-  margin-inline: 3px; /* 与相邻文本之间留出空隙 */
+  margin-inline: 2px; /* 与相邻文本之间留出空隙 */
 }
 
 /* 胶囊文本超出 max-width 时省略号截断（flex 子项需 min-width:0 才能收缩） */
@@ -298,8 +298,7 @@ body,
   white-space: nowrap;
 }
 
-/* 可点击胶囊的 hover 反馈（与引用 chip 一致：文字/边框加深） */
+/* 可点击胶囊的 hover 反馈：accent 加深 */
 .mention-chip.cursor-pointer:hover {
-  color: var(--foreground);
-  border-color: color-mix(in srgb, var(--foreground) 40%, transparent);
+  background: color-mix(in srgb, var(--shell-accent) 32%, transparent);
 }
