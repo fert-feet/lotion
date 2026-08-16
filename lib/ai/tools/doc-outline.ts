@@ -2,38 +2,36 @@ import type Database from "better-sqlite3";
 import { tool } from "ai";
 import z from "zod";
 import { logger } from "@/lib/logger";
+import { toMarkdown } from "@/lib/content";
 import { getDocumentById } from "@/lib/local/db";
-
-/** BlockNote 块的最小形状（只关心 heading） */
-interface OutlineBlock {
-  type?: string;
-  content?: Array<{ text?: string }>;
-  children?: OutlineBlock[];
-}
+import { parseGfm } from "@/components/markdown/parse";
 
 /**
- * 从 BlockNote JSON 提取标题层级大纲。
- * BlockNote 的 content 结构可能是扁平的（无嵌套 children），按出现顺序输出；
- * 若存在嵌套 children 则递归展开。返回带缩进的层级列表。
+ * 从 Markdown 提取标题层级大纲（mdast heading，带层级缩进）。
+ * 旧格式 BlockNote JSON 经 toMarkdown 统一转换后同样生效。
  */
-function collectHeadings(blocks: OutlineBlock[], depth = 0, out: Array<{ level: number; text: string }> = []): Array<{ level: number; text: string }> {
-  for (const b of blocks) {
-    if (typeof b?.type === "string" && b.type.startsWith("heading")) {
-      const level = Number(b.type.replace("heading", "")) || 1;
-      const text = b.content?.map((c) => c.text || "").join("") || "";
-      if (text) out.push({ level, text });
+function collectHeadings(markdown: string): Array<{ level: number; text: string }> {
+  const root = parseGfm(markdown);
+  const out: Array<{ level: number; text: string }> = [];
+  const walk = (nodes: typeof root.children) => {
+    for (const node of nodes) {
+      if (node.type === "heading") {
+        const text = (node.children ?? [])
+          .map((c) => ("value" in c ? c.value : ""))
+          .join("");
+        if (text) out.push({ level: node.depth, text });
+      }
+      if ("children" in node) walk(node.children as typeof root.children);
     }
-    if (Array.isArray(b?.children) && b.children.length > 0) {
-      collectHeadings(b.children, depth + 1, out);
-    }
-  }
+  };
+  walk(root.children);
   return out;
 }
 
 export function createGetDocOutlineTool(db: Database.Database, userId: string) {
   return tool({
     description:
-      "获取笔记的大纲（标题层级树）：解析正文中的 heading 块，按层级缩进输出。用于快速了解文档结构、定位章节。",
+      "获取笔记的大纲（标题层级树）：解析正文中的标题，按层级缩进输出。用于快速了解文档结构、定位章节。",
     inputSchema: z.object({
       noteId: z.string().describe("笔记 ID"),
     }),
@@ -44,15 +42,7 @@ export function createGetDocOutlineTool(db: Database.Database, userId: string) {
         return `笔记 ${noteId} 不存在或无权访问。`;
       }
 
-      let blocks: OutlineBlock[] = [];
-      try {
-        const parsed = JSON.parse(doc.content || "[]");
-        if (Array.isArray(parsed)) blocks = parsed;
-      } catch {
-        blocks = [];
-      }
-
-      const headings = collectHeadings(blocks);
+      const headings = collectHeadings(toMarkdown(doc.content));
       if (headings.length === 0) {
         return `笔记「${doc.title}」没有标题结构（大纲为空）。`;
       }

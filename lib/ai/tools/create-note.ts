@@ -2,7 +2,7 @@ import type Database from "better-sqlite3";
 import { tool } from "ai";
 import z from "zod";
 import { logger } from "@/lib/logger";
-import { markdownToBlocks, extractTitle } from "@/lib/markdown-to-blocks";
+import { extractMarkdownTitle } from "@/lib/content";
 import { createDocument, getDocumentById, updateDocument } from "@/lib/local/db";
 import type { ToolEvent } from "./index";
 
@@ -21,7 +21,7 @@ export function createCreateNoteTool(
       "创建一篇新笔记。标题应简洁地概括内容主题。可指定 parentDocumentId 在该笔记下创建子笔记（不指定则创建在根目录）。",
     inputSchema: z.object({
       title: z.string().describe("笔记标题"),
-      content: z.string().describe("笔记内容，使用 Markdown 格式书写，支持标题、加粗、列表、代码块等"),
+      content: z.string().describe("笔记内容，使用 Markdown 格式书写，支持标题、加粗、列表、代码块等（原样存储）"),
       parentDocumentId: z.string().optional().describe("父笔记 ID（可选）：在该笔记下创建子笔记"),
     }),
     execute: async ({ title, content, parentDocumentId }: { title: string; content: string; parentDocumentId?: string }) => {
@@ -39,23 +39,21 @@ export function createCreateNoteTool(
 
       logger.tools.info("[createNote] 创建笔记", { title, contentLen: content.length, parentDocumentId });
 
-      // 先转换 Markdown 再插入：转换失败不会留下空笔记
-      const blocks = markdownToBlocks(content);
+      // Markdown 原文存储（阶段 1：文档模型 Markdown 化，AI 读写无损）
       // 正文开头的 # 一级标题作为文档 title（AI 的 title 参数可能为空或与正文不一致）
-      const { title: extractedTitle, blocks: contentBlocks } = extractTitle(blocks);
-      const finalTitle = extractedTitle || title;
+      const finalTitle = extractMarkdownTitle(content) || title;
 
-      // 本地库插入草稿（isDraft=true 与 PG 版语义一致；content 一并写入）
+      // 本地库插入草稿（isDraft=true 与 PG 版语义一致；content 为 Markdown 原文）
       const docId = createDocument(db, userId, finalTitle, parentDocumentId ?? null);
-      updateDocument(db, docId, { content: JSON.stringify(contentBlocks), isDraft: true });
+      updateDocument(db, docId, { content, isDraft: true });
 
       createdNoteId = docId;
       // 副作用通过 onEvent 上报：note_created 驱动前端跳转，reference 在流结束时汇总展示胶囊
       onEvent({ type: "note_created", noteId: docId, title: finalTitle });
       onEvent({ type: "reference", noteId: docId, title: finalTitle });
-      logger.tools.info("[createNote] 已创建", { noteId: docId, blockCount: contentBlocks.length, title: finalTitle });
+      logger.tools.info("[createNote] 已创建", { noteId: docId, title: finalTitle });
 
-      return `笔记「${title}」已创建（ID: ${docId}），内容已写入。如果觉得内容需要调整，可用此 ID 调用 updateNote 修改。`;
+      return `笔记「${finalTitle}」已创建（ID: ${docId}），内容已写入。如果觉得内容需要调整，可用此 ID 调用 updateNote 修改。`;
     },
   });
 }

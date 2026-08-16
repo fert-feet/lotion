@@ -11,10 +11,10 @@
 - **框架**: Next.js 15.5.4 (App Router, Turbopack)
 - **后端**: 本地 SQLite（better-sqlite3，WAL 模式，单机自托管）
 - **Auth**: 自研极简（scrypt 哈希 + sessions 表 + HttpOnly cookie，无第三方库）
-- **编辑器**: BlockNote 0.41
+- **编辑器**: BlockNote 0.41（**阶段 1 过渡中**：文档模型已切 Markdown，编辑器仅作渲染/编辑 UI，产物经 blocksToMarkdownLossy 存回 Markdown；自研块编辑器规划见 lib/content.ts 注释）
 - **AI**: @ai-sdk/deepseek (deepseek-v4-flash)
 - **状态管理**: Zustand
-- **样式**: Tailwind CSS 4 + shadcn/ui
+- **样式**: Tailwind CSS 4 + shadcn/ui（自研对齐 DSH 组件）
 - **包管理器**: pnpm
 
 ## 命令
@@ -55,9 +55,11 @@ lib/
 │   ├── db.ts                # 本地 SQL 实现（与 lib/db.ts 函数一一对应，显式 userId 过滤）
 │   ├── auth.ts              # scrypt 哈希 + 会话管理 + cookie 工具
 │   └── request-user.ts      # REST 路由公共鉴权入口
-├── agent.ts                # Agent 核心：streamText + SSE 事件流包装（6 类事件）
-├── ai/tools/               # 7 个 Tool（search/read/create/update/rename/archive/delete）
-├── ai-prompts.ts           # AI 系统提示词
+├── agent.ts                # Agent 核心：streamText + doom loop 检测 + SSE 事件流包装
+├── ai/tools/               # 17 个 Tool（search/list/read/create/update/rename/move/icon/publish/archive/restore/trash/delete/askUser/todoWrite/docInfo/docOutline）
+├── ai-prompts.ts           # AI 系统提示词（领域概念/使用模式/规范/安全）
+├── content.ts              # 文档内容适配层：Markdown 存储（旧 BlockNote JSON 惰性转换）
+├── blocks-to-markdown.ts   # 自研 BlockNote JSON → Markdown（服务端读旧数据，无运行时依赖）
 ├── compress.ts             # 上下文压缩（滑动窗口 100 条 + 模型重写式摘要）
 hooks/                      # Zustand stores + use-user
 components/                 # shadcn/ui + Toolbar + SearchCommand + Upload
@@ -82,7 +84,7 @@ vitest.config.mts           # Vitest 配置（node 环境 + @/ alias）
 - Zustand store 模式：`isOpen / onOpen / onClose / toggle`
 - 数据库操作统一通过 `lib/db.ts` 导出函数，不在组件中直接写 SQL/查询；`lib/local/*` 只允许服务端导入（better-sqlite3 是原生模块，进客户端打包会报错）
 - 图片上传到本地磁盘 `data/uploads/`（**后期换图床**：改 `app/api/upload/route.ts`，`{ url }` 契约不变）
-- AI 流协议：`POST /api/ai/chat` 返回 SSE（`text/event-stream`），每行 `data: <json>\n\n`，事件类型 `text / progress / note_created / confirm_delete / note_modified / references / error`（见 `lib/agent.ts` 的 `AgentStreamEvent`）；前端 `ai-panel.tsx` 按 `\n\n` 分隔解析事件行，**不要改成拼接文本 + 正则提取标记**
+- AI 流协议：`POST /api/ai/chat` 返回 SSE（`text/event-stream`），每行 `data: <json>\n\n`，事件类型 `turn_start / text / tool_start / tool_end / note_created / note_modified / confirm_delete / confirm_move / question / todo_update / reference / warning / turn_end / error`（见 `lib/agent.ts` 的 `AgentStreamEvent`）；前端 `ai-panel.tsx` 按 `\n\n` 分隔解析事件行，**不要改成拼接文本 + 正则提取标记**
 - Agent 通信：tool 副作用经注入的 `onEvent` 回调上报（`lib/ai/tools/index.ts` 的 `ToolEvent`），agent 层聚合为事件队列转 SSE，**不要恢复共享可变对象（`pendingNoteId.current` 等）+ 轮询模式**
 - 不要在 `messages` 数组中放 `role: "system"`，用 `streamText({ system: "..." })` 参数
 - 鉴权：所有 REST 路由先 `userFromRequest(request)`（401 拦截）；本地层所有查询显式带 `userId`（无 RLS 兜底）

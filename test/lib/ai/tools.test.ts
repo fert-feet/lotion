@@ -649,12 +649,12 @@ describe("getDocInfo 工具", () => {
 // ---- getDocOutline ----
 
 describe("getDocOutline 工具", () => {
-  it("提取标题层级大纲（含嵌套 children）", async () => {
+  it("提取标题层级大纲（真实 BlockNote 结构：heading + props.level）", async () => {
     const content = JSON.stringify([
-      { type: "heading2", content: [{ text: "快速开始" }] },
-      { type: "heading3", content: [{ text: "安装" }] },
-      { type: "paragraph", content: [{ text: "正文" }] },
-      { type: "heading2", content: [{ text: "写作小贴士" }] },
+      { type: "heading", props: { level: 2 }, content: [{ type: "text", text: "快速开始", styles: {} }] },
+      { type: "heading", props: { level: 3 }, content: [{ type: "text", text: "安装", styles: {} }] },
+      { type: "paragraph", content: [{ type: "text", text: "正文", styles: {} }] },
+      { type: "heading", props: { level: 2 }, content: [{ type: "text", text: "写作小贴士", styles: {} }] },
     ]);
     const id = seedDoc("指南", content);
     const t = createGetDocOutlineTool(db, "u1");
@@ -663,6 +663,17 @@ describe("getDocOutline 工具", () => {
     expect(result).toContain("快速开始");
     expect(result).toContain("写作小贴士");
     expect(result).toContain("  - 安装"); // h3 缩进一级
+    expect(result).not.toContain("正文");
+  });
+
+  it("Markdown 内容直接解析大纲", async () => {
+    const id = seedDoc("指南", "## 快速开始\n\n### 安装\n\n正文\n\n## 写作小贴士");
+    const t = createGetDocOutlineTool(db, "u1");
+    const result = await t.execute({ noteId: id } as never, {} as never);
+
+    expect(result).toContain("快速开始");
+    expect(result).toContain("写作小贴士");
+    expect(result).toContain("  - 安装");
     expect(result).not.toContain("正文");
   });
 

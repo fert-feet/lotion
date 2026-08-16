@@ -11,6 +11,7 @@ import "@blocknote/core/style.css";
 import { useCreateBlockNote } from "@blocknote/react";
 import { useTheme } from "next-themes";
 import { useCallback, useEffect, useRef } from "react";
+import { isBlockNoteJson, toEditorBlocks } from "@/lib/content";
 
 interface EditorProps {
     onChange: (value: string) => void;
@@ -35,15 +36,9 @@ const Editor = ({
         return data.url as string;
     };
 
-    // 挂载时解析文档内容：损坏 JSON（AI 工具写入截断等）不崩溃，退化为空文档
-    let initialBlocks: PartialBlock[] | undefined;
-    if (initialContent) {
-        try {
-            initialBlocks = JSON.parse(initialContent) as PartialBlock[];
-        } catch {
-            console.warn("文档内容 JSON 解析失败，按空文档打开");
-        }
-    }
+    // 内容适配层：旧 BlockNote JSON 直接解析；Markdown（新格式）由 editor
+    // 实例方法 tryParseMarkdownToBlocks 在数据到达后填充（模块级转换需 pmSchema）
+    const initialBlocks = toEditorBlocks(initialContent);
 
     const editor: BlockNoteEditor = useCreateBlockNote({
         initialContent: initialBlocks,
@@ -56,18 +51,16 @@ const Editor = ({
     useEffect(() => {
         if (!initialContent || lastAppliedContent.current === initialContent) return;
         lastAppliedContent.current = initialContent;
-        try {
-            const blocks = JSON.parse(initialContent) as PartialBlock[];
-            editor.replaceBlocks(editor.document, blocks);
-        } catch {
-            // 非法 JSON 时忽略，保持现状
-        }
+        const blocks = isBlockNoteJson(initialContent)
+            ? (JSON.parse(initialContent) as PartialBlock[])
+            : editor.tryParseMarkdownToBlocks(initialContent);
+        editor.replaceBlocks(editor.document, blocks);
     }, [initialContent, editor]);
 
     const onEditorChange = useCallback((editor: BlockNoteEditor) => {
-        // 无缩进序列化：JSON.stringify(x, null, 2) 的空白占 30-50% 体积，
-        // 每次防抖写库都全量传输，紧凑序列化显著降低 payload
-        onChange(JSON.stringify(editor.document));
+        // 阶段 1 过渡：编辑器产物经 blocksToMarkdownLossy 转回 Markdown 存库，
+        // 文档模型统一为 Markdown（AI 工具同格式读写，无损对接）
+        onChange(editor.blocksToMarkdownLossy());
     }, [onChange]);
 
     return (
