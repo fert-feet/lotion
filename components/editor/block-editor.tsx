@@ -24,6 +24,7 @@ import {
 } from "@/components/markdown/render";
 import { toMarkdown } from "@/lib/content";
 import { parseEditableBlocks, type EditableBlock } from "@/lib/editor/blocks";
+import { cloneRootWithoutAnchors } from "@/lib/editor/anchors";
 import { serializeEditable } from "@/lib/editor/dom-to-markdown";
 import { deleteBlock, mergeIntoPrevious, replaceBlockText, splitBlock, toggleTodo } from "@/lib/editor/ops";
 
@@ -218,11 +219,13 @@ export default function BlockEditor({ onChange, initialContent, editable = true 
   markdownRef.current = markdown;
 
   const root = useMemo(() => parseGfm(markdown), [markdown]);
+  // 展示树：剥离块锚点 {#id}（定位/切片仍用原始 root，渲染/编辑内容不见锚点）
+  const displayRoot = useMemo(() => cloneRootWithoutAnchors(root), [root]);
   const blocks = useMemo(() => parseEditableBlocks(markdown), [markdown]);
   const blocksRef = useRef(blocks);
   blocksRef.current = blocks;
 
-  // mdast 节点按 start 偏移索引（编辑块的 inline children 来源）
+  // mdast 节点按 start 偏移索引（编辑块的 inline children 来源，已剥离锚点）
   const nodeByStart = useMemo(() => {
     const map = new Map<number, RootContent>();
     const walk = (nodes: readonly RootContent[]) => {
@@ -234,9 +237,9 @@ export default function BlockEditor({ onChange, initialContent, editable = true 
         }
       }
     };
-    walk(root.children);
+    walk(displayRoot.children);
     return map;
-  }, [root]);
+  }, [displayRoot]);
 
   // start 偏移 → 可编辑块索引
   const indexByStart = useMemo(() => {
@@ -349,8 +352,8 @@ export default function BlockEditor({ onChange, initialContent, editable = true 
     [commitEdit, editable],
   );
 
-  const rootRef = useRef(root);
-  rootRef.current = root;
+  const rootRef = useRef(displayRoot);
+  rootRef.current = displayRoot;
   const indexByStartRef = useRef(indexByStart);
   indexByStartRef.current = indexByStart;
   const nodeByStartRef = useRef(nodeByStart);

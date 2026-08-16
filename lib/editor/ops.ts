@@ -21,7 +21,8 @@ function rebuild(markdown: string): EditResult {
   return { markdown, blocks: parseEditableBlocks(markdown) };
 }
 
-/** 行文本块（段落/标题/列表项/引用）重建源：前缀 + 文本 + 后续行（嵌套/引用多行） */
+/** 行文本块（段落/标题/列表项/引用）重建源：前缀 + 文本 + 后续行（嵌套/引用多行）；
+ *  块锚点 {#id} 追加到末行行尾（阶段 3：AI 块级定位稳定性） */
 function rebuildLineBlock(block: EditableBlock, text: string): string {
   const lines = block.source.split("\n");
   const first = lines[0] ?? "";
@@ -41,7 +42,11 @@ function rebuildLineBlock(block: EditableBlock, text: string): string {
     prefix = "";
   }
   // 保留后续行（嵌套子列表 / 引用后续行）；第一行替换为 prefix + text
-  return [prefix + text, ...lines.slice(1)].join("\n");
+  const rebuilt = [prefix + text, ...lines.slice(1)].join("\n");
+  if (block.meta.anchor) {
+    return rebuilt + " {#" + block.meta.anchor + "}";
+  }
+  return rebuilt;
 }
 
 /** 替换块的文本内容（inline markdown 文本） */
@@ -53,7 +58,8 @@ export function replaceBlockText(markdown: string, index: number, text: string):
   let newSource: string;
   if (block.kind === "code") {
     const lang = block.meta.lang ?? "";
-    newSource = "```" + lang + "\n" + text + "\n```";
+    const body = block.meta.anchor ? text + " {#" + block.meta.anchor + "}" : text;
+    newSource = "```" + lang + "\n" + body + "\n```";
   } else {
     newSource = rebuildLineBlock(block, text);
   }

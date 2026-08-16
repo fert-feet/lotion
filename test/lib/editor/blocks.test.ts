@@ -58,3 +58,24 @@ describe("parseEditableBlocks", () => {
     expect(blocks[1].start < blocks[2].start).toBe(true);
   });
 });
+
+describe("parseEditableBlocks 块锚点", () => {
+  it("段落/标题/列表项行尾 {#id} 提取为 meta.anchor，text 剥离", () => {
+    const md = "标题 {#t1}\n\n正文 {#p1}\n\n- 列表项 {#li1}";
+    const blocks = parseEditableBlocks(md);
+    expect(blocks.map((b) => b.meta.anchor)).toEqual(["t1", "p1", "li1"]);
+    expect(blocks.map((b) => b.text)).toEqual(["标题", "正文", "列表项"]);
+  });
+
+  it("代码块锚点取内容最后一行（围栏内代码不受影响）", () => {
+    const md = "```ts\nconst a = 1;\n// 说明 {#code1}\n```";
+    const blocks = parseEditableBlocks(md);
+    expect(blocks[0].meta.anchor).toBe("code1");
+    expect(blocks[0].text).toBe("const a = 1;\n// 说明");
+  });
+
+  it("无锚点块 meta.anchor 为 undefined", () => {
+    const blocks = parseEditableBlocks("普通段落");
+    expect(blocks[0].meta.anchor).toBeUndefined();
+  });
+});

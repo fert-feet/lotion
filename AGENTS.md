@@ -56,11 +56,11 @@ lib/
 │   ├── auth.ts              # scrypt 哈希 + 会话管理 + cookie 工具
 │   └── request-user.ts      # REST 路由公共鉴权入口
 ├── agent.ts                # Agent 核心：streamText + doom loop 检测 + SSE 事件流包装
-├── ai/tools/               # 17 个 Tool（search/list/read/create/update/rename/move/icon/publish/archive/restore/trash/delete/askUser/todoWrite/docInfo/docOutline）
+├── ai/tools/               # 19 个 Tool（search/list/read/create/update/rename/move/icon/publish/archive/restore/trash/delete/askUser/todoWrite/docInfo/docOutline/docBlocks/updateBlock）
 ├── ai-prompts.ts           # AI 系统提示词（领域概念/使用模式/规范/安全）
 ├── content.ts              # 文档内容适配层：Markdown 存储（旧 BlockNote JSON 惰性转换）
 ├── blocks-to-markdown.ts   # 自研 BlockNote JSON → Markdown（读旧数据，无运行时依赖）
-├── editor/                 # 自研块编辑器内核：blocks.ts(可编辑块模型)/ops.ts(编辑操作)/dom-to-markdown.ts
+├── editor/                 # 自研块编辑器内核：blocks.ts(可编辑块模型+锚点)/ops.ts(编辑操作)/anchors.ts(块锚点{#id})/dom-to-markdown.ts
 ├── compress.ts             # 上下文压缩（滑动窗口 100 条 + 模型重写式摘要）
 hooks/                      # Zustand stores + use-user
 components/                 # shadcn/ui + Toolbar + SearchCommand + Upload

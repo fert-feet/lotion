@@ -140,3 +140,33 @@ describe("编辑链：重解析后索引可用", () => {
     expect(blocks.map((b) => b.kind)).toEqual(["heading", "paragraph", "paragraph"]);
   });
 });
+
+describe("编辑操作保留块锚点", () => {
+  it("replaceBlockText 保留锚点（追加回行尾）", () => {
+    const md = "旧文本 {#keep}";
+    const { markdown } = replaceBlockText(md, 0, "新文本");
+    expect(markdown).toBe("新文本 {#keep}");
+  });
+
+  it("code 块替换保留锚点（追加到内容末行）", () => {
+    const md = "```ts\nconst a = 1;\n{#code1}\n```".replace("{#code1}", "// 说明 {#code1}");
+    const { markdown } = replaceBlockText(md, 0, "const b = 2;");
+    expect(markdown).toBe("```ts\nconst b = 2; {#code1}\n```");
+  });
+
+  it("splitBlock 新块不继承锚点，旧块保留", () => {
+    const md = "前半后半 {#seg}";
+    const { markdown } = splitBlock(md, 0, "前半", "后半");
+    expect(markdown).toBe("前半 {#seg}\n\n后半");
+  });
+
+  it("mergeIntoPrevious 保留前块锚点", () => {
+    const md = "甲 {#a}\n\n乙";
+    const { markdown } = mergeIntoPrevious(md, 1);
+    expect(markdown).toBe("甲 乙 {#a}");
+  });
+
+  it("toggleTodo 保留锚点", () => {
+    expect(toggleTodo("- [ ] 待办 {#t}", 0).markdown).toBe("- [x] 待办 {#t}");
+  });
+});

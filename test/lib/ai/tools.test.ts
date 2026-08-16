@@ -25,6 +25,8 @@ import { createAskUserTool } from "@/lib/ai/tools/ask-user";
 import { createTodoWriteTool } from "@/lib/ai/tools/todo-write";
 import { createGetDocInfoTool } from "@/lib/ai/tools/doc-info";
 import { createGetDocOutlineTool } from "@/lib/ai/tools/doc-outline";
+import { createGetDocBlocksTool } from "@/lib/ai/tools/doc-blocks";
+import { createUpdateBlockTool } from "@/lib/ai/tools/update-block";
 import type { ToolEvent } from "@/lib/ai/tools";
 
 vi.mock("@/lib/logger", () => {
@@ -682,5 +684,61 @@ describe("getDocOutline 工具", () => {
     const t = createGetDocOutlineTool(db, "u1");
     const result = await t.execute({ noteId: id } as never, {} as never);
     expect(result).toContain("大纲为空");
+  });
+});
+
+// ---- getDocBlocks ----
+
+describe("getDocBlocks 工具", () => {
+  it("列出块清单：序号/类型/锚点/摘要，不泄漏全文", async () => {
+    const id = seedDoc("块笔记", "# 标题 {#t1}\n\n正文内容 {#p1}\n\n- 列表项");
+    const t = createGetDocBlocksTool(db, "u1");
+    const result = await t.execute({ noteId: id } as never, {} as never);
+
+    expect(result).toContain("共 3 块");
+    expect(result).toContain("[0] (标题) 锚点: {#t1}");
+    expect(result).toContain("[1] (段落) 锚点: {#p1}");
+    expect(result).toContain("[2] (无序项)");
+  });
+
+  it("空文档返回提示；不存在返回错误", async () => {
+    const t = createGetDocBlocksTool(db, "u1");
+    expect(await t.execute({ noteId: newId() } as never, {} as never)).toContain("不存在");
+    const empty = seedDoc("空", "");
+    expect(await t.execute({ noteId: empty } as never, {} as never)).toContain("空文档");
+  });
+});
+
+// ---- updateBlock ----
+
+describe("updateBlock 工具", () => {
+  it("按锚点精确更新单块：其余原文保留，锚点保留，上报 note_modified + reference", async () => {
+    const id = seedDoc("文档", "# 标题 {#t1}\n\n正文 {#p1}\n\n结尾");
+    const { events, onEvent } = collectEvents();
+    const t = createUpdateBlockTool(db, "u1", onEvent);
+    const result = await t.execute({ noteId: id, anchor: "p1", content: "改写正文" } as never, {} as never);
+
+    expect(result).toContain("第 1 块");
+    const doc = getDocumentById(db, id, "u1")!;
+    expect(doc.content).toBe("# 标题 {#t1}\n\n改写正文 {#p1}\n\n结尾");
+    expect(events).toContainEqual({ type: "note_modified", noteId: id, title: "文档" });
+  });
+
+  it("按序号定位更新；锚点缺失/序号越界时返回指引", async () => {
+    const id = seedDoc("文档", "第一段\n\n第二段");
+    const t = createUpdateBlockTool(db, "u1");
+    expect((await t.execute({ noteId: id, index: 1, content: "改" } as never, {} as never))).toContain("已更新");
+    expect(getDocumentById(db, id, "u1")!.content).toBe("第一段\n\n改");
+
+    expect(await t.execute({ noteId: id, anchor: "no-such" } as never, {} as never)).toContain("未找到锚点");
+    expect(await t.execute({ noteId: id, index: 99, content: "x" } as never, {} as never)).toContain("超出范围");
+    expect(await t.execute({ noteId: id, content: "x" } as never, {} as never)).toContain("anchor 或 index");
+  });
+
+  it("分隔线/表格块拒绝更新；文档不存在返回错误", async () => {
+    const id = seedDoc("文档", "正文\n\n---");
+    const t = createUpdateBlockTool(db, "u1");
+    expect(await t.execute({ noteId: id, index: 1, content: "x" } as never, {} as never)).toContain("不支持");
+    expect(await t.execute({ noteId: newId(), index: 0, content: "x" } as never, {} as never)).toContain("不存在");
   });
 });

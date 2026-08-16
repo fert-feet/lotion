@@ -7,6 +7,7 @@
 // 空文档保底一个空段落块。
 
 import { parseGfm } from "@/components/markdown/parse";
+import { extractAnchor } from "./anchors";
 import type { RootContent } from "mdast";
 
 export type BlockKind =
@@ -39,6 +40,8 @@ export interface EditableBlock {
     checked?: boolean;
     ordered?: boolean;
     lang?: string;
+    /** 块锚点 {#id}（阶段 3：AI 块级定位） */
+    anchor?: string;
   };
 }
 
@@ -78,6 +81,21 @@ function inlineText(nodes: readonly RootContent[]): string {
   return out;
 }
 
+/** 行文本 + 行尾锚点提取：返回 { text, anchor } */
+function withAnchor(line: string): { text: string; anchor?: string } {
+  const { id, text } = extractAnchor(line);
+  return id ? { text, anchor: id } : { text };
+}
+
+/** 多行文本末尾行提取锚点（quote 的锚点约定在最后一行） */
+function withAnchorLastLine(multiline: string): { text: string; anchor?: string } {
+  const idx = multiline.lastIndexOf("\n");
+  if (idx === -1) return withAnchor(multiline);
+  const head = multiline.slice(0, idx + 1);
+  const { id, text } = extractAnchor(multiline.slice(idx + 1));
+  return id ? { text: head + text, anchor: id } : { text: multiline };
+}
+
 /** 引用块文本：去掉每行 "> " 前缀 */
 function quoteText(source: string): string {
   return source
@@ -109,22 +127,24 @@ function pushBlocks(node: RootContent, md: string, out: EditableBlock[]): void {
   switch (node.type) {
     case "heading": {
       const level = node.depth;
+      const { text, anchor } = withAnchor(inlineText(node.children as readonly RootContent[]));
       out.push({
         ...base,
         kind: "heading",
         mdType: "heading",
-        text: inlineText(node.children as readonly RootContent[]),
-        meta: { level },
+        text,
+        meta: { level, anchor },
       });
       return;
     }
     case "paragraph": {
+      const { text, anchor } = withAnchor(inlineText(node.children as readonly RootContent[]));
       out.push({
         ...base,
         kind: "paragraph",
         mdType: "paragraph",
-        text: inlineText(node.children as readonly RootContent[]),
-        meta: {},
+        text,
+        meta: { anchor },
       });
       return;
     }
@@ -141,33 +161,36 @@ function pushBlocks(node: RootContent, md: string, out: EditableBlock[]): void {
         const checked = typeof item.checked === "boolean" ? item.checked : undefined;
         const isTodo = itemSource.match(/^\s*[-*]\s+\[( |x|X)\]\s/) !== null;
         const kind: BlockKind = isTodo ? "todo" : node.ordered ? "numbered" : "bullet";
+        const { text, anchor } = withAnchor(listItemText(itemSource));
         out.push({
           ...itemBase,
           kind,
           mdType: "listItem",
-          text: listItemText(itemSource),
-          meta: { ordered: node.ordered === true, checked: isTodo ? checked : undefined },
+          text,
+          meta: { ordered: node.ordered === true, checked: isTodo ? checked : undefined, anchor },
         });
       }
       return;
     }
     case "blockquote": {
+      const { text, anchor } = withAnchorLastLine(quoteText(source));
       out.push({
         ...base,
         kind: "quote",
         mdType: "blockquote",
-        text: quoteText(source),
-        meta: {},
+        text,
+        meta: { anchor },
       });
       return;
     }
     case "code": {
+      const { text, anchor } = withAnchorLastLine(node.value ?? "");
       out.push({
         ...base,
         kind: "code",
         mdType: "code",
-        text: node.value ?? "",
-        meta: { lang: node.lang ?? undefined },
+        text,
+        meta: { lang: node.lang ?? undefined, anchor },
       });
       return;
     }

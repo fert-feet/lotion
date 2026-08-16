@@ -3,6 +3,8 @@ import { tool } from "ai";
 import z from "zod";
 import { logger } from "@/lib/logger";
 import { extractText } from "@/lib/extract-text";
+import { toMarkdown } from "@/lib/content";
+import { stripAnchorsFromMarkdown } from "@/lib/editor/anchors";
 import { getDocumentById } from "@/lib/local/db";
 import type { ToolEvent } from "./index";
 
@@ -31,7 +33,8 @@ export function createReadNoteTool(
       // 读取成功即上报引用来源（AI 读过哪些笔记，前端聚合展示）
       onEvent({ type: "reference", noteId, title: doc.title });
 
-      const text = extractText(doc.content || "");
+      // 正文统一 Markdown + 剥离块锚点 {#id}（块定位交给 getDocBlocks）
+      const text = extractText(stripAnchorsFromMarkdown(toMarkdown(doc.content)));
       if (!text) {
         return `笔记「${doc.title}」内容为空。（ID: ${doc.id}，更新于 ${doc.updatedAt}）`;
       }

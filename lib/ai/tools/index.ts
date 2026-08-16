@@ -18,6 +18,8 @@ import { createAskUserTool, type AskQuestion } from "./ask-user";
 import { createTodoWriteTool, type TodoItem } from "./todo-write";
 import { createGetDocInfoTool } from "./doc-info";
 import { createGetDocOutlineTool } from "./doc-outline";
+import { createGetDocBlocksTool } from "./doc-blocks";
+import { createUpdateBlockTool } from "./update-block";
 
 /** 工具执行超时（毫秒）：防止 execute 卡死导致 Agent 挂起 */
 const TOOL_TIMEOUT_MS = 30_000;
@@ -39,7 +41,9 @@ export type ToolName =
   | "askUser"
   | "todoWrite"
   | "getDocInfo"
-  | "getDocOutline";
+  | "getDocOutline"
+  | "getDocBlocks"
+  | "updateBlock";
 
 /**
  * 工具事件（对齐 DSH agent 的 tool/start + tool/end 生命周期）：
@@ -79,6 +83,8 @@ export const TOOL_META: Record<ToolName, { label: string; icon: string; descript
   todoWrite: { label: "任务清单", icon: "✅", description: "维护会话多步任务清单" },
   getDocInfo: { label: "笔记信息", icon: "ℹ️", description: "读取笔记元数据信息" },
   getDocOutline: { label: "笔记大纲", icon: "📑", description: "读取笔记标题层级大纲" },
+  getDocBlocks: { label: "块清单", icon: "🧩", description: "列出笔记块清单（定位用）" },
+  updateBlock: { label: "更新块", icon: "🎯", description: "精确更新单个块（锚点/序号）" },
 };
 
 /** 兼容旧引用：工具中文标签映射 */
@@ -182,6 +188,14 @@ function summarizeResult(tool: ToolName, result: string): string {
     case "getDocOutline": {
       const t = pick(/「([^」]+)」大纲/);
       return t ? "已读取「" + t + "」大纲" : "已读取大纲";
+    }
+    case "getDocBlocks": {
+      const n = pick(/共 (\d+) 块/);
+      return n !== null ? "已列出 " + n + " 个块" : "已读取块清单";
+    }
+    case "updateBlock": {
+      const m = result.match(/已更新笔记「([^」]+)」第 (\d+) 块/);
+      return m ? "已更新「" + m[1] + "」第 " + m[2] + " 块" : "已更新块";
     }
   }
 }
@@ -360,6 +374,8 @@ export function createTools(
     todoWrite: createTodoWriteTool(db, userId, onEvent),
     getDocInfo: createGetDocInfoTool(db, userId),
     getDocOutline: createGetDocOutlineTool(db, userId),
+    getDocBlocks: createGetDocBlocksTool(db, userId),
+    updateBlock: createUpdateBlockTool(db, userId, onEvent),
   };
 
   // 请求内工具调用自增序号（tool 卡片稳定 key）
