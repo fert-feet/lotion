@@ -1,13 +1,11 @@
-import { cn } from "@/lib/utils"
+"use client";
 
-function Skeleton({ className, ...props }: React.ComponentProps<"div">) {
-  return (
-    <div
-      data-slot="skeleton"
-      className={cn("bg-primary/5 animate-pulse rounded-md", className)}
-      {...props}
-    />
-  )
+// 自研 Skeleton：shimmer 占位（对齐 DSH 骨架屏风格）
+import type { HTMLAttributes } from "react";
+import { cn } from "@/lib/utils";
+
+function Skeleton({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
+  return <div className={cn("animate-pulse rounded-md bg-shell-row-active", className)} {...props} />;
 }
 
-export { Skeleton }
+export { Skeleton };
