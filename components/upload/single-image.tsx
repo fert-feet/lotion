@@ -6,7 +6,7 @@ import {
   Trash2Icon,
   UploadCloudIcon,
   XIcon,
-} from 'lucide-react';
+} from "@/components/icons";
 import * as React from 'react';
 import { useDropzone, type DropzoneOptions } from 'react-dropzone';
 import { ProgressCircle } from './progress-circle';

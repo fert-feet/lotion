@@ -2,7 +2,7 @@
 
 // 文档副作用卡片（对齐 DSH command/notice 卡片家族）：
 // created → "已创建草稿"卡片（可打开）；modified → 轻量 chip；delete_confirm → danger 确认卡。
-import { AlertTriangle, Ban, Check, FileText, PenLine } from "lucide-react";
+import { AlertTriangle, Ban, Check, FileText, PenLine } from "@/components/icons";
 import { cn } from "@/lib/utils";
 import type { NoteEvent } from "./types";
 

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "../../../components/ui/button";
 import { useRefresh } from "@/hooks/use-refresh";
 import { update, remove } from "@/lib/db";
-import { FileText, Trash2 } from "lucide-react";
+import { FileText, Trash2 } from "@/components/icons";
 
 interface DraftBannerProps {
   documentId: string;

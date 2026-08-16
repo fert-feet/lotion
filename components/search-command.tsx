@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import useSearch from "@/hooks/use-search";
 import { getSearch, type SidebarDocument } from "@/lib/db";
 import { CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "./ui/command";
-import { File } from "lucide-react";
+import { File } from "@/components/icons";
 
 const SearchCommand = () => {
     const { user } = useUser();

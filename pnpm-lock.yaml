@@ -62,9 +62,6 @@ importers:
       emoji-picker-react:
         specifier: ^4.14.1
         version: 4.14.1(react@19.1.0)
-      lucide-react:
-        specifier: ^0.544.0
-        version: 0.544.0(react@19.1.0)
       next:
         specifier: 15.5.4
         version: 15.5.4(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
@@ -2621,11 +2618,6 @@ packages:
 
   lucide-react@0.525.0:
     resolution: {integrity: sha512-Tm1txJ2OkymCGkvwoHt33Y2JpN5xucVq1slHcgE6Lk0WjDfjgKWor5CdVER8U6DvcfMwh4M8XxmpTiyzfmfDYQ==}
-    peerDependencies:
-      react: ^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0
-
-  lucide-react@0.544.0:
-    resolution: {integrity: sha512-t5tS44bqd825zAW45UQxpG2CvcC4urOwn2TrwSH8u+MjeE+1NnWl6QqeQ/6NdjMqdOygyiT9p3Ev0p1NJykxjw==}
     peerDependencies:
       react: ^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0
 
@@ -6427,10 +6419,6 @@ snapshots:
       js-tokens: 4.0.0
 
   lucide-react@0.525.0(react@19.1.0):
-    dependencies:
-      react: 19.1.0
-
-  lucide-react@0.544.0(react@19.1.0):
     dependencies:
       react: 19.1.0
 

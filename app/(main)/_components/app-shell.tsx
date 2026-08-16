@@ -7,7 +7,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useParams } from "next/navigation";
-import { MenuIcon } from "lucide-react";
+import { MenuIcon } from "@/components/icons";
 import { computeColumns, SIDEBAR_AUTO_COLLAPSE, SIDEBAR_DEFAULT } from "@/lib/layout/columns";
 import { useLayout } from "@/hooks/use-layout";
 import Sidebar from "./sidebar/sidebar";

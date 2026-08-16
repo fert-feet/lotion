@@ -7,7 +7,7 @@ import { getById, getByIdFresh, update, type Document } from "@/lib/db";
 import { useRefresh } from "@/hooks/use-refresh";
 import { Skeleton } from "../../../../../components/ui/skeleton";
 import { Button } from "../../../../../components/ui/button";
-import { FileQuestion } from "lucide-react";
+import { FileQuestion } from "@/components/icons";
 import Toolbar from "../../../../../components/toobar";
 import Cover from "../../../_components/cover";
 

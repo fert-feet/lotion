@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { cn } from "../../../lib/utils";
 import { Button } from "../../../components/ui/button";
-import { ImageIcon, X } from "lucide-react";
+import { ImageIcon, X } from "@/components/icons";
 import useCoverImage from "../../../hooks/use-cover-image";
 import { useParams } from "next/navigation";
 import { removeCoverImage } from "@/lib/db";

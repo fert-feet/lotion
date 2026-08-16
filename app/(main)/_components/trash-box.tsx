@@ -2,7 +2,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useState, useEffect } from "react";
 import { Spinner } from "../../../components/ui/spinner";
-import { Search, Trash, Undo } from "lucide-react";
+import { Search, Trash, Undo } from "@/components/icons";
 import { Input } from "../../../components/ui/input";
 import ConfirmModal from "../../../components/modals/confirm-modal";
 import { useUser } from "@/hooks/use-user";

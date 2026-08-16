@@ -1,4 +1,4 @@
-import { ImageIcon, Smile, X } from "lucide-react";
+import { ImageIcon, Smile, X } from "@/components/icons";
 import { type Document } from "@/lib/db";
 import IconPicker from "./icon-picker";
 import { Button } from "./ui/button";

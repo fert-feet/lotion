@@ -8,7 +8,7 @@ import { useMemo } from "react";
 import dynamic from "next/dynamic";
 import Image from "next/image";
 import { Button } from "../../../../../components/ui/button";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight } from "@/components/icons";
 import Toolbar from "../../../../../components/toobar";
 import Cover from "../../../../(main)/_components/cover";
 

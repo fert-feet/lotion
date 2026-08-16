@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { MenuIcon } from "lucide-react";
+import { MenuIcon } from "@/components/icons";
 import Title from "./title";
 import Banner from "./banner";
 import DraftBanner from "./draft-banner";

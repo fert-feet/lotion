@@ -4,7 +4,7 @@ import { useUser } from "@/hooks/use-user";
 import { useRefresh } from "@/hooks/use-refresh";
 import { getSearch, type SidebarDocument } from "@/lib/db";
 import { truncateMentionTitle } from "@/lib/mention";
-import { FileText } from "lucide-react";
+import { FileText } from "@/components/icons";
 import { useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 

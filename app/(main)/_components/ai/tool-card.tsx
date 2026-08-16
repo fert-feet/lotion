@@ -4,7 +4,7 @@
 // 行式（chevron + 图标 + 名称 + 分隔点 + 摘要）；running 时 300px 流光扫过；
 // 点击展开参数正文（mono 代码块）。
 import { useState } from "react";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight } from "@/components/icons";
 import { cn } from "@/lib/utils";
 import type { ToolCardState } from "./types";
 

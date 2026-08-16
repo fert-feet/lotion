@@ -5,7 +5,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { PenLine } from "lucide-react";
+import { PenLine } from "@/components/icons";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");

@@ -1,4 +1,4 @@
-import { FileText, PenLine, Sparkles } from "lucide-react";
+import { FileText, PenLine, Sparkles } from "@/components/icons";
 
 // 产品演示卡：左侧文档 + 右侧 AI 对话，网格纸背景，纯 CSS 构建
 const Heroes = () => {

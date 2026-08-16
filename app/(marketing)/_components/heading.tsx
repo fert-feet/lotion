@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { useUser } from "@/hooks/use-user";
-import { ArrowRight, Sparkles } from "lucide-react";
+import { ArrowRight, Sparkles } from "@/components/icons";
 import { Spinner } from "../../../components/ui/spinner";
 import Link from "next/link";
 

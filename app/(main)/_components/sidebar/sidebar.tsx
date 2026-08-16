@@ -5,7 +5,7 @@
 // rail 形态（56px）= 36px 图标控件列：logo / 搜索 / 新建 / AI，底部设置/回收站/批量/用户。
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { PenLine, Plus, Search, Sparkles } from "lucide-react";
+import { PenLine, Plus, Search, Sparkles } from "@/components/icons";
 import { toast } from "sonner";
 import { useUser } from "@/hooks/use-user";
 import { useRefresh } from "@/hooks/use-refresh";

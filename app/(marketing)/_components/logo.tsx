@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { PenLine } from "lucide-react";
+import { PenLine } from "@/components/icons";
 
 const Logo = () => {
     return (

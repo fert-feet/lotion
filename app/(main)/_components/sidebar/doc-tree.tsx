@@ -5,7 +5,7 @@
 // 选中整行底色（shell-row-active）。批量删除模式下行内出现复选框。
 import { useParams, useRouter } from "next/navigation";
 import { memo, useMemo, useRef } from "react";
-import { ChevronRight, FileIcon, MoreHorizontal, Plus, Trash } from "lucide-react";
+import { ChevronRight, FileIcon, MoreHorizontal, Plus, Trash } from "@/components/icons";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useUser } from "@/hooks/use-user";
@@ -92,7 +92,7 @@ const DocRow = memo(function DocRow({
       <span className="flex h-5 w-4 flex-none items-center justify-center text-shell-label-tertiary">
         {hasChildren ? (
           <ChevronRight
-            onClick={(e) => { e.stopPropagation(); onExpand(); }}
+            onClick={(e: React.MouseEvent) => { e.stopPropagation(); onExpand(); }}
             className={cn("h-4 w-4 transition-transform duration-150 ease-[var(--ds-ease-in-out)]", expanded && "rotate-90")}
           />
         ) : null}

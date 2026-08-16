@@ -5,7 +5,7 @@ import useOrigin from "../../../hooks/use-origin";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Popover, PopoverContent, PopoverTrigger } from "../../../components/ui/popover";
-import { Check, Copy, Globe } from "lucide-react";
+import { Check, Copy, Globe } from "@/components/icons";
 import { update, type Document } from "@/lib/db";
 import { useRefresh } from "@/hooks/use-refresh";
 

@@ -4,7 +4,7 @@
 // 标题 + 内嵌搜索胶囊（展开为全宽输入框，标题/操作按钮让位）+ 圆形图标操作。
 // expanded 由父级控制（rail 的搜索按钮点击后展开侧边栏并强制展开胶囊）。
 import { useEffect, useRef } from "react";
-import { Plus, Search, Sparkles, X } from "lucide-react";
+import { Plus, Search, Sparkles, X } from "@/components/icons";
 import { useLayout } from "@/hooks/use-layout";
 import { cn } from "@/lib/utils";
 

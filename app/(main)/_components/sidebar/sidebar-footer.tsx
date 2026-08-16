@@ -2,7 +2,7 @@
 
 // 侧边栏底部（DSH 风格 icon 栏）：设置 / 回收站 / 批量删除 / 用户菜单。
 // 28px 圆形图标按钮，hover 底色 shell-row-hover；rail 形态下 36px 竖排。
-import { ListChecks, Settings, Trash } from "lucide-react";
+import { ListChecks, Settings, Trash } from "@/components/icons";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { cn } from "@/lib/utils";

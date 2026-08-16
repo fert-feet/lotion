@@ -5,7 +5,7 @@
 // SSE 事件按 turn 归组渲染，工具生命周期以卡片呈现（running → done/error）。
 import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Bot, Check, History, Loader2, MessageSquare, Plus, Send, Sparkles, Square, Trash2, X } from "lucide-react";
+import { Bot, Check, History, Loader2, MessageSquare, Plus, Send, Sparkles, Square, Trash2, X } from "@/components/icons";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useLayout } from "@/hooks/use-layout";

@@ -7,7 +7,7 @@ import ConfirmModal from "../../../components/modals/confirm-modal";
 import { useUser } from "@/hooks/use-user";
 import { useRefresh } from "@/hooks/use-refresh";
 import { remove, restore } from "@/lib/db";
-import { Archive, Trash2, Undo2 } from "lucide-react";
+import { Archive, Trash2, Undo2 } from "@/components/icons";
 
 interface BannerProps {
     documentId: string;

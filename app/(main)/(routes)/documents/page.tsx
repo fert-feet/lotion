@@ -2,7 +2,7 @@
 
 import { useUser } from "@/hooks/use-user";
 import { Button } from "../../../../components/ui/button";
-import { FileText, Sparkles } from "lucide-react";
+import { FileText, Sparkles } from "@/components/icons";
 import { create } from "@/lib/db";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
