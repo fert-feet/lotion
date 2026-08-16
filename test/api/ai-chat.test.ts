@@ -119,7 +119,7 @@ describe("POST /api/ai/chat（本地版）", () => {
   });
 
   it("跨用户会话返回 404（归属校验）", async () => {
-    const { cookie: cookieA, sessionId } = await seedAuth();
+    const { sessionId } = await seedAuth();
     const { createUser, createSession } = await import("@/lib/local/auth");
     const b = createUser(state.db!, "b@x.com", "password123");
     const tokenB = createSession(state.db!, b.id);

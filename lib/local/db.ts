@@ -211,6 +211,22 @@ export function insertChatMessage(db: Database.Database, input: ChatMessageInput
 
 // ---- 文档 ----
 
+/** Document → SidebarDocument（裁剪 content/coverImage，避免解构丢弃变量告警） */
+function toSidebar(d: Document): SidebarDocument {
+  return {
+    id: d.id,
+    title: d.title,
+    userId: d.userId,
+    isArchived: d.isArchived,
+    isDraft: d.isDraft,
+    parentDocument: d.parentDocument,
+    icon: d.icon,
+    isPublished: d.isPublished,
+    createdAt: d.createdAt,
+    updatedAt: d.updatedAt,
+  };
+}
+
 /** 侧边栏全量文档（未归档，createdAt 倒序，不含 content/coverImage） */
 export function listSidebarAll(db: Database.Database, userId: string): SidebarDocument[] {
   const rows = db
@@ -219,7 +235,7 @@ export function listSidebarAll(db: Database.Database, userId: string): SidebarDo
        WHERE userId = ? AND isArchived = 0 ORDER BY createdAt DESC, rowid DESC`,
     )
     .all(userId) as DocumentRow[];
-  return rows.map(rowToDocument).map(({ content: _c, coverImage: _cv, ...rest }) => rest);
+  return rows.map(rowToDocument).map(toSidebar);
 }
 
 /** @deprecated 使用 listSidebarAll 替代（保持与 lib/db.ts 相同的废弃函数） */
@@ -256,7 +272,7 @@ export function listTrash(db: Database.Database, userId: string): SidebarDocumen
        WHERE userId = ? AND isArchived = 1 ORDER BY createdAt DESC, rowid DESC`,
     )
     .all(userId) as DocumentRow[];
-  return rows.map(rowToDocument).map(({ content: _c, coverImage: _cv, ...rest }) => rest);
+  return rows.map(rowToDocument).map(toSidebar);
 }
 
 /** 全局搜索候选（与 lib/db.ts 一致：取未归档全量，关键字过滤在客户端 search-command 完成） */

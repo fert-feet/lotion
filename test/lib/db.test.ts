@@ -155,7 +155,7 @@ describe("lib/db 服务端分派（直查 SQLite）", () => {
 describe("lib/db 客户端分派（fetch REST）", () => {
   const fetchMock = vi.fn();
 
-  function jsonRes(data: unknown, ok = true, status = 200) {
+  function jsonRes(data: unknown, status = 200) {
     return new Response(JSON.stringify(data), {
       status,
       headers: { "content-type": "application/json" },
@@ -232,7 +232,7 @@ describe("lib/db 客户端分派（fetch REST）", () => {
   });
 
   it("HTTP 错误抛出服务端 error 信息", async () => {
-    fetchMock.mockResolvedValueOnce(jsonRes({ error: "Unauthorized" }, false, 401));
+    fetchMock.mockResolvedValueOnce(jsonRes({ error: "Unauthorized" }, 401));
     await expect(getSidebarAll("u1")).rejects.toThrow("Unauthorized");
   });
 
