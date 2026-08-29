@@ -123,11 +123,15 @@ export function loginUser(db: Database.Database, email: string, password: string
 /** 创建会话：返回随机 token（同时作为 cookie 值），过期时间 30 天 */
 export function createSession(db: Database.Database, userId: string): string {
   const token = randomBytes(32).toString("hex");
-  const expiresAt = new Date(Date.now() + SESSION_TTL_DAYS * 24 * 60 * 60 * 1000).toISOString();
+  // 单次时钟读取：createdAt 与 expiresAt 同源派生，
+  // 保证库中 TTL 恰为 30 天（此前两次独立 Date.now() 跨 1ms 会导致 TTL 少 1ms）
+  const now = Date.now();
+  const createdAt = new Date(now).toISOString();
+  const expiresAt = new Date(now + SESSION_TTL_DAYS * 24 * 60 * 60 * 1000).toISOString();
   db.prepare("INSERT INTO sessions (id, userId, createdAt, expiresAt) VALUES (?,?,?,?)").run(
     token,
     userId,
-    isoNow(),
+    createdAt,
     expiresAt,
   );
   // 顺手清理该用户已过期会话（会话表保持精简）
