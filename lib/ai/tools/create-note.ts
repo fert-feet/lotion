@@ -2,7 +2,7 @@ import type Database from "better-sqlite3";
 import { tool } from "ai";
 import z from "zod";
 import { logger } from "@/lib/logger";
-import { extractMarkdownTitle } from "@/lib/content";
+import { extractMarkdownTitle, toBlocks } from "@/lib/content";
 import { createDocument, getDocumentById, updateDocument } from "@/lib/local/db";
 import type { ToolEvent } from "./index";
 
@@ -21,7 +21,7 @@ export function createCreateNoteTool(
       "创建一篇新笔记。标题应简洁地概括内容主题。可指定 parentDocumentId 在该笔记下创建子笔记（不指定则创建在根目录）。",
     inputSchema: z.object({
       title: z.string().describe("笔记标题"),
-      content: z.string().describe("笔记内容，使用 Markdown 格式书写，支持标题、加粗、列表、代码块等（原样存储）"),
+      content: z.string().describe("笔记内容，使用 Markdown 格式书写，支持标题、加粗、列表、代码块等（系统会转换为块存储）"),
       parentDocumentId: z.string().optional().describe("父笔记 ID（可选）：在该笔记下创建子笔记"),
     }),
     execute: async ({ title, content, parentDocumentId }: { title: string; content: string; parentDocumentId?: string }) => {
@@ -39,13 +39,14 @@ export function createCreateNoteTool(
 
       logger.tools.info("[createNote] 创建笔记", { title, contentLen: content.length, parentDocumentId });
 
-      // Markdown 原文存储（阶段 1：文档模型 Markdown 化，AI 读写无损）
+      // 规范存储格式为 BlockNote JSON（无损）：模型输出 Markdown → 服务端转 blocks（生成真实块 ID）
       // 正文开头的 # 一级标题作为文档 title（AI 的 title 参数可能为空或与正文不一致）
       const finalTitle = extractMarkdownTitle(content) || title;
+      const blocks = await toBlocks(content);
 
-      // 本地库插入草稿（isDraft=true 与 PG 版语义一致；content 为 Markdown 原文）
+      // 本地库插入草稿（isDraft=true 与 PG 版语义一致；content 为 BlockNote JSON）
       const docId = createDocument(db, userId, finalTitle, parentDocumentId ?? null);
-      updateDocument(db, docId, { content, isDraft: true });
+      updateDocument(db, docId, { content: JSON.stringify(blocks), isDraft: true });
 
       createdNoteId = docId;
       // 副作用通过 onEvent 上报：note_created 驱动前端跳转，reference 在流结束时汇总展示胶囊

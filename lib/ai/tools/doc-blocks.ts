@@ -2,30 +2,16 @@ import type Database from "better-sqlite3";
 import { tool } from "ai";
 import z from "zod";
 import { logger } from "@/lib/logger";
-import { toMarkdown } from "@/lib/content";
-import { parseEditableBlocks } from "@/lib/editor/blocks";
 import { getDocumentById } from "@/lib/local/db";
+import { blockText, ensureDocBlocks, flattenBlocks, kindLabel } from "./blocks-util";
 
 /** 块摘要长度 */
 const SNIPPET_CHAR_LIMIT = 60;
 
-/** 块类型中文标签（getDocBlocks 输出用） */
-const KIND_LABELS: Record<string, string> = {
-  paragraph: "段落",
-  heading: "标题",
-  bullet: "无序项",
-  numbered: "有序项",
-  todo: "任务项",
-  quote: "引用",
-  code: "代码块",
-  divider: "分隔线",
-  table: "表格",
-};
-
 export function createGetDocBlocksTool(db: Database.Database, userId: string) {
   return tool({
     description:
-      "列出笔记的块清单（对齐 SiYuan 块模型）：每个块的序号、类型、锚点 ID（{#id}，若有）与文本摘要。用于精确定位块（配合 updateBlock 按序号或锚点更新）。",
+      "列出笔记的块清单（对齐 BlockNote 块模型）：每个块的序号、类型、块 ID 与文本摘要。用于精确定位块（配合 updateBlock 按块 ID 或序号更新）。",
     inputSchema: z.object({
       noteId: z.string().describe("笔记 ID"),
     }),
@@ -36,20 +22,23 @@ export function createGetDocBlocksTool(db: Database.Database, userId: string) {
         return `笔记 ${noteId} 不存在或无权访问。`;
       }
 
-      const blocks = parseEditableBlocks(toMarkdown(doc.content));
-      if (blocks.length === 1 && blocks[0].text === "") {
+      // 规范存储为 BlockNote JSON；存量 Markdown 惰性转换并写回（块 ID 持久化）
+      const { blocks } = (await ensureDocBlocks(db, userId, noteId))!;
+      const flat = flattenBlocks(blocks);
+      if (flat.length === 0 || (flat.length === 1 && !blockText(flat[0].block))) {
         return `笔记「${doc.title}」是空文档。`;
       }
 
-      const lines = blocks.map((b) => {
-        const kind = KIND_LABELS[b.kind] ?? b.kind;
-        const anchor = b.meta.anchor ? ` 锚点: {#${b.meta.anchor}}` : "";
-        const snippet = b.text.replace(/\n/g, " ").slice(0, SNIPPET_CHAR_LIMIT);
-        const text = snippet ? ` 内容: ${snippet}${b.text.length > SNIPPET_CHAR_LIMIT ? "..." : ""}` : "";
-        return `[${b.index}] (${kind})${anchor}${text}`;
+      const lines = flat.map(({ index, block }) => {
+        const kind = kindLabel(block.type);
+        const id = block.id ? ` ID: ${block.id}` : "";
+        const text = blockText(block).replace(/\n/g, " ").trim();
+        const snippet = text.slice(0, SNIPPET_CHAR_LIMIT);
+        const tail = text.length > SNIPPET_CHAR_LIMIT ? "..." : "";
+        return `[${index}] (${kind})${id}${snippet ? ` 内容: ${snippet}${tail}` : ""}`;
       });
 
-      return `笔记「${doc.title}」共 ${blocks.length} 块：\n${lines.join("\n")}`;
+      return `笔记「${doc.title}」共 ${flat.length} 块：\n${lines.join("\n")}`;
     },
   });
 }

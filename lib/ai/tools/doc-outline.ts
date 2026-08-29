@@ -42,7 +42,7 @@ export function createGetDocOutlineTool(db: Database.Database, userId: string) {
         return `笔记 ${noteId} 不存在或无权访问。`;
       }
 
-      const headings = collectHeadings(toMarkdown(doc.content));
+      const headings = collectHeadings(await toMarkdown(doc.content));
       if (headings.length === 0) {
         return `笔记「${doc.title}」没有标题结构（大纲为空）。`;
       }

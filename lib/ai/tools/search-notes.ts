@@ -3,7 +3,6 @@ import { tool } from "ai";
 import z from "zod";
 import { logger } from "@/lib/logger";
 import { extractText } from "@/lib/extract-text";
-import { stripAnchorsFromMarkdown } from "@/lib/editor/anchors";
 import { searchDocuments } from "@/lib/local/db";
 
 /** 搜索结果上限 */
@@ -37,7 +36,7 @@ export function createSearchNotesTool(db: Database.Database, userId: string) {
       }
 
       const lines = matches.map((d) => {
-        const snippet = extractText(stripAnchorsFromMarkdown(d.content || "")).slice(0, SNIPPET_CHAR_LIMIT);
+        const snippet = extractText(d.content || "").slice(0, SNIPPET_CHAR_LIMIT);
         return `- ${d.title} (id: ${d.id}, 更新于 ${d.updatedAt})${snippet ? ` | 摘要: ${snippet}...` : ""}`;
       });
 

@@ -690,15 +690,48 @@ describe("getDocOutline 工具", () => {
 // ---- getDocBlocks ----
 
 describe("getDocBlocks 工具", () => {
-  it("列出块清单：序号/类型/锚点/摘要，不泄漏全文", async () => {
-    const id = seedDoc("块笔记", "# 标题 {#t1}\n\n正文内容 {#p1}\n\n- 列表项");
+  it("列出块清单：序号/类型/块 ID/摘要，不泄漏全文", async () => {
+    const content = JSON.stringify([
+      { id: "b-0", type: "heading", props: { level: 1 }, content: [{ type: "text", text: "标题", styles: {} }], children: [] },
+      { id: "b-1", type: "paragraph", content: [{ type: "text", text: "正文内容", styles: {} }], children: [] },
+      { id: "b-2", type: "bulletListItem", content: [{ type: "text", text: "列表项", styles: {} }], children: [] },
+    ]);
+    const id = seedDoc("块笔记", content);
     const t = createGetDocBlocksTool(db, "u1");
     const result = await t.execute({ noteId: id } as never, {} as never);
 
     expect(result).toContain("共 3 块");
-    expect(result).toContain("[0] (标题) 锚点: {#t1}");
-    expect(result).toContain("[1] (段落) 锚点: {#p1}");
+    expect(result).toContain("[0] (标题) ID: b-0");
+    expect(result).toContain("[1] (段落) ID: b-1");
     expect(result).toContain("[2] (无序项)");
+  });
+
+  it("嵌套子块带点号序号", async () => {
+    const content = JSON.stringify([
+      {
+        id: "p-0",
+        type: "paragraph",
+        content: [{ type: "text", text: "父块", styles: {} }],
+        children: [
+          { id: "c-0", type: "paragraph", content: [{ type: "text", text: "子块", styles: {} }], children: [] },
+        ],
+      },
+    ]);
+    const id = seedDoc("嵌套", content);
+    const result = await createGetDocBlocksTool(db, "u1").execute({ noteId: id } as never, {} as never);
+
+    expect(result).toContain("共 2 块");
+    expect(result).toContain("[0.1]");
+    expect(result).toContain("ID: c-0");
+  });
+
+  it("存量 Markdown 惰性转 blocks 后同样列出（生成真实块 ID）", async () => {
+    const id = seedDoc("MD 笔记", "# 标题\n\n正文\n\n- 列表项");
+    const result = await createGetDocBlocksTool(db, "u1").execute({ noteId: id } as never, {} as never);
+
+    expect(result).toContain("共 3 块");
+    expect(result).toContain("(标题)");
+    expect(result).toContain("ID: ");
   });
 
   it("空文档返回提示；不存在返回错误", async () => {
@@ -712,31 +745,63 @@ describe("getDocBlocks 工具", () => {
 // ---- updateBlock ----
 
 describe("updateBlock 工具", () => {
-  it("按锚点精确更新单块：其余原文保留，锚点保留，上报 note_modified + reference", async () => {
-    const id = seedDoc("文档", "# 标题 {#t1}\n\n正文 {#p1}\n\n结尾");
+  it("按块 ID 精确更新单块：其余原文保留、块 ID 不变，上报 note_modified + reference", async () => {
+    const content = JSON.stringify([
+      { id: "t-0", type: "heading", props: { level: 1 }, content: [{ type: "text", text: "标题", styles: {} }], children: [] },
+      { id: "p-0", type: "paragraph", content: [{ type: "text", text: "正文", styles: {} }], children: [] },
+      { id: "p-1", type: "paragraph", content: [{ type: "text", text: "结尾", styles: {} }], children: [] },
+    ]);
+    const id = seedDoc("文档", content);
     const { events, onEvent } = collectEvents();
     const t = createUpdateBlockTool(db, "u1", onEvent);
-    const result = await t.execute({ noteId: id, anchor: "p1", content: "改写正文" } as never, {} as never);
+    const result = await t.execute({ noteId: id, blockId: "p-0", content: "改写正文" } as never, {} as never);
 
     expect(result).toContain("第 1 块");
-    const doc = getDocumentById(db, id, "u1")!;
-    expect(doc.content).toBe("# 标题 {#t1}\n\n改写正文 {#p1}\n\n结尾");
+    const blocks = JSON.parse(getDocumentById(db, id, "u1")!.content ?? "");
+    expect(blocks[1].id).toBe("p-0"); // 块 ID 不变
+    expect(blocks[1].content).toEqual([{ type: "text", text: "改写正文", styles: {} }]);
+    expect(blocks[0].content[0].text).toBe("标题"); // 其余块原样保留
+    expect(blocks[2].content[0].text).toBe("结尾");
     expect(events).toContainEqual({ type: "note_modified", noteId: id, title: "文档" });
   });
 
-  it("按序号定位更新；锚点缺失/序号越界时返回指引", async () => {
-    const id = seedDoc("文档", "第一段\n\n第二段");
+  it("按序号定位更新；blockId 缺失/序号越界时返回指引", async () => {
+    const content = JSON.stringify([
+      { id: "a", type: "paragraph", content: [{ type: "text", text: "第一段", styles: {} }], children: [] },
+      { id: "b", type: "paragraph", content: [{ type: "text", text: "第二段", styles: {} }], children: [] },
+    ]);
+    const id = seedDoc("文档", content);
     const t = createUpdateBlockTool(db, "u1");
     expect((await t.execute({ noteId: id, index: 1, content: "改" } as never, {} as never))).toContain("已更新");
-    expect(getDocumentById(db, id, "u1")!.content).toBe("第一段\n\n改");
+    expect(JSON.parse(getDocumentById(db, id, "u1")!.content ?? "")[1].content[0].text).toBe("改");
 
-    expect(await t.execute({ noteId: id, anchor: "no-such" } as never, {} as never)).toContain("未找到锚点");
+    expect(await t.execute({ noteId: id, blockId: "no-such" } as never, {} as never)).toContain("未找到 ID");
     expect(await t.execute({ noteId: id, index: 99, content: "x" } as never, {} as never)).toContain("超出范围");
-    expect(await t.execute({ noteId: id, content: "x" } as never, {} as never)).toContain("anchor 或 index");
+    expect(await t.execute({ noteId: id, content: "x" } as never, {} as never)).toContain("blockId 或 index");
+  });
+
+  it("存量 Markdown 惰性转 blocks 后按块 ID 更新并写回 JSON（其余块保留）", async () => {
+    const id = seedDoc("文档", "第一段\n\n第二段");
+    const list = await createGetDocBlocksTool(db, "u1").execute({ noteId: id } as never, {} as never);
+    const m = (list as string).match(/ID: ([0-9a-f-]+)/);
+    expect(m).toBeTruthy();
+
+    const t = createUpdateBlockTool(db, "u1");
+    const result = await t.execute({ noteId: id, blockId: m![1], content: "改写" } as never, {} as never);
+    expect(result).toContain("已更新");
+
+    const after = JSON.parse(getDocumentById(db, id, "u1")!.content ?? "");
+    expect(after[0].id).toBe(m![1]);
+    expect(after[0].content[0].text).toBe("改写");
+    expect(after[1].content[0].text).toBe("第二段");
   });
 
   it("分隔线/表格块拒绝更新；文档不存在返回错误", async () => {
-    const id = seedDoc("文档", "正文\n\n---");
+    const content = JSON.stringify([
+      { id: "a", type: "paragraph", content: [{ type: "text", text: "正文", styles: {} }], children: [] },
+      { id: "d", type: "divider", props: {}, content: [], children: [] },
+    ]);
+    const id = seedDoc("文档", content);
     const t = createUpdateBlockTool(db, "u1");
     expect(await t.execute({ noteId: id, index: 1, content: "x" } as never, {} as never)).toContain("不支持");
     expect(await t.execute({ noteId: newId(), index: 0, content: "x" } as never, {} as never)).toContain("不存在");

@@ -15,8 +15,8 @@ export const NOTE_ASSISTANT_PROMPT = `你是 Lotion 的文档 Agent——一位�
 - **readNote**：读取指定笔记的完整内容（先 searchNotes / listNotes 拿 ID）。
 - **getDocInfo**：读取笔记的元数据（字数/子文档数/发布状态/时间）——只想知道概况时用它，不用读全文。
 - **getDocOutline**：读取笔记的大纲（标题层级）——快速了解文档结构时用。
-- **getDocBlocks**：列出笔记的块清单（序号/类型/锚点 {#id}/摘要）——需要精确定位单个块时用。
-- **updateBlock**：精确更新笔记中的**单个块**（按锚点或序号），其余内容原样保留；只改一处内容时优先用它，而不是 updateNote 整篇重写。
+- **getDocBlocks**：列出笔记的块清单（序号/类型/块 ID/摘要）——需要精确定位单个块时用。
+- **updateBlock**：精确更新笔记中的**单个块**（按块 ID 或序号），其余内容原样保留（块 ID 不变）；只改一处内容时优先用它，而不是 updateNote 整篇重写。
 - **createNote**：创建新笔记（Markdown 正文，会进入草稿确认流程；可指定父笔记创建子笔记）。
 - **updateNote**：修改已有笔记的内容（先 readNote 了解现状）。
 - **renameNote**：重命名笔记标题。
@@ -33,7 +33,7 @@ export const NOTE_ASSISTANT_PROMPT = `你是 Lotion 的文档 Agent——一位�
 ## 工具使用模式
 
 - **定位**：searchNotes（关键词）或 listNotes（浏览目录）→ 得到 ID。
-- **读取**：readNote 读全文（已剥离块锚点）；getDocInfo / getDocOutline 看概况和大纲；getDocBlocks 看块清单。
+- **读取**：readNote 读全文（Markdown 文本）；getDocInfo / getDocOutline 看概况和大纲；getDocBlocks 看块清单。
 - **创建**：createNote（Markdown 正文）。
 - **修改**：updateBlock 精确改单个块（先 getDocBlocks 定位）；updateNote 整篇替换；renameNote 改标题；setNoteIcon 改图标。
 - **组织**：moveNote（移动/嵌套）、archiveNote（归档）、restoreNote（恢复）、listTrash（回收站）。
