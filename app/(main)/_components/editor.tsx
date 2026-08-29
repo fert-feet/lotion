@@ -40,6 +40,7 @@ const Editor = ({ onChange, initialContent, editable = true }: EditorProps) => {
   // 由下方 mount 效应在编辑器就绪后 tryParseMarkdownToBlocks 填充。
   // 注意：deps 传 []——编辑器只在首次挂载创建，后续文档切换 / AI 更新走外部更新效应。
   // 旧 BlockNote JSON 结构（type/props/content/children）与 0.54 兼容，直接透传
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- 挂载时快照，后续变化走外部更新效应
   const initialBlocks = useMemo(
     () => toEditorBlocks(initialContent) as unknown as PartialBlock[] | undefined,
     [],

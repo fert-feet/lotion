@@ -11,7 +11,7 @@
 - **框架**: Next.js 15.5.4 (App Router, Turbopack)
 - **后端**: 本地 SQLite（better-sqlite3，WAL 模式，单机自托管）
 - **Auth**: 自研极简（scrypt 哈希 + sessions 表 + HttpOnly cookie，无第三方库）
-- **编辑器**: **自研块编辑器**（阶段 2 完成，替换 BlockNote）：Markdown 文档模型 + 块级编辑（`components/editor/block-editor.tsx` + `lib/editor/` 内核），对齐 SiYuan protyle 块模型 / DSH 渲染管线；旧 BlockNote JSON 存量数据经 `lib/content.ts` 惰性转换
+- **编辑器**: **BlockNote 0.54**（`@blocknote/core` + `@blocknote/react`，默认 UI + 自有 DSH 对齐样式 `components/editor/blocknote.css`）：**BlockNote JSON 无损存储**（保留块 ID）；存量 Markdown / 旧 BlockNote JSON 惰性兼容；服务端 JSON↔Markdown 转换走 `@blocknote/server-util`（`lib/content-server.ts`，⚠️ 仅服务端导入）
 - **AI**: @ai-sdk/deepseek (deepseek-v4-flash)
 - **状态管理**: Zustand
 - **样式**: Tailwind CSS 4 + shadcn/ui（自研对齐 DSH 组件）
@@ -56,11 +56,10 @@ lib/
 │   ├── auth.ts              # scrypt 哈希 + 会话管理 + cookie 工具
 │   └── request-user.ts      # REST 路由公共鉴权入口
 ├── agent.ts                # Agent 核心：streamText + doom loop 检测 + SSE 事件流包装
-├── ai/tools/               # 19 个 Tool（search/list/read/create/update/rename/move/icon/publish/archive/restore/trash/delete/askUser/todoWrite/docInfo/docOutline/docBlocks/updateBlock）
+├── ai/tools/               # 19 个 Tool（search/list/read/create/update/rename/move/icon/publish/archive/restore/trash/delete/askUser/todoWrite/docInfo/docOutline/docBlocks/updateBlock）+ blocks-util.ts(块 JSON 展平/取文本/ensureDocBlocks 惰性迁移)
 ├── ai-prompts.ts           # AI 系统提示词（领域概念/使用模式/规范/安全）
-├── content.ts              # 文档内容适配层：Markdown 存储（旧 BlockNote JSON 惰性转换）
-├── blocks-to-markdown.ts   # 自研 BlockNote JSON → Markdown（读旧数据，无运行时依赖）
-├── editor/                 # 自研块编辑器内核：blocks.ts(可编辑块模型+锚点)/ops.ts(编辑操作)/anchors.ts(块锚点{#id})/dom-to-markdown.ts
+├── content.ts              # 文档内容适配层·客户端安全部分（isBlockNoteJson/toEditorBlocks/标题提取；无 BlockNote 依赖）
+├── content-server.ts       # ⚠️ 服务端专用（禁止客户端导入）：toMarkdown / toBlocks（@blocknote/server-util 双向转换）
 ├── compress.ts             # 上下文压缩（滑动窗口 100 条 + 模型重写式摘要）
 hooks/                      # Zustand stores + use-user
 components/                 # shadcn/ui + Toolbar + SearchCommand + Upload
