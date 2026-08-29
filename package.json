@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@ai-sdk/deepseek": "^3.0.13",
+    "@blocknote/code-block": "0.54.0",
     "@blocknote/core": "0.54.0",
     "@blocknote/react": "0.54.0",
     "@blocknote/server-util": "0.54.0",

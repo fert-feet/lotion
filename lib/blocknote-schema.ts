@@ -5,7 +5,8 @@
 // - Callout 用 DOM 渲染（非 React）：ProseMirror nodeView（浏览器）与
 //   ServerBlockNoteEditor（JSDOM）都能执行 render/toExternalHTML/parse
 
-import { BlockNoteSchema, createBlockSpec, createInlineContentSpec } from "@blocknote/core";
+import { BlockNoteSchema, createBlockSpec, createInlineContentSpec, createCodeBlockSpec } from "@blocknote/core";
+import { codeBlockOptions } from "@blocknote/code-block";
 
 /**
  * Callout（提示框）块：emoji 图标 + 浅色圆角底 + 内联富文本。
@@ -103,10 +104,12 @@ const createMentionSpec = createInlineContentSpec(
   },
 );
 
-/** 具体 schema 实例与类型：编辑器据此获得含 callout/mention 的完整类型 */
+/** 具体 schema 实例与类型：编辑器据此获得含 callout/mention/代码高亮的完整类型 */
 export const lotionSchema = BlockNoteSchema.create().extend({
   blockSpecs: {
     callout: createCalloutBlock(),
+    // 代码块支持语言集（配合编辑器 extensions 里的 syntaxHighlighter 渲染高亮）
+    codeBlock: createCodeBlockSpec(codeBlockOptions),
   },
   inlineContentSpecs: {
     mention: createMentionSpec,
