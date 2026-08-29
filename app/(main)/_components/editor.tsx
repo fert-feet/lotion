@@ -72,6 +72,7 @@ const Editor = ({ onChange, initialContent, editable = true }: EditorProps) => {
         subtext: "提示框",
         aliases: ["callout", "提示", "备注", "quote"],
         group: "基础",
+        icon: <span className="text-base">💡</span>,
         onItemClick: () => {
           const { block } = editor.getTextCursorPosition();
           const newBlock = editor.insertBlocks(
@@ -102,6 +103,7 @@ const Editor = ({ onChange, initialContent, editable = true }: EditorProps) => {
         title: d.title,
         subtext: d.parentDocument ? "子页面" : "页面",
         group: "提及",
+        icon: d.icon ? <span className="text-base">{d.icon}</span> : undefined,
         onItemClick: () => {
           editor.insertInlineContent([{ type: "mention", props: { id: d.id, title: d.title } }]);
           editor.focus();
