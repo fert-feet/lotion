@@ -1,7 +1,9 @@
-/* BlockNote 编辑器 DSH 对齐样式（重构阶段 A）：
+/* BlockNote 编辑器 DSH 对齐样式（重构阶段 A 修正版）：
    作用域 .lotion-editor（BlockNoteView className，实际挂载在 .bn-container 上）。
-   - 主题：覆盖 BlockNote CSS 变量映射到 Lotion 设计 token（墨/纸/荧光黄 + shell 语义色）
-   - 排版：与 components/markdown/markdown.css 的 .md-content 视觉基线一致（15px/24px） */
+   设计原则：只覆盖颜色 / 基础字体，**不改 BlockNote 自身的块布局**——BlockNote 通过
+   .bn-block-content(padding:3px 0 / display:flex) 和 .bn-block-outer(line-height) 控间距，
+   给 p / h1-6 / blockquote / pre / hr 加 margin 会破坏其对齐（如 checkListItem 的
+   checkbox 被文本 <p> 的 margin 顶到上方）。因此这里删除了所有元素级 margin 覆盖。 */
 
 .lotion-editor {
   --bn-colors-editor-text: var(--shell-label-primary);
@@ -21,147 +23,64 @@
   --bn-colors-side-menu: var(--shell-label-tertiary);
   --bn-font-family: var(--font-sans);
   --bn-border-radius: var(--radius);
-  --bn-editor-padding: 0;
 
   /* 荧光笔黄高亮（AI 品牌语义，与 .md-content mark 一致） */
   --bn-colors-highlights-yellow-background: var(--hl);
   --bn-colors-highlights-yellow-text: var(--ink);
 }
 
-/* ---- 正文排版：对齐 .md-content 基线 ---- */
+/* ---- 基础排版：字体与颜色，不改 BlockNote 的块间距 ---- */
 .lotion-editor .bn-editor {
   font-size: 15px;
-  line-height: 24px;
   color: var(--shell-label-primary);
   overflow-wrap: anywhere;
 }
 
-.lotion-editor .bn-editor :where(h1, h2, h3, h4, h5, h6) {
-  font-weight: 600;
+/* 标题字号对齐 app 排版基线（markdown.css：h1 26 / h2 22 / h3 19 / h4 16；
+   BlockNote 默认用 --level 的 3em/2em/1.3em/1em，相对 15px 偏大） */
+.lotion-editor .bn-editor [data-content-type="heading"] h1 {
+  font-size: 26px;
+}
+.lotion-editor .bn-editor [data-content-type="heading"] h2 {
+  font-size: 22px;
+}
+.lotion-editor .bn-editor [data-content-type="heading"] h3 {
+  font-size: 19px;
+}
+.lotion-editor .bn-editor [data-content-type="heading"] :where(h4) {
+  font-size: 16px;
+}
+.lotion-editor .bn-editor [data-content-type="heading"] :where(h5, h6) {
+  font-size: 15px;
+}
+
+.lotion-editor .bn-block-content :where(h1, h2, h3, h4, h5, h6) {
   color: var(--shell-label-primary);
 }
 
-.lotion-editor .bn-editor h1 {
-  font-size: 26px;
-  line-height: 34px;
-  margin: 32px 0 16px;
-}
-
-.lotion-editor .bn-editor h2 {
-  font-size: 22px;
-  line-height: 30px;
-  margin: 32px 0 16px;
-}
-
-.lotion-editor .bn-editor h3 {
-  font-size: 19px;
-  line-height: 26px;
-  margin: 32px 0 16px;
-}
-
-.lotion-editor .bn-editor h4 {
-  font-size: 16px;
-  line-height: 24px;
-  margin: 16px 0;
-}
-
-.lotion-editor .bn-editor :where(h5, h6) {
-  font-size: 15px;
-  line-height: 24px;
-  margin: 16px 0;
-}
-
-.lotion-editor .bn-editor p {
-  margin: 8px 0;
-}
-
+/* 链接：品牌色 + 下划线反馈 */
 .lotion-editor .bn-editor a {
   color: var(--shell-accent);
   text-decoration: none;
 }
-
 .lotion-editor .bn-editor a:hover {
   text-decoration: underline var(--shell-accent);
 }
 
-.lotion-editor .bn-editor :where(ul, ol) {
-  margin: 8px 0;
-  padding-left: 22px;
-}
-
-.lotion-editor .bn-editor li > :where(ul, ol) {
-  margin: 2px 0;
-}
-
-.lotion-editor .bn-editor li::marker {
-  color: var(--shell-label-secondary);
-}
-
-/* 任务列表：勾选框与文本基线对齐 */
-.lotion-editor .bn-editor .bn-check-list-item-checkbox {
-  margin-right: 8px;
-}
-
-/* 引用 */
+/* 引用：只上色（BlockNote 默认已处理 border/margin） */
 .lotion-editor .bn-editor blockquote {
-  border-left: 3px solid var(--shell-accent);
-  padding-left: 12px;
-  margin: 8px 0;
   color: var(--shell-label-secondary);
 }
-
-/* 代码块 */
-.lotion-editor .bn-editor pre {
-  background: var(--shell-row-active);
-  border: 1px solid var(--shell-border-l2);
-  border-radius: var(--radius-md);
-  padding: 12px 14px;
-  font-size: 13px;
-  line-height: 20px;
-  overflow-x: auto;
-  margin: 8px 0;
+.lotion-editor .bn-block-content[data-content-type="quote"] blockquote {
+  border-left-color: var(--shell-accent);
 }
 
-.lotion-editor .bn-editor code {
-  font-family: var(--font-mono);
-}
-
+/* 行内代码 / 代码块（BlockNote 默认已处理 pre 的 margin/padding） */
 .lotion-editor .bn-editor :not(pre) > code {
   background: var(--shell-row-active);
   border-radius: 4px;
   padding: 1px 4px;
   font-size: 0.9em;
-}
-
-/* 分隔线 */
-.lotion-editor .bn-editor hr {
-  border: none;
-  border-top: 1px solid var(--shell-border-l2);
-  margin: 16px 0;
-}
-
-/* 表格：与 DSH markdown 表格语义一致 */
-.lotion-editor .bn-editor table {
-  border-collapse: collapse;
-  margin: 8px 0;
-  width: 100%;
-}
-
-.lotion-editor .bn-editor th,
-.lotion-editor .bn-editor td {
-  border: 1px solid var(--shell-border-l2);
-  padding: 6px 10px;
-}
-
-.lotion-editor .bn-editor th {
-  background: var(--shell-row-active);
-  font-weight: 600;
-}
-
-/* 图片：居中 + 圆角 */
-.lotion-editor .bn-editor .bn-visual-media-wrapper {
-  border-radius: var(--radius-md);
-  margin: 8px auto;
 }
 
 /* 荧光笔黄高亮（AI 划重点）与 .md-content mark 一致 */
@@ -172,8 +91,20 @@
   border-radius: 2px;
 }
 
-/* 空文档占位提示与 app 文案一致 */
-.lotion-editor .bn-editor p.is-empty::before {
-  content: attr(data-placeholder);
-  color: var(--shell-label-caption);
+/* 表格：BlockNote 表格默认较简，补齐可读性（仅配色/边框，不改布局） */
+.lotion-editor .bn-editor table {
+  border-collapse: collapse;
 }
+.lotion-editor .bn-editor th,
+.lotion-editor .bn-editor td {
+  border: 1px solid var(--shell-border-l2);
+  padding: 6px 10px;
+}
+.lotion-editor .bn-editor th {
+  background: var(--shell-row-active);
+  font-weight: 600;
+}
+
+/* 勾选列表项：BlockNote 默认将 checkbox 放在固定 24px 高的 div（随首行顶部对齐），
+   文本在 <p>（去掉 margin 后与 checkbox 自然垂直对齐）。这里不覆写其 align-items，
+   避免文本换行时 checkbox 被错误地垂直居中到整块中间。 */
