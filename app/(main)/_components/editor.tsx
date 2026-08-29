@@ -18,6 +18,7 @@ import {
 } from "@blocknote/react";
 import { filterSuggestionItems, type PartialBlock } from "@blocknote/core";
 import { syntaxHighlighter } from "@blocknote/code-block";
+import type { DefaultReactSuggestionItem } from "@blocknote/react";
 import "@blocknote/core/style.css";
 import "@blocknote/react/style.css";
 import { useTheme } from "next-themes";
@@ -25,6 +26,7 @@ import { isBlockNoteJson, toEditorBlocks } from "@/lib/content";
 import { createLotionSchema } from "@/lib/blocknote-schema";
 import { getSearch } from "@/lib/db";
 import OutlinePanel from "@/components/editor/outline-panel";
+import LotionSuggestionMenu from "@/components/editor/lotion-suggestion-menu";
 import "@/components/editor/blocknote.css";
 
 interface EditorProps {
@@ -69,7 +71,7 @@ const Editor = ({ onChange, initialContent, editable = true }: EditorProps) => {
 
   // 斜杠菜单（对标 Notion）：默认项按 Notion 风格分组重排 + Callout
   const getSlashMenuItems = useCallback(
-    async (query: string) => {
+    async (query: string): Promise<DefaultReactSuggestionItem[]> => {
       const defaultItems = getDefaultReactSlashMenuItems(editor);
       const calloutItem = {
         title: "Callout",
@@ -117,7 +119,7 @@ const Editor = ({ onChange, initialContent, editable = true }: EditorProps) => {
 
   // @提及菜单：搜索当前用户文档，插入 mention 内联内容（对标 Notion @ 引用）
   const getMentionItems = useCallback(
-    async (query: string) => {
+    async (query: string): Promise<DefaultReactSuggestionItem[]> => {
       const q = query.trim().toLowerCase();
       const docs = await getSearch("");
       const matches = docs
@@ -211,8 +213,16 @@ const Editor = ({ onChange, initialContent, editable = true }: EditorProps) => {
       tableHandles
       filePanel
     >
-      <SuggestionMenuController triggerCharacter="/" getItems={getSlashMenuItems} />
-      <SuggestionMenuController triggerCharacter="@" getItems={getMentionItems} />
+      <SuggestionMenuController
+        triggerCharacter="/"
+        getItems={getSlashMenuItems}
+        suggestionMenuComponent={LotionSuggestionMenu}
+      />
+      <SuggestionMenuController
+        triggerCharacter="@"
+        getItems={getMentionItems}
+        suggestionMenuComponent={LotionSuggestionMenu}
+      />
       {/* 右侧页面大纲（对标 Notion Outline；编辑态显示） */}
       {editable && <OutlinePanel editor={editor} />}
     </BlockNoteView>

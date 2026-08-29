@@ -127,46 +127,76 @@
    UI 组件浮层（斜杠菜单 / 格式工具栏 / 链接工具栏 / 侧边菜单）
    ========================================================================== */
 
-/* 斜杠菜单：白底圆角浮层，分组标签 + 高亮项 */
-.lotion-editor .bn-suggestion-menu {
+/* 自研建议菜单（斜杠菜单 / @提及，components/editor/lotion-suggestion-menu.tsx）：
+   白底圆角浮层，分组标签 + 高亮项，Notion 风格 */
+.lotion-suggestion-menu {
   border-radius: 8px;
   background: var(--shell-bg-base);
   border: 1px solid var(--shell-border);
-  box-shadow: var(--bn-colors-shadow);
-  overflow: hidden;
+  box-shadow: 0 4px 16px rgb(0 0 0 / 0.12);
+  overflow-y: auto;
   padding: 4px;
+  max-height: 320px;
 }
-
-.lotion-editor .bn-suggestion-menu .bn-suggestion-menu-label {
+.lotion-suggestion-menu--loading {
+  padding: 12px 16px;
+  font-size: 13px;
+  color: var(--shell-label-tertiary);
+}
+.lotion-suggestion-menu-label {
   font-size: 12px;
   color: var(--shell-label-tertiary);
   padding: 6px 8px 2px;
   font-weight: 500;
 }
-
-.lotion-editor .bn-suggestion-menu .bn-suggestion-menu-item,
-.lotion-editor .bn-suggestion-menu .bn-menu-item {
+.lotion-suggestion-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  border: none;
+  background: transparent;
   border-radius: 6px;
   font-size: 14px;
   line-height: 1.5;
   padding: 5px 8px;
   color: var(--shell-label-primary);
+  text-align: left;
+  cursor: pointer;
   transition: background-color 0.1s ease;
 }
-.lotion-editor .bn-suggestion-menu .bn-suggestion-menu-item:hover,
-.lotion-editor .bn-suggestion-menu .bn-suggestion-menu-item.is-selected,
-.lotion-editor .bn-suggestion-menu .bn-menu-item.is-selected,
-.lotion-editor .bn-suggestion-menu .bn-menu-item[aria-selected="true"] {
+.lotion-suggestion-menu-item:hover,
+.lotion-suggestion-menu-item.is-selected {
   background: var(--shell-row-hover);
   color: var(--shell-label-primary);
 }
-
-.lotion-editor .bn-suggestion-menu .bn-badge {
+.lotion-suggestion-menu-icon {
+  flex: none;
+  width: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.lotion-suggestion-menu-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.lotion-suggestion-menu-subtext {
+  font-size: 12px;
+  color: var(--shell-label-tertiary);
+  white-space: nowrap;
+}
+.lotion-suggestion-menu-badge {
+  flex: none;
   font-size: 11px;
   background: var(--shell-row-active);
   color: var(--shell-label-secondary);
   border-radius: 4px;
   padding: 1px 5px;
+  font-family: var(--font-mono);
 }
 
 /* 格式工具栏 / 链接工具栏：白底圆角浮层，分组分隔 */
