@@ -112,6 +112,14 @@ const Editor = ({ onChange, initialContent, editable = true }: EditorProps) => {
       editable={editable}
       theme={resolvedTheme === "dark" ? "dark" : "light"}
       className="lotion-editor"
+      // 对标 Notion：显式开启全部默认 UI（斜杠菜单 / 格式工具栏 / 链接工具栏 /
+      // 侧边拖拽菜单 / 表格手柄 / 文件面板）
+      formattingToolbar
+      slashMenu
+      sideMenu
+      linkToolbar
+      tableHandles
+      filePanel
     />
   );
 };

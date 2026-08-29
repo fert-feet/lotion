@@ -1,10 +1,13 @@
-/* BlockNote 编辑器 DSH 对齐样式（重构阶段 A 修正版）：
-   作用域 .lotion-editor（BlockNoteView className，实际挂载在 .bn-container 上）。
-   设计原则：只覆盖颜色 / 基础字体，**不改 BlockNote 自身的块布局**——BlockNote 通过
-   .bn-block-content(padding:3px 0 / display:flex) 和 .bn-block-outer(line-height) 控间距，
-   给 p / h1-6 / blockquote / pre / hr 加 margin 会破坏其对齐（如 checkListItem 的
-   checkbox 被文本 <p> 的 margin 顶到上方）。因此这里删除了所有元素级 margin 覆盖。 */
+/* ==========================================================================
+   BlockNote 编辑器 —— 对标 Notion 视觉（P0）
+   作用域 .lotion-editor（BlockNoteView className，挂载在 .bn-container 上）。
+   原则：
+   - 布局（块间距/行高/对齐）交给 BlockNote 自身，只做配色/圆角/字号的视觉覆盖
+   - 所有颜色走 shell 变量（自动适配深浅色）；浮层用 popover 语义
+   - 不覆写 .bn-block-content 的 flex 布局（会破坏 checkbox/列表对齐）
+   ========================================================================== */
 
+/* ---- 主题变量（BlockNote UI 组件经这些变量取色） ---- */
 .lotion-editor {
   --bn-colors-editor-text: var(--shell-label-primary);
   --bn-colors-editor-background: transparent;
@@ -24,28 +27,41 @@
   --bn-font-family: var(--font-sans);
   --bn-border-radius: var(--radius);
 
-  /* 荧光笔黄高亮（AI 品牌语义，与 .md-content mark 一致） */
+  /* 荧光笔黄高亮（AI 品牌语义） */
   --bn-colors-highlights-yellow-background: var(--hl);
   --bn-colors-highlights-yellow-text: var(--ink);
 }
 
-/* ---- 基础排版：字体与颜色，不改 BlockNote 的块间距 ---- */
+/* ---- 正文排版（Notion：16px / 1.6 行高，轻松留白） ---- */
 .lotion-editor .bn-editor {
-  font-size: 15px;
+  font-size: 16px;
   color: var(--shell-label-primary);
   overflow-wrap: anywhere;
 }
 
-/* 标题字号对齐 app 排版基线（markdown.css：h1 26 / h2 22 / h3 19 / h4 16；
-   BlockNote 默认用 --level 的 3em/2em/1.3em/1em，相对 15px 偏大） */
+.lotion-editor .bn-block-outer {
+  line-height: 1.6;
+}
+
+/* 块 hover / 选中：浅色圆角高亮（Notion 语义） */
+.lotion-editor .bn-editor .bn-block-outer:hover > .bn-block > .bn-block-content,
+.lotion-editor .bn-editor .bn-block-outer:focus-within > .bn-block > .bn-block-content {
+  background: var(--shell-row-hover);
+  border-radius: 4px;
+}
+
+/* ---- 标题：字号对齐 app 排版基线 ---- */
 .lotion-editor .bn-editor [data-content-type="heading"] h1 {
-  font-size: 26px;
+  font-size: 28px;
+  line-height: 1.3;
 }
 .lotion-editor .bn-editor [data-content-type="heading"] h2 {
-  font-size: 22px;
+  font-size: 23px;
+  line-height: 1.35;
 }
 .lotion-editor .bn-editor [data-content-type="heading"] h3 {
   font-size: 19px;
+  line-height: 1.4;
 }
 .lotion-editor .bn-editor [data-content-type="heading"] :where(h4) {
   font-size: 16px;
@@ -53,29 +69,28 @@
 .lotion-editor .bn-editor [data-content-type="heading"] :where(h5, h6) {
   font-size: 15px;
 }
-
 .lotion-editor .bn-block-content :where(h1, h2, h3, h4, h5, h6) {
   color: var(--shell-label-primary);
+  font-weight: 600;
 }
 
-/* 链接：品牌色 + 下划线反馈 */
+/* ---- 链接 ---- */
 .lotion-editor .bn-editor a {
   color: var(--shell-accent);
   text-decoration: none;
+  cursor: pointer;
 }
 .lotion-editor .bn-editor a:hover {
   text-decoration: underline var(--shell-accent);
 }
 
-/* 引用：只上色（BlockNote 默认已处理 border/margin） */
+/* ---- 引用 ---- */
 .lotion-editor .bn-editor blockquote {
   color: var(--shell-label-secondary);
-}
-.lotion-editor .bn-block-content[data-content-type="quote"] blockquote {
   border-left-color: var(--shell-accent);
 }
 
-/* 行内代码 / 代码块（BlockNote 默认已处理 pre 的 margin/padding） */
+/* ---- 行内代码 / 代码块 ---- */
 .lotion-editor .bn-editor :not(pre) > code {
   background: var(--shell-row-active);
   border-radius: 4px;
@@ -83,7 +98,7 @@
   font-size: 0.9em;
 }
 
-/* 荧光笔黄高亮（AI 划重点）与 .md-content mark 一致 */
+/* ---- 荧光笔高亮 ---- */
 .lotion-editor .bn-editor mark {
   background: var(--hl);
   color: var(--ink);
@@ -91,7 +106,7 @@
   border-radius: 2px;
 }
 
-/* 表格：BlockNote 表格默认较简，补齐可读性（仅配色/边框，不改布局） */
+/* ---- 表格（Notion 风格：浅表头 + 细边框 + hover 行） ---- */
 .lotion-editor .bn-editor table {
   border-collapse: collapse;
 }
@@ -104,7 +119,136 @@
   background: var(--shell-row-active);
   font-weight: 600;
 }
+.lotion-editor .bn-editor tr:hover {
+  background: var(--shell-row-hover);
+}
 
-/* 勾选列表项：BlockNote 默认将 checkbox 放在固定 24px 高的 div（随首行顶部对齐），
-   文本在 <p>（去掉 margin 后与 checkbox 自然垂直对齐）。这里不覆写其 align-items，
-   避免文本换行时 checkbox 被错误地垂直居中到整块中间。 */
+/* ==========================================================================
+   UI 组件浮层（斜杠菜单 / 格式工具栏 / 链接工具栏 / 侧边菜单）
+   ========================================================================== */
+
+/* 斜杠菜单：白底圆角浮层，分组标签 + 高亮项 */
+.lotion-editor .bn-suggestion-menu {
+  border-radius: 8px;
+  background: var(--shell-bg-base);
+  border: 1px solid var(--shell-border);
+  box-shadow: var(--bn-colors-shadow);
+  overflow: hidden;
+  padding: 4px;
+}
+
+.lotion-editor .bn-suggestion-menu .bn-suggestion-menu-label {
+  font-size: 12px;
+  color: var(--shell-label-tertiary);
+  padding: 6px 8px 2px;
+  font-weight: 500;
+}
+
+.lotion-editor .bn-suggestion-menu .bn-suggestion-menu-item,
+.lotion-editor .bn-suggestion-menu .bn-menu-item {
+  border-radius: 6px;
+  font-size: 14px;
+  line-height: 1.5;
+  padding: 5px 8px;
+  color: var(--shell-label-primary);
+  transition: background-color 0.1s ease;
+}
+.lotion-editor .bn-suggestion-menu .bn-suggestion-menu-item:hover,
+.lotion-editor .bn-suggestion-menu .bn-suggestion-menu-item.is-selected,
+.lotion-editor .bn-suggestion-menu .bn-menu-item.is-selected,
+.lotion-editor .bn-suggestion-menu .bn-menu-item[aria-selected="true"] {
+  background: var(--shell-row-hover);
+  color: var(--shell-label-primary);
+}
+
+.lotion-editor .bn-suggestion-menu .bn-badge {
+  font-size: 11px;
+  background: var(--shell-row-active);
+  color: var(--shell-label-secondary);
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+
+/* 格式工具栏 / 链接工具栏：白底圆角浮层，分组分隔 */
+.lotion-editor .bn-formatting-toolbar,
+.lotion-editor .bn-link-toolbar,
+.lotion-editor .bn-link-toolbar-prompt {
+  border-radius: 8px;
+  background: var(--shell-bg-base);
+  border: 1px solid var(--shell-border);
+  box-shadow: var(--bn-colors-shadow);
+  padding: 3px;
+}
+
+.lotion-editor .bn-formatting-toolbar .bn-button,
+.lotion-editor .bn-link-toolbar .bn-button {
+  border-radius: 5px;
+  color: var(--shell-label-secondary);
+  transition: background-color 0.1s ease;
+}
+.lotion-editor .bn-formatting-toolbar .bn-button:hover,
+.lotion-editor .bn-link-toolbar .bn-button:hover {
+  background: var(--shell-row-hover);
+  color: var(--shell-label-primary);
+}
+.lotion-editor .bn-formatting-toolbar .bn-button.is-selected,
+.lotion-editor .bn-formatting-toolbar .bn-button[aria-pressed="true"] {
+  background: var(--shell-row-active);
+  color: var(--shell-label-primary);
+}
+
+.lotion-editor .bn-formatting-toolbar-group {
+  margin: 0 2px;
+}
+
+/* 侧边菜单（块拖拽手柄）：悬停块时显示，Notion 风格 ⠿ */
+.lotion-editor .bn-side-menu {
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.lotion-editor .bn-block-outer:hover + .bn-side-menu,
+.lotion-editor .bn-block-outer:focus-within + .bn-side-menu,
+.lotion-editor .bn-side-menu:hover {
+  opacity: 1;
+}
+.lotion-editor .bn-side-menu .bn-side-menu-button {
+  color: var(--shell-label-tertiary);
+  border-radius: 4px;
+}
+.lotion-editor .bn-side-menu .bn-side-menu-button:hover {
+  color: var(--shell-label-primary);
+  background: var(--shell-row-hover);
+}
+
+/* 拖拽预览 */
+.lotion-editor .bn-drag-preview {
+  border-radius: 8px;
+  background: var(--shell-bg-base);
+  border: 1px solid var(--shell-border);
+  box-shadow: 0 4px 16px rgb(0 0 0 / 0.12);
+}
+
+/* 表格手柄 */
+.lotion-editor .bn-table-handle,
+.lotion-editor .bn-table-cell-handle {
+  color: var(--shell-label-tertiary);
+}
+.lotion-editor .bn-table-handle:hover,
+.lotion-editor .bn-table-cell-handle:hover {
+  color: var(--shell-accent);
+}
+
+/* ---- 空文档占位（Notion 语义："输入 '/' 唤起命令"） ---- */
+.lotion-editor .bn-editor p.is-empty::before {
+  content: attr(data-placeholder);
+  color: var(--shell-label-caption);
+  pointer-events: none;
+  float: left;
+  height: 0;
+}
+
+/* ---- 图片：圆角 + 居中 ---- */
+.lotion-editor .bn-editor .bn-visual-media-wrapper {
+  border-radius: 8px;
+  margin: 8px auto;
+}
