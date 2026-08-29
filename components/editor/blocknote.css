@@ -1,0 +1,179 @@
+/* BlockNote 编辑器 DSH 对齐样式（重构阶段 A）：
+   作用域 .lotion-editor（BlockNoteView className，实际挂载在 .bn-container 上）。
+   - 主题：覆盖 BlockNote CSS 变量映射到 Lotion 设计 token（墨/纸/荧光黄 + shell 语义色）
+   - 排版：与 components/markdown/markdown.css 的 .md-content 视觉基线一致（15px/24px） */
+
+.lotion-editor {
+  --bn-colors-editor-text: var(--shell-label-primary);
+  --bn-colors-editor-background: transparent;
+  --bn-colors-menu-text: var(--shell-label-primary);
+  --bn-colors-menu-background: var(--shell-bg-base);
+  --bn-colors-tooltip-text: var(--shell-label-primary);
+  --bn-colors-tooltip-background: var(--shell-bg-base);
+  --bn-colors-hovered-text: var(--shell-label-primary);
+  --bn-colors-hovered-background: var(--shell-row-hover);
+  --bn-colors-selected-text: var(--shell-label-primary);
+  --bn-colors-selected-background: var(--shell-row-active);
+  --bn-colors-disabled-text: var(--shell-label-tertiary);
+  --bn-colors-disabled-background: var(--shell-row-hover);
+  --bn-colors-shadow: 0 2px 12px rgb(0 0 0 / 0.08);
+  --bn-colors-border: var(--shell-border-l2);
+  --bn-colors-side-menu: var(--shell-label-tertiary);
+  --bn-font-family: var(--font-sans);
+  --bn-border-radius: var(--radius);
+  --bn-editor-padding: 0;
+
+  /* 荧光笔黄高亮（AI 品牌语义，与 .md-content mark 一致） */
+  --bn-colors-highlights-yellow-background: var(--hl);
+  --bn-colors-highlights-yellow-text: var(--ink);
+}
+
+/* ---- 正文排版：对齐 .md-content 基线 ---- */
+.lotion-editor .bn-editor {
+  font-size: 15px;
+  line-height: 24px;
+  color: var(--shell-label-primary);
+  overflow-wrap: anywhere;
+}
+
+.lotion-editor .bn-editor :where(h1, h2, h3, h4, h5, h6) {
+  font-weight: 600;
+  color: var(--shell-label-primary);
+}
+
+.lotion-editor .bn-editor h1 {
+  font-size: 26px;
+  line-height: 34px;
+  margin: 32px 0 16px;
+}
+
+.lotion-editor .bn-editor h2 {
+  font-size: 22px;
+  line-height: 30px;
+  margin: 32px 0 16px;
+}
+
+.lotion-editor .bn-editor h3 {
+  font-size: 19px;
+  line-height: 26px;
+  margin: 32px 0 16px;
+}
+
+.lotion-editor .bn-editor h4 {
+  font-size: 16px;
+  line-height: 24px;
+  margin: 16px 0;
+}
+
+.lotion-editor .bn-editor :where(h5, h6) {
+  font-size: 15px;
+  line-height: 24px;
+  margin: 16px 0;
+}
+
+.lotion-editor .bn-editor p {
+  margin: 8px 0;
+}
+
+.lotion-editor .bn-editor a {
+  color: var(--shell-accent);
+  text-decoration: none;
+}
+
+.lotion-editor .bn-editor a:hover {
+  text-decoration: underline var(--shell-accent);
+}
+
+.lotion-editor .bn-editor :where(ul, ol) {
+  margin: 8px 0;
+  padding-left: 22px;
+}
+
+.lotion-editor .bn-editor li > :where(ul, ol) {
+  margin: 2px 0;
+}
+
+.lotion-editor .bn-editor li::marker {
+  color: var(--shell-label-secondary);
+}
+
+/* 任务列表：勾选框与文本基线对齐 */
+.lotion-editor .bn-editor .bn-check-list-item-checkbox {
+  margin-right: 8px;
+}
+
+/* 引用 */
+.lotion-editor .bn-editor blockquote {
+  border-left: 3px solid var(--shell-accent);
+  padding-left: 12px;
+  margin: 8px 0;
+  color: var(--shell-label-secondary);
+}
+
+/* 代码块 */
+.lotion-editor .bn-editor pre {
+  background: var(--shell-row-active);
+  border: 1px solid var(--shell-border-l2);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  font-size: 13px;
+  line-height: 20px;
+  overflow-x: auto;
+  margin: 8px 0;
+}
+
+.lotion-editor .bn-editor code {
+  font-family: var(--font-mono);
+}
+
+.lotion-editor .bn-editor :not(pre) > code {
+  background: var(--shell-row-active);
+  border-radius: 4px;
+  padding: 1px 4px;
+  font-size: 0.9em;
+}
+
+/* 分隔线 */
+.lotion-editor .bn-editor hr {
+  border: none;
+  border-top: 1px solid var(--shell-border-l2);
+  margin: 16px 0;
+}
+
+/* 表格：与 DSH markdown 表格语义一致 */
+.lotion-editor .bn-editor table {
+  border-collapse: collapse;
+  margin: 8px 0;
+  width: 100%;
+}
+
+.lotion-editor .bn-editor th,
+.lotion-editor .bn-editor td {
+  border: 1px solid var(--shell-border-l2);
+  padding: 6px 10px;
+}
+
+.lotion-editor .bn-editor th {
+  background: var(--shell-row-active);
+  font-weight: 600;
+}
+
+/* 图片：居中 + 圆角 */
+.lotion-editor .bn-editor .bn-visual-media-wrapper {
+  border-radius: var(--radius-md);
+  margin: 8px auto;
+}
+
+/* 荧光笔黄高亮（AI 划重点）与 .md-content mark 一致 */
+.lotion-editor .bn-editor mark {
+  background: var(--hl);
+  color: var(--ink);
+  padding: 0 2px;
+  border-radius: 2px;
+}
+
+/* 空文档占位提示与 app 文案一致 */
+.lotion-editor .bn-editor p.is-empty::before {
+  content: attr(data-placeholder);
+  color: var(--shell-label-caption);
+}
