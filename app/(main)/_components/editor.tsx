@@ -24,6 +24,7 @@ import { useTheme } from "next-themes";
 import { isBlockNoteJson, toEditorBlocks } from "@/lib/content";
 import { createLotionSchema } from "@/lib/blocknote-schema";
 import { getSearch } from "@/lib/db";
+import OutlinePanel from "@/components/editor/outline-panel";
 import "@/components/editor/blocknote.css";
 
 interface EditorProps {
@@ -189,6 +190,8 @@ const Editor = ({ onChange, initialContent, editable = true }: EditorProps) => {
     >
       <SuggestionMenuController triggerCharacter="/" getItems={getSlashMenuItems} />
       <SuggestionMenuController triggerCharacter="@" getItems={getMentionItems} />
+      {/* 右侧页面大纲（对标 Notion Outline；编辑态显示） */}
+      {editable && <OutlinePanel editor={editor} />}
     </BlockNoteView>
   );
 };
