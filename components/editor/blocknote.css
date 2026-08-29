@@ -274,6 +274,14 @@
   font-size: 18px;
   line-height: 1.6;
   user-select: none;
+  cursor: pointer;
+  border-radius: 6px;
+  padding: 2px 3px;
+  margin: -2px -3px;
+  transition: background-color 0.1s ease;
+}
+.lotion-editor .bn-editor .lotion-callout .lotion-callout-icon:hover {
+  background: var(--shell-row-hover);
 }
 
 .lotion-editor .bn-editor .lotion-callout .lotion-callout-content {
@@ -296,6 +304,41 @@
 .lotion-editor .bn-editor .bn-toggle-add-block-button {
   font-size: 13px;
   color: var(--shell-label-secondary);
+}
+
+/* Callout 图标选择器（点击图标弹出的 emoji 网格，见 lib/blocknote-schema.ts） */
+.lotion-callout-picker {
+  position: fixed;
+  z-index: 1000;
+  padding: 8px;
+  background: var(--shell-bg-base);
+  border: 1px solid var(--shell-border);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgb(0 0 0 / 0.12);
+}
+.lotion-callout-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 32px);
+  gap: 2px;
+}
+.lotion-callout-picker-grid button {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  transition: background-color 0.1s ease;
+}
+.lotion-callout-picker-grid button:hover {
+  background: var(--shell-row-hover);
+}
+.lotion-callout-picker-grid button.is-selected {
+  background: var(--shell-row-active-accent);
 }
 
 /* Mention（@提及文档）：蓝色胶囊，hover 高亮（DOM 结构见 lib/blocknote-schema.ts） */

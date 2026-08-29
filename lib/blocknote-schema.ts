@@ -11,8 +11,53 @@ import { codeBlockOptions } from "@blocknote/code-block";
 /**
  * Callout（提示框）块：emoji 图标 + 浅色圆角底 + 内联富文本。
  * 对标 Notion 的 Callout 块；DOM 结构带 .lotion-callout 类，样式见
- * components/editor/blocknote.css。
+ * components/editor/blocknote.css。点击图标弹出 emoji 选择器（可更换图标）。
  */
+const CALLOUT_EMOJIS = ["💡", "⚠️", "📌", "✅", "❌", "🔥", "🧠", "🎯", "📝", "🚀", "⭐", "🔔", "🎉", "🙏", "💬", "📚"];
+
+function openCalloutIconPicker(
+  anchor: HTMLElement,
+  block: { id: string; props: { icon?: string } },
+  editor: { updateBlock: (id: string, update: { props: { icon: string } }) => unknown },
+) {
+  document.querySelector(".lotion-callout-picker")?.remove();
+  const pop = document.createElement("div");
+  pop.className = "lotion-callout-picker";
+  const rect = anchor.getBoundingClientRect();
+  pop.style.top = `${rect.bottom + 6}px`;
+  pop.style.left = `${Math.max(8, rect.left)}px`;
+
+  const grid = document.createElement("div");
+  grid.className = "lotion-callout-picker-grid";
+  for (const emoji of CALLOUT_EMOJIS) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.textContent = emoji;
+    btn.className = emoji === block.props.icon ? "is-selected" : "";
+    btn.addEventListener("click", () => {
+      editor.updateBlock(block.id, { props: { icon: emoji } });
+      pop.remove();
+    });
+    grid.appendChild(btn);
+  }
+  pop.appendChild(grid);
+
+  const dismiss = (ev: Event) => {
+    if (!pop.contains(ev.target as Node)) pop.remove();
+  };
+  const onEsc = (ev: KeyboardEvent) => {
+    if (ev.key === "Escape") pop.remove();
+  };
+  // 下一帧再挂全局监听，避免本次点击立即触发 dismiss
+  setTimeout(() => document.addEventListener("mousedown", dismiss), 0);
+  document.addEventListener("keydown", onEsc);
+  pop.addEventListener("remove", () => {
+    document.removeEventListener("mousedown", dismiss);
+    document.removeEventListener("keydown", onEsc);
+  });
+  document.body.appendChild(pop);
+}
+
 const createCalloutBlock = createBlockSpec(
   {
     type: "callout",
@@ -22,13 +67,20 @@ const createCalloutBlock = createBlockSpec(
     content: "inline",
   },
   {
-    render: (block) => {
+    render: (block, editor) => {
       const wrapper = document.createElement("div");
       wrapper.className = "lotion-callout";
       const icon = document.createElement("span");
       icon.className = "lotion-callout-icon";
       icon.setAttribute("contenteditable", "false");
+      icon.title = "点击更换图标";
       icon.textContent = block.props.icon || "💡";
+      // 点击图标 → 更换 emoji（Notion 语义）
+      icon.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        openCalloutIconPicker(icon, block, editor);
+      });
       const content = document.createElement("div");
       content.className = "lotion-callout-content";
       wrapper.appendChild(icon);

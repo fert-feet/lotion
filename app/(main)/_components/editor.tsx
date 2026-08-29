@@ -67,7 +67,7 @@ const Editor = ({ onChange, initialContent, editable = true }: EditorProps) => {
   // 自定义 schema 下 replaceBlocks 的块参数类型（含 callout）
   type EditorPartialBlocks = Parameters<typeof editor.replaceBlocks>[1];
 
-  // 斜杠菜单项：默认全部 + 自定义 Callout（对标 Notion）
+  // 斜杠菜单（对标 Notion）：默认项按 Notion 风格分组重排 + Callout
   const getSlashMenuItems = useCallback(
     async (query: string) => {
       const defaultItems = getDefaultReactSlashMenuItems(editor);
@@ -87,7 +87,30 @@ const Editor = ({ onChange, initialContent, editable = true }: EditorProps) => {
           editor.setTextCursorPosition(newBlock, "start");
         },
       };
-      return filterSuggestionItems([calloutItem, ...defaultItems], query);
+
+      // 默认英文分组 → Notion 风格中文分组
+      const GROUP_MAP: Record<string, string> = {
+        Headings: "基础",
+        "Basic blocks": "基础",
+        Subheadings: "其他",
+        Media: "媒体",
+        Advanced: "高级",
+        Others: "其他",
+      };
+      const GROUP_ORDER = ["基础", "媒体", "高级", "其他"];
+      const groupRank = (g?: string) => {
+        const i = GROUP_ORDER.indexOf(g ?? "");
+        return i >= 0 ? i : GROUP_ORDER.length;
+      };
+      const items = [
+        ...defaultItems.map((i) => ({
+          ...i,
+          group: GROUP_MAP[i.group ?? ""] ?? i.group ?? "其他",
+        })),
+        calloutItem,
+      ].sort((a, b) => groupRank(a.group) - groupRank(b.group));
+
+      return filterSuggestionItems(items, query);
     },
     [editor],
   );

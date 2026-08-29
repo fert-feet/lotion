@@ -6,6 +6,7 @@ import { ElementRef, useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { update, removeIcon } from "@/lib/db";
 import { useRefresh } from "@/hooks/use-refresh";
+import usePageWidth from "@/hooks/use-page-width";
 import TextareaAutosize from "react-textarea-autosize";
 import useCoverImage from "../hooks/use-cover-image";
 
@@ -21,6 +22,8 @@ const Toolbar = ({
     const coverImage = useCoverImage();
     const triggerDocument = useRefresh((s) => s.triggerDocument);
     const triggerSidebar = useRefresh((s) => s.triggerSidebar);
+    const pageWidth = usePageWidth((s) => s.pageWidth);
+    const togglePageWidth = usePageWidth((s) => s.togglePageWidth);
     const inputRef = useRef<ElementRef<"textarea">>(null);
     const [isEditing, setIsEditing] = useState<boolean>(false);
     const [value, setValue] = useState(initialData?.title || "");
@@ -154,6 +157,17 @@ const Toolbar = ({
                     >
                         <ImageIcon className="h-4 w-4 mr-2" />
                         Add Cover
+                    </Button>
+                )}
+                {!preview && (
+                    <Button
+                        onClick={togglePageWidth}
+                        className="text-muted-foreground text-xs cursor-pointer"
+                        variant={"outline"}
+                        size={"sm"}
+                        title={pageWidth === "wide" ? "切换为窄版" : "切换为宽版"}
+                    >
+                        {pageWidth === "wide" ? "页面：宽" : "页面：窄"}
                     </Button>
                 )}
             </div>

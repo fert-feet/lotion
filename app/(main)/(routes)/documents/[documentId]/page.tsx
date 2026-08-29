@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { getById, getByIdFresh, update, type Document } from "@/lib/db";
 import { useRefresh } from "@/hooks/use-refresh";
+import usePageWidth from "@/hooks/use-page-width";
 import { Skeleton } from "../../../../../components/ui/skeleton";
 import { Button } from "../../../../../components/ui/button";
 import { FileQuestion } from "@/components/icons";
@@ -20,6 +21,8 @@ const DocumentIdPage = () => {
     const router = useRouter();
     const Editor = useMemo(() => dynamic(() => import("../../../_components/editor"), { ssr: false }), []);
     const documentKeys = useRefresh((s) => s.documentKeys);
+    // 页面宽度（narrow/wide，对标 Notion；localStorage 持久化）
+    const pageWidth = usePageWidth((s) => s.pageWidth);
 
     const [document, setDocument] = useState<Document | null | undefined>(undefined);
     const documentId = params.documentId as string;
@@ -126,7 +129,13 @@ const DocumentIdPage = () => {
     return (
         <div className="pb-40">
             <Cover url={document.coverImage || undefined} />
-            <div className="md:max-w-3xl lg:max-w-4xl mx-auto">
+            <div
+                className={
+                    pageWidth === "wide"
+                        ? "md:max-w-5xl lg:max-w-6xl mx-auto"
+                        : "md:max-w-3xl lg:max-w-4xl mx-auto"
+                }
+            >
                 <Toolbar initialData={document} />
                 <Editor
                     editable={!document.isArchived}
