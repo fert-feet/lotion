@@ -7,7 +7,7 @@
 // - 图片上传：uploadFile → POST /api/upload（本地磁盘，见 route.ts 图床 TODO）
 // - AI 外部更新：initialContent 变化（AI 写库 / 切换文档）且用户未在编辑时，
 //   事务性 replaceBlocks 应用，不打断用户输入
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 // 0.54 起 @blocknote/react 的默认 UI 视图命名为 BlockNoteViewRaw（默认 UI 标志作 props）
 import { BlockNoteViewRaw as BlockNoteView, useCreateBlockNote } from "@blocknote/react";
 import type { PartialBlock } from "@blocknote/core";
@@ -38,12 +38,10 @@ const Editor = ({ onChange, initialContent, editable = true }: EditorProps) => {
 
   // 首次挂载时的初始内容：BlockNote JSON 直接解析；Markdown（旧数据）返回 undefined，
   // 由下方 mount 效应在编辑器就绪后 tryParseMarkdownToBlocks 填充。
-  // 注意：deps 传 []——编辑器只在首次挂载创建，后续文档切换 / AI 更新走外部更新效应。
+  // 惰性初始化（仅挂载时计算一次）：后续文档切换 / AI 更新走外部更新效应，编辑器实例不重建。
   // 旧 BlockNote JSON 结构（type/props/content/children）与 0.54 兼容，直接透传
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- 挂载时快照，后续变化走外部更新效应
-  const initialBlocks = useMemo(
+  const [initialBlocks] = useState(
     () => toEditorBlocks(initialContent) as unknown as PartialBlock[] | undefined,
-    [],
   );
   const editor = useCreateBlockNote(
     {
