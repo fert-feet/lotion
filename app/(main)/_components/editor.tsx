@@ -22,6 +22,7 @@ import "@blocknote/react/style.css";
 import { useTheme } from "next-themes";
 import { isBlockNoteJson, toEditorBlocks } from "@/lib/content";
 import { createLotionSchema } from "@/lib/blocknote-schema";
+import { getSearch } from "@/lib/db";
 import "@/components/editor/blocknote.css";
 
 interface EditorProps {
@@ -82,6 +83,30 @@ const Editor = ({ onChange, initialContent, editable = true }: EditorProps) => {
         },
       };
       return filterSuggestionItems([calloutItem, ...defaultItems], query);
+    },
+    [editor],
+  );
+
+  // @提及菜单：搜索当前用户文档，插入 mention 内联内容（对标 Notion @ 引用）
+  const getMentionItems = useCallback(
+    async (query: string) => {
+      const q = query.trim().toLowerCase();
+      const docs = await getSearch("");
+      const matches = docs
+        .filter((d) => !d.isArchived && d.title && (!q || d.title.toLowerCase().includes(q)))
+        .slice(0, 8);
+      if (matches.length === 0) {
+        return [{ title: "未找到匹配的文档", group: "提及", onItemClick: () => {} }];
+      }
+      return matches.map((d) => ({
+        title: d.title,
+        subtext: d.parentDocument ? "子页面" : "页面",
+        group: "提及",
+        onItemClick: () => {
+          editor.insertInlineContent([{ type: "mention", props: { id: d.id, title: d.title } }]);
+          editor.focus();
+        },
+      }));
     },
     [editor],
   );
@@ -158,6 +183,7 @@ const Editor = ({ onChange, initialContent, editable = true }: EditorProps) => {
       filePanel
     >
       <SuggestionMenuController triggerCharacter="/" getItems={getSlashMenuItems} />
+      <SuggestionMenuController triggerCharacter="@" getItems={getMentionItems} />
     </BlockNoteView>
   );
 };

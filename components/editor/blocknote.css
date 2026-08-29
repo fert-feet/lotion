@@ -297,3 +297,19 @@
   font-size: 13px;
   color: var(--shell-label-secondary);
 }
+
+/* Mention（@提及文档）：蓝色胶囊，hover 高亮（DOM 结构见 lib/blocknote-schema.ts） */
+.lotion-editor .bn-editor .lotion-mention {
+  display: inline-block;
+  padding: 0 6px;
+  border-radius: 6px;
+  background: var(--shell-row-active-accent);
+  color: var(--shell-accent);
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.1s ease;
+}
+.lotion-editor .bn-editor .lotion-mention:hover {
+  background: var(--shell-accent);
+  color: #fff;
+}

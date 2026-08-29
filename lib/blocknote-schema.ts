@@ -5,7 +5,7 @@
 // - Callout 用 DOM 渲染（非 React）：ProseMirror nodeView（浏览器）与
 //   ServerBlockNoteEditor（JSDOM）都能执行 render/toExternalHTML/parse
 
-import { BlockNoteSchema, createBlockSpec } from "@blocknote/core";
+import { BlockNoteSchema, createBlockSpec, createInlineContentSpec } from "@blocknote/core";
 
 /**
  * Callout（提示框）块：emoji 图标 + 浅色圆角底 + 内联富文本。
@@ -56,10 +56,60 @@ const createCalloutBlock = createBlockSpec(
   },
 );
 
-/** 具体 schema 实例与类型：编辑器据此获得含 callout 的完整块类型 */
+/**
+ * Mention（@提及文档）内联内容：点击跳转到对应文档，对标 Notion 的 @ 引用。
+ * DOM 渲染（非 React），客户端/服务端共享；结构带 .lotion-mention 类 + data-id。
+ */
+const createMentionSpec = createInlineContentSpec(
+  {
+    type: "mention",
+    propSchema: {
+      id: { default: "" },
+      title: { default: "" },
+    },
+    content: "none",
+  },
+  {
+    render: (inlineContent) => {
+      const span = document.createElement("span");
+      span.className = "lotion-mention";
+      span.setAttribute("contenteditable", "false");
+      span.dataset.id = inlineContent.props.id;
+      span.textContent = "@" + inlineContent.props.title;
+      // 点击跳转对应文档（本地单机版：整页导航）
+      span.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (inlineContent.props.id) {
+          window.location.href = `/documents/${inlineContent.props.id}`;
+        }
+      });
+      return { dom: span };
+    },
+    parse: (el) => {
+      if (!el.classList.contains("lotion-mention")) return undefined;
+      return {
+        id: el.getAttribute("data-id") || "",
+        title: el.textContent?.replace(/^@/, "").trim() || "",
+      };
+    },
+    toExternalHTML: (inlineContent) => {
+      const span = document.createElement("span");
+      span.className = "lotion-mention";
+      span.dataset.id = inlineContent.props.id;
+      span.textContent = "@" + inlineContent.props.title;
+      return { dom: span };
+    },
+  },
+);
+
+/** 具体 schema 实例与类型：编辑器据此获得含 callout/mention 的完整类型 */
 export const lotionSchema = BlockNoteSchema.create().extend({
   blockSpecs: {
     callout: createCalloutBlock(),
+  },
+  inlineContentSpecs: {
+    mention: createMentionSpec,
   },
 });
 export type LotionSchema = typeof lotionSchema;
