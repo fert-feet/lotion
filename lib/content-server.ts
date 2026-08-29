@@ -9,7 +9,7 @@
 
 import { ServerBlockNoteEditor } from "@blocknote/server-util";
 import type { Block } from "@blocknote/core";
-import { isBlockNoteJson } from "./content";
+import { isBlockNoteJson, normalizeChecklistBlocks } from "./content";
 export { extractMarkdownTitle, isBlockNoteJson } from "./content";
 
 // server-util 单例（JSDOM + prosemirror schema 较重，懒创建复用）
@@ -39,14 +39,15 @@ export async function toMarkdown(content: string | null | undefined): Promise<st
 /**
  * 统一取 BlockNote blocks（异步）：
  * - Markdown → blocks（AI 写入转换，生成真实块 ID）
- * - BlockNote JSON 原样解析
+ * - BlockNote JSON：解析并规范化（迁移旧版 `[ ]` bulletListItem → checkListItem）
  */
 export async function toBlocks(content: string | null | undefined): Promise<Block[]> {
   if (!content || !content.trim()) return [];
   if (isBlockNoteJson(content)) {
     try {
       const blocks = JSON.parse(content) as Block[];
-      return Array.isArray(blocks) ? blocks : [];
+      if (!Array.isArray(blocks)) return [];
+      return normalizeChecklistBlocks(blocks as unknown as import("./content").EditorBlockLike[]) as Block[];
     } catch {
       return [];
     }

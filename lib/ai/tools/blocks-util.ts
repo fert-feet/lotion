@@ -3,6 +3,7 @@
 // 与自研编辑器时代的 Markdown 切片 + {#id} 锚点方案彻底解耦。
 
 import type Database from "better-sqlite3";
+import { normalizeChecklistBlocks } from "@/lib/content";
 import { isBlockNoteJson, toBlocks } from "@/lib/content-server";
 import { getDocumentById, updateDocument } from "@/lib/local/db";
 
@@ -86,7 +87,12 @@ export async function ensureDocBlocks(
   if (!doc) return null;
   if (isBlockNoteJson(doc.content)) {
     try {
-      return { blocks: (JSON.parse(doc.content ?? "[]") as AnyBlock[]) ?? [], title: doc.title };
+      // 规范化历史遗留块（旧版 `[ ]` bulletListItem → checkListItem），AI 工具结构正确
+      const parsed = (JSON.parse(doc.content ?? "[]") as AnyBlock[]) ?? [];
+      return {
+        blocks: normalizeChecklistBlocks(parsed as unknown as import("@/lib/content").EditorBlockLike[]) as AnyBlock[],
+        title: doc.title,
+      };
     } catch {
       return { blocks: [], title: doc.title };
     }

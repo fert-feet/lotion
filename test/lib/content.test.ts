@@ -2,7 +2,7 @@
 // toMarkdown（JSON→Markdown，服务端 server-util）与 toBlocks（Markdown→JSON）双向转换、
 // 提取标题、坏数据容错。
 import { describe, expect, it } from "vitest";
-import { extractMarkdownTitle, isBlockNoteJson, toEditorBlocks } from "@/lib/content";
+import { extractMarkdownTitle, isBlockNoteJson, normalizeChecklistBlocks, toEditorBlocks } from "@/lib/content";
 import { toBlocks, toMarkdown } from "@/lib/content-server";
 
 // 存量样本：BlockNote blocks JSON（heading + paragraph + 列表）
@@ -104,5 +104,63 @@ describe("extractMarkdownTitle", () => {
     expect(extractMarkdownTitle("## 小节\n\n正文")).toBeNull();
     expect(extractMarkdownTitle("纯文本")).toBeNull();
     expect(extractMarkdownTitle("")).toBeNull();
+  });
+});
+
+describe("normalizeChecklistBlocks", () => {
+  it("旧版 `[ ]`/`[x]` bulletListItem 转为 checkListItem，剥离前缀、设置勾选态", () => {
+    const blocks = [
+      { id: "b-0", type: "paragraph", content: [{ type: "text", text: "前言", styles: {} }] },
+      {
+        id: "b-1",
+        type: "bulletListItem",
+        content: [{ type: "text", text: "[ ] 确定搬家日期，预约搬家公司或车辆", styles: {} }],
+      },
+      {
+        id: "b-2",
+        type: "bulletListItem",
+        content: [{ type: "text", text: "[x] 处理闲置物品", styles: {} }],
+      },
+      // 链接 `[label](url)` 不应误判
+      {
+        id: "b-3",
+        type: "bulletListItem",
+        content: [{ type: "text", text: "[查看文档](https://example.com)", styles: {} }],
+      },
+    ];
+    const out = normalizeChecklistBlocks(blocks as never);
+    expect(out[0].type).toBe("paragraph");
+    expect(out[1].type).toBe("checkListItem");
+    expect((out[1].props as { checked: boolean }).checked).toBe(false);
+    expect((out[1].content as Array<{ text: string }>)[0].text).toBe("确定搬家日期，预约搬家公司或车辆");
+    expect(out[2].type).toBe("checkListItem");
+    expect((out[2].props as { checked: boolean }).checked).toBe(true);
+    expect(out[3].type).toBe("bulletListItem"); // 链接不误判
+  });
+
+  it("递归处理嵌套 children 中的坏任务项", () => {
+    const blocks = [
+      {
+        id: "p",
+        type: "paragraph",
+        content: [{ type: "text", text: "父", styles: {} }],
+        children: [
+          { id: "c", type: "bulletListItem", content: [{ type: "text", text: "[ ] 子任务", styles: {} }] },
+        ],
+      },
+    ];
+    const out = normalizeChecklistBlocks(blocks as never);
+    expect((out[0].children as Array<{ type: string }>)[0].type).toBe("checkListItem");
+  });
+});
+
+describe("toBlocks 对遗留坏数据归一化", () => {
+  it("既有 JSON 中的 `[ ]` bulletListItem 在服务端转换时为 checkListItem", async () => {
+    const legacy = JSON.stringify([
+      { id: "b-1", type: "bulletListItem", content: [{ type: "text", text: "[ ] 确定搬家日期", styles: {} }] },
+    ]);
+    const blocks = await toBlocks(legacy);
+    expect(blocks[0].type).toBe("checkListItem");
+    expect((blocks[0].props as { checked: boolean }).checked).toBe(false);
   });
 });

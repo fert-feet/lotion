@@ -21,17 +21,42 @@ export function isBlockNoteJson(content: string | null | undefined): boolean {
 
 /**
  * 统一取编辑器 blocks（客户端安全版）：
- * - BlockNote JSON：解析原样返回（解析失败返回 undefined）
+ * - BlockNote JSON：解析并规范化后返回（解析失败返回 undefined）
  * - Markdown（存量旧数据）：返回 undefined——编辑器挂载后经 tryParseMarkdownToBlocks
  *   填充（见 app/(main)/_components/editor.tsx）
  */
 export function toEditorBlocks(content: string | null | undefined): EditorBlockLike[] | undefined {
   if (!content || !isBlockNoteJson(content)) return undefined;
   try {
-    return JSON.parse(content) as EditorBlockLike[];
+    return normalizeChecklistBlocks(JSON.parse(content) as EditorBlockLike[]);
   } catch {
     return undefined;
   }
+}
+
+/**
+ * 规范化历史遗留块：旧版 markdown-to-blocks 把 `- [ ]`/`- [x]` 映射成了 bulletListItem，
+ * 且文本保留字面 `[ ]`（DB 里 id 形如 `b-0`）。这里把文本以 `[ ]`/`[x]`/`[X]`/`[]` 开头的
+ * bulletListItem 转为 checkListItem（勾选态），递归处理 children，其余块原样。
+ */
+export function normalizeChecklistBlocks(blocks: EditorBlockLike[]): EditorBlockLike[] {
+  return blocks.map((b) => {
+    const normalized: EditorBlockLike = { ...b };
+    normalized.children = b.children ? normalizeChecklistBlocks(b.children) : b.children;
+    if (normalized.type === "bulletListItem" && Array.isArray(normalized.content)) {
+      const arr = normalized.content as Array<{ text?: unknown }>;
+      const firstText = typeof arr[0]?.text === "string" ? arr[0].text : "";
+      const m = firstText.match(/^\[( |x|X|\])\] ?/);
+      if (m) {
+        normalized.type = "checkListItem";
+        normalized.props = { ...(normalized.props as Record<string, unknown>), checked: /x|X/.test(m[1]) };
+        const rest = firstText.slice(m[0].length);
+        // 仅剥离首节点的 `[ ]` 前缀，其余节点（如有）原样保留
+        normalized.content = [{ ...(arr[0] as object), text: rest }, ...arr.slice(1)];
+      }
+    }
+    return normalized;
+  });
 }
 
 /** 从 Markdown 提取首个 "# 一级标题" 作为文档标题（无则返回 null） */
