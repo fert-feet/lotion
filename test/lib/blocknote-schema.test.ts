@@ -1,0 +1,44 @@
+// blocknote-schema 单测（P1）：自定义 Callout 块在 schema 中注册，
+// 且服务端 toBlocks/toMarkdown 对含 callout 的 JSON 读写一致。
+import { describe, expect, it } from "vitest";
+import { lotionSchema } from "@/lib/blocknote-schema";
+import { toBlocks, toMarkdown } from "@/lib/content-server";
+
+const CALLOUT_JSON = JSON.stringify([
+  {
+    id: "c-1",
+    type: "callout",
+    props: { icon: "⚠️" },
+    content: [{ type: "text", text: "这是一条提醒", styles: {} }],
+    children: [],
+  },
+  {
+    id: "p-1",
+    type: "paragraph",
+    content: [{ type: "text", text: "普通段落", styles: {} }],
+    children: [],
+  },
+]);
+
+describe("lotionSchema", () => {
+  it("扩展了 callout 块（默认块保留）", () => {
+    expect(lotionSchema.blockSchema).toHaveProperty("callout");
+    expect(lotionSchema.blockSchema).toHaveProperty("paragraph");
+    expect(lotionSchema.blockSchema).toHaveProperty("heading");
+  });
+});
+
+describe("callout 服务端转换", () => {
+  it("toBlocks 原样解析含 callout 的 JSON（类型与 icon 保留）", async () => {
+    const blocks = await toBlocks(CALLOUT_JSON);
+    expect(blocks[0].type).toBe("callout");
+    expect(blocks[0].props.icon).toBe("⚠️");
+    expect(blocks[1].type).toBe("paragraph");
+  });
+
+  it("toMarkdown 对含 callout 的 JSON 不抛错且保留文本内容", async () => {
+    const md = await toMarkdown(CALLOUT_JSON);
+    expect(md).toContain("这是一条提醒");
+    expect(md).toContain("普通段落");
+  });
+});

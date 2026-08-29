@@ -252,3 +252,48 @@
   border-radius: 8px;
   margin: 8px auto;
 }
+
+/* ==========================================================================
+   自定义块（P1，对标 Notion）
+   ========================================================================== */
+
+/* Callout 提示框：浅色圆角底 + emoji 图标 + 内联文本（DOM 结构见 lib/blocknote-schema.ts） */
+.lotion-editor .bn-editor .lotion-callout {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  margin: 8px 0;
+  border-radius: 8px;
+  background: var(--shell-row-active);
+  border: 1px solid var(--shell-border);
+}
+
+.lotion-editor .bn-editor .lotion-callout .lotion-callout-icon {
+  flex: none;
+  font-size: 18px;
+  line-height: 1.6;
+  user-select: none;
+}
+
+.lotion-editor .bn-editor .lotion-callout .lotion-callout-content {
+  flex: 1;
+  min-width: 0;
+}
+.lotion-editor .bn-editor .lotion-callout .lotion-callout-content p {
+  margin: 0;
+}
+
+/* Toggle 折叠块（Notion 语义：三角箭头 + 展开/收起） */
+.lotion-editor .bn-editor .bn-toggle-button {
+  color: var(--shell-label-tertiary);
+  border-radius: 4px;
+}
+.lotion-editor .bn-editor .bn-toggle-button:hover {
+  color: var(--shell-label-primary);
+  background: var(--shell-row-hover);
+}
+.lotion-editor .bn-editor .bn-toggle-add-block-button {
+  font-size: 13px;
+  color: var(--shell-label-secondary);
+}

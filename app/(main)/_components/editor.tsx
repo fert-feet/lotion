@@ -7,14 +7,21 @@
 // - 图片上传：uploadFile → POST /api/upload（本地磁盘，见 route.ts 图床 TODO）
 // - AI 外部更新：initialContent 变化（AI 写库 / 切换文档）且用户未在编辑时，
 //   事务性 replaceBlocks 应用，不打断用户输入
+// - P1 对标 Notion：自定义 schema（callout 块）+ 自定义斜杠菜单（SuggestionMenuController）
 import { useCallback, useEffect, useRef, useState } from "react";
 // 0.54 起 @blocknote/react 的默认 UI 视图命名为 BlockNoteViewRaw（默认 UI 标志作 props）
-import { BlockNoteViewRaw as BlockNoteView, useCreateBlockNote } from "@blocknote/react";
-import type { PartialBlock } from "@blocknote/core";
+import {
+  BlockNoteViewRaw as BlockNoteView,
+  getDefaultReactSlashMenuItems,
+  SuggestionMenuController,
+  useCreateBlockNote,
+} from "@blocknote/react";
+import { filterSuggestionItems, type PartialBlock } from "@blocknote/core";
 import "@blocknote/core/style.css";
 import "@blocknote/react/style.css";
 import { useTheme } from "next-themes";
 import { isBlockNoteJson, toEditorBlocks } from "@/lib/content";
+import { createLotionSchema } from "@/lib/blocknote-schema";
 import "@/components/editor/blocknote.css";
 
 interface EditorProps {
@@ -45,10 +52,38 @@ const Editor = ({ onChange, initialContent, editable = true }: EditorProps) => {
   );
   const editor = useCreateBlockNote(
     {
+      schema: createLotionSchema(),
       initialContent: initialBlocks,
       uploadFile: handleUpload,
     },
     [],
+  );
+
+  // 自定义 schema 下 replaceBlocks 的块参数类型（含 callout）
+  type EditorPartialBlocks = Parameters<typeof editor.replaceBlocks>[1];
+
+  // 斜杠菜单项：默认全部 + 自定义 Callout（对标 Notion）
+  const getSlashMenuItems = useCallback(
+    async (query: string) => {
+      const defaultItems = getDefaultReactSlashMenuItems(editor);
+      const calloutItem = {
+        title: "Callout",
+        subtext: "提示框",
+        aliases: ["callout", "提示", "备注", "quote"],
+        group: "基础",
+        onItemClick: () => {
+          const { block } = editor.getTextCursorPosition();
+          const newBlock = editor.insertBlocks(
+            [{ type: "callout", props: { icon: "💡" }, content: [] }],
+            block,
+            "after",
+          )[0];
+          editor.setTextCursorPosition(newBlock, "start");
+        },
+      };
+      return filterSuggestionItems([calloutItem, ...defaultItems], query);
+    },
+    [editor],
   );
 
   // 初次挂载：存量 Markdown 文档 → blocks（仅当编辑器仍为空时替换，避免覆盖用户输入）
@@ -84,9 +119,9 @@ const Editor = ({ onChange, initialContent, editable = true }: EditorProps) => {
     if (editor.isFocused()) return;
     let alive = true;
     void (async () => {
-      const blocks = isBlockNoteJson(initialContent)
+      const blocks = (isBlockNoteJson(initialContent)
         ? (JSON.parse(initialContent) as PartialBlock[])
-        : await editor.tryParseMarkdownToBlocks(initialContent);
+        : await editor.tryParseMarkdownToBlocks(initialContent)) as EditorPartialBlocks;
       if (!alive) return;
       editor.transact(() => {
         editor.replaceBlocks(editor.document, blocks);
@@ -112,15 +147,18 @@ const Editor = ({ onChange, initialContent, editable = true }: EditorProps) => {
       editable={editable}
       theme={resolvedTheme === "dark" ? "dark" : "light"}
       className="lotion-editor"
-      // 对标 Notion：显式开启全部默认 UI（斜杠菜单 / 格式工具栏 / 链接工具栏 /
-      // 侧边拖拽菜单 / 表格手柄 / 文件面板）
+      // 对标 Notion：显式开启全部默认 UI（格式工具栏 / 链接工具栏 /
+      // 侧边拖拽菜单 / 表格手柄 / 文件面板）；斜杠菜单由下方
+      // SuggestionMenuController 接管（默认项 + Callout）
       formattingToolbar
-      slashMenu
+      slashMenu={false}
       sideMenu
       linkToolbar
       tableHandles
       filePanel
-    />
+    >
+      <SuggestionMenuController triggerCharacter="/" getItems={getSlashMenuItems} />
+    </BlockNoteView>
   );
 };
 

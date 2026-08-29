@@ -8,14 +8,20 @@
 //     AI 写入（createNote/updateNote/updateBlock）自动转 JSON
 
 import { ServerBlockNoteEditor } from "@blocknote/server-util";
-import type { Block } from "@blocknote/core";
 import { isBlockNoteJson, normalizeChecklistBlocks } from "./content";
+import { createLotionSchema, type LotionSchema } from "./blocknote-schema";
 export { extractMarkdownTitle, isBlockNoteJson } from "./content";
 
-// server-util 单例（JSDOM + prosemirror schema 较重，懒创建复用）
-let serverEditor: ServerBlockNoteEditor | null = null;
-function getServerEditor(): ServerBlockNoteEditor {
-  if (!serverEditor) serverEditor = ServerBlockNoteEditor.create();
+// server-util 单例（JSDOM + prosemirror schema 较重，懒创建复用）；
+// 使用与应用级 schema（含 callout 等自定义块），保证与编辑器读写一致
+type LotionServerEditor = ServerBlockNoteEditor<
+  LotionSchema["blockSchema"],
+  LotionSchema["inlineContentSchema"],
+  LotionSchema["styleSchema"]
+>;
+let serverEditor: LotionServerEditor | null = null;
+function getServerEditor(): LotionServerEditor {
+  if (!serverEditor) serverEditor = ServerBlockNoteEditor.create({ schema: createLotionSchema() });
   return serverEditor;
 }
 
@@ -28,7 +34,7 @@ export async function toMarkdown(content: string | null | undefined): Promise<st
   if (!content) return "";
   if (!isBlockNoteJson(content)) return content;
   try {
-    const blocks = JSON.parse(content) as Block[];
+    const blocks = JSON.parse(content) as LotionSchema["Block"][];
     if (!Array.isArray(blocks) || blocks.length === 0) return "";
     return await getServerEditor().blocksToMarkdownLossy(blocks);
   } catch {
@@ -41,13 +47,13 @@ export async function toMarkdown(content: string | null | undefined): Promise<st
  * - Markdown → blocks（AI 写入转换，生成真实块 ID）
  * - BlockNote JSON：解析并规范化（迁移旧版 `[ ]` bulletListItem → checkListItem）
  */
-export async function toBlocks(content: string | null | undefined): Promise<Block[]> {
+export async function toBlocks(content: string | null | undefined): Promise<LotionSchema["Block"][]> {
   if (!content || !content.trim()) return [];
   if (isBlockNoteJson(content)) {
     try {
-      const blocks = JSON.parse(content) as Block[];
+      const blocks = JSON.parse(content) as LotionSchema["Block"][];
       if (!Array.isArray(blocks)) return [];
-      return normalizeChecklistBlocks(blocks as unknown as import("./content").EditorBlockLike[]) as Block[];
+      return normalizeChecklistBlocks(blocks as unknown as import("./content").EditorBlockLike[]) as LotionSchema["Block"][];
     } catch {
       return [];
     }
