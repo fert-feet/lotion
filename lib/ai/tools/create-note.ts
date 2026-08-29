@@ -2,7 +2,7 @@ import type Database from "better-sqlite3";
 import { tool } from "ai";
 import z from "zod";
 import { logger } from "@/lib/logger";
-import { extractMarkdownTitle, toBlocks } from "@/lib/content";
+import { extractMarkdownTitle, toBlocks } from "@/lib/content-server";
 import { createDocument, getDocumentById, updateDocument } from "@/lib/local/db";
 import type { ToolEvent } from "./index";
 

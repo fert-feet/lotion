@@ -3,7 +3,7 @@ import { tool } from "ai";
 import z from "zod";
 import { logger } from "@/lib/logger";
 import { extractText } from "@/lib/extract-text";
-import { toMarkdown } from "@/lib/content";
+import { toMarkdown } from "@/lib/content-server";
 import { getDocumentById } from "@/lib/local/db";
 import type { ToolEvent } from "./index";
 

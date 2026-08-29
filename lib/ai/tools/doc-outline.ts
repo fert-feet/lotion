@@ -2,7 +2,7 @@ import type Database from "better-sqlite3";
 import { tool } from "ai";
 import z from "zod";
 import { logger } from "@/lib/logger";
-import { toMarkdown } from "@/lib/content";
+import { toMarkdown } from "@/lib/content-server";
 import { getDocumentById } from "@/lib/local/db";
 import { parseGfm } from "@/components/markdown/parse";
 

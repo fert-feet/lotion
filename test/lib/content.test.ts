@@ -2,13 +2,8 @@
 // toMarkdown（JSON→Markdown，服务端 server-util）与 toBlocks（Markdown→JSON）双向转换、
 // 提取标题、坏数据容错。
 import { describe, expect, it } from "vitest";
-import {
-  extractMarkdownTitle,
-  isBlockNoteJson,
-  toBlocks,
-  toEditorBlocks,
-  toMarkdown,
-} from "@/lib/content";
+import { extractMarkdownTitle, isBlockNoteJson, toEditorBlocks } from "@/lib/content";
+import { toBlocks, toMarkdown } from "@/lib/content-server";
 
 // 存量样本：BlockNote blocks JSON（heading + paragraph + 列表）
 const OLD_JSON = JSON.stringify([

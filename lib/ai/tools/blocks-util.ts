@@ -3,7 +3,7 @@
 // 与自研编辑器时代的 Markdown 切片 + {#id} 锚点方案彻底解耦。
 
 import type Database from "better-sqlite3";
-import { isBlockNoteJson, toBlocks } from "@/lib/content";
+import { isBlockNoteJson, toBlocks } from "@/lib/content-server";
 import { getDocumentById, updateDocument } from "@/lib/local/db";
 
 /** 任意 BlockNote 块的最小形状（宽松，容忍存量数据缺字段） */
