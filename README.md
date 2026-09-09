@@ -6,7 +6,7 @@
 
 > 本分支（`feature/local-db`）是**永久独立的本地单机版**：SQLite 本地数据库 + 自研 Auth + REST API，**永不合并回 main**（main 是 Supabase 网络数据库版）。详见 [docs/本地数据库版.md](docs/本地数据库版.md)。
 
-全栈 AI 笔记应用：**SQLite 本地数据库**存储，**BlockNote 0.54** 负责富文本编辑，**DeepSeek Agent**（19 个工具）帮你搜索、创建、修改和整理笔记。前端采用 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 同款三栏 shell 侧边栏设计。
+全栈 AI 笔记应用：**Vite 8 + React 19** 前端 SPA（react-router 7），**Hono 4** 单进程提供 REST API 与静态资源，**SQLite 本地数据库**存储，**BlockNote 0.54** 负责富文本编辑，**DeepSeek Agent**（19 个工具）帮你搜索、创建、修改和整理笔记。前端采用 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 同款三栏 shell 侧边栏设计。
 
 ## 特性
 
@@ -92,38 +92,45 @@ DEEPSEEK_API_KEY=sk-xxxxxxxx
 # 可选：覆盖模型，默认 deepseek-v4-flash（AI 对话与上下文压缩共用）
 # AI_MODEL=deepseek-v4-flash
 
-# 3. 启动（首个请求自动建库 data/lotion.db，无需手动跑 SQL）
+# 3. 启动（并行起 vite 5173 + Hono 3001；首个请求自动建库 data/lotion.db）
 pnpm dev
 ```
 
-打开 [http://localhost:3000](http://localhost:3000)，注册账号即可使用。
+打开 [http://localhost:5173](http://localhost:5173)，注册账号即可使用。
+
+生产模式：`pnpm build && pnpm start` → 单进程同时提供 API 与静态资源（[http://localhost:3001](http://localhost:3001)）。
 
 ## 项目结构
 
 ```
-app/
-├── (main)/                       # 认证用户主界面（layout.tsx 服务端会话守卫）
-│   ├── _components/
-│   │   ├── app-shell.tsx         # DSH 风格三栏 shell（sidebar|center|details + 拖拽手柄）
-│   │   ├── sidebar/              # 侧边栏：header 搜索胶囊 / 文档树 / footer / rail
-│   │   ├── ai-panel.tsx          # AI 面板（details 列常驻挂载，SSE 流式渲染）
-│   │   ├── ai/                   # turn.tsx / tool-card.tsx / note-card.tsx / types.ts
-│   │   ├── editor.tsx            # BlockNote 入口（schema / 斜杠菜单 / @提及 / 图片上传）
-│   │   └── title.tsx / cover.tsx / navbar.tsx / publish.tsx / draft-banner.tsx / trash-box.tsx
-│   └── (routes)/documents/[documentId]/   # 文档编辑页
-├── (marketing)/                  # 公开着陆页
-├── (public)/(routes)/preview/[documentId]/  # 公开预览（无鉴权，仅已发布）
-├── api/                          # auth / me / documents(+archive|move|restore) / chat/sessions
-│                                 #   / ai/chat(SSE) / upload(s) / public
-└── login/ + register/            # 本地 Auth
+src/
+├── main.tsx                      # 客户端入口
+├── app.tsx                       # 全局 Provider（Theme / Toaster / Modal / User）
+├── router.tsx                    # 路由表（导出 routes 供测试复用）
+├── pages/                        # marketing / login / register / documents / document / preview / 404 / error
+├── shell/                        # 认证区外壳
+│   ├── main-layout.tsx           # 会话守卫 + AppShell
+│   ├── app-shell.tsx             # DSH 风格三栏 shell（sidebar|center|details + 拖拽手柄）
+│   ├── sidebar/                  # 侧边栏：header 搜索胶囊 / 文档树 / footer / rail
+│   ├── ai-panel.tsx + ai/        # AI 面板（details 列常驻，SSE 流式渲染）
+│   ├── editor.tsx                # BlockNote 入口（schema / 斜杠菜单 / @提及 / 图片上传）
+│   └── title.tsx / cover.tsx / navbar.tsx / publish.tsx / draft-banner.tsx / trash-box.tsx
+├── marketing/                    # 着陆页组件
+└── styles/                       # globals.css（Tailwind 4 设计 token）+ fonts.css
+server/
+├── index.ts                      # 入口：静态托管 + SPA 回退 + serve
+├── app.ts                        # 装配 /api/*（可测试，不监听端口）
+├── middleware.ts                 # requireAuth（会话 cookie 校验）
+└── routes/                       # auth / me / documents(+archive|move|restore) / chat / ai-chat(SSE)
+│                                 #   / upload + uploads / public-documents
 components/
 ├── editor/                       # blocknote.css / lotion-suggestion-menu.tsx / outline-panel.tsx
 ├── markdown/                     # AI 回复的流式 Markdown 渲染
 ├── ui/ + icons/ + modals/ + upload/ + search-command.tsx
 hooks/                            # use-layout / use-page-width / use-user / use-refresh / ...
 lib/
-├── db.ts                         # 数据访问分派：server 直查 SQLite / client fetch REST
-├── local/                        # ⚠️ 服务端专用：sqlite / migrations / db / auth / request-user
+├── db.ts                         # 客户端数据访问入口（全部 fetch REST）
+├── local/                        # ⚠️ 服务端专用：sqlite / migrations / db / auth / request-user / uploads
 ├── content.ts                    # 客户端安全的内容适配（isBlockNoteJson / toEditorBlocks）
 ├── content-server.ts             # ⚠️ 服务端专用：JSON ↔ Markdown（@blocknote/server-util）
 ├── blocknote-schema.ts           # 自定义 schema（callout / mention），客户端服务端共享
@@ -131,7 +138,7 @@ lib/
 ├── ai/tools/                     # 19 个 Agent Tool（+ blocks-util.ts 块 JSON 展平/取文本）
 ├── ai-prompts.ts / compress.ts   # 系统提示词 / 上下文压缩
 └── layout/columns.ts             # 三栏让步链纯函数（常量 + computeColumns）
-test/                             # Vitest 单测（与 lib/、api/ 同构，269 个用例）
+test/                             # Vitest 单测（与 lib/、server/ 同构，282 个用例）
 ```
 
 ## 数据模型（SQLite 5 张表）
@@ -156,22 +163,22 @@ test/                             # Vitest 单测（与 lib/、api/ 同构，269
 ## 开发
 
 ```bash
-pnpm dev          # Turbopack 开发服务器（禁止由 agent 在本仓库内启动）
-pnpm build        # 生产构建
-pnpm start        # 运行构建产物（单机自托管）
+pnpm dev          # vite(5173) + Hono(3001)，/api 代理到 Hono（禁止由 agent 在本仓库内启动）
+pnpm build        # vite 构建客户端到 dist/
+pnpm start        # 运行 Hono（托管 dist/ + API，单机自托管）
+pnpm typecheck    # tsc --noEmit
 pnpm lint         # ESLint
-pnpm test         # Vitest 单测（269 个用例，内存 SQLite + 真实 REST handler）
+pnpm test         # Vitest 单测（282 个用例，内存 SQLite + Hono app.request）
 pnpm test:watch   # Vitest 监听模式
-npx tsc --noEmit  # 类型检查
 ```
 
-约定：后台代码（`lib/`、`app/api/`）每次修改必须补或更新单测，提交前 `pnpm test` 必须全绿；提交消息格式 `feature: <中文描述>` / `fix: <中文描述>`。
+约定：后台代码（`lib/`、`server/`）每次修改必须补或更新单测，提交前 `pnpm test` 必须全绿；提交消息格式 `feature: <中文描述>` / `fix: <中文描述>`。
 
 ## 部署
 
 单机自托管：`pnpm build && pnpm start`。数据落在 `data/lotion.db`（可用 `LOTION_DB_PATH` 覆盖）与 `data/uploads/`（可用 `UPLOAD_DIR` 覆盖）。
 
-> ⚠️ TODO（代码内已注释）：图床迁移（`app/api/upload/route.ts`，`{ url }` 契约不变）；上 Vercel 时 SQLite 文件会丢失，需迁远程 libsql 并重新评估公开面（`app/api/public/documents/`）。
+> ⚠️ TODO（代码内已注释）：图床迁移（`server/routes/upload.ts`，`{ url }` 契约不变）；公网部署时 SQLite 文件需迁远程 libsql，并重新评估公开面（`server/routes/public-documents.ts`）。
 
 ## License
 
