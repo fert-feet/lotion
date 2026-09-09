@@ -9,49 +9,45 @@ import { useUser } from "@/hooks/use-user";
 import { Link } from "react-router";
 import { Skeleton } from "@/components/ui/skeleton";
 
+// 顶部导航：macOS 工具栏语言——52px 高、半透明材质 + 背景模糊、底部发丝线，
+// 没有荧光笔色条、没有厚重投影。按钮沿用系统 push button（小号）。
 const Navbar = () => {
     const { user, loading } = useUser()
     const isAuthenticated = !!user
     const scrolled = useScrollTop()
 
     return (
-        <div className={cn(
-            "z-50 fixed top-0 flex items-center w-full px-6 py-4",
-            // 签名：顶部一条荧光笔黄细线
-            "before:absolute before:top-0 before:left-0 before:h-[3px] before:w-full before:bg-ai",
-            scrolled && "border-b border-border bg-background/80 backdrop-blur-md"
-        )}>
+        <header
+            className={cn(
+                "fixed top-0 z-50 flex h-[52px] w-full items-center px-5 md:px-8",
+                "material-toolbar border-b-[0.5px] border-border",
+                "transition-colors duration-150",
+                scrolled && "shadow-[var(--shadow-sm)]",
+            )}
+        >
             <Logo />
-            <div className="flex md:ml-auto md:justify-end justify-between w-full items-center gap-x-2">
-                {loading && (
-                    <Button variant="default" disabled>
-                        <Skeleton className="h-4 w-16" />
-                    </Button>
-                )}
+            <nav className="ml-auto flex items-center gap-x-2">
+                {loading && <Skeleton className="h-8 w-20 rounded-[7px]" />}
                 {!isAuthenticated && !loading && (
                     <>
                         <Link to="/login">
                             <Button variant="ghost" className="cursor-pointer">Login</Button>
                         </Link>
                         <Link to="/register">
-                            <Button className="cursor-pointer bg-ai text-ai-foreground hover:bg-ai/90 shadow-sm">
-                                Get Lotion free!
-                            </Button>
+                            <Button className="cursor-pointer">Get Lotion free!</Button>
                         </Link>
                     </>
                 )}
                 {isAuthenticated && !loading && (
-                    <>
-                        <Button variant="default" size="sm" asChild>
-                            <Link to="/documents">
-                                Enter Lotion
-                            </Link>
-                        </Button>
-                    </>
+                    <Button asChild>
+                        <Link to="/documents">
+                            Enter Lotion
+                        </Link>
+                    </Button>
                 )}
                 <ModeToggle />
-            </div>
-        </div>
+            </nav>
+        </header>
     );
 }
 

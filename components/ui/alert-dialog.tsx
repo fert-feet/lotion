@@ -8,6 +8,10 @@ import { cn } from "@/lib/utils";
 import { Slot } from "./_primitives";
 
 interface Ctx { open: boolean; setOpen: (v: boolean) => void; }
+
+/** 对话框按钮基础样式（与 components/ui/button.tsx 的 Apple 按钮语言一致） */
+const btnBase =
+  "inline-flex h-8 shrink-0 cursor-pointer select-none items-center justify-center gap-1.5 whitespace-nowrap rounded-[7px] px-3.5 text-[13px] font-medium leading-none transition-[background-color,box-shadow,transform] duration-150 ease-[var(--ds-ease-out)] outline-none active:scale-[0.97] focus-visible:ring-[3px] focus-visible:ring-ring";
 const Ctx = createContext<Ctx>({ open: false, setOpen: () => {} });
 
 function AlertDialog({ open, onOpenChange, children }: { open?: boolean; onOpenChange?: (v: boolean) => void; children: ReactNode }) {
@@ -64,7 +68,7 @@ function AlertDialogAction({ asChild = true, children, className, ...props }: HT
 
 function AlertDialogCancel({ asChild = true, children, className, ...props }: HTMLAttributes<HTMLButtonElement> & { asChild?: boolean; children: ReactNode }) {
   const { setOpen } = useContext(Ctx);
-  const p = { type: "button" as const, className, onClick: (e: React.MouseEvent) => { e.stopPropagation(); setOpen(false); }, ...props };
+  const p = { type: "button" as const, className: cn(btnBase, "bg-primary text-primary-foreground hover:bg-[color-mix(in_srgb,var(--primary)_88%,black)]", className), onClick: (e: React.MouseEvent) => { e.stopPropagation(); setOpen(false); }, ...props };
   if (asChild) return <Slot {...p}>{children}</Slot>;
   return <button {...p}>{children}</button>;
 }

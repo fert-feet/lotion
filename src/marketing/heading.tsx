@@ -6,53 +6,55 @@ import { ArrowRight, Sparkles } from "@/components/icons";
 import { Spinner } from "@/components/ui/spinner";
 import { Link } from "react-router";
 
+// 首屏：Apple 产品页排版——小标签（克制灰底，无荧光笔）→ 56px 紧字距大标题
+// → 19px 副标题 → 两个 push button（主：系统蓝 / 次：填充灰）。
 const Heading = () => {
     const { user, loading } = useUser()
     const isAuthenticated = !!user
 
     return (
-        <div className="max-w-3xl mx-auto space-y-6 text-center">
-            <div className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card/70 px-3 py-1 text-xs font-medium text-muted-foreground backdrop-blur">
-                <Sparkles className="h-3.5 w-3.5 text-ai" />
+        <section className="mx-auto w-full max-w-[680px] py-6 text-center md:py-10">
+            <div className="inline-flex items-center gap-1.5 rounded-full bg-secondary px-3 py-1 text-[13px] font-medium text-muted-foreground">
+                <Sparkles className="h-3.5 w-3.5 text-primary" strokeWidth={2} />
                 An AI assistant lives inside every note
             </div>
-            <h1 className="font-display text-5xl sm:text-6xl md:text-7xl font-semibold tracking-tight leading-[1.04]">
-                The notebook that <span className="hl-mark">thinks</span> with you.
+            <h1 className="mt-6 text-balance text-[44px] font-bold leading-[1.05] tracking-[-0.03em] md:text-[56px]">
+                The notebook that <span className="text-primary">thinks</span> with you.
             </h1>
-            <h3 className="text-base sm:text-lg text-muted-foreground max-w-xl mx-auto leading-relaxed">
+            <p className="mx-auto mt-5 max-w-[560px] text-[17px] leading-[1.5] text-muted-foreground md:text-[19px]">
                 Lotion is the connected workspace where an AI assistant writes,
                 summarizes and organizes your notes — in your language.
-            </h3>
+            </p>
             {loading && (
-                <div className="flex justify-center">
+                <div className="mt-8 flex justify-center">
                     <Spinner className="size-7" />
                 </div>
             )}
             {!isAuthenticated && !loading && (
-                <div className="flex items-center justify-center gap-3 pt-2">
+                <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
                     <Link to="/register">
-                        <Button size="lg" className="bg-ai text-ai-foreground hover:bg-ai/90 shadow-md shadow-ai/20">
+                        <Button className="h-11 rounded-[10px] px-6 text-[15px] font-medium active:scale-[0.98]">
                             Get Lotion Free!
                         </Button>
                     </Link>
                     <Link to="/login">
-                        <Button size="lg" variant="outline">
+                        <Button variant="secondary" className="h-11 rounded-[10px] px-6 text-[15px] font-medium active:scale-[0.98]">
                             Login
                         </Button>
                     </Link>
                 </div>
             )}
             {isAuthenticated && !loading && (
-                <div className="pt-2">
-                    <Button variant="default" size="lg" asChild>
+                <div className="mt-8">
+                    <Button asChild className="h-11 rounded-[10px] px-6 text-[15px] font-medium active:scale-[0.98]">
                         <Link to="/documents">
                             Enter Lotion
-                            <ArrowRight className="h-5 w-5 ml-2" />
+                            <ArrowRight className="ml-1 h-4 w-4" strokeWidth={2} />
                         </Link>
                     </Button>
                 </div>
             )}
-        </div>
+        </section>
     );
 }
 

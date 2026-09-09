@@ -7,10 +7,18 @@
 import { Children, cloneElement, isValidElement, useEffect, useRef, useState } from "react";
 import type { ReactElement, ReactNode } from "react";
 
-/** asChild 语义：把 props 合并到唯一子元素（不包裹额外节点） */
+/** asChild 语义：把 props 合并到唯一子元素（不包裹额外节点）。
+ *  兜底：asChild 但子节点不是单个元素（例如直接写文本 "Cancel"）时，
+ *  渲染原生 button 而不是静默返回 null——否则按钮会凭空消失。 */
 export function Slot({ children, ...props }: { children?: ReactNode } & Record<string, unknown>) {
   const child = Children.only(children);
-  if (!isValidElement(child)) return null;
+  if (!isValidElement(child)) {
+    return (
+      <button type="button" {...(props as React.ComponentProps<"button">)}>
+        {children}
+      </button>
+    );
+  }
   const childProps = (child.props as Record<string, unknown>) ?? {};
   return cloneElement(child as ReactElement, { ...props, ...childProps });
 }
