@@ -6,44 +6,79 @@
 
 > 本分支（`feature/local-db`）是**永久独立的本地单机版**：SQLite 本地数据库 + 自研 Auth + REST API，**永不合并回 main**（main 是 Supabase 网络数据库版）。详见 [docs/本地数据库版.md](docs/本地数据库版.md)。
 
-全栈 AI 笔记应用：**SQLite 本地数据库**存储，**BlockNote** 负责富文本编辑，**DeepSeek Agent** 帮你搜索、创建、修改和整理笔记。前端采用 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 同款三栏 shell 侧边栏设计。
+全栈 AI 笔记应用：**SQLite 本地数据库**存储，**BlockNote 0.54** 负责富文本编辑，**DeepSeek Agent**（19 个工具）帮你搜索、创建、修改和整理笔记。前端采用 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 同款三栏 shell 侧边栏设计。
 
 ## 特性
 
-- **DSH 风格三栏布局** — `sidebar | center | details` 可拖拽三栏（侧边栏 264-420px、AI 面板 300-520px），侧边栏可折叠成 56px 图标 rail，窄屏自动折叠；让步链保证中心列不被挤压
-- **无限层级文档树** — `parentDocument` 自引用嵌套，任意深度组织笔记；行高 32px、hover 浮现「新建子笔记 / 更多」操作与相对时间
-- **BlockNote 富文本编辑** — 图片上传、封面图、Emoji 图标，内容实时保存
-- **DeepSeek Agent** — 7 个 Tool 自主决策（搜索/读取/创建/更新/重命名/归档/删除），SSE 事件流实时推送每一步进度；AI 面板为常驻 details 列，关闭不丢状态
+**布局与组织**
+
+- **DSH 风格三栏布局** — `sidebar | center | details` 可拖拽（侧边栏 264-420px、AI 面板 300-520px），让步链优先保证中心列 ≥ 640px；侧边栏可折叠成 56px 图标 rail，视口 < 1024px 自动折叠
+- **无限层级文档树** — `parentDocument` 自引用嵌套，任意深度组织笔记；32px 行高、hover 浮现「新建子笔记 / 更多」操作与相对时间
 - **内嵌搜索胶囊** — 侧边栏头部点击展开全宽输入框，即时过滤文档树；`Cmd/Ctrl + J` 全局命令面板
-- **回收站与草稿** — 归档/恢复/永久删除（支持批量）；AI 新建笔记默认进入确认制草稿
-- **发布预览** — 一键发布生成公开链接（无鉴权端点仅吐已发布文档，单机语义）
+- **回收站与草稿** — 搜索过滤、单条恢复 / 永久删除（删除需二次确认）；AI 新建笔记默认进入确认制草稿
+- **发布预览** — 一键发布生成公开链接并复制到剪贴板（无鉴权端点仅吐已发布文档，单机语义）
+
+**编辑器（BlockNote 0.54，对标 Notion）**
+
+- **BlockNote JSON 无损存储** — 保留块 ID；存量 Markdown 与旧版 BlockNote JSON 惰性兼容，无需手工迁移
+- **代码块语法高亮** — shiki（`@blocknote/code-block`），schema 客户端 / 服务端共享
+- **斜杠菜单 Notion 式分组** — 基础 / 媒体 / 高级 / 其他，含自定义 Callout 块（点击图标换 emoji）
+- **@ 提及文档** — 输入 `@` 搜索当前用户文档并插入胶囊，点击跳转
+- **页面大纲 TOC** — 右侧 Outline 面板提取标题层级树，点击定位到对应块
+- **页面宽窄切换** — narrow（`max-w-3xl`）/ wide（`max-w-5xl`），localStorage 持久化
+- **图片与封面** — 拖拽上传到本地磁盘、封面图、Emoji 图标
+
+**AI Agent**
+
+- **19 个工具自主决策** — 检索 / 写入 / 组织 / 交互四类（见下），SSE 事件流实时推送每一步进度
+- **流式事件协议** — 14 种事件类型，前端按事件行解析（非拼接文本 + 正则提取）
+- **Doom loop 检测** — 相同工具 + 参数连续失败 3 次警告、5 次中止（对齐 SiYuan）
+- **上下文压缩** — 滑动窗口保留最近 100 条消息原文，滑出部分由模型重写式摘要（`lib/compress.ts`）
+- **常驻 AI 面板** — details 列常驻挂载，关闭不丢状态
 
 ## 它如何工作
 
 用户输入经过 `/api/ai/chat` 进入 Agent 循环：`streamText` 驱动 DeepSeek 自主调用工具，工具副作用经 `onEvent` 回调上报事件队列，再以 SSE 事件流逐条推送给前端：
 
 ```
-用户 prompt → POST /api/ai/chat → streamText({ model: AI_MODEL, tools: 7 个, stopWhen: 5 步 })
-  → AI 调用 Tool（search/read/create/update/rename/archive/delete）
-  → onEvent 上报副作用（创建 / 修改 / 删除确认 / 引用）
+用户 prompt → POST /api/ai/chat → streamText({ model: AI_MODEL, tools: 19 个, stopWhen: stepCountIs(5) })
+  → AI 调用 Tool（search/list/read/create/update/rename/move/icon/publish/archive/restore/trash/delete/
+                  askUser/todoWrite/docInfo/docOutline/docBlocks/updateBlock）
+  → onEvent 上报副作用（创建 / 修改 / 删除确认 / 移动确认 / 提问 / 待办 / 引用）
   → SSE 事件行 data: <json> → 前端解析 → 跳转 / 刷新 / 确认 / 进度展示
 ```
 
 | 事件类型 | 含义 |
 |----------|------|
+| `turn_start` | 一轮 Agent 循环开始（轮次 + 起始时间） |
 | `text` | AI 回复文本流 |
-| `progress` | 工具执行进度 |
-| `note_created` | 已创建草稿，等待用户确认 |
-| `confirm_delete` | 请求确认删除 |
+| `tool_start` | 工具开始执行（名称 / 序号 / 标签 / 参数） |
+| `tool_end` | 工具执行结束（成功与否 + 摘要） |
+| `note_created` | 已创建笔记（AI 新建默认草稿，等待用户确认） |
 | `note_modified` | 笔记已被修改 |
-| `references` | 关联笔记引用 |
+| `confirm_delete` | 请求确认永久删除 |
+| `confirm_move` | 请求确认移动笔记 |
+| `question` | 向用户提出结构化问题（`askUser`） |
+| `todo_update` | 多步任务清单更新（`todoWrite`） |
+| `reference` | 关联笔记引用 |
+| `warning` | doom loop 重复失败警告 |
+| `turn_end` | 一轮结束（耗时 + token 统计） |
 | `error` | 生成中途出错（模型 API 异常等） |
+
+### Agent 工具（19 个）
+
+| 类别 | 工具 |
+|------|------|
+| 检索 | `searchNotes` `listNotes` `readNote` `getDocInfo` `getDocOutline` `getDocBlocks` |
+| 写入 | `createNote` `updateNote` `renameNote` `moveNote` `setNoteIcon` `updateBlock` |
+| 组织 | `publishNote` `archiveNote` `restoreNote` `listTrash` `deleteNote` |
+| 交互 | `askUser` `todoWrite` |
 
 ## 快速开始
 
 ### 前置要求
 
-- Node.js 18+ 与 pnpm
+- **Node.js 22+** 与 pnpm（`better-sqlite3` 要求 Node ≥ 22）
 - DeepSeek API Key（可选，仅 AI 功能需要）
 
 ### 安装
@@ -54,6 +89,8 @@ pnpm install
 
 # 2. 配置环境变量 — 创建 .env.local
 DEEPSEEK_API_KEY=sk-xxxxxxxx
+# 可选：覆盖模型，默认 deepseek-v4-flash（AI 对话与上下文压缩共用）
+# AI_MODEL=deepseek-v4-flash
 
 # 3. 启动（首个请求自动建库 data/lotion.db，无需手动跑 SQL）
 pnpm dev
@@ -68,30 +105,40 @@ app/
 ├── (main)/                       # 认证用户主界面（layout.tsx 服务端会话守卫）
 │   ├── _components/
 │   │   ├── app-shell.tsx         # DSH 风格三栏 shell（sidebar|center|details + 拖拽手柄）
-│   │   ├── sidebar/              # 侧边栏：header 搜索胶囊 / 文档树 / 底部图标栏 / rail
+│   │   ├── sidebar/              # 侧边栏：header 搜索胶囊 / 文档树 / footer / rail
 │   │   ├── ai-panel.tsx          # AI 面板（details 列常驻挂载，SSE 流式渲染）
-│   │   ├── editor.tsx / navbar.tsx / cover.tsx / ...
+│   │   ├── ai/                   # turn.tsx / tool-card.tsx / note-card.tsx / types.ts
+│   │   ├── editor.tsx            # BlockNote 入口（schema / 斜杠菜单 / @提及 / 图片上传）
+│   │   └── title.tsx / cover.tsx / navbar.tsx / publish.tsx / draft-banner.tsx / trash-box.tsx
 │   └── (routes)/documents/[documentId]/   # 文档编辑页
 ├── (marketing)/                  # 公开着陆页
 ├── (public)/(routes)/preview/[documentId]/  # 公开预览（无鉴权，仅已发布）
-├── api/                          # auth / documents / chat / ai/chat(SSE) / upload / public
-├── login/ + register/            # 本地 Auth
+├── api/                          # auth / me / documents(+archive|move|restore) / chat/sessions
+│                                 #   / ai/chat(SSE) / upload(s) / public
+└── login/ + register/            # 本地 Auth
+components/
+├── editor/                       # blocknote.css / lotion-suggestion-menu.tsx / outline-panel.tsx
+├── markdown/                     # AI 回复的流式 Markdown 渲染
+├── ui/ + icons/ + modals/ + upload/ + search-command.tsx
+hooks/                            # use-layout / use-page-width / use-user / use-refresh / ...
 lib/
 ├── db.ts                         # 数据访问分派：server 直查 SQLite / client fetch REST
-├── layout/columns.ts             # 三栏让步链纯函数（常量 + computeColumns）
-├── agent.ts                      # Agent 核心：streamText + SSE 事件流包装
-├── ai/tools/                     # 7 个 Agent Tool
 ├── local/                        # ⚠️ 服务端专用：sqlite / migrations / db / auth / request-user
-hooks/use-layout.ts               # 布局 store（sidebar/details 宽度、窄屏、toggle）
-components/                       # shadcn/ui + SearchCommand + Upload
-test/                            # Vitest 单测（与 lib/、api/ 同构）
+├── content.ts                    # 客户端安全的内容适配（isBlockNoteJson / toEditorBlocks）
+├── content-server.ts             # ⚠️ 服务端专用：JSON ↔ Markdown（@blocknote/server-util）
+├── blocknote-schema.ts           # 自定义 schema（callout / mention），客户端服务端共享
+├── agent.ts                      # Agent 核心：streamText + doom loop 检测 + SSE 事件流包装
+├── ai/tools/                     # 19 个 Agent Tool（+ blocks-util.ts 块 JSON 展平/取文本）
+├── ai-prompts.ts / compress.ts   # 系统提示词 / 上下文压缩
+└── layout/columns.ts             # 三栏让步链纯函数（常量 + computeColumns）
+test/                             # Vitest 单测（与 lib/、api/ 同构，269 个用例）
 ```
 
 ## 数据模型（SQLite 5 张表）
 
 `users` / `sessions` / `documents` / `chat_sessions` / `chat_messages`，每次启动自动迁移（`lib/local/migrations.ts` 内嵌 DDL + `_migrations` 记录表）。
 
-`documents` 表（应用层显式 `userId` 过滤，无 RLS）：
+`documents` 表（应用层显式 `userId` 过滤，无 RLS；`userId` / `parentDocument` 上建索引）：
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
@@ -100,7 +147,7 @@ test/                            # Vitest 单测（与 lib/、api/ 同构）
 | `title` | TEXT | 标题 |
 | `isArchived` | INTEGER | 软删除标记（0/1） |
 | `isDraft` | INTEGER | AI 创建草稿，需确认 |
-| `parentDocument` | TEXT FK | 父文档（自引用嵌套） |
+| `parentDocument` | TEXT FK | 父文档（自引用嵌套，`ON DELETE SET NULL`） |
 | `content` | TEXT | BlockNote JSON 块 |
 | `coverImage` / `icon` | TEXT | 封面图 / Emoji 图标 |
 | `isPublished` | INTEGER | 是否公开 |
@@ -109,19 +156,22 @@ test/                            # Vitest 单测（与 lib/、api/ 同构）
 ## 开发
 
 ```bash
-pnpm dev          # Turbopack 开发服务器（禁止在本仓库内由 agent 启动）
+pnpm dev          # Turbopack 开发服务器（禁止由 agent 在本仓库内启动）
 pnpm build        # 生产构建
 pnpm start        # 运行构建产物（单机自托管）
 pnpm lint         # ESLint
-pnpm test         # Vitest 单测（173 个用例，内存 SQLite + 真实 REST handler）
+pnpm test         # Vitest 单测（269 个用例，内存 SQLite + 真实 REST handler）
+pnpm test:watch   # Vitest 监听模式
 npx tsc --noEmit  # 类型检查
 ```
+
+约定：后台代码（`lib/`、`app/api/`）每次修改必须补或更新单测，提交前 `pnpm test` 必须全绿；提交消息格式 `feature: <中文描述>` / `fix: <中文描述>`。
 
 ## 部署
 
 单机自托管：`pnpm build && pnpm start`。数据落在 `data/lotion.db`（可用 `LOTION_DB_PATH` 覆盖）与 `data/uploads/`（可用 `UPLOAD_DIR` 覆盖）。
 
-> ⚠️ TODO（代码内已注释）：图床迁移（`app/api/upload/route.ts`）；上 Vercel 时 SQLite 文件会丢失，需迁远程 libsql 并重新评估公开面（`app/api/public/documents/`）。
+> ⚠️ TODO（代码内已注释）：图床迁移（`app/api/upload/route.ts`，`{ url }` 契约不变）；上 Vercel 时 SQLite 文件会丢失，需迁远程 libsql 并重新评估公开面（`app/api/public/documents/`）。
 
 ## License
 
