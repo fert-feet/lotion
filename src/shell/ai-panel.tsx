@@ -383,16 +383,18 @@ const AiPanel = () => {
         );
       }
     } finally {
-      // 归属校验：请求已被会话切换接管（abortRef 被置 null）时不调度队列/清理状态
-      if (abortRef.current !== controller) return;
-      streamingRef.current = false;
-      setLoading(false);
-      abortRef.current = null;
-      // 队列调度：当前请求结束（正常/终止/失败）后自动发送下一条（含会话快照）
-      const next = queueRef.current.shift();
-      setQueueItems([...queueRef.current]);
-      if (next) {
-        setTimeout(() => sendMessage(next.content, next.sessionId), 60);
+      // 归属校验：请求已被会话切换接管（abortRef 被置 null）时不调度队列/清理状态。
+      // 用 if 包裹而非 finally 内 return——finally 中的 return 会吞掉异常（no-unsafe-finally）。
+      if (abortRef.current === controller) {
+        streamingRef.current = false;
+        setLoading(false);
+        abortRef.current = null;
+        // 队列调度：当前请求结束（正常/终止/失败）后自动发送下一条（含会话快照）
+        const next = queueRef.current.shift();
+        setQueueItems([...queueRef.current]);
+        if (next) {
+          setTimeout(() => sendMessage(next.content, next.sessionId), 60);
+        }
       }
     }
   };
