@@ -4,7 +4,7 @@
 // Slot —— asChild 语义（克隆子元素并合并 props）；
 // Floating —— 锚点浮动层（fixed 定位 + 视口夹取 + 外部点击/Escape 关闭），
 // 供 dropdown-menu / popover 复用，不依赖任何第三方弹层库。
-import { Children, cloneElement, isValidElement, useEffect, useRef, useState } from "react";
+import { cloneElement, isValidElement, useEffect, useRef, useState } from "react";
 import type { ReactElement, ReactNode } from "react";
 
 /** asChild 语义：把 props 合并到唯一子元素（不包裹额外节点）。
