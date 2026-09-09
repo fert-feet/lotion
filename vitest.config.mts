@@ -5,6 +5,8 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["test/**/*.test.ts", "test/**/*.test.tsx"],
+    // jsdom 缺失的浏览器 API（matchMedia / ResizeObserver / act 标志）统一在此补齐
+    setupFiles: ["test/setup.ts"],
   },
   // tsconfig 已改为 jsx: "react-jsx"（迁移前为 Next 要求的 preserve），
   // 此处保留显式 oxc 配置以免将来 tsconfig 变动再次打断 .tsx 测试。

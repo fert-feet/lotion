@@ -1,7 +1,7 @@
 import useCoverImage from "../../hooks/use-cover-image";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog";
 import { SingleImageDropzone } from "../upload/single-image";
-import { useParams } from "next/navigation";
+import { useParams } from "react-router";
 import { UploaderProvider, UploadFn } from "../upload/uploader-provider";
 import { update } from "@/lib/db";
 import { useRefresh } from "@/hooks/use-refresh";

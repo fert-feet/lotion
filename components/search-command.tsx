@@ -3,7 +3,7 @@
 // 自研全局搜索命令面板（Cmd/Ctrl+J）：
 // 替代原 cmdk 方案——Dialog 遮罩 + 输入框过滤文档列表 + 键盘 ↑↓/Enter/Esc。
 import { useUser } from "@/hooks/use-user";
-import { useRouter } from "next/navigation";
+import { useNavigate } from "react-router";
 import { useEffect, useRef, useState } from "react";
 import useSearch from "@/hooks/use-search";
 import { getSearch, type SidebarDocument } from "@/lib/db";
@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 
 const SearchCommand = () => {
   const { user } = useUser();
-  const router = useRouter();
+  const navigate = useNavigate();
   const [documents, setDocuments] = useState<SidebarDocument[]>([]);
   const [isMounted, setIsMounted] = useState(false);
   const [query, setQuery] = useState("");
@@ -55,7 +55,7 @@ const SearchCommand = () => {
   const filtered = documents.filter((d) => d.title.toLowerCase().includes(q));
 
   const onSelect = (id: string) => {
-    router.push("/documents/" + id);
+    navigate("/documents/" + id);
     onClose();
   };
 
