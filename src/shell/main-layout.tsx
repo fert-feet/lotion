@@ -25,7 +25,8 @@ const MainLayout = () => {
   if (!user) return <Navigate to="/login" replace />;
 
   return (
-    <div className="h-full">
+    // h-dvh：应用外壳恒等于视口高度（不依赖祖先高度链），左右栏才能各自独立滚动
+    <div className="h-dvh">
       {/* DSH 风格三栏 shell：sidebar | center | details，见 app-shell.tsx */}
       <AppShell>
         <LazySearchCommand />

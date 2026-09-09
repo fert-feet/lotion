@@ -31,10 +31,8 @@ function mockLoggedIn(email = "u@x.com") {
           status: 200,
         });
       }
-      if (url.includes("/api/documents")) {
-        return new Response(JSON.stringify([]), { status: 200 });
-      }
-      return new Response(JSON.stringify({}), { status: 200 });
+      // 其余端点（文档/会话列表）统一返回空数组：AI 面板与侧边栏会消费列表
+      return new Response(JSON.stringify([]), { status: 200 });
     }),
   );
 }

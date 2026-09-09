@@ -175,7 +175,8 @@ export function AppShell({ children }: { children: ReactNode }) {
     <div
       ref={frameRef}
       className={
-        "relative grid h-full overflow-hidden bg-shell-bg-base transition-[grid-template-columns] duration-300 ease-[var(--ds-ease-in-out)]" +
+        // h-dvh + overflow-hidden：外壳恒等于视口，三列各自滚动，页面本身不滚
+        "relative grid h-dvh overflow-hidden bg-shell-bg-base transition-[grid-template-columns] duration-300 ease-[var(--ds-ease-in-out)]" +
         (dragging ? " transition-none" : "")
       }
       style={{ gridTemplateColumns: [cols.sidebar + "px", "minmax(0, 1fr)", cols.details + "px"].join(" ") }}

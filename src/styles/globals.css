@@ -188,9 +188,13 @@
   --shell-scrollbar: #3D3D3D;
 }
 
-/* full pages */
+/* full pages
+   ⚠️ #root 必须在高度链里：Vite SPA 的 React 树挂在 <div id="root"> 下
+   （Next.js 时代直接挂 <body>，故原本只需 html/body）。缺了它，所有 h-full
+   会退化成"内容高度"，三栏 shell 变成左右栏跟着文档高度走、无法独立滚动。 */
 html,
 body,
+#root,
 :root {
   height: 100%
 }
