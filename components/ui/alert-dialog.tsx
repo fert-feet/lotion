@@ -61,14 +61,14 @@ const AlertDialogDescription = ({ className, children }: { className?: string; c
 
 function AlertDialogAction({ asChild = true, children, className, ...props }: HTMLAttributes<HTMLButtonElement> & { asChild?: boolean; children: ReactNode }) {
   const { setOpen } = useContext(Ctx);
-  const p = { type: "button" as const, className, onClick: (e: React.MouseEvent) => { e.stopPropagation(); setOpen(false); }, ...props };
+  const p = { type: "button" as const, className: cn(btnBase, "bg-primary text-primary-foreground hover:bg-[color-mix(in_srgb,var(--primary)_88%,black)]", className), onClick: (e: React.MouseEvent) => { e.stopPropagation(); setOpen(false); }, ...props };
   if (asChild) return <Slot {...p}>{children}</Slot>;
   return <button {...p}>{children}</button>;
 }
 
 function AlertDialogCancel({ asChild = true, children, className, ...props }: HTMLAttributes<HTMLButtonElement> & { asChild?: boolean; children: ReactNode }) {
   const { setOpen } = useContext(Ctx);
-  const p = { type: "button" as const, className: cn(btnBase, "bg-primary text-primary-foreground hover:bg-[color-mix(in_srgb,var(--primary)_88%,black)]", className), onClick: (e: React.MouseEvent) => { e.stopPropagation(); setOpen(false); }, ...props };
+  const p = { type: "button" as const, className: cn(btnBase, "bg-secondary text-secondary-foreground hover:bg-[color-mix(in_srgb,var(--secondary)_80%,var(--foreground))]", className), onClick: (e: React.MouseEvent) => { e.stopPropagation(); setOpen(false); }, ...props };
   if (asChild) return <Slot {...p}>{children}</Slot>;
   return <button {...p}>{children}</button>;
 }
