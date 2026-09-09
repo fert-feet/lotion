@@ -78,7 +78,7 @@ export default async function RootLayout({
         >
           <Toaster position="top-right" />
           <ModalProvider />
-          <UserProvider ssrUser={user}>{children}</UserProvider>
+          <UserProvider initialUser={user}>{children}</UserProvider>
         </ThemeProvider>
       </body>
     </html>
