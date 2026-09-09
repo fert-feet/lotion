@@ -6,13 +6,14 @@
 
 > 本分支（`feature/local-db`）是**永久独立的本地单机版**：SQLite 本地数据库 + 自研 Auth + REST API，**永不合并回 main**（main 是 Supabase 网络数据库版）。详见 [docs/本地数据库版.md](docs/本地数据库版.md)。
 
-全栈 AI 笔记应用：**Vite 8 + React 19** 前端 SPA（react-router 7），**Hono 4** 单进程提供 REST API 与静态资源，**SQLite 本地数据库**存储，**BlockNote 0.54** 负责富文本编辑，**DeepSeek Agent**（19 个工具）帮你搜索、创建、修改和整理笔记。前端采用 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 同款三栏 shell 侧边栏设计。
+全栈 AI 笔记应用：**Vite 8 + React 19** 前端 SPA（react-router 7），**Hono 4** 单进程提供 REST API 与静态资源，**SQLite 本地数据库**存储，**BlockNote 0.54** 负责富文本编辑，**DeepSeek Agent**（19 个工具）帮你搜索、创建、修改和整理笔记。界面遵循 **Apple / macOS 视觉语言**：系统色板、半透明材质、SF 字体栈与克制的圆角阴影，明暗双主题完整适配。
 
 ## 特性
 
 **布局与组织**
 
-- **DSH 风格三栏布局** — `sidebar | center | details` 可拖拽（侧边栏 264-420px、AI 面板 300-520px），让步链优先保证中心列 ≥ 640px；侧边栏可折叠成 56px 图标 rail，视口 < 1024px 自动折叠
+- **Apple 风格三栏布局** — `sidebar | center | details` 可拖拽（侧边栏 264-420px、AI 面板 300-520px），让步链优先保证中心列 ≥ 640px；侧边栏/详情栏为半透明材质（vibrancy），可折叠成 56px 图标 rail，视口 < 1024px 自动折叠
+- **macOS 视觉系统** — 系统色板（systemBlue 主色 / 分级 label / 发丝分隔线）、SF 字体栈、连续圆角与多层柔和阴影、Apple 减速曲线；明暗双主题各自独立取值
 - **无限层级文档树** — `parentDocument` 自引用嵌套，任意深度组织笔记；32px 行高、hover 浮现「新建子笔记 / 更多」操作与相对时间
 - **内嵌搜索胶囊** — 侧边栏头部点击展开全宽输入框，即时过滤文档树；`Cmd/Ctrl + J` 全局命令面板
 - **回收站与草稿** — 搜索过滤、单条恢复 / 永久删除（删除需二次确认）；AI 新建笔记默认进入确认制草稿

@@ -15,7 +15,7 @@
 - **编辑器**: **BlockNote 0.54**（`@blocknote/core` + `@blocknote/react`，默认 UI + 自有 DSH 对齐样式 `components/editor/blocknote.css`）：**BlockNote JSON 无损存储**（保留块 ID）；存量 Markdown / 旧 BlockNote JSON 惰性兼容；服务端 JSON↔Markdown 转换走 `@blocknote/server-util`（`lib/content-server.ts`，⚠️ 仅服务端导入）
 - **AI**: @ai-sdk/deepseek (deepseek-v4-flash)
 - **状态管理**: Zustand
-- **样式**: Tailwind CSS 4 + shadcn/ui（自研对齐 DSH 组件）
+- **样式**: Tailwind CSS 4 + 自研 UI 原语（`components/ui/`），视觉语言 = **Apple / macOS**（见下「设计系统」）
 - **包管理器**: pnpm（⚠️ 包是 ESM，`package.json` 的 `"type": "module"` 不可去掉）
 
 ## 命令
@@ -86,6 +86,23 @@ test/                       # Vitest 单测（lib/ / api/ / components/ 同构�
 - AI 面板在 `src/shell/ai-panel.tsx`，details 列常驻，流式渲染
 - sidebar 宽度可拖拽（264-420px），可折叠为 56px rail
 - 运行时数据：`data/lotion.db`（可用 `LOTION_DB_PATH` 覆盖）、`data/uploads/`（可用 `UPLOAD_DIR` 覆盖），均 gitignore
+
+## 设计系统（Apple / macOS 语言）
+
+`src/styles/globals.css` 是唯一视觉真相源，**组件里不写死颜色**，一律用语义 token：
+
+| 类别 | token | 说明 |
+|---|---|---|
+| 颜色 | `background` / `card` / `popover` / `secondary` / `muted` | 取 macOS 系统色板，明暗两套独立取值（浅色窗口 `#fff`，深色 `#1e1e1e`、抬升面 `#2c2c2e`） |
+| 文本 | `foreground` / `muted-foreground` / `shell-label-secondary` / `shell-label-tertiary` | 对应 macOS 的 label / secondaryLabel / tertiaryLabel |
+| 主色 | `primary`（systemBlue `#007AFF` / 暗色 `#0A84FF`） | 交互与选中；AI 品牌黄 `ai` 只用于 AI 元素与荧光笔高亮 `hl` |
+| 圆角 | `rounded-[6px]` 控件 / `[10px]` 卡片 / `[14px]` 面板 / `[16px]` 弹窗 | 连续圆角，不用胶囊按钮 |
+| 阴影 | `shadow-[var(--shadow-sm|md|lg)]` | 多层柔和投影，禁止重投影 |
+| 材质 | `.material-sidebar` / `.material-toolbar` / `.material-popover` | backdrop-blur + 饱和，用于侧边栏/顶栏/浮层 |
+| 动效 | `ease-[var(--ds-ease-out)]`、150–200ms | Apple 减速曲线；`active:scale-[0.97]` 给按压反馈 |
+
+排版基线：UI 13px、正文 17px/1.5（编辑器）、大标题 28–32px 且 `tracking-[-0.02em]`；
+字体栈优先系统 SF Pro（`--font-ui`），非 Apple 平台回退 Geist。**不要引入衬线展示体。**
 
 ## 约定
 
