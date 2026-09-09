@@ -40,7 +40,7 @@ export function SidebarFooter({ rail, onBatchMode }: SidebarFooterProps) {
   const btn = rail ? "h-9 w-9" : "h-7 w-7";
 
   return (
-    <div className={cn("flex shrink-0 items-center gap-0.5", rail ? "flex-col gap-1 pb-3" : "border-t border-shell-border px-1.5 py-1")}>
+    <div className={cn("flex shrink-0 items-center gap-0.5", rail ? "flex-col gap-1 pb-3" : "mt-1 border-t-[0.5px] border-shell-border px-0.5 pt-1.5")}>
       <button
         type="button"
         aria-label="设置"

@@ -25,11 +25,12 @@ function relativeTime(iso: string | null, now: number): string {
   const diff = Math.max(0, now - t);
   const m = Math.floor(diff / 60000);
   if (m < 1) return "刚刚";
-  if (m < 60) return m + " 分钟前";
+  if (m < 60) return m + "分钟前";
   const h = Math.floor(m / 60);
-  if (h < 24) return h + " 小时前";
+  if (h < 24) return h + "小时前";
   const d = Math.floor(h / 24);
-  if (d < 7) return d + " 天前";
+  if (d === 1) return "昨天";
+  if (d < 7) return d + "天前";
   const date = new Date(t);
   return date.getFullYear() + "/" + (date.getMonth() + 1) + "/" + date.getDate();
 }
@@ -75,10 +76,10 @@ const DocRow = memo(function DocRow({
         onOpen();
       }}
       onMouseEnter={() => { prefetchById(doc.id); }}
-      style={{ paddingLeft: level * 22 + 8 }}
+      style={{ paddingLeft: level * 16 + 4 }}
       className={cn(
-        "group relative flex h-8 cursor-pointer select-none items-center gap-1.5 rounded-lg px-2 text-shell-label-primary animate-[row-in_150ms_ease]",
-        active ? "bg-shell-row-active" : "hover:bg-shell-row-hover"
+        "group relative flex h-7 cursor-pointer select-none items-center gap-1.5 rounded-[6px] px-1.5 text-[13px] leading-5 text-shell-label-primary animate-[row-in_150ms_ease]",
+        active ? "bg-shell-row-active-accent font-medium" : "hover:bg-shell-row-hover"
       )}
     >
       {batchMode && (
@@ -108,9 +109,9 @@ const DocRow = memo(function DocRow({
         )}
       </span>
 
-      <span className="min-w-0 flex-1 truncate text-sm leading-5">{doc.title || "无标题"}</span>
+      <span className="min-w-0 flex-1 truncate text-[13px] leading-5">{doc.title || "无标题"}</span>
 
-      <span className="flex-none text-xs leading-5 text-shell-label-tertiary group-hover:hidden">
+      <span className="flex-none text-[11px] leading-5 text-shell-label-tertiary group-hover:hidden">
         {relativeTime(doc.updatedAt, now)}
       </span>
 
@@ -120,9 +121,9 @@ const DocRow = memo(function DocRow({
           aria-label="新建子笔记"
           title="新建子笔记"
           onClick={(e) => { e.stopPropagation(); onCreateChild(); }}
-          className="flex h-4 w-4 cursor-pointer items-center justify-center rounded bg-transparent p-0 text-shell-label-tertiary hover:text-shell-label-primary"
+          className="flex h-5 w-5 cursor-pointer items-center justify-center rounded-[5px] bg-transparent p-0 text-shell-label-tertiary hover:bg-shell-row-active hover:text-shell-label-primary"
         >
-          <Plus className="h-4 w-4" />
+          <Plus className="h-3.5 w-3.5" />
         </button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -130,9 +131,9 @@ const DocRow = memo(function DocRow({
               type="button"
               aria-label="更多操作"
               onClick={(e) => e.stopPropagation()}
-              className="flex h-4 w-4 cursor-pointer items-center justify-center rounded bg-transparent p-0 text-shell-label-tertiary hover:text-shell-label-primary"
+              className="flex h-5 w-5 cursor-pointer items-center justify-center rounded-[5px] bg-transparent p-0 text-shell-label-tertiary hover:bg-shell-row-active hover:text-shell-label-primary"
             >
-              <MoreHorizontal className="h-4 w-4" />
+              <MoreHorizontal className="h-3.5 w-3.5" />
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" side="right" forceMount className="w-52">

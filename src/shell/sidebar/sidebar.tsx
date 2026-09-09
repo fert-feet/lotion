@@ -138,7 +138,7 @@ export function Sidebar({ wide, onExpand }: SidebarProps) {
 
   // ---- wide 形态 ----
   return (
-    <div className="flex h-full min-h-0 flex-col px-1 pt-2">
+    <div className="flex h-full min-h-0 flex-col px-2 pb-2 pt-2.5">
       <SidebarHeader
         query={query}
         onQueryChange={setQuery}
@@ -150,7 +150,7 @@ export function Sidebar({ wide, onExpand }: SidebarProps) {
 
       {/* 列表区：唯一滚动区域；底部渐变 fade 贴住可见底边 */}
       <div className="relative min-h-0 flex-1 overflow-hidden">
-        <div className="h-full min-h-0 overflow-y-auto pb-4">
+        <div className="h-full min-h-0 overflow-y-auto pb-2">
           {allDocs === undefined ? (
             <div className="space-y-1 px-3 py-2">
               <div className="h-4 w-3/4 animate-pulse rounded bg-shell-row-active" />
@@ -158,7 +158,7 @@ export function Sidebar({ wide, onExpand }: SidebarProps) {
               <div className="h-4 w-2/3 animate-pulse rounded bg-shell-row-active" />
             </div>
           ) : allDocs.length === 0 ? (
-            <div className="px-3 py-4 text-[13px] leading-[18px] text-shell-label-tertiary">
+            <div className="px-2 py-3 text-[12px] leading-[18px] text-shell-label-tertiary">
               还没有笔记，点 + 新建一篇，或让 AI 帮你写
             </div>
           ) : searching ? (

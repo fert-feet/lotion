@@ -32,36 +32,40 @@
   --bn-colors-highlights-yellow-text: var(--ink);
 }
 
-/* ---- 正文排版（Notion：16px / 1.6 行高，轻松留白） ---- */
+/* ---- 正文排版（Apple Notes：17px / 1.5 行高，SF Pro） ---- */
 .lotion-editor .bn-editor {
-  font-size: 16px;
+  font-size: 17px;
+  letter-spacing: -0.011em;
   color: var(--shell-label-primary);
   overflow-wrap: anywhere;
 }
 
 .lotion-editor .bn-block-outer {
-  line-height: 1.6;
+  line-height: 1.5;
 }
 
 /* 块 hover / 选中：浅色圆角高亮（Notion 语义） */
 .lotion-editor .bn-editor .bn-block-outer:hover > .bn-block > .bn-block-content,
 .lotion-editor .bn-editor .bn-block-outer:focus-within > .bn-block > .bn-block-content {
   background: var(--shell-row-hover);
-  border-radius: 4px;
+  border-radius: 6px;
 }
 
 /* ---- 标题：字号对齐 app 排版基线 ---- */
 .lotion-editor .bn-editor [data-content-type="heading"] h1 {
   font-size: 28px;
-  line-height: 1.3;
+  line-height: 1.25;
+  letter-spacing: -0.022em;
 }
 .lotion-editor .bn-editor [data-content-type="heading"] h2 {
-  font-size: 23px;
-  line-height: 1.35;
+  font-size: 22px;
+  line-height: 1.3;
+  letter-spacing: -0.02em;
 }
 .lotion-editor .bn-editor [data-content-type="heading"] h3 {
   font-size: 19px;
-  line-height: 1.4;
+  line-height: 1.35;
+  letter-spacing: -0.017em;
 }
 .lotion-editor .bn-editor [data-content-type="heading"] :where(h4) {
   font-size: 16px;
@@ -71,7 +75,7 @@
 }
 .lotion-editor .bn-block-content :where(h1, h2, h3, h4, h5, h6) {
   color: var(--shell-label-primary);
-  font-weight: 600;
+  font-weight: 700;
 }
 
 /* ---- 链接 ---- */
@@ -87,15 +91,18 @@
 /* ---- 引用 ---- */
 .lotion-editor .bn-editor blockquote {
   color: var(--shell-label-secondary);
-  border-left-color: var(--shell-accent);
+  border-left: 3px solid color-mix(in srgb, var(--shell-label-tertiary) 55%, transparent);
+  border-radius: 2px;
+  padding-left: 14px;
 }
 
 /* ---- 行内代码 / 代码块 ---- */
 .lotion-editor .bn-editor :not(pre) > code {
-  background: var(--shell-row-active);
-  border-radius: 4px;
-  padding: 1px 4px;
-  font-size: 0.9em;
+  background: color-mix(in srgb, var(--foreground) 7%, transparent);
+  border-radius: 5px;
+  padding: 1.5px 5px;
+  font-size: 0.88em;
+  font-family: var(--font-mono);
 }
 
 /* ---- 荧光笔高亮 ---- */
@@ -103,17 +110,17 @@
   background: var(--hl);
   color: var(--ink);
   padding: 0 2px;
-  border-radius: 2px;
+  border-radius: 3px;
 }
 
-/* ---- 表格（Notion 风格：浅表头 + 细边框 + hover 行） ---- */
+/* ---- 表格（Apple：发丝边框 + 填充表头，无斑马纹） ---- */
 .lotion-editor .bn-editor table {
   border-collapse: collapse;
 }
 .lotion-editor .bn-editor th,
 .lotion-editor .bn-editor td {
-  border: 1px solid var(--shell-border-l2);
-  padding: 6px 10px;
+  border: 0.5px solid var(--shell-border-l2);
+  padding: 7px 11px;
 }
 .lotion-editor .bn-editor th {
   background: var(--shell-row-active);
@@ -127,13 +134,14 @@
    UI 组件浮层（斜杠菜单 / 格式工具栏 / 链接工具栏 / 侧边菜单）
    ========================================================================== */
 
-/* 自研建议菜单（斜杠菜单 / @提及，components/editor/lotion-suggestion-menu.tsx）：
-   白底圆角浮层，分组标签 + 高亮项，Notion 风格 */
+/* 自研建议菜单（斜杠菜单 / @提及）：macOS 菜单语言（材质 + 10px 圆角 + 蓝调选中） */
 .lotion-suggestion-menu {
-  border-radius: 8px;
-  background: var(--shell-bg-base);
-  border: 1px solid var(--shell-border);
-  box-shadow: 0 4px 16px rgb(0 0 0 / 0.12);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--popover) 88%, transparent);
+  backdrop-filter: blur(30px) saturate(180%);
+  -webkit-backdrop-filter: blur(30px) saturate(180%);
+  border: 0.5px solid var(--shell-border-l2);
+  box-shadow: var(--shadow-md);
   overflow-y: auto;
   padding: 4px;
   max-height: 320px;
@@ -144,10 +152,10 @@
   color: var(--shell-label-tertiary);
 }
 .lotion-suggestion-menu-label {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--shell-label-tertiary);
   padding: 6px 8px 2px;
-  font-weight: 500;
+  font-weight: 600;
 }
 .lotion-suggestion-menu-item {
   display: flex;
@@ -157,7 +165,7 @@
   border: none;
   background: transparent;
   border-radius: 6px;
-  font-size: 14px;
+  font-size: 13px;
   line-height: 1.5;
   padding: 5px 8px;
   color: var(--shell-label-primary);
@@ -167,8 +175,8 @@
 }
 .lotion-suggestion-menu-item:hover,
 .lotion-suggestion-menu-item.is-selected {
-  background: var(--shell-row-hover);
-  color: var(--shell-label-primary);
+  background: var(--shell-accent);
+  color: #ffffff;
 }
 .lotion-suggestion-menu-icon {
   flex: none;
@@ -185,28 +193,36 @@
   white-space: nowrap;
 }
 .lotion-suggestion-menu-subtext {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--shell-label-tertiary);
   white-space: nowrap;
+}
+.lotion-suggestion-menu-item:hover .lotion-suggestion-menu-subtext,
+.lotion-suggestion-menu-item.is-selected .lotion-suggestion-menu-subtext,
+.lotion-suggestion-menu-item:hover .lotion-suggestion-menu-badge,
+.lotion-suggestion-menu-item.is-selected .lotion-suggestion-menu-badge {
+  color: color-mix(in srgb, #ffffff 80%, transparent);
 }
 .lotion-suggestion-menu-badge {
   flex: none;
   font-size: 11px;
-  background: var(--shell-row-active);
+  background: color-mix(in srgb, var(--foreground) 8%, transparent);
   color: var(--shell-label-secondary);
   border-radius: 4px;
   padding: 1px 5px;
   font-family: var(--font-mono);
 }
 
-/* 格式工具栏 / 链接工具栏：白底圆角浮层，分组分隔 */
+/* 格式工具栏 / 链接工具栏：macOS 材质浮层 */
 .lotion-editor .bn-formatting-toolbar,
 .lotion-editor .bn-link-toolbar,
 .lotion-editor .bn-link-toolbar-prompt {
-  border-radius: 8px;
-  background: var(--shell-bg-base);
-  border: 1px solid var(--shell-border);
-  box-shadow: var(--bn-colors-shadow);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--popover) 90%, transparent);
+  backdrop-filter: blur(30px) saturate(180%);
+  -webkit-backdrop-filter: blur(30px) saturate(180%);
+  border: 0.5px solid var(--shell-border-l2);
+  box-shadow: var(--shadow-md);
   padding: 3px;
 }
 
@@ -223,8 +239,8 @@
 }
 .lotion-editor .bn-formatting-toolbar .bn-button.is-selected,
 .lotion-editor .bn-formatting-toolbar .bn-button[aria-pressed="true"] {
-  background: var(--shell-row-active);
-  color: var(--shell-label-primary);
+  background: var(--shell-row-active-accent);
+  color: var(--shell-accent);
 }
 
 .lotion-editor .bn-formatting-toolbar-group {
@@ -385,4 +401,43 @@
 .lotion-editor .bn-editor .lotion-mention:hover {
   background: var(--shell-accent);
   color: #fff;
+}
+
+
+/* ---- 代码块：保留深色代码面（BlockNote 约定），但换成 Apple 的圆角与内边距 ---- */
+.lotion-editor .bn-editor .bn-block-content[data-content-type="codeBlock"] {
+  border-radius: 10px;
+  box-shadow: var(--shadow-sm);
+}
+.lotion-editor .bn-editor .bn-block-content[data-content-type="codeBlock"] > pre {
+  padding: 14px 16px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+/* ---- Callout：Apple 的填充式提示卡（无描边，圆角 10px） ---- */
+.lotion-editor .bn-editor .lotion-callout {
+  background: color-mix(in srgb, var(--foreground) 5%, transparent);
+  border: none;
+  border-radius: 10px;
+  padding: 12px 14px;
+  gap: 10px;
+}
+.lotion-editor .bn-editor .lotion-callout .lotion-callout-icon {
+  font-size: 17px;
+  border-radius: 5px;
+}
+
+/* ---- Callout 图标选择器：macOS 材质浮层 ---- */
+.lotion-callout-picker {
+  background: color-mix(in srgb, var(--popover) 90%, transparent);
+  backdrop-filter: blur(30px) saturate(180%);
+  -webkit-backdrop-filter: blur(30px) saturate(180%);
+  border: 0.5px solid var(--shell-border-l2);
+  border-radius: 12px;
+  box-shadow: var(--shadow-md);
+}
+.lotion-callout-picker-grid button.is-selected {
+  background: var(--shell-accent);
 }

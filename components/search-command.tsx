@@ -69,10 +69,10 @@ const SearchCommand = () => {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent showCloseButton={false} className="max-w-lg overflow-hidden p-0">
+      <DialogContent showCloseButton={false} className="max-w-[560px] overflow-hidden rounded-[14px] p-0">
         {/* 搜索输入行 */}
-        <div className="flex items-center gap-2.5 border-b border-shell-border-l2 px-4">
-          <Search className="h-4 w-4 shrink-0 text-shell-label-tertiary" />
+        <div className="flex items-center gap-2.5 border-b-[0.5px] border-shell-border px-3.5">
+          <Search className="h-[18px] w-[18px] shrink-0 text-shell-label-tertiary" />
           <input
             ref={inputRef}
             type="text"
@@ -80,16 +80,16 @@ const SearchCommand = () => {
             onChange={(e) => { setQuery(e.target.value); setHighlight(0); }}
             onKeyDown={onKeyDown}
             placeholder={"搜索 " + (user?.email?.split("@")[0] || "你的") + " 的笔记…"}
-            className="h-12 min-w-0 flex-1 border-none bg-transparent text-sm text-shell-label-primary outline-none placeholder:text-shell-label-caption"
+            className="h-12 min-w-0 flex-1 border-none bg-transparent text-[15px] text-shell-label-primary outline-none placeholder:text-shell-label-caption"
           />
         </div>
         {/* 结果列表 */}
-        <div className="max-h-80 overflow-y-auto p-1.5">
+        <div className="max-h-[360px] overflow-y-auto p-1.5">
           {filtered.length === 0 ? (
             <div className="px-3 py-6 text-center text-sm text-shell-label-tertiary">没有匹配的笔记</div>
           ) : (
             <div className="flex flex-col gap-0.5">
-              <div className="px-2.5 py-1 text-xs font-medium text-shell-label-tertiary">文档</div>
+              <div className="px-2.5 py-1 text-[11px] font-semibold text-shell-label-tertiary">文档</div>
               {filtered.map((doc, i) => (
                 <button
                   key={doc.id}

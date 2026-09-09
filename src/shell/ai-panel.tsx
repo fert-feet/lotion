@@ -510,14 +510,14 @@ const AiPanel = () => {
   // ---- 渲染：DSH DetailsPanel 头部 + turn 时间线 + 悬浮输入卡 ----
 
   return (
-    <aside className="flex h-full min-w-0 flex-col overflow-hidden border-l border-shell-border bg-shell-bg-base">
+    <aside className="flex h-full min-w-0 flex-col overflow-hidden">
       {/* 头部：pad 14/12/12/12，标题 14/20 wt500，28px 圆形操作 */}
-      <div className="flex shrink-0 items-center justify-between gap-2 border-b border-shell-border-l2 px-3 pb-3 pt-3.5">
+      <div className="flex shrink-0 items-center justify-between gap-2 border-b-[0.5px] border-shell-border px-2.5 py-2">
         <div className="flex min-w-0 items-center gap-2">
-          <span className="flex h-6 w-6 flex-none items-center justify-center rounded-full bg-ai text-ai-foreground">
-            <Sparkles className="h-3.5 w-3.5" />
+          <span className="flex h-5 w-5 flex-none items-center justify-center rounded-[6px] bg-ai text-ai-foreground">
+            <Sparkles className="h-3 w-3" />
           </span>
-          <span className="truncate text-sm font-medium leading-5 text-shell-label-primary">
+          <span className="truncate text-[13px] font-semibold leading-5 tracking-[-0.01em] text-shell-label-primary">
             {sessions.find((s) => s.id === activeSessionId)?.title ?? "新对话"}
           </span>
         </div>
@@ -528,7 +528,7 @@ const AiPanel = () => {
                 type="button"
                 aria-label="历史会话"
                 title="历史会话"
-                className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-full text-shell-label-secondary hover:bg-shell-row-hover"
+                className="flex h-6 w-6 cursor-pointer items-center justify-center rounded-[6px] text-shell-label-secondary transition-colors hover:bg-shell-row-hover hover:text-shell-label-primary"
               >
                 <History className="h-4 w-4" />
               </button>
@@ -575,7 +575,7 @@ const AiPanel = () => {
             aria-label="新增会话"
             title="新增会话"
             onClick={handleNewSession}
-            className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-full text-shell-label-secondary hover:bg-shell-row-hover"
+            className="flex h-6 w-6 cursor-pointer items-center justify-center rounded-[6px] text-shell-label-secondary transition-colors hover:bg-shell-row-hover hover:text-shell-label-primary"
           >
             <Plus className="h-4 w-4" />
           </button>
@@ -584,7 +584,7 @@ const AiPanel = () => {
             aria-label="关闭"
             title="关闭"
             onClick={closeDetails}
-            className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-full text-shell-label-secondary hover:bg-shell-row-hover"
+            className="flex h-6 w-6 cursor-pointer items-center justify-center rounded-[6px] text-shell-label-secondary transition-colors hover:bg-shell-row-hover hover:text-shell-label-primary"
           >
             <X className="h-4 w-4" />
           </button>
@@ -593,14 +593,14 @@ const AiPanel = () => {
 
       {/* turn 时间线：唯一滚动区 + 底部渐变 fade */}
       <div ref={messagesRef} className="relative min-h-0 flex-1 overflow-y-auto">
-        <div className="flex min-h-full flex-col gap-5 px-4 py-5">
+        <div className="flex min-h-full flex-col gap-4 px-3.5 py-4">
           {turns.length === 0 && !loading && (
             <div className="flex flex-1 flex-col items-center justify-center gap-4 pb-16 text-center">
-              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-ai text-ai-foreground shadow-md">
-                <Bot className="h-7 w-7" />
+              <div className="flex h-12 w-12 items-center justify-center rounded-[14px] bg-ai text-ai-foreground shadow-[var(--shadow-sm)]">
+                <Bot className="h-6 w-6" />
               </div>
               <div className="space-y-1.5">
-                <p className="text-[26px] font-medium leading-8 text-shell-label-primary">你好，我是你的文档助手</p>
+                <p className="text-[22px] font-semibold leading-7 tracking-[-0.02em] text-shell-label-primary">你好，我是你的文档助手</p>
                 <p className="text-[13px] leading-5 text-shell-label-tertiary">
                   帮你撰写、整理和管理笔记。
                   <br />
@@ -662,8 +662,8 @@ const AiPanel = () => {
             </div>
           </div>
         )}
-        {/* DSH 悬浮输入卡：22px 圆角、l2 描边、input-major 填充、lv2 阴影 */}
-        <div className="rounded-[22px] border border-shell-border-l2 bg-card shadow-sm">
+        {/* 输入卡：Apple 的填充式输入区（14px 圆角 + 发丝描边 + 柔和阴影） */}
+        <div className="rounded-[14px] border-[0.5px] border-shell-border-l2 bg-card shadow-[var(--shadow-sm)] transition-shadow focus-within:shadow-[var(--shadow-md)]">
           <MentionInput
             ref={mentionRef}
             onSubmit={handleSend}
@@ -671,7 +671,7 @@ const AiPanel = () => {
             placeholder={loading ? "正在生成，输入后自动排队发送..." : "输入你的问题，@ 可提及文档..."}
             className="px-1 pt-2.5"
           />
-          <div className="flex items-center justify-between gap-3 px-2 pb-1.5 pt-1">
+          <div className="flex items-center justify-between gap-3 px-2 pb-1.5 pt-0.5">
             <div className="flex min-w-0 items-center gap-2 text-[11px] leading-[16px] text-shell-label-tertiary">
               {loading ? (
                 <>
@@ -687,9 +687,9 @@ const AiPanel = () => {
               title={loading ? "停止生成" : "发送"}
               onClick={loading ? handleStop : () => mentionRef.current?.submit()}
               disabled={!loading && inputEmpty}
-              className="flex h-[34px] w-[34px] flex-none cursor-pointer items-center justify-center rounded-full bg-ai text-ai-foreground transition-colors hover:bg-ai/90 disabled:cursor-default disabled:opacity-40"
+              className="flex h-7 w-7 flex-none cursor-pointer items-center justify-center rounded-full bg-primary text-primary-foreground transition-all duration-150 hover:bg-[color-mix(in_srgb,var(--primary)_88%,black)] active:scale-95 disabled:cursor-default disabled:opacity-35"
             >
-              {loading ? <Square className="h-4 w-4" /> : <Send className="h-4 w-4" />}
+              {loading ? <Square className="h-3.5 w-3.5" /> : <Send className="h-3.5 w-3.5" />}
             </button>
           </div>
         </div>

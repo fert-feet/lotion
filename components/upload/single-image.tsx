@@ -14,7 +14,7 @@ import { formatFileSize, useUploader } from './uploader-provider';
 import { Spinner } from '../ui/spinner';
 
 const DROPZONE_VARIANTS = {
-  base: 'relative rounded-md p-4 flex justify-center items-center flex-col cursor-pointer min-h-[150px] min-w-[200px] border-2 border-dashed border-muted-foreground transition-colors duration-200 ease-in-out',
+  base: 'relative flex min-h-[150px] min-w-[200px] cursor-pointer flex-col items-center justify-center rounded-[12px] border-[1.5px] border-dashed border-shell-border-l2 bg-[color-mix(in_srgb,var(--foreground)_3%,transparent)] p-4 transition-colors duration-200 ease-[var(--ds-ease-out)] hover:bg-[color-mix(in_srgb,var(--foreground)_5%,transparent)]',
   image: 'border-0 p-0 min-h-0 min-w-0 relative bg-muted shadow-md',
   active: 'border-primary',
   disabled:
@@ -183,7 +183,7 @@ const SingleImageDropzone = React.forwardRef<
 
         {displayUrl ? (
           <img
-            className="h-full w-full rounded-md object-cover"
+            className="h-full w-full rounded-[10px] object-cover"
             src={displayUrl}
             alt={fileState?.file.name ?? 'uploaded image'}
           />
@@ -195,19 +195,19 @@ const SingleImageDropzone = React.forwardRef<
               isDisabled && 'opacity-50',
             )}
           >
-            <UploadCloudIcon className="mb-1 h-7 w-7" />
-            <div className="font-medium">
-              drag & drop an image or click to select
+            <UploadCloudIcon className="mb-1 h-6 w-6 text-shell-label-tertiary" />
+            <div className="text-[13px] font-medium text-shell-label-secondary">
+              拖入图片，或点击选择
             </div>
             {maxSize && (
-              <div className="text-xs">Max size: {formatFileSize(maxSize)}</div>
+              <div className="text-[11px] text-shell-label-tertiary">最大 {formatFileSize(maxSize)}</div>
             )}
           </div>
         )}
 
         {/* Upload progress overlay */}
         {displayUrl && fileState?.status === 'UPLOADING' && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center rounded-md bg-black/70">
+          <div className="absolute inset-0 flex flex-col items-center justify-center rounded-[12px] bg-black/60 backdrop-blur-[2px]">
             <ProgressCircle progress={fileState.progress} />
           </div>
         )}
@@ -219,7 +219,7 @@ const SingleImageDropzone = React.forwardRef<
           fileState.status !== 'COMPLETE' && (
             <button
               type="button"
-              className="group pointer-events-auto absolute right-1 top-1 z-10 transform rounded-full border border-muted-foreground bg-background p-1 shadow-md transition-all hover:scale-110"
+              className="group pointer-events-auto absolute right-1.5 top-1.5 z-10 flex size-6 items-center justify-center rounded-full bg-card shadow-[var(--shadow-sm)] transition-transform hover:scale-105"
               onClick={(e) => {
                 e.stopPropagation(); // Prevent triggering dropzone click
                 if (fileState.status === 'UPLOADING') {

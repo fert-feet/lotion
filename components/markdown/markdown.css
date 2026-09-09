@@ -5,7 +5,7 @@
 .md-content {
   min-width: 0;
   overflow-wrap: anywhere;
-  font-size: 15px;
+  font-size: 14px;
   line-height: 24px;
   color: var(--shell-label-primary);
 }
@@ -146,7 +146,7 @@
 
 .md-content pre {
   margin: 16px 0;
-  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-family: var(--font-mono), ui-monospace, monospace;
   overflow: auto;
 }
 
@@ -154,16 +154,16 @@
   display: inline-flex;
   align-items: center;
   box-sizing: border-box;
-  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-family: var(--font-mono), ui-monospace, monospace;
   font-size: 0.875em;
-  background-color: var(--shell-row-active);
+  background-color: color-mix(in srgb, var(--foreground) 7%, transparent);
   border-radius: 6px;
   padding: 0 5px;
 }
 
 .md-content :where(h1, h2, h3, h4, h5, h6) code {
   font: inherit;
-  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-family: var(--font-mono), ui-monospace, monospace;
 }
 
 .md-content input[type="checkbox"] {
@@ -233,7 +233,7 @@
 }
 
 .md-code-lang {
-  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-family: var(--font-mono), ui-monospace, monospace;
   font-size: 12px;
   line-height: 18px;
   color: var(--shell-label-tertiary);

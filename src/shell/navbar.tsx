@@ -39,7 +39,7 @@ const Navbar = ({
 
     if (document === undefined) {
         return (
-            <nav className="flex w-full shrink-0 items-center gap-x-4 bg-background px-3 py-2">
+            <nav className="material-toolbar flex w-full shrink-0 items-center gap-x-2 border-b-[0.5px] border-shell-border px-2 py-1.5">
                 <div className="flex items-center justify-between w-full">
                     <Title.Skeleton />
                     <div className="flex gap-x-2 items-center">
@@ -61,7 +61,7 @@ const Navbar = ({
                     <MenuIcon
                         role="button"
                         onClick={onResetWidth}
-                        className="h-6 w-6 text-muted-foreground"
+                        className="h-4 w-4 text-shell-label-secondary"
                     />
                 )}
                 <div className="flex items-center justify-between w-full">

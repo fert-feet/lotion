@@ -84,32 +84,32 @@ const TrashBox = () => {
                 <Input
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    className="h-7 px-2 bg-secondary"
+                    className="h-7 px-2 text-[12px]"
                     placeholder="Filter by page title..."
                 />
 
             </div>
             <div className="mt-2 min-h-0 flex-1 overflow-y-auto px-1 pb-1">
-                <p className="hidden last:block text-xs text-center text-muted-foreground pb-2">
+                <p className="hidden pb-2 text-center text-[12px] text-muted-foreground last:block">
                     No document Found
                 </p>
                 {filterDocuments?.map((document) => (
                     <div
                         key={document.id}
                         role="button"
-                        className="text-sm rounded-sm w-full items-center text-primary hover:bg-primary/5 flex justify-between cursor-pointer group"
+                        className="group flex w-full cursor-pointer items-center justify-between rounded-[6px] px-1.5 py-1 text-[13px] text-shell-label-primary hover:bg-shell-row-hover"
                         onClick={() => handleClick(document.id)}
                     >
-                        <span className="truncate pl-2">
+                        <span className="truncate">
                             {document.title}
                         </span>
                         <div className="flex items-center group-hover:opacity-100 opacity-0 max-md:opacity-100">
                             <div
                                 role="button"
-                                className="rounded-sm p-2 hover:bg-secondary"
+                                className="flex h-6 w-6 items-center justify-center rounded-[5px] text-shell-label-tertiary hover:bg-shell-row-active hover:text-shell-label-primary"
                                 onClick={(e) => onRestore(e, document.id)}
                             >
-                                <Undo className="h-4 w-4 text-muted-foreground" />
+                                <Undo className="h-3.5 w-3.5" />
                             </div>
                             <div>
 
@@ -121,9 +121,7 @@ const TrashBox = () => {
                                     role="button"
                                     className="rounded-sm p-2 hover:bg-secondary"
                                 >
-                                    <Trash
-                                        className="h-4 w-4 text-muted-foreground"
-                                    />
+                                    <Trash className="h-3.5 w-3.5" />
                                 </div>
                             </ConfirmModal>
                         </div>

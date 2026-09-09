@@ -113,13 +113,13 @@ const Toolbar = ({
             {!!initialData.icon && !preview && (
                 <div className="flex items-center gap-x-2 group/icon pt-6">
                     <IconPicker onChange={onSelectIcon}>
-                        <p className="text-6xl hover:opacity-75 transition cursor-pointer">
+                        <p className="text-[44px] leading-none transition-opacity hover:opacity-70 cursor-pointer">
                             {initialData.icon}
                         </p>
                     </IconPicker>
                     <Button
                         onClick={onRemoveIcon}
-                        className="rounded-full opacity-0 group-hover/icon:opacity-100 max-md:opacity-100 transition text-muted-foreground text-xs"
+                        className="rounded-full opacity-0 transition-opacity group-hover/icon:opacity-100 max-md:opacity-100 text-shell-label-secondary"
                         variant={"outline"}
                         size={"icon"}
                     >
@@ -128,16 +128,16 @@ const Toolbar = ({
                 </div>
             )}
             {!!initialData.icon && preview && (
-                <p className="text-6xl pt-6">
+                <p className="text-[44px] leading-none pt-6">
                     {initialData.icon}
                 </p>
             )}
-            <div className="flex items-center gap-x-1 group-hover:opacity-100 opacity-0 max-md:opacity-100 py-4">
+            <div className="flex items-center gap-1 py-3 opacity-0 transition-opacity group-hover:opacity-100 max-md:opacity-100">
                 {!initialData.icon && !preview && (
                     <IconPicker onChange={onSelectIcon}>
                         <Button
                             asChild
-                            className="text-muted-foreground text-xs cursor-pointer"
+                            className="cursor-pointer text-shell-label-secondary"
                             variant={"outline"}
                             size={"sm"}
                         >
@@ -151,7 +151,7 @@ const Toolbar = ({
                 {!initialData.coverImage && !preview && (
                     <Button
                         onClick={coverImage.onOpen}
-                        className="text-muted-foreground text-xs cursor-pointer"
+                        className="cursor-pointer text-shell-label-secondary"
                         variant={"outline"}
                         size={"sm"}
                     >
@@ -162,7 +162,7 @@ const Toolbar = ({
                 {!preview && (
                     <Button
                         onClick={togglePageWidth}
-                        className="text-muted-foreground text-xs cursor-pointer"
+                        className="cursor-pointer text-shell-label-secondary"
                         variant={"outline"}
                         size={"sm"}
                         title={pageWidth === "wide" ? "切换为窄版" : "切换为宽版"}
@@ -178,12 +178,12 @@ const Toolbar = ({
                     onKeyDown={onKeyDown}
                     value={value}
                     onChange={(e) => onInput(e.target.value)}
-                    className="font-display text-5xl bg-transparent outline-none font-semibold break-words text-shell-label-primary dark:text-shell-label-primary resize-none"
+                    className="w-full resize-none break-words bg-transparent text-[32px] font-bold leading-[1.15] tracking-[-0.022em] text-shell-label-primary outline-none"
                 />
             ) : (
                 <div
                     onClick={enableInput}
-                    className="pb-[11.5px] font-display text-5xl font-semibold break-words outline-none text-shell-label-primary dark:text-shell-label-primary resize-none"
+                    className="cursor-text pb-1 text-[32px] font-bold leading-[1.15] tracking-[-0.022em] break-words text-shell-label-primary outline-none"
                 >
                     {displayValue}
                 </div>

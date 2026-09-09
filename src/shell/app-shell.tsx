@@ -28,7 +28,7 @@ function CenterColumn(props: { children?: ReactNode }) {
 
 /** 详情列 grid item；宽度 0 时保持子树挂载（关闭不卸载）。 */
 function DetailsColumn(props: { children?: ReactNode }) {
-  return <div className="min-w-0 overflow-hidden">{props.children}</div>;
+  return <div className="material-sidebar min-w-0 overflow-hidden border-l-[0.5px] border-shell-border">{props.children}</div>;
 }
 
 /**
@@ -100,7 +100,7 @@ function DragHandle(props: {
 /** 非文档页顶栏：折叠时提供展开按钮。 */
 function SlimTopBar(props: { collapsed: boolean; onExpand: () => void }) {
   return (
-    <nav className="flex h-12 shrink-0 items-center bg-background px-3">
+    <nav className="material-toolbar flex h-13 shrink-0 items-center border-b-[0.5px] border-shell-border px-3">
       {props.collapsed && (
         <button
           type="button"
@@ -185,7 +185,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       data-dragging={dragging || undefined}
     >
       {/* sidebar 槽位：折叠时以紧凑 rail 保持挂载；拖拽过渡由 frame 统一控制 */}
-      <div className="min-w-0 overflow-hidden border-r border-shell-border bg-shell-sidebar">
+      <div className="material-sidebar min-w-0 overflow-hidden border-r-[0.5px] border-shell-border">
         <Sidebar wide={!sidebarCollapsed} onExpand={() => toggleSidebar()} />
       </div>
 

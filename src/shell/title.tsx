@@ -85,8 +85,8 @@ const Title = ({
     };
 
     return (
-        <div className="flex items-center gap-x-1">
-            {!!initialData.icon && <p>{initialData.icon}</p>}
+        <div className="flex items-center gap-1">
+            {!!initialData.icon && <span className="text-[13px] leading-none">{initialData.icon}</span>}
             {isEditing ? (
                 <Input
                     ref={inputRef}
@@ -95,14 +95,14 @@ const Title = ({
                     onChange={onChange}
                     onKeyDown={onKeyDown}
                     value={title}
-                    className="h-7 px-2 focus-visible:ring-transparent"
+                    className="h-6 w-auto px-1.5 text-[13px] font-medium"
                 />
             ) : (
                 <Button
                     onClick={enableInput}
                     variant="ghost"
                     size="sm"
-                    className="font-normal h-auto p-1 cursor-pointer"
+                    className="h-6 max-w-[42ch] cursor-pointer px-1.5 text-[13px] font-medium text-shell-label-secondary hover:text-shell-label-primary"
                 >
                     <span className="truncate">
                         {displayTitle}

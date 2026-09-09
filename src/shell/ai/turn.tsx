@@ -69,7 +69,7 @@ function TodoCard({ items }: { items: TodoItem[] }) {
     cancelled: "已取消",
   };
   return (
-    <div className="rounded-xl border border-shell-border-l2 bg-shell-row-hover/50 px-3 py-2">
+    <div className="rounded-[10px] border-[0.5px] border-shell-border-l2 bg-[color-mix(in_srgb,var(--foreground)_4%,transparent)] px-3 py-2">
       <p className="mb-1.5 text-xs font-medium text-shell-label-secondary">任务清单</p>
       <ul className="flex flex-col gap-1">
         {items.map((item, i) => (
@@ -136,7 +136,7 @@ function QuestionCard({
   const submit = () => onAnswer(question.question, selected, question.custom === false ? undefined : custom);
 
   return (
-    <div className="rounded-xl border border-shell-border-l2 bg-shell-row-hover/50 px-3 py-2.5">
+    <div className="rounded-[10px] border-[0.5px] border-shell-border-l2 bg-[color-mix(in_srgb,var(--foreground)_4%,transparent)] px-3 py-2.5">
       <p className="text-sm font-medium leading-6 text-shell-label-primary">{question.question}</p>
       <p className="mb-2 text-xs text-shell-label-tertiary">{question.header}</p>
       <div className="flex flex-col gap-1.5">
@@ -186,7 +186,7 @@ export function TurnView({ turn, onOpenDocument, onConfirmDelete, onCancelDelete
     <div className="flex flex-col gap-2.5">
       {/* 用户气泡：DSH 22px 圆角专用色 */}
       <div className="flex justify-end">
-        <div className="max-w-[85%] whitespace-pre-wrap break-words rounded-[22px] bg-ai-muted px-4 py-2.5 text-[15px] leading-6 text-shell-label-primary">
+        <div className="max-w-[85%] whitespace-pre-wrap break-words rounded-[18px] bg-ai-muted px-3.5 py-2 text-[14px] leading-[1.5] text-shell-label-primary">
           {renderMentions(turn.userContent, onOpenDocument)}
         </div>
       </div>
@@ -229,7 +229,7 @@ export function TurnView({ turn, onOpenDocument, onConfirmDelete, onCancelDelete
 
         {/* 叙述文本：DSH 对齐 markdown（md-content 样式由 markdown.css 提供，流式增量渲染） */}
         {(turn.text || turn.status === "running") && (
-          <div className={cn("text-[15px] leading-6 text-shell-label-primary")}>
+          <div className={cn("text-[14px] leading-[1.6] text-shell-label-primary")}>
             {turn.text ? (
               <MarkdownText
                 text={turn.text}
@@ -250,7 +250,7 @@ export function TurnView({ turn, onOpenDocument, onConfirmDelete, onCancelDelete
                 key={ref.noteId}
                 type="button"
                 onClick={() => onOpenDocument(ref.noteId)}
-                className="inline-flex max-w-[240px] cursor-pointer items-center gap-1.5 rounded-lg bg-[color-mix(in_srgb,var(--shell-accent)_18%,transparent)] px-2.5 py-1 text-xs text-shell-label-primary transition-colors hover:bg-[color-mix(in_srgb,var(--shell-accent)_28%,transparent)]"
+                className="inline-flex max-w-[240px] cursor-pointer items-center gap-1.5 rounded-[7px] bg-[color-mix(in_srgb,var(--shell-accent)_14%,transparent)] px-2.5 py-1 text-xs font-medium text-shell-accent transition-colors hover:bg-[color-mix(in_srgb,var(--shell-accent)_22%,transparent)]"
               >
                 <span className="shrink-0">📄</span>
                 <span className="truncate">{ref.title}</span>
