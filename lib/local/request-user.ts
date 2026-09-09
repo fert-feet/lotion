@@ -1,7 +1,7 @@
-// ⚠️ 服务端专用模块。
-// 从请求 cookie 解析本地会话并返回当前用户（各 REST 路由的公共鉴权入口）。
+// 鉴权辅助：从请求 cookie 解析本地会话并返回当前用户。
+// ⚠️ 服务端专用。原实现 import "server-only"（Next.js 打包守卫），
+// 迁移到 Vite 后该包在 Node 下会直接抛错，故移除；隔离靠目录约定 + 构建期检查。
 
-import "server-only";
 import { getDb } from "./sqlite";
 import { getSessionUser, parseCookies, SESSION_COOKIE, type LocalUser } from "./auth";
 

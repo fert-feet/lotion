@@ -1,9 +1,10 @@
-// POST /api/ai/chat 单测（本地版）：真实内存 SQLite + 真实幂等唯一索引，
+// POST /api/ai/chat 单测：真实内存 SQLite + 真实幂等唯一索引，
 // agent / 压缩为 mock（其内部行为由各自的单测覆盖）。
+// 迁移自直连 Next.js Route Handler 的写法——经 Hono app.request 走真实路由。
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type Database from "better-sqlite3";
-import { POST } from "@/app/api/ai/chat/route";
 import { SESSION_COOKIE } from "@/lib/local/auth";
+import { createApp } from "@/server/app";
 
 // ---- mocks ----
 
@@ -34,12 +35,13 @@ vi.mock("@/lib/local/sqlite", async (importOriginal) => {
 
 // ---- helpers ----
 
+const app = createApp();
 const encoder = new TextEncoder();
 
-function makeRequest(body: Record<string, unknown>, cookie?: string) {
-  const headers = new Headers({ "Content-Type": "application/json" });
-  if (cookie) headers.set("cookie", cookie);
-  return new Request("http://localhost/api/ai/chat", {
+function postChat(body: Record<string, unknown>, cookie?: string) {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (cookie) headers.cookie = cookie;
+  return app.request("/api/ai/chat", {
     method: "POST",
     headers,
     body: JSON.stringify(body),
@@ -86,26 +88,26 @@ afterEach(() => {
 
 // ---- tests ----
 
-describe("POST /api/ai/chat（本地版）", () => {
+describe("POST /api/ai/chat", () => {
   it("未登录返回 401", async () => {
-    const res = await POST(makeRequest({ prompt: "hi", sessionId: "s1" }));
+    const res = await postChat({ prompt: "hi", sessionId: "s1" });
     expect(res.status).toBe(401);
     expect(runNoteAgent).not.toHaveBeenCalled();
   });
 
   it("缺少 sessionId/prompt 返回 400", async () => {
     const { cookie } = await seedAuth();
-    expect((await POST(makeRequest({ prompt: "hi" }, cookie))).status).toBe(400);
+    expect((await postChat({ prompt: "hi" }, cookie)).status).toBe(400);
     expect(runNoteAgent).not.toHaveBeenCalled();
   });
 
   it("重复 requestId 落库触发唯一约束返回 409（真实 SQLite 唯一索引）", async () => {
     const { cookie, sessionId } = await seedAuth();
     const body = { prompt: "hi", sessionId, requestId: "same-id" };
-    const first = await POST(makeRequest(body, cookie));
+    const first = await postChat(body, cookie);
     expect(first.status).toBe(200);
 
-    const second = await POST(makeRequest(body, cookie));
+    const second = await postChat(body, cookie);
     expect(second.status).toBe(409);
     // 幂等拒绝不应再次触发 agent
     expect(runNoteAgent).toHaveBeenCalledTimes(1);
@@ -113,7 +115,7 @@ describe("POST /api/ai/chat（本地版）", () => {
 
   it("不存在的会话返回 404", async () => {
     const { cookie } = await seedAuth();
-    const res = await POST(makeRequest({ prompt: "hi", sessionId: "ghost-id" }, cookie));
+    const res = await postChat({ prompt: "hi", sessionId: "ghost-id" }, cookie);
     expect(res.status).toBe(404);
     expect(runNoteAgent).not.toHaveBeenCalled();
   });
@@ -123,15 +125,13 @@ describe("POST /api/ai/chat（本地版）", () => {
     const { createUser, createSession } = await import("@/lib/local/auth");
     const b = createUser(state.db!, "b@x.com", "password123");
     const tokenB = createSession(state.db!, b.id);
-    const res = await POST(
-      makeRequest({ prompt: "hi", sessionId }, `${SESSION_COOKIE}=${tokenB}`),
-    );
+    const res = await postChat({ prompt: "hi", sessionId }, `${SESSION_COOKIE}=${tokenB}`);
     expect(res.status).toBe(404);
   });
 
   it("正常请求返回 200 流式响应并落库 user/assistant 两条消息", async () => {
     const { cookie, sessionId } = await seedAuth();
-    const res = await POST(makeRequest({ prompt: "你好", sessionId, requestId: "r-ok-1" }, cookie));
+    const res = await postChat({ prompt: "你好", sessionId, requestId: "r-ok-1" }, cookie);
     expect(res.status).toBe(200);
     expect(res.headers.get("Content-Type")).toContain("text/event-stream");
     expect(res.headers.get("Cache-Control")).toBe("no-cache");
@@ -155,7 +155,7 @@ describe("POST /api/ai/chat（本地版）", () => {
       }),
     });
     const { cookie, sessionId } = await seedAuth();
-    const res = await POST(makeRequest({ prompt: "hi", sessionId, requestId: "r-token" }, cookie));
+    const res = await postChat({ prompt: "hi", sessionId, requestId: "r-token" }, cookie);
     await res.text();
 
     await vi.waitFor(() => {
@@ -171,7 +171,7 @@ describe("POST /api/ai/chat（本地版）", () => {
   it("首个问题自动命名会话（新对话 → prompt 前 20 字）", async () => {
     const { cookie, sessionId } = await seedAuth();
     const prompt = "帮我写一篇关于 React 的文章";
-    await POST(makeRequest({ prompt, sessionId, requestId: "r-name" }, cookie));
+    await postChat({ prompt, sessionId, requestId: "r-name" }, cookie);
 
     const row = state.db!
       .prepare("SELECT title FROM chat_sessions WHERE id = ?")
@@ -181,7 +181,7 @@ describe("POST /api/ai/chat（本地版）", () => {
 
   it("assistant 落库后触发上下文压缩检查（新签名 userId, sessionId）", async () => {
     const { cookie, sessionId, userId } = await seedAuth();
-    const res = await POST(makeRequest({ prompt: "hi", sessionId, requestId: "r-compress" }, cookie));
+    const res = await postChat({ prompt: "hi", sessionId, requestId: "r-compress" }, cookie);
     await res.text();
 
     await vi.waitFor(() => {
@@ -194,7 +194,7 @@ describe("POST /api/ai/chat（本地版）", () => {
     const { setChatSessionSummary } = await import("@/lib/local/db");
     setChatSessionSummary(state.db!, userId, sessionId, "早期摘要");
 
-    const res = await POST(makeRequest({ prompt: "hi", sessionId, requestId: "r-sum" }, cookie));
+    const res = await postChat({ prompt: "hi", sessionId, requestId: "r-sum" }, cookie);
     await res.text();
 
     const agentArgs = runNoteAgent.mock.calls[0][3] as { summary?: string };

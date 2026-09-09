@@ -6,16 +6,14 @@ export default defineConfig({
     environment: "node",
     include: ["test/**/*.test.ts", "test/**/*.test.tsx"],
   },
-  // tsconfig jsx: preserve 会让 oxc（vite 8 替代 esbuild 的转换器）保留 JSX，
-  // 测试内的 .tsx 无法被 import-analysis 解析；此处显式走 automatic runtime
+  // tsconfig 已改为 jsx: "react-jsx"（迁移前为 Next 要求的 preserve），
+  // 此处保留显式 oxc 配置以免将来 tsconfig 变动再次打断 .tsx 测试。
   oxc: {
     jsx: "react-jsx",
   },
   resolve: {
     alias: {
-      "@": path.resolve(__dirname, "."),
-      // server-only 包在非 Next 打包环境会抛错，测试中用空模块替代
-      "server-only": path.resolve(__dirname, "test/mocks/server-only.ts"),
+      "@": path.resolve(import.meta.dirname, "."),
     },
   },
 });

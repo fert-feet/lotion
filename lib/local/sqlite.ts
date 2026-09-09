@@ -6,7 +6,6 @@
 // - 已应用迁移记录在 _migrations 表，按序执行、幂等、事务包裹
 // - 进程内单例连接，文件路径可经 LOTION_DB_PATH 覆盖（默认 <项目根>/data/lotion.db）
 
-import "server-only";
 import Database from "better-sqlite3";
 import fs from "node:fs";
 import path from "node:path";
