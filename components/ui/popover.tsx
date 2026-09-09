@@ -77,7 +77,7 @@ function PopoverContent({ className, align = "center", side = "bottom", sideOffs
   if (!open) return null;
   if (typeof document === "undefined") return null;
   return createPortal(
-    <div ref={contentRef} style={{ position: "fixed", top: pos?.top ?? 0, left: pos?.left ?? 0, zIndex: 99999, visibility: pos ? "visible" : "hidden" }} className={cn("w-72 rounded-xl border border-shell-border-l2 bg-popover shadow-lg", className)} {...props}>
+    <div ref={contentRef} style={{ position: "fixed", top: pos?.top ?? 0, left: pos?.left ?? 0, zIndex: 99999, visibility: pos ? "visible" : "hidden" }} className={cn("material-popover w-72 rounded-[12px] border-[0.5px] border-shell-border-l2 shadow-[var(--shadow-md)]", className)} {...props}>
       {children}
     </div>,
     document.body,

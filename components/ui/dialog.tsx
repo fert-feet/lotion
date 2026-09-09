@@ -1,6 +1,7 @@
 "use client";
 
-// 自研 Dialog（对齐 DSH Modal 设计）：遮罩 + 居中卡片，overlay 点击 / Escape / 关闭钮关闭
+// Dialog —— macOS 工作表（sheet）语言：
+// 遮罩压暗 + 轻微模糊，卡片 16px 连续圆角、发丝描边、柔和多层阴影。
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import type { HTMLAttributes, ReactNode } from "react";
@@ -46,11 +47,17 @@ function DialogContent({ className, children, showCloseButton = true, ...props }
   if (typeof document === "undefined") return null;
   return createPortal(
     <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/50" onClick={() => setOpen(false)} />
-      <div className={cn("relative z-10 w-full max-w-lg rounded-2xl border border-shell-border-l2 bg-popover p-6 shadow-xl", className)} {...props}>
+      <div className="absolute inset-0 bg-black/25 backdrop-blur-[2px] dark:bg-black/45" onClick={() => setOpen(false)} />
+      <div
+        className={cn(
+          "material-popover relative z-10 w-full max-w-lg rounded-[16px] border-[0.5px] border-shell-border-l2 p-6 shadow-[var(--shadow-lg)]",
+          className,
+        )}
+        {...props}
+      >
         {showCloseButton && (
-          <DialogClose className="absolute right-3 top-3 flex h-7 w-7 cursor-pointer items-center justify-center rounded-full text-shell-label-secondary hover:bg-shell-row-hover hover:text-shell-label-primary">
-            <X className="h-4 w-4" />
+          <DialogClose className="absolute right-3.5 top-3.5 flex size-6 cursor-pointer items-center justify-center rounded-full bg-secondary text-shell-label-secondary transition-colors hover:bg-[color-mix(in_srgb,var(--secondary)_75%,var(--foreground))] hover:text-shell-label-primary">
+            <X className="h-3.5 w-3.5" />
           </DialogClose>
         )}
         {children}
@@ -60,11 +67,11 @@ function DialogContent({ className, children, showCloseButton = true, ...props }
   );
 }
 
-const DialogHeader = ({ className, children }: { className?: string; children: ReactNode }) => <div className={cn("mb-4 flex flex-col gap-1.5", className)}>{children}</div>;
+const DialogHeader = ({ className, children }: { className?: string; children: ReactNode }) => <div className={cn("mb-4 flex flex-col gap-1 text-center", className)}>{children}</div>;
 const DialogFooter = ({ className, children }: { className?: string; children: ReactNode }) => <div className={cn("mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end", className)}>{children}</div>;
-const DialogTitle = ({ className, children }: { className?: string; children: ReactNode }) => <h2 className={cn("text-base font-semibold leading-6 text-shell-label-primary", className)}>{children}</h2>;
-const DialogDescription = ({ className, children }: { className?: string; children: ReactNode }) => <p className={cn("text-sm leading-5 text-shell-label-tertiary", className)}>{children}</p>;
-const DialogOverlay = ({ className }: { className?: string }) => <div className={cn("fixed inset-0 z-[99999] bg-black/50", className)} />;
+const DialogTitle = ({ className, children }: { className?: string; children: ReactNode }) => <h2 className={cn("text-[15px] font-semibold leading-6 tracking-[-0.01em] text-shell-label-primary", className)}>{children}</h2>;
+const DialogDescription = ({ className, children }: { className?: string; children: ReactNode }) => <p className={cn("text-[13px] leading-5 text-shell-label-tertiary", className)}>{children}</p>;
+const DialogOverlay = ({ className }: { className?: string }) => <div className={cn("fixed inset-0 z-[99999] bg-black/25 backdrop-blur-[2px] dark:bg-black/45", className)} />;
 const DialogPortal = ({ children }: { children: ReactNode }) => <>{children}</>;
 
 export { Dialog, DialogTrigger, DialogClose, DialogContent, DialogHeader, DialogFooter, DialogTitle, DialogDescription, DialogOverlay, DialogPortal };

@@ -1,5 +1,11 @@
-/* Lotion 设计系统 —— 「实验笔记簿」：
-   冷调纸墨色 + 网格纸纹理 + 荧光笔黄高亮（AI 的"划重点"） */
+/* Lotion 设计系统 —— Apple / macOS 语言
+   ------------------------------------------------------------------
+   原则：
+   1. 内容优先：chrome（侧边栏、工具栏、浮层）让位于正文本身；
+   2. 层级靠材质与留白，而不是重边框与色块；
+   3. 颜色取自 macOS 系统色板（systemBlue / systemYellow / label / separator），
+      深浅色各自独立取值，不是简单反转；
+   4. 圆角连续、阴影柔和多层、动效短促有物理感（Apple 的 cubic-bezier(0.32,0.72,0,1)）。 */
 @import "tailwindcss";
 @import "tw-animate-css";
 @plugin "@tailwindcss/typography";
@@ -9,10 +15,10 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-  --font-display: var(--font-fraunces), "PingFang SC", "Noto Sans SC", "Microsoft YaHei", ui-serif, serif;
-  /* AI 品牌色：荧光笔黄（替代原紫色） */
+  /* 单一字族：macOS 系统字体（SF Pro）；非 Apple 平台回退 Geist（同为瑞士风无衬线） */
+  --font-sans: var(--font-ui);
+  --font-mono: var(--font-code);
+  --font-display: var(--font-ui);
   --color-ai: var(--ai);
   --color-ai-foreground: var(--ai-foreground);
   --color-ai-muted: var(--ai-muted);
@@ -28,7 +34,7 @@
   --color-sidebar-primary: var(--sidebar-primary);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar: var(--sidebar);
-  /* DSH 风格三栏 shell（侧边栏/详情栏专用冷调 bluish 语义色） */
+  /* 三栏 shell 语义色 */
   --color-shell-sidebar: var(--shell-sidebar);
   --color-shell-label-primary: var(--shell-label-primary);
   --color-shell-label-secondary: var(--shell-label-secondary);
@@ -64,128 +70,166 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+  /* 连续圆角：Apple 的小控件 6–8px、卡片 10px、面板 14px、弹窗 20px */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 14px;
+  --radius-2xl: 20px;
+  --shadow-apple-sm: var(--shadow-sm);
+  --shadow-apple-md: var(--shadow-md);
+  --shadow-apple-lg: var(--shadow-lg);
 }
 
 :root {
-  --radius: 0.5rem;
-  /* 品牌色：墨 / 纸 / 荧光黄 */
-  --ink: #1C1E22;
-  --paper: #FAFAF8;
-  --night: #0F1115;
-  --hl: #FFD84D;
-  --ai: #FFD84D;
-  --ai-foreground: #1C1E22;
-  --ai-muted: #FFF7D6;
-  --background: #FAFAF8;
-  --foreground: #1C1E22;
-  --card: #FFFFFF;
-  --card-foreground: #1C1E22;
-  --popover: #FFFFFF;
-  --popover-foreground: #1C1E22;
-  --primary: #1C1E22;
-  --primary-foreground: #FAFAF8;
-  --secondary: #F1F1ED;
-  --secondary-foreground: #1C1E22;
-  --muted: #F1F1ED;
-  --muted-foreground: #6B6F76;
-  --accent: #ECECE7;
-  --accent-foreground: #1C1E22;
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: rgba(28, 30, 34, 0.1);
-  --input: rgba(28, 30, 34, 0.14);
-  --ring: rgba(28, 30, 34, 0.35);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: #EEEEEA;
-  --sidebar-foreground: #1C1E22;
-  --sidebar-primary: #1C1E22;
-  --sidebar-primary-foreground: #FAFAF8;
-  --sidebar-accent: #E5E5DF;
-  --sidebar-accent-foreground: #1C1E22;
-  --sidebar-border: rgba(28, 30, 34, 0.09);
-  --sidebar-ring: rgba(28, 30, 34, 0.35);
-  /* 网格纸纹理线 */
-  --grid-line: rgba(28, 30, 34, 0.045);
-  --grid-line-strong: rgba(28, 30, 34, 0.09);
-  /* DSH 风格三栏 shell tokens（冷调 bluish；light） */
-  --shell-sidebar: #F9FAFB;
-  --shell-label-primary: #0F1115;
-  --shell-label-secondary: #61666B;
-  --shell-label-tertiary: #81858C;
-  --shell-label-caption: #ADB2B8;
-  --shell-row-hover: rgba(38, 49, 72, 0.06);
-  --shell-row-active: #EBEEF2;
-  --shell-row-active-accent: #E4EDFD;
-  --shell-accent: #4176E6;
-  --shell-accent-strong: #679EFE;
-  --shell-bg-base: #FFFFFF;
-  --shell-border: rgba(0, 0, 0, 0.04);
-  --shell-border-l2: rgba(0, 0, 0, 0.1);
-  --shell-scrollbar: #DCDCDC;
-  /* 三栏动效（DSH 缓动曲线） */
-  --ds-ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
-  --ds-transition-duration-slow: 0.3s;
+  /* ---- 字族 ---- */
+  --font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Geist Sans",
+    "Helvetica Neue", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
+  --font-code: "SF Mono", ui-monospace, "Geist Mono", SFMono-Regular, Menlo, Consolas, monospace;
+
+  --radius: 10px;
+
+  /* ---- 系统色 · Light（macOS） ---- */
+  --background: #ffffff;
+  --foreground: #1d1d1f;
+  --card: #ffffff;
+  --card-foreground: #1d1d1f;
+  --popover: #ffffff;
+  --popover-foreground: #1d1d1f;
+  --primary: #007aff; /* systemBlue */
+  --primary-foreground: #ffffff;
+  --secondary: rgba(120, 120, 128, 0.12);
+  --secondary-foreground: #1d1d1f;
+  --muted: rgba(120, 120, 128, 0.08);
+  --muted-foreground: rgba(60, 60, 67, 0.6); /* secondaryLabel */
+  --accent: rgba(120, 120, 128, 0.12);
+  --accent-foreground: #1d1d1f;
+  --destructive: #ff3b30; /* systemRed */
+  --border: rgba(60, 60, 67, 0.12); /* separator（非实心） */
+  --input: rgba(60, 60, 67, 0.16);
+  --ring: rgba(0, 122, 255, 0.45);
+
+  /* ---- 品牌色 ---- */
+  --ink: #1d1d1f;
+  --paper: #ffffff;
+  --night: #1e1e1e;
+  --hl: #ffe680; /* Apple Notes 荧光笔 */
+  --ai: #ffd60a; /* systemYellow */
+  --ai-foreground: #1d1d1f;
+  --ai-muted: rgba(255, 214, 10, 0.16);
+
+  /* ---- 三栏 shell（Light） ---- */
+  --shell-sidebar: rgba(242, 242, 247, 0.9); /* 半透明材质，配合 backdrop-blur */
+  --shell-label-primary: #1d1d1f;
+  --shell-label-secondary: rgba(60, 60, 67, 0.6);
+  --shell-label-tertiary: rgba(60, 60, 67, 0.36);
+  --shell-label-caption: rgba(60, 60, 67, 0.24);
+  --shell-row-hover: rgba(0, 0, 0, 0.045);
+  --shell-row-active: rgba(0, 0, 0, 0.075);
+  --shell-row-active-accent: rgba(0, 122, 255, 0.12);
+  --shell-accent: #007aff;
+  --shell-accent-strong: #0a84ff;
+  --shell-bg-base: #ffffff;
+  --shell-border: rgba(60, 60, 67, 0.1);
+  --shell-border-l2: rgba(60, 60, 67, 0.16);
+  --shell-scrollbar: rgba(0, 0, 0, 0.22);
+
+  --sidebar: rgba(242, 242, 247, 0.9);
+  --sidebar-foreground: #1d1d1f;
+  --sidebar-primary: #007aff;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: rgba(0, 0, 0, 0.06);
+  --sidebar-accent-foreground: #1d1d1f;
+  --sidebar-border: rgba(60, 60, 67, 0.1);
+  --sidebar-ring: rgba(0, 122, 255, 0.45);
+
+  /* 网格纸纹理（保留类名，Apple 语言下退化为极淡的纸面质感） */
+  --grid-line: rgba(0, 0, 0, 0.018);
+  --grid-line-strong: rgba(0, 0, 0, 0.03);
+
+  /* ---- 柔和多层阴影 ---- */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05), 0 0 0 0.5px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.08), 0 0 0 0.5px rgba(0, 0, 0, 0.05);
+  --shadow-lg: 0 18px 50px rgba(0, 0, 0, 0.18), 0 0 0 0.5px rgba(0, 0, 0, 0.06);
+
+  /* ---- 动效：Apple 的减速曲线 ---- */
+  --ds-ease-in-out: cubic-bezier(0.32, 0.72, 0, 1);
+  --ds-ease-out: cubic-bezier(0.25, 1, 0.5, 1);
+  --ds-transition-duration-slow: 0.28s;
+
+  --chart-1: #007aff;
+  --chart-2: #34c759;
+  --chart-3: #ff9500;
+  --chart-4: #af52de;
+  --chart-5: #ff3b30;
 }
 
 .dark {
-  --ai: #FFD84D;
-  --ai-foreground: #171A0E;
-  --ai-muted: #23200F;
-  --background: #0F1115;
-  --foreground: #E9EAEC;
-  --card: #171A21;
-  --card-foreground: #E9EAEC;
-  --popover: #171A21;
-  --popover-foreground: #E9EAEC;
-  --primary: #E9EAEC;
-  --primary-foreground: #1C1E22;
-  --secondary: #1C1F26;
-  --secondary-foreground: #E9EAEC;
-  --muted: #1C2027;
-  --muted-foreground: #9BA1A9;
-  --accent: #22262F;
-  --accent-foreground: #E9EAEC;
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: rgba(255, 255, 255, 0.08);
-  --input: rgba(255, 255, 255, 0.12);
-  --ring: rgba(255, 255, 255, 0.28);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: #0C0E12;
-  --sidebar-foreground: #E9EAEC;
-  --sidebar-primary: #E9EAEC;
-  --sidebar-primary-foreground: #1C1E22;
-  --sidebar-accent: #191C22;
-  --sidebar-accent-foreground: #E9EAEC;
-  --sidebar-border: rgba(255, 255, 255, 0.07);
-  --sidebar-ring: rgba(255, 255, 255, 0.28);
-  --grid-line: rgba(255, 255, 255, 0.04);
-  --grid-line-strong: rgba(255, 255, 255, 0.075);
-  /* DSH 风格三栏 shell tokens（冷调 bluish；dark） */
-  --shell-sidebar: #1B1B1C;
-  --shell-label-primary: #F9FAFB;
-  --shell-label-secondary: #CFD3D6;
-  --shell-label-tertiary: #ADB2B8;
-  --shell-label-caption: #81858C;
-  --shell-row-hover: rgba(255, 255, 255, 0.08);
-  --shell-row-active: #43454A;
-  --shell-row-active-accent: #344B7A;
-  --shell-accent: #679EFE;
-  --shell-accent-strong: #679EFE;
-  --shell-bg-base: #151517;
-  --shell-border: rgba(255, 255, 255, 0.06);
-  --shell-border-l2: rgba(255, 255, 255, 0.12);
-  --shell-scrollbar: #3D3D3D;
+  /* ---- 系统色 · Dark（macOS：窗口 #1e1e1e / 抬升面 #2c2c2e） ---- */
+  --background: #1e1e1e;
+  --foreground: #ffffff;
+  --card: #2c2c2e;
+  --card-foreground: #ffffff;
+  --popover: #2c2c2e;
+  --popover-foreground: #ffffff;
+  --primary: #0a84ff;
+  --primary-foreground: #ffffff;
+  --secondary: rgba(120, 120, 128, 0.32);
+  --secondary-foreground: #ffffff;
+  --muted: rgba(120, 120, 128, 0.24);
+  --muted-foreground: rgba(235, 235, 245, 0.6);
+  --accent: rgba(120, 120, 128, 0.32);
+  --accent-foreground: #ffffff;
+  --destructive: #ff453a;
+  --border: rgba(84, 84, 88, 0.65);
+  --input: rgba(120, 120, 128, 0.4);
+  --ring: rgba(10, 132, 255, 0.6);
+
+  --ink: #ffffff;
+  --paper: #1e1e1e;
+  --night: #1e1e1e;
+  --hl: rgba(255, 214, 10, 0.34);
+  --ai: #ffd60a;
+  --ai-foreground: #1d1d1f;
+  --ai-muted: rgba(255, 214, 10, 0.18);
+
+  --shell-sidebar: rgba(44, 44, 46, 0.78);
+  --shell-label-primary: #ffffff;
+  --shell-label-secondary: rgba(235, 235, 245, 0.6);
+  --shell-label-tertiary: rgba(235, 235, 245, 0.36);
+  --shell-label-caption: rgba(235, 235, 245, 0.24);
+  --shell-row-hover: rgba(255, 255, 255, 0.06);
+  --shell-row-active: rgba(255, 255, 255, 0.1);
+  --shell-row-active-accent: rgba(10, 132, 255, 0.22);
+  --shell-accent: #0a84ff;
+  --shell-accent-strong: #409cff;
+  --shell-bg-base: #1e1e1e;
+  --shell-border: rgba(255, 255, 255, 0.08);
+  --shell-border-l2: rgba(255, 255, 255, 0.14);
+  --shell-scrollbar: rgba(255, 255, 255, 0.26);
+
+  --sidebar: rgba(44, 44, 46, 0.78);
+  --sidebar-foreground: #ffffff;
+  --sidebar-primary: #0a84ff;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: rgba(255, 255, 255, 0.08);
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: rgba(255, 255, 255, 0.08);
+  --sidebar-ring: rgba(10, 132, 255, 0.6);
+
+  --grid-line: rgba(255, 255, 255, 0.012);
+  --grid-line-strong: rgba(255, 255, 255, 0.022);
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4), 0 0 0 0.5px rgba(255, 255, 255, 0.06);
+  --shadow-md: 0 6px 18px rgba(0, 0, 0, 0.5), 0 0 0 0.5px rgba(255, 255, 255, 0.07);
+  --shadow-lg: 0 22px 60px rgba(0, 0, 0, 0.6), 0 0 0 0.5px rgba(255, 255, 255, 0.08);
+
+  --chart-1: #0a84ff;
+  --chart-2: #30d158;
+  --chart-3: #ff9f0a;
+  --chart-4: #bf5af2;
+  --chart-5: #ff453a;
 }
 
 /* full pages
@@ -203,21 +247,68 @@ body,
   * {
     @apply border-border outline-ring/50;
   }
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
   body {
     @apply bg-background text-foreground;
+    font-family: var(--font-ui);
+    font-size: 13px;
+    line-height: 1.5;
+    letter-spacing: -0.005em;
+    font-feature-settings: "cv11", "ss01";
+  }
+  /* Apple 的大标题用更紧的字距 */
+  h1, h2, h3 {
+    letter-spacing: -0.022em;
   }
   ::selection {
-    background: var(--hl);
-    color: var(--ink);
+    background: color-mix(in srgb, var(--primary) 26%, transparent);
+    color: inherit;
   }
 }
 
-/* 文档行入场淡入（DSH row-in） */
+/* ---------------- 材质（vibrancy） ---------------- */
+
+/* 侧边栏 / 详情栏：半透明 + 背景模糊（macOS sidebar material） */
+.material-sidebar {
+  background: var(--shell-sidebar);
+  backdrop-filter: blur(30px) saturate(180%);
+  -webkit-backdrop-filter: blur(30px) saturate(180%);
+}
+
+/* 工具栏 / 顶栏：内容滚动时从其下透出 */
+.material-toolbar {
+  background: color-mix(in srgb, var(--background) 72%, transparent);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+}
+
+/* 浮层（菜单、气泡、弹窗）：高不透明度材质，保证文字可读 */
+.material-popover {
+  background: color-mix(in srgb, var(--popover) 88%, transparent);
+  backdrop-filter: blur(30px) saturate(180%);
+  -webkit-backdrop-filter: blur(30px) saturate(180%);
+}
+
+/* 卡片 / 分组容器 */
+.surface-card {
+  background: var(--card);
+  border: 0.5px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+/* ---------------- 动效 ---------------- */
+
+/* 文档行入场淡入 */
 @keyframes row-in {
   from { opacity: 0; }
 }
 
-/* 工具卡片 running 流光扫过（DSH GenericCommandCard） */
+/* 工具卡片 running 流光扫过 */
 @keyframes tool-sweep {
   0% { left: -300px; }
   90%, 100% { left: 100%; }
@@ -245,38 +336,42 @@ body,
   }
 }
 
-/* 细滚动条：全局统一（Firefox） */
+/* ---------------- 滚动条：macOS overlay 风格 ---------------- */
+
 * {
   scrollbar-width: thin;
-  scrollbar-color: color-mix(in srgb, var(--muted-foreground) 35%, transparent) transparent;
+  scrollbar-color: var(--shell-scrollbar) transparent;
 }
-/* 细滚动条（WebKit/Blink） */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 11px;
+  height: 11px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: color-mix(in srgb, var(--muted-foreground) 30%, transparent);
-  border-radius: 4px;
+  background: var(--shell-scrollbar);
+  border: 3px solid transparent;
+  background-clip: content-box;
+  border-radius: 8px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: color-mix(in srgb, var(--muted-foreground) 50%, transparent);
+  background: color-mix(in srgb, var(--shell-scrollbar) 75%, var(--foreground));
+  background-clip: content-box;
 }
 
-/* ---- 签名元素：网格纸纹理（坐标纸：细格 24px + 加重线 120px） ---- */
+/* ---------------- 签名元素 ---------------- */
+
+/* 纸面质感（原网格纸）：Apple 语言下退化为几乎不可见的柔光，仅用于空状态等少量场景 */
 .graph-paper {
   background-image:
+    radial-gradient(120% 120% at 50% 0%, color-mix(in srgb, var(--primary) 5%, transparent) 0%, transparent 60%),
     linear-gradient(to right, var(--grid-line-strong) 1px, transparent 1px),
-    linear-gradient(to right, var(--grid-line) 1px, transparent 1px),
-    linear-gradient(to bottom, var(--grid-line-strong) 1px, transparent 1px),
-    linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px);
-  background-size: 120px 120px, 24px 24px, 120px 120px, 24px 24px;
+    linear-gradient(to bottom, var(--grid-line-strong) 1px, transparent 1px);
+  background-size: 100% 100%, 28px 28px, 28px 28px;
 }
 
-/* ---- 签名元素：荧光笔高亮（AI 划重点），多行时逐行克隆背景 ---- */
+/* 荧光笔高亮（AI 划重点）：Apple Notes 的黄色马克笔 */
 .hl-mark {
   background: linear-gradient(
     104deg,
@@ -298,25 +393,24 @@ body,
   pointer-events: none;
 }
 
-/* 文档提及胶囊：DSH refChip 风格（accent 色调小圆片，无边框） */
+/* 文档提及胶囊：Apple 的 token/chip 观感（填充色，无边框） */
 .mention-chip {
   display: inline-flex;
   align-items: center;
   border-radius: 6px;
   border: none;
-  background: color-mix(in srgb, var(--shell-accent) 22%, transparent);
+  background: color-mix(in srgb, var(--primary) 14%, transparent);
   padding: 0.125rem 0.5rem;
   font-size: 0.75rem;
-  font-weight: 400;
+  font-weight: 500;
   line-height: 1.5;
-  color: var(--shell-label-primary);
+  color: var(--primary);
   vertical-align: baseline;
   white-space: nowrap;
   max-width: 10rem;
-  margin-inline: 2px; /* 与相邻文本之间留出空隙 */
+  margin-inline: 2px;
 }
 
-/* 胶囊文本超出 max-width 时省略号截断（flex 子项需 min-width:0 才能收缩） */
 .mention-chip > span {
   min-width: 0;
   overflow: hidden;
@@ -324,7 +418,6 @@ body,
   white-space: nowrap;
 }
 
-/* 可点击胶囊的 hover 反馈：accent 加深 */
 .mention-chip.cursor-pointer:hover {
-  background: color-mix(in srgb, var(--shell-accent) 32%, transparent);
+  background: color-mix(in srgb, var(--primary) 22%, transparent);
 }

@@ -1,11 +1,16 @@
 "use client";
 
-// 自研 Skeleton：shimmer 占位（对齐 DSH 骨架屏风格）
+// Skeleton：macOS 加载占位（低对比填充色 + 呼吸式淡入淡出，不用高对比闪烁）
 import type { HTMLAttributes } from "react";
 import { cn } from "@/lib/utils";
 
 function Skeleton({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("animate-pulse rounded-md bg-shell-row-active", className)} {...props} />;
+  return (
+    <div
+      className={cn("animate-pulse rounded-[6px] bg-[color-mix(in_srgb,var(--foreground)_8%,transparent)]", className)}
+      {...props}
+    />
+  );
 }
 
 export { Skeleton };

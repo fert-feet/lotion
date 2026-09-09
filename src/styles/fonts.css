@@ -1,17 +1,10 @@
-/* 字体：@fontsource 自托管（替代 next/font/google，无外部 CDN 依赖，离线可用）。
-   同时定义 next/font 原先注入的 CSS 变量，globals.css 的 @theme 与 markdown.css 直接复用。 */
+/* 字体：@fontsource 自托管（离线可用，无外部 CDN 依赖）。
+   Apple 平台优先使用系统 SF Pro（见 globals.css 的 --font-ui）；
+   这里只提供非 Apple 平台（Windows/Linux）的回退字族 Geist —— 与 SF 同为瑞士风无衬线，
+   保证跨平台观感一致。Fraunces（衬线展示体）已随 Apple 风格重构移除。 */
 @import "@fontsource/geist-sans/400.css";
 @import "@fontsource/geist-sans/500.css";
 @import "@fontsource/geist-sans/600.css";
 @import "@fontsource/geist-sans/700.css";
 @import "@fontsource/geist-mono/400.css";
 @import "@fontsource/geist-mono/500.css";
-@import "@fontsource/fraunces/400.css";
-@import "@fontsource/fraunces/600.css";
-@import "@fontsource/fraunces/700.css";
-
-:root {
-  --font-geist-sans: "Geist Sans", ui-sans-serif, system-ui, sans-serif;
-  --font-geist-mono: "Geist Mono", ui-monospace, SFMono-Regular, monospace;
-  --font-fraunces: "Fraunces", ui-serif, serif;
-}

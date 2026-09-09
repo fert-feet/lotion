@@ -2,12 +2,18 @@ import * as React from "react"
 
 import { cn } from "@/lib/utils"
 
+// Textarea —— 与 Input 同一套 macOS 文本框语言
 function Textarea({ className, ...props }: React.ComponentProps<"textarea">) {
   return (
     <textarea
       data-slot="textarea"
       className={cn(
-        "border-input placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive dark:bg-input/30 flex field-sizing-content min-h-16 w-full rounded-md border bg-transparent px-3 py-2 text-base shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
+        "flex field-sizing-content min-h-16 w-full rounded-[6px] border-[0.5px] border-shell-border-l2 bg-secondary px-2.5 py-2 text-[13px] leading-5 text-foreground",
+        "placeholder:text-muted-foreground",
+        "transition-[background-color,box-shadow] duration-150 ease-[var(--ds-ease-out)] outline-none",
+        "focus-visible:border-primary focus-visible:bg-card focus-visible:ring-[3px] focus-visible:ring-ring",
+        "aria-invalid:border-destructive aria-invalid:ring-destructive/25",
+        "disabled:cursor-not-allowed disabled:opacity-45",
         className
       )}
       {...props}
