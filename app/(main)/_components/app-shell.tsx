@@ -14,11 +14,13 @@ import Sidebar from "./sidebar/sidebar";
 import Navbar from "./navbar";
 import { LazyAiPanel } from "./lazy-panels";
 
-/** 中心列 grid item（会话主体构建块）。 */
+/** 中心列 grid item（会话主体构建块）。
+ *  relative + @container：编辑器大纲面板的定位基准（绝对定位）与可见性基准（容器查询按列宽，
+ *  而非视口宽度）——否则打开 AI 面板后大纲会浮在 AI 面板之上。 */
 function CenterColumn(props: { children?: ReactNode }) {
   // bg-background（纸张底）保持编辑器观感；shell 底色只用于侧边栏/详情栏
   return (
-    <div className="flex min-h-0 min-w-0 flex-col overflow-hidden bg-background">
+    <div className="@container relative flex min-h-0 min-w-0 flex-col overflow-hidden bg-background">
       {props.children}
     </div>
   );

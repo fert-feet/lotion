@@ -36,6 +36,20 @@ export const DETAILS_MAX = 520;
 /** details 默认宽度（首次打开时）。 */
 export const DETAILS_DEFAULT = 360;
 
+/** 大纲面板占用的右侧空白：面板宽 208px（w-52）+ 右边距 24px。 */
+export const OUTLINE_GUTTER = 232;
+/** 正文内容最大宽度（对齐 documents/[documentId]/page.tsx 的 max-w-4xl / max-w-6xl）。 */
+export const PAGE_CONTENT_MAX = { narrow: 896, wide: 1152 } as const;
+
+/**
+ * 中心列至少多宽才显示大纲面板（且不压住正文）。
+ * 正文在中心列内居中：右侧空白 = (center - contentMax) / 2，需要 ≥ OUTLINE_GUTTER。
+ * 消费方为 components/editor/outline-panel.tsx 的容器查询阈值（narrow 1360 / wide 1616）。
+ */
+export function outlineMinCenter(pageWidth: keyof typeof PAGE_CONTENT_MAX): number {
+  return PAGE_CONTENT_MAX[pageWidth] + OUTLINE_GUTTER * 2;
+}
+
 /** 把面板宽度夹进契约范围。 */
 export function clampWidth(px: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, Math.round(px)));

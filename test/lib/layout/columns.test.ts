@@ -3,10 +3,13 @@ import { describe, it, expect } from "vitest";
 import {
   computeColumns,
   clampWidth,
+  outlineMinCenter,
   CENTER_MIN,
   DETAILS_DEFAULT,
   DETAILS_MAX,
   DETAILS_MIN,
+  OUTLINE_GUTTER,
+  PAGE_CONTENT_MAX,
   SIDEBAR_AUTO_COLLAPSE,
   SIDEBAR_COLLAPSED,
   SIDEBAR_DEFAULT,
@@ -89,5 +92,30 @@ describe("lib/layout/columns computeColumns", () => {
     expect(DETAILS_MAX).toBe(520);
     expect(DETAILS_DEFAULT).toBe(360);
     expect(CENTER_MIN).toBe(640);
+  });
+});
+
+// 编辑器大纲面板的可见性阈值（components/editor/outline-panel.tsx 的容器查询类名钉住这些数值）
+describe("lib/layout/columns outlineMinCenter", () => {
+  it("按页面宽度推导大纲可见的最小中心列宽度", () => {
+    expect(PAGE_CONTENT_MAX.narrow).toBe(896); // lg:max-w-4xl
+    expect(PAGE_CONTENT_MAX.wide).toBe(1152); // lg:max-w-6xl
+    expect(OUTLINE_GUTTER).toBe(232); // w-52 (208) + right-6 (24)
+    expect(outlineMinCenter("narrow")).toBe(1360);
+    expect(outlineMinCenter("wide")).toBe(1616);
+  });
+
+  it("阈值处大纲左边缘刚好贴在正文右边缘（不重叠）", () => {
+    for (const pageWidth of ["narrow", "wide"] as const) {
+      const center = outlineMinCenter(pageWidth);
+      const contentRight = (center + PAGE_CONTENT_MAX[pageWidth]) / 2;
+      expect(center - OUTLINE_GUTTER).toBeGreaterThanOrEqual(contentRight);
+    }
+  });
+
+  it("阈值以下（打开 AI 面板后中心列被挤压）大纲必然压住正文，故应隐藏", () => {
+    // 1800 视口 + 280 侧边栏 + 360 AI 面板 → 中心列 1160，低于 narrow 阈值 1360
+    const center = 1800 - SIDEBAR_DEFAULT - DETAILS_DEFAULT;
+    expect(center).toBeLessThan(outlineMinCenter("narrow"));
   });
 });
