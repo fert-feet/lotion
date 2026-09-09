@@ -62,7 +62,12 @@ export function SidebarFooter({ rail, onBatchMode }: SidebarFooterProps) {
             <Trash className={rail ? "h-[18px] w-[18px]" : "h-4 w-4"} />
           </button>
         </PopoverTrigger>
-        <PopoverContent className="w-72 p-0" side={rail ? "right" : "top"} align={rail ? "start" : "end"}>
+        {/* max-h 限制浮层高度：TrashBox 内部按 flex 布局让列表区独立滚动 */}
+        <PopoverContent
+          className="w-72 max-h-[60vh] p-0"
+          side={rail ? "right" : "top"}
+          align={rail ? "start" : "end"}
+        >
           <TrashBox />
         </PopoverContent>
       </Popover>

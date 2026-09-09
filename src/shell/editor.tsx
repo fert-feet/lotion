@@ -38,7 +38,7 @@ interface EditorProps {
 const Editor = ({ onChange, initialContent, editable = true }: EditorProps) => {
   const { resolvedTheme } = useTheme();
 
-  // 本地版图片上传：POST /api/upload（本地磁盘存储，见 app/api/upload/route.ts 的图床 TODO）
+  // 本地版图片上传：POST /api/upload（本地磁盘存储，见 server/routes/upload.ts 的图床 TODO）
   const handleUpload = useCallback(async (file: File) => {
     const form = new FormData();
     form.append("file", file);

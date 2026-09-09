@@ -69,15 +69,17 @@ const TrashBox = () => {
 
     if (documents === undefined) {
         return (
-            <div className="h-full flex items-center justify-center p-4">
+            <div className="flex items-center justify-center p-8">
                 <Spinner className="size-8" />
             </div>
         );
     }
 
     return (
-        <div className="text-sm">
-            <div className="gap-x-1 flex items-center p-2">
+        // 高度上限由父级 PopoverContent 的 max-h 决定：搜索框固定、列表区独立滚动，
+        // 回收站文档很多时不会把浮层撑出视口
+        <div className="flex max-h-[inherit] flex-col text-sm">
+            <div className="gap-x-1 flex shrink-0 items-center p-2">
                 <Search className="h-4 w-4 mr-1" />
                 <Input
                     value={search}
@@ -87,7 +89,7 @@ const TrashBox = () => {
                 />
 
             </div>
-            <div className="mt-2 px-1 pb-1">
+            <div className="mt-2 min-h-0 flex-1 overflow-y-auto px-1 pb-1">
                 <p className="hidden last:block text-xs text-center text-muted-foreground pb-2">
                     No document Found
                 </p>

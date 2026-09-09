@@ -23,7 +23,7 @@ export function isBlockNoteJson(content: string | null | undefined): boolean {
  * 统一取编辑器 blocks（客户端安全版）：
  * - BlockNote JSON：解析并规范化后返回（解析失败返回 undefined）
  * - Markdown（存量旧数据）：返回 undefined——编辑器挂载后经 tryParseMarkdownToBlocks
- *   填充（见 app/(main)/_components/editor.tsx）
+ *   填充（见 src/shell/editor.tsx）
  */
 export function toEditorBlocks(content: string | null | undefined): EditorBlockLike[] | undefined {
   if (!content || !isBlockNoteJson(content)) return undefined;
