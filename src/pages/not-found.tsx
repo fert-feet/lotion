@@ -6,13 +6,13 @@ import { Button } from "@/components/ui/button";
 import { FileQuestion } from "@/components/icons";
 
 const NotFoundPage = () => (
-  <div className="h-full flex flex-col items-center justify-center gap-4 px-6 text-center">
-    <FileQuestion className="h-12 w-12 text-muted-foreground" />
+  <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
+    <div className="flex h-16 w-16 items-center justify-center rounded-[18px] bg-secondary text-shell-label-tertiary"><FileQuestion className="h-7 w-7" strokeWidth={1.5} /></div>
     <div>
-      <p className="font-display text-2xl font-semibold tracking-tight">页面不存在</p>
-      <p className="mt-2 text-sm text-muted-foreground">链接可能已失效，或笔记已被删除</p>
+      <p className="text-[19px] font-semibold tracking-[-0.02em]">页面不存在</p>
+      <p className="mt-1.5 text-[13px] text-muted-foreground">链接可能已失效，或笔记已被删除</p>
     </div>
-    <Button asChild className="mt-2 cursor-pointer bg-ai text-ai-foreground hover:bg-ai/90">
+    <Button asChild className="mt-3">
       <Link to="/documents">回到文档列表</Link>
     </Button>
   </div>

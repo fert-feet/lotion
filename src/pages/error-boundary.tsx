@@ -10,17 +10,17 @@ const ErrorBoundary = () => {
   const navigate = useNavigate();
 
   return (
-    <div className="h-full flex flex-col items-center justify-center space-y-4">
+    <div className="flex h-full flex-col items-center justify-center gap-3">
       <div className="flex">
         <img alt="error" src="/logo.svg" width={300} height={300} />
       </div>
-      <h2 className="text-lg font-bold pt-4">Something went wrong!</h2>
+      <h2 className="text-[19px] font-semibold tracking-[-0.02em]">出了点问题</h2>
       <Button
         onClick={() => navigate("/documents")}
-        className="text-md font-medium cursor-pointer"
+        className="mt-1"
       >
         Go back
-        <ArrowRight className="h-5 w-5 ml-2" />
+        <ArrowRight className="h-4 w-4" />
       </Button>
     </div>
   );

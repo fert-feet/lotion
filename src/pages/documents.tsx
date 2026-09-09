@@ -2,7 +2,7 @@
 
 import { useUser } from "@/hooks/use-user";
 import { Button } from "@/components/ui/button";
-import { FileText, Sparkles } from "@/components/icons";
+import { FileText } from "@/components/icons";
 import { create } from "@/lib/db";
 import { toast } from "sonner";
 import { useNavigate } from "react-router";
@@ -30,23 +30,19 @@ const DocumentsPage = () => {
   };
 
   return (
-    <div className="h-full flex flex-col items-center justify-center px-6">
-      <div className="graph-paper relative flex h-44 w-64 items-center justify-center rounded-xl border border-border bg-card shadow-md shadow-ink/5">
-        {/* 荧光笔划痕：签名元素 */}
-        <div className="absolute left-4 right-4 top-1/2 h-[10px] -rotate-1 rounded-sm bg-ai/70" />
-        <div className="absolute left-8 right-8 top-1/2 mt-5 h-[6px] rotate-1 rounded-sm bg-ai/35" />
-        <FileText className="relative h-10 w-10 text-foreground" strokeWidth={1.5} />
+    <div className="flex h-full flex-col items-center justify-center px-6">
+      <div className="flex h-20 w-20 items-center justify-center rounded-[20px] bg-secondary text-shell-label-tertiary shadow-[var(--shadow-sm)]">
+        <FileText className="h-9 w-9" strokeWidth={1.5} />
       </div>
-      <h2 className="mt-8 font-display text-2xl font-semibold tracking-tight">
+      <h2 className="mt-6 text-[22px] font-semibold tracking-[-0.02em]">
         欢迎回来，{user.email?.split("@")[0]}
       </h2>
-      <p className="mt-2 text-sm text-muted-foreground text-center max-w-sm leading-relaxed">
-        创建你的第一篇笔记，或打开 AI 助手让它帮你写。
-        <Sparkles className="inline h-3.5 w-3.5 text-ai -mt-0.5 ml-1" />
+      <p className="mt-2 max-w-[320px] text-center text-[13px] leading-[1.5] text-muted-foreground">
+        创建你的第一篇笔记，或让 AI 助手帮你起草。
       </p>
-      <Button onClick={onCreate} disabled={creating} className="mt-6 cursor-pointer bg-ai text-ai-foreground hover:bg-ai/90 shadow-md shadow-ai/20">
+      <Button onClick={onCreate} disabled={creating} size="lg" className="mt-6">
         <FileText className="h-4 w-4" />
-        Create a note
+        新建笔记
       </Button>
     </div>
   );

@@ -39,17 +39,21 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="graph-paper relative flex min-h-screen items-center justify-center px-4 before:absolute before:top-0 before:left-0 before:h-[3px] before:w-full before:bg-ai">
-      <div className="w-full max-w-sm rounded-xl border border-border bg-card p-8 shadow-xl shadow-ink/5">
-        <div className="mb-6 flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-ai text-ai-foreground">
-            <PenLine className="h-4 w-4" strokeWidth={2.5} />
+    // Apple 的登录面板：浅灰底 + 居中白色卡片，卡片靠发丝边与柔和阴影分层
+    <div className="flex min-h-screen items-center justify-center bg-[color-mix(in_srgb,var(--foreground)_4%,var(--background))] px-4">
+      <div className="w-full max-w-[380px] rounded-[16px] border-[0.5px] border-shell-border-l2 bg-card p-7 shadow-[var(--shadow-lg)]">
+        <div className="mb-6 flex flex-col items-center gap-3 text-center">
+          <div className="flex h-12 w-12 items-center justify-center rounded-[12px] bg-primary text-primary-foreground shadow-[var(--shadow-sm)]">
+            <PenLine className="h-6 w-6" strokeWidth={2} />
           </div>
-          <h1 className="font-display text-xl font-semibold tracking-tight">登录 Lotion</h1>
-        </div>
-        <form onSubmit={handleLogin} className="space-y-4">
           <div>
-            <label className="mb-1.5 block text-sm font-medium">邮箱</label>
+            <h1 className="text-[17px] font-semibold tracking-[-0.02em]">登录 Lotion</h1>
+            <p className="mt-1 text-[12px] text-muted-foreground">让 AI 与你一起写笔记</p>
+          </div>
+        </div>
+        <form onSubmit={handleLogin} className="space-y-3.5">
+          <div className="space-y-1.5">
+            <label className="block text-[12px] font-medium text-shell-label-secondary">邮箱</label>
             <Input
               type="email"
               value={email}
@@ -58,8 +62,8 @@ export default function LoginPage() {
               required
             />
           </div>
-          <div>
-            <label className="mb-1.5 block text-sm font-medium">密码</label>
+          <div className="space-y-1.5">
+            <label className="block text-[12px] font-medium text-shell-label-secondary">密码</label>
             <Input
               type="password"
               value={password}
@@ -68,14 +72,14 @@ export default function LoginPage() {
               required
             />
           </div>
-          {error && <p className="text-sm text-destructive">{error}</p>}
-          <Button type="submit" disabled={loading} className="w-full cursor-pointer bg-ai text-ai-foreground hover:bg-ai/90">
-            {loading ? "登录中..." : "登录"}
+          {error && <p className="text-[12px] text-destructive">{error}</p>}
+          <Button type="submit" size="lg" disabled={loading} className="w-full">
+            {loading ? "登录中…" : "登录"}
           </Button>
         </form>
-        <p className="mt-4 text-center text-sm text-muted-foreground">
+        <p className="mt-5 text-center text-[12px] text-muted-foreground">
           还没有账号？{" "}
-          <Link to="/register" className="underline underline-offset-4 hover:text-foreground">
+          <Link to="/register" className="font-medium text-primary hover:underline underline-offset-4">
             注册
           </Link>
         </p>
