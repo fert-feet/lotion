@@ -142,3 +142,29 @@ describe("src/kernel 客户端内核", () => {
     expect(keys).not.toContain("insertChatMessage");
   });
 });
+
+describe("src/shell/ui-plugins 内置 UI 插件清单", () => {
+  it("shellUiPlugins 把 AI 面板注册进 details.panel 插槽（AppShell 不再硬编码面板）", async () => {
+    const { shellUiPlugins, SLOT_DETAILS_PANEL } = await import("@/src/shell/ui-plugins");
+    const { bootClientKernel, _resetClientKernelForTest: reset } = await import("@/src/kernel/client");
+    reset();
+
+    const kernel = bootClientKernel({ extraPlugins: shellUiPlugins() });
+
+    expect(kernel.load.mounted.map((m) => m.id)).toContain("ui-ai-panel");
+    expect(kernel.uiSlots.get(SLOT_DETAILS_PANEL)).toBeDefined();
+    expect(kernel.uiSlots.entries().map((e) => e.id)).toEqual(["ai-panel"]);
+    reset();
+  });
+
+  it("没有 UI 插件时插槽为空（渲染方不需要知道有哪些插件）", async () => {
+    const { bootClientKernel, _resetClientKernelForTest: reset } = await import("@/src/kernel/client");
+    const { SLOT_DETAILS_PANEL } = await import("@/src/shell/ui-plugins");
+    reset();
+
+    const kernel = bootClientKernel();
+
+    expect(kernel.uiSlots.get(SLOT_DETAILS_PANEL)).toBeUndefined();
+    reset();
+  });
+});

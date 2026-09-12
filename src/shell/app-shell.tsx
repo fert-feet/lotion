@@ -12,7 +12,8 @@ import { computeColumns, SIDEBAR_AUTO_COLLAPSE, SIDEBAR_DEFAULT } from "@/lib/la
 import { useLayout } from "@/hooks/use-layout";
 import Sidebar from "./sidebar/sidebar";
 import Navbar from "./navbar";
-import { LazyAiPanel } from "./lazy-panels";
+import { useSlot } from "@/src/kernel/react";
+import { SLOT_DETAILS_PANEL } from "./ui-plugins";
 
 /** 中心列 grid item（会话主体构建块）。
  *  relative + @container：编辑器大纲面板的定位基准（绝对定位）与可见性基准（容器查询按列宽，
@@ -24,6 +25,12 @@ function CenterColumn(props: { children?: ReactNode }) {
       {props.children}
     </div>
   );
+}
+
+/** 详情列内容：从 uiSlots 取（无插件贡献时渲染空列，而不是崩掉）。 */
+function DetailsPanel() {
+  const panel = useSlot(SLOT_DETAILS_PANEL);
+  return <>{panel ?? null}</>;
 }
 
 /** 详情列 grid item；宽度 0 时保持子树挂载（关闭不卸载）。 */
@@ -199,8 +206,8 @@ export function AppShell({ children }: { children: ReactNode }) {
       </CenterColumn>
 
       <DetailsColumn>
-        {/* 详情列（AI 面板）常驻挂载；0 宽时仅视觉关闭 */}
-        <LazyAiPanel />
+        {/* 详情列内容由 UI 插件贡献（当前是 ui-ai-panel）；0 宽时仅视觉关闭、不卸载 */}
+        <DetailsPanel />
       </DetailsColumn>
 
       {/* 折叠 rail 是固定宽：关闭时不渲染拖拽手柄。 */}

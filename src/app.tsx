@@ -8,6 +8,7 @@ import { Toaster } from "@/components/ui/sonner";
 import ModalProvider from "@/components/providers/modal-provider";
 import { UserProvider } from "@/hooks/use-user";
 import { KernelProvider } from "./kernel/react";
+import { shellUiPlugins } from "./shell/ui-plugins";
 import { router } from "./router";
 
 const App = () => (
@@ -20,7 +21,7 @@ const App = () => (
   >
     <Toaster position="top-right" />
     <ModalProvider />
-    <KernelProvider>
+    <KernelProvider options={{ extraPlugins: shellUiPlugins() }}>
       <UserProvider initialUser={null}>
         <RouterProvider router={router} />
       </UserProvider>
