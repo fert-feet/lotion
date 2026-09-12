@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useRef, useCallback, lazy, Suspense } from "react";
 import { useNavigate, useParams } from "react-router";
-import { getById, getByIdFresh, update, type Document } from "@/lib/db";
+import type { Document } from "@/lib/seams/doc-store";
+import { useActor, useDocStore } from "@/src/kernel/react";
 import { useRefresh } from "@/hooks/use-refresh";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -18,6 +19,8 @@ const Editor = lazy(() => import("@/src/shell/editor"));
 const SAVE_DEBOUNCE_MS = 800;
 
 const DocumentIdPage = () => {
+  const docStore = useDocStore();
+  const actor = useActor();
     const params = useParams();
     const navigate = useNavigate();
     const documentKeys = useRefresh((s) => s.documentKeys);
@@ -45,11 +48,11 @@ const DocumentIdPage = () => {
                     clearTimeout(saveTimer.current);
                     saveTimer.current = undefined;
                 }
-                update(prevDocId, { content: latestContent.current });
+                docStore.update(actor, prevDocId, { content: latestContent.current });
                 latestContent.current = "";
             }
         };
-    }, [documentId]);
+    }, [documentId, docStore, actor]);
 
     useEffect(() => {
         if (documentId) {
@@ -57,23 +60,23 @@ const DocumentIdPage = () => {
             // 拿新内容（updateNote 在服务端直接写库，docCache 仍是旧值）。
             // alive 标志：快速切换文档时丢弃过期响应，避免旧文档覆盖新文档
             let alive = true;
-            const loader = refreshKey === 0 ? getById : getByIdFresh;
-            loader(documentId)
+            const fresh = refreshKey !== 0;
+            docStore.getById(actor, documentId, { fresh })
                 .then((doc) => { if (alive) setDocument(doc); })
                 .catch(() => { if (alive) setDocument(null); });
             return () => { alive = false; };
         }
-    }, [documentId, refreshKey]);
+    }, [documentId, refreshKey, docStore, actor]);
 
     // 卸载时 flush 最后一次未保存的编辑，防止防抖窗口内离开丢内容
     useEffect(() => {
         return () => {
             if (saveTimer.current) clearTimeout(saveTimer.current);
             if (latestContent.current && documentIdRef.current) {
-                update(documentIdRef.current, { content: latestContent.current });
+                docStore.update(actor, documentIdRef.current, { content: latestContent.current });
             }
         };
-    }, []);
+    }, [docStore, actor]);
 
     const onChange = useCallback((content: string) => {
         latestContent.current = content;
@@ -83,10 +86,10 @@ const DocumentIdPage = () => {
         saveTimer.current = setTimeout(() => {
             saveTimer.current = undefined;
             if (docId) {
-                update(docId, { content });
+                docStore.update(actor, docId, { content });
             }
         }, SAVE_DEBOUNCE_MS);
-    }, []);
+    }, [docStore, actor]);
 
     if (document === undefined) {
         return (

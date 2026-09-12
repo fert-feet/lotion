@@ -10,7 +10,8 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useUser } from "@/hooks/use-user";
 import { useRefresh } from "@/hooks/use-refresh";
-import { archive, create, prefetchById, type SidebarDocument } from "@/lib/db";
+import type { SidebarDocument } from "@/lib/seams/doc-store";
+import { useActor, useDocStore } from "@/src/kernel/react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -63,6 +64,8 @@ const DocRow = memo(function DocRow({
   checked,
   onToggleCheck,
 }: DocRowProps) {
+  const docStore = useDocStore();
+  const actor = useActor();
   // SSR 水合安全：首渲 now=0（统一"刚刚"，服务端/客户端一致），挂载后取真实时间
   const [now, setNow] = useState(0);
   useEffect(() => { setNow(Date.now()); }, []);
@@ -75,7 +78,7 @@ const DocRow = memo(function DocRow({
         if (batchMode) { onToggleCheck(doc.id); return; }
         onOpen();
       }}
-      onMouseEnter={() => { prefetchById(doc.id); }}
+      onMouseEnter={() => { docStore.prefetch?.(actor, doc.id); }}
       style={{ paddingLeft: level * 16 + 4 }}
       className={cn(
         "group relative flex h-7 cursor-pointer select-none items-center gap-1.5 rounded-[6px] px-1.5 text-[13px] leading-5 text-shell-label-primary animate-[row-in_150ms_ease]",
@@ -168,6 +171,7 @@ export function DocTree({
   expanded,
   onExpandChange,
 }: DocTreeProps) {
+  const docStore = useDocStore();
   const params = useParams();
   const navigate = useNavigate();
   const { user } = useUser();
@@ -189,7 +193,7 @@ export function DocTree({
         const onExpand = () => onExpandChange?.(doc.id);
         const onCreateChild = () => {
           if (!user) return;
-          const promise = create(user.id, "Untitled", doc.id).then((documentId) => {
+          const promise = docStore.create({ userId: user.id }, "Untitled", doc.id).then((documentId) => {
             if (!isExpanded) onExpandChange?.(doc.id);
             triggerSidebar();
             navigate("/documents/" + documentId);
@@ -202,7 +206,7 @@ export function DocTree({
         };
         const onArchive = () => {
           if (!user) return;
-          const promise = archive(user.id, doc.id).then(() => {
+          const promise = docStore.archive({ userId: user.id }, doc.id).then(() => {
             triggerSidebar();
             if (params.documentId === doc.id) navigate("/documents");
           });

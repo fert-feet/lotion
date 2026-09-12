@@ -8,7 +8,8 @@ import DraftBanner from "./draft-banner";
 import Menu from "./menu";
 import Publish from "./publish";
 import { useEffect, useState } from "react";
-import { getById, type Document } from "@/lib/db";
+import type { Document } from "@/lib/seams/doc-store";
+import { useActor, useDocStore } from "@/src/kernel/react";
 import { useRefresh } from "@/hooks/use-refresh";
 
 interface NavbarProps {
@@ -21,6 +22,8 @@ const Navbar = ({
     onResetWidth
 }: NavbarProps) => {
     const params = useParams();
+    const docStore = useDocStore();
+    const actor = useActor();
     const documentKeys = useRefresh((s) => s.documentKeys);
     const [document, setDocument] = useState<Document | null | undefined>(undefined);
     const documentId = params.documentId as string;
@@ -30,12 +33,12 @@ const Navbar = ({
         if (documentId) {
             // alive 标志：快速切换文档时丢弃过期响应，避免旧文档覆盖新文档
             let alive = true;
-            getById(documentId)
+            docStore.getById(actor, documentId)
                 .then((doc) => { if (alive) setDocument(doc); })
                 .catch(() => { if (alive) setDocument(null); });
             return () => { alive = false; };
         }
-    }, [documentId, refreshKey]);
+    }, [documentId, refreshKey, docStore, actor]);
 
     if (document === undefined) {
         return (

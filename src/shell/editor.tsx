@@ -24,7 +24,7 @@ import "@blocknote/react/style.css";
 import { useTheme } from "next-themes";
 import { isBlockNoteJson, toEditorBlocks } from "@/lib/content";
 import { createLotionSchema } from "@/lib/blocknote-schema";
-import { getSearch } from "@/lib/db";
+import { useDocStore } from "@/src/kernel/react";
 import OutlinePanel from "@/components/editor/outline-panel";
 import LotionSuggestionMenu from "@/components/editor/lotion-suggestion-menu";
 import "@/components/editor/blocknote.css";
@@ -36,6 +36,7 @@ interface EditorProps {
 }
 
 const Editor = ({ onChange, initialContent, editable = true }: EditorProps) => {
+  const docStore = useDocStore();
   const { resolvedTheme } = useTheme();
 
   // 本地版图片上传：POST /api/upload（本地磁盘存储，见 server/routes/upload.ts 的图床 TODO）
@@ -121,7 +122,7 @@ const Editor = ({ onChange, initialContent, editable = true }: EditorProps) => {
   const getMentionItems = useCallback(
     async (query: string): Promise<DefaultReactSuggestionItem[]> => {
       const q = query.trim().toLowerCase();
-      const docs = await getSearch("");
+      const docs = await docStore.listSearch({ userId: "" });
       const matches = docs
         .filter((d) => !d.isArchived && d.title && (!q || d.title.toLowerCase().includes(q)))
         .slice(0, 8);
@@ -139,7 +140,7 @@ const Editor = ({ onChange, initialContent, editable = true }: EditorProps) => {
         },
       }));
     },
-    [editor],
+    [editor, docStore],
   );
 
   // 初次挂载：存量 Markdown 文档 → blocks（仅当编辑器仍为空时替换，避免覆盖用户输入）

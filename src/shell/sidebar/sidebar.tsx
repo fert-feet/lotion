@@ -10,7 +10,8 @@ import { toast } from "sonner";
 import { useUser } from "@/hooks/use-user";
 import { useRefresh } from "@/hooks/use-refresh";
 import { useLayout } from "@/hooks/use-layout";
-import { create, getSidebarAll, remove, type SidebarDocument } from "@/lib/db";
+import type { SidebarDocument } from "@/lib/seams/doc-store";
+import { useActor, useDocStore } from "@/src/kernel/react";
 import { cn } from "@/lib/utils";
 import { SidebarHeader } from "./sidebar-header";
 import { DocTree, DocSearchResults } from "./doc-tree";
@@ -24,6 +25,8 @@ interface SidebarProps {
 }
 
 export function Sidebar({ wide, onExpand }: SidebarProps) {
+  const docStore = useDocStore();
+  const actor = useActor();
   const navigate = useNavigate();
   const { user } = useUser();
   const sidebarKey = useRefresh((s) => s.sidebarKey);
@@ -41,15 +44,15 @@ export function Sidebar({ wide, onExpand }: SidebarProps) {
 
   useEffect(() => {
     if (user) {
-      getSidebarAll(user.id)
+      docStore.listSidebarAll({ userId: user.id })
         .then((data) => { setAllDocs(data); initialLoaded.current = true; })
         .catch(() => { if (!initialLoaded.current) setAllDocs([]); });
     }
-  }, [user, sidebarKey]);
+  }, [user, sidebarKey, docStore]);
 
   const onCreate = () => {
     if (!user) return;
-    const promise = create(user.id, "Untitled").then((documentId) => {
+    const promise = docStore.create({ userId: user.id }, "Untitled").then((documentId) => {
       triggerSidebar();
       navigate("/documents/" + documentId);
     });
@@ -77,7 +80,7 @@ export function Sidebar({ wide, onExpand }: SidebarProps) {
   const batchDelete = () => {
     if (selected.size === 0) return;
     const ids = Array.from(selected);
-    const promise = Promise.all(ids.map((id) => remove(id))).then(() => {
+    const promise = Promise.all(ids.map((id) => docStore.remove(actor, id))).then(() => {
       triggerSidebar();
       exitBatchMode();
     });

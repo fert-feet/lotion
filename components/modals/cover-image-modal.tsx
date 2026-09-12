@@ -3,10 +3,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog";
 import { SingleImageDropzone } from "../upload/single-image";
 import { useParams } from "react-router";
 import { UploaderProvider, UploadFn } from "../upload/uploader-provider";
-import { update } from "@/lib/db";
+import { useActor, useDocStore } from "@/src/kernel/react";
 import { useRefresh } from "@/hooks/use-refresh";
 
 const CoverImageModal = () => {
+    const docStore = useDocStore();
+    const actor = useActor();
     const params = useParams();
     const coverImage = useCoverImage();
     const triggerDocument = useRefresh((s) => s.triggerDocument);
@@ -23,7 +25,7 @@ const CoverImageModal = () => {
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "上传失败");
 
-        await update(params.documentId as string, { coverImage: data.url });
+        await docStore.update(actor, params.documentId as string, { coverImage: data.url });
         triggerDocument(params.documentId as string);
 
         onClose();

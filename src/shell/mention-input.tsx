@@ -2,7 +2,8 @@
 
 import { useUser } from "@/hooks/use-user";
 import { useRefresh } from "@/hooks/use-refresh";
-import { getSearch, type SidebarDocument } from "@/lib/db";
+import type { SidebarDocument } from "@/lib/seams/doc-store";
+import { useDocStore } from "@/src/kernel/react";
 import { truncateMentionTitle } from "@/lib/mention";
 import { FileText } from "@/components/icons";
 import { useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
@@ -39,6 +40,7 @@ export default function MentionInput({
   className,
   ref,
 }: MentionInputProps) {
+  const docStore = useDocStore();
   const { user } = useUser();
   const sidebarKey = useRefresh((s) => s.sidebarKey);
   const editorRef = useRef<HTMLDivElement>(null);
@@ -51,9 +53,9 @@ export default function MentionInput({
   // 任何触发侧边栏刷新的操作都会递增它，保证 @ 列表及时拿到新文档
   useEffect(() => {
     if (user) {
-      getSearch(user.id).then(setDocs).catch(() => {});
+      docStore.listSearch({ userId: user.id }).then(setDocs).catch(() => {});
     }
-  }, [user, sidebarKey]);
+  }, [user, sidebarKey, docStore]);
 
   const closeMention = useCallback(() => setMentionOpen(false), []);
 

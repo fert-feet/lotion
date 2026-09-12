@@ -7,9 +7,12 @@ import { Input } from "@/components/ui/input";
 import ConfirmModal from "@/components/modals/confirm-modal";
 import { useUser } from "@/hooks/use-user";
 import { useRefresh } from "@/hooks/use-refresh";
-import { getTrash, restore, remove, type SidebarDocument } from "@/lib/db";
+import type { SidebarDocument } from "@/lib/seams/doc-store";
+import { useActor, useDocStore } from "@/src/kernel/react";
 
 const TrashBox = () => {
+    const docStore = useDocStore();
+    const actor = useActor();
     const navigate = useNavigate();
     const { user } = useUser();
     const triggerSidebar = useRefresh((s) => s.triggerSidebar);
@@ -19,7 +22,7 @@ const TrashBox = () => {
 
     const loadTrash = () => {
         if (user) {
-            getTrash(user.id)
+            docStore.listTrash({ userId: user.id })
                 .then(setDocuments)
                 .catch(() => setDocuments([])); // 失败显示空列表，避免无限 Spinner
         }
@@ -36,7 +39,7 @@ const TrashBox = () => {
     };
 
     const onRemove = (documentId: string) => {
-        const promise = remove(documentId).then(() => {
+        const promise = docStore.remove(actor, documentId).then(() => {
             triggerSidebar();
             loadTrash();
         });
@@ -55,7 +58,7 @@ const TrashBox = () => {
         event.stopPropagation();
 
         if (!user) return;
-        const promise = restore(user.id, documentId).then(() => {
+        const promise = docStore.restore({ userId: user.id }, documentId).then(() => {
             triggerSidebar();
             loadTrash();
         });

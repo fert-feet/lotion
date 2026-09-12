@@ -2,7 +2,8 @@
 
 import { useEffect, useState, lazy, Suspense } from "react";
 import { useNavigate, useParams } from "react-router";
-import { getPublishedDocument, update, type Document } from "@/lib/db";
+import type { Document } from "@/lib/seams/doc-store";
+import { useActor, useDocStore } from "@/src/kernel/react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { ArrowRight } from "@/components/icons";
@@ -16,6 +17,8 @@ const Editor = lazy(() => import("@/src/shell/editor"));
 // - 读取走无鉴权的公开端点，仅返回 isPublished=true 的文档
 // - TODO(后期 D9)：公网部署时需重新评估公开面（分享令牌/访问控制 + 图床迁移）
 const DocumentIdPage = () => {
+  const docStore = useDocStore();
+  const actor = useActor();
     const params = useParams();
     const navigate = useNavigate();
 
@@ -23,15 +26,15 @@ const DocumentIdPage = () => {
 
     useEffect(() => {
         if (params.documentId) {
-            getPublishedDocument(params.documentId as string)
+            docStore.getPublishedById(params.documentId as string)
                 .then(setDocument)
                 .catch(() => setDocument(null));
         }
-    }, [params.documentId]);
+    }, [params.documentId, docStore, actor]);
 
     const onChange = (content: string) => {
         if (document) {
-            update(document.id, { content });
+            docStore.update(actor, document.id, { content });
         }
     };
 
