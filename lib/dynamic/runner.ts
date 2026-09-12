@@ -93,10 +93,16 @@ export function createDynamicRunner(options: CreateDynamicRunnerOptions): Dynami
       }
 
       try {
-        // 沙箱交回的 apply 返回值类型未知：收窄为内核的插件形状（运行时校验已由 harness.define 完成）
-        const fiber = options.ctx.plugin(
+        // 服务隔离域：插件声明要 provide 的服务名逐个 isolate ——
+        // 于是模型写的插件即使 provide("docStore") 也只是落在自己的域里，
+        // **根域的官方服务不受影响**（Cordis 的 isolate 是逐名遮蔽，未点名的仍会落到根域）。
+        const mountCtx = (result.plugin.provide ?? []).reduce<Context>(
+          (current, name) => current.isolate(name),
+          options.ctx,
+        );
+        const fiber = mountCtx.plugin(
           result.plugin as unknown as Parameters<Context["plugin"]>[0],
-          undefined,
+          {},
         ) as unknown as Fiber;
         fibers.set(id, fiber);
         // Cordis 的激活是异步的：settle 完才知道真起来了还是 FAILED
@@ -104,11 +110,12 @@ export function createDynamicRunner(options: CreateDynamicRunnerOptions): Dynami
         if (fiber.state === FiberState.FAILED) {
           return setState(id, "error", fiberError(fiber) ?? "激活失败");
         }
-        return setState(
-          id,
-          "running",
-          (result.plugin.inject ?? []).length > 0 ? `等待服务：${result.plugin.inject?.join("、")}` : undefined,
-        );
+        const notes: string[] = [];
+        if ((result.plugin.inject ?? []).length > 0) notes.push(`等待服务：${result.plugin.inject?.join("、")}`);
+        if ((result.plugin.provide ?? []).length > 0) {
+          notes.push(`服务已隔离：${result.plugin.provide?.join("、")}`);
+        }
+        return setState(id, "running", notes.length > 0 ? notes.join("；") : undefined);
       } catch (error) {
         return setState(id, "error", error instanceof Error ? error.message : String(error));
       }

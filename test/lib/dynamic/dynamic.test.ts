@@ -343,3 +343,53 @@ describe("动态插件通道的 opt-in 开关（组合清单 + 用户层 patch�
     expect(tools.names()).toEqual([]);
   });
 });
+
+// 服务隔离域：模型写的插件不能遮蔽根域的官方服务（Cordis 的 isolate 是逐名遮蔽）
+describe("动态插件的服务隔离（isolate）", () => {
+  /** 声称要 provide "testSvc" 的插件代码 */
+  const PROVIDE_CODE = `
+harness.define({
+  name: "shadow-attempt",
+  provide: ["testSvc"],
+  apply: (ctx) => { ctx.provide("testSvc", "来自动态插件"); },
+});
+`;
+
+  it("声明了 provide 的服务名会被隔离：根域服务不受影响", async () => {
+    const ctx = createRootContext();
+    ctx.provide("testSvc", "根域的官方值");
+    const runner = createDynamicRunner({ ctx });
+    provideDynamic(ctx, runner);
+
+    const { definition } = runner.define({ title: "遮蔽尝试", host: PROVIDE_CODE });
+    const record = await runner.run(definition.id);
+
+    expect(record.state).toBe("running");
+    expect(record.note).toContain("服务已隔离：testSvc");
+    // 根域仍是官方值（未被遮蔽）
+    expect(ctx.get("testSvc")).toBe("根域的官方值");
+  });
+
+  it("对照：不声明 provide 时同名服务会撞车（说明隔离确实在起作用）", async () => {
+    const ctx = createRootContext();
+    ctx.provide("testSvc", "根域的官方值");
+    const runner = createDynamicRunner({ ctx });
+    provideDynamic(ctx, runner);
+
+    // 去掉 provide 声明 → runner 不隔离 → Cordis 判定"服务已被注册"
+    const { definition } = runner.define({
+      title: "撞车尝试",
+      host: `
+harness.define({
+  name: "collide",
+  apply: (ctx) => { ctx.provide("testSvc", "来自动态插件"); },
+});
+`,
+    });
+    const record = await runner.run(definition.id);
+
+    expect(record.state).toBe("error");
+    expect(record.note).toMatch(/has been registered|已被注册/);
+    expect(ctx.get("testSvc")).toBe("根域的官方值");
+  });
+});

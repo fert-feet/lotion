@@ -58,7 +58,16 @@ const TRAPS: Record<string, string> = {
 export interface HostSandboxSuccess {
   ok: true;
   /** 插件形状：`harness.define()` 收集到的内容 */
-  plugin: { name?: string; inject?: string[]; apply: (ctx: Context, config?: unknown) => unknown };
+  plugin: {
+    name?: string;
+    inject?: string[];
+    /**
+     * 插件声明**要提供**的服务名。
+     * runner 会据此把这些服务名放进隔离域（isolate）：模型写的插件不可能遮蔽根域的官方服务。
+     */
+    provide?: string[];
+    apply: (ctx: Context, config?: unknown) => unknown;
+  };
 }
 
 export interface HostSandboxFailure {
@@ -138,13 +147,22 @@ export async function evaluateHostHalf(
       if (typeof input !== "object" || input === null || typeof (input as { apply?: unknown }).apply !== "function") {
         throw new Error("harness.define 需要 { name?, inject?, apply(ctx, config) }，其中 apply 必须是函数");
       }
-      const candidate = input as { name?: unknown; inject?: unknown; apply: HostSandboxSuccess["plugin"]["apply"] };
+      const candidate = input as {
+        name?: unknown;
+        inject?: unknown;
+        provide?: unknown;
+        apply: HostSandboxSuccess["plugin"]["apply"];
+      };
       const inject = Array.isArray(candidate.inject)
         ? candidate.inject.filter((item): item is string => typeof item === "string")
+        : [];
+      const provide = Array.isArray(candidate.provide)
+        ? candidate.provide.filter((item): item is string => typeof item === "string")
         : [];
       defined = {
         name: typeof candidate.name === "string" ? candidate.name : undefined,
         inject,
+        provide,
         apply: candidate.apply,
       };
       return true;
@@ -213,7 +231,10 @@ export async function evaluateHostHalf(
   const safeApply: HostSandboxSuccess["plugin"]["apply"] = (ctx, config) =>
     plugin.apply(createContextFacade(ctx) as unknown as Context, config);
 
-  return { ok: true, plugin: { name: plugin.name, inject: plugin.inject, apply: safeApply } };
+  return {
+    ok: true,
+    plugin: { name: plugin.name, inject: plugin.inject, provide: plugin.provide, apply: safeApply },
+  };
 }
 
 /** 参数格式化（沙箱 console 用） */
