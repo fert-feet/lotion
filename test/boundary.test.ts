@@ -79,6 +79,22 @@ describe("客户端 / 服务端边界", () => {
     expect(offenders).toEqual([]);
   });
 
+  // UI 层不得直接导入数据模块：一律经内核的 docStore 接缝（可换实现、可 mock、可审计）。
+  // 例外：lib/client/* 是 REST 提供方本体（它就是 @/lib/db 的适配器）。
+  it("UI 层不得直接导入 @/lib/db（必须走内核 docStore 接缝）", () => {
+    const UI_DIRS = ["src", "components", "hooks"];
+    const offenders: string[] = [];
+    for (const dir of UI_DIRS) {
+      for (const file of walk(path.join(ROOT, dir))) {
+        const source = fs.readFileSync(file, "utf8");
+        if (valueImports(source).includes("@/lib/db")) {
+          offenders.push(path.relative(ROOT, file));
+        }
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+
   // 内核（lib/kernel）浏览器与服务端共用同一份：必须环境无关，
   // 否则客户端打包会把 better-sqlite3 / node:vm 之类带进浏览器 bundle。
   it("内核必须是环境无关的纯 TS（不得引用 node:/服务端专用模块/React）", () => {

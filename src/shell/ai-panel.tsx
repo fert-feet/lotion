@@ -11,16 +11,8 @@ import { cn } from "@/lib/utils";
 import { useLayout } from "@/hooks/use-layout";
 import { useUser } from "@/hooks/use-user";
 import { useRefresh } from "@/hooks/use-refresh";
-import {
-  createChatSession,
-  deleteChatSession,
-  getById,
-  getChatHistory,
-  getChatSessions,
-  move,
-  remove,
-  type ChatSession,
-} from "@/lib/db";
+import type { ChatSession } from "@/lib/seams/doc-store";
+import { useActor, useDocStore } from "@/src/kernel/react";
 import MentionInput, { type MentionInputHandle } from "./mention-input";
 import {
   DropdownMenu,
@@ -32,6 +24,8 @@ import { createTurn, type SseEvent, type Turn } from "./ai/types";
 import { TurnView } from "./ai/turn";
 
 const AiPanel = () => {
+  const docStore = useDocStore();
+  const actor = useActor();
   // details 列由布局 store 控制：0 宽 = 关闭（保持挂载），>0 = 打开
   const detailsOpen = useLayout((s) => s.details > 0);
   const closeDetails = useLayout((s) => s.closeDetails);
@@ -81,13 +75,13 @@ const AiPanel = () => {
   useEffect(() => {
     if (!userId) return;
     let alive = true;
-    getChatSessions(userId)
+    docStore.listChatSessions({ userId })
       .then(async (list) => {
         if (!alive) return;
         let sessionsList = list;
         if (sessionsList.length === 0) {
-          await createChatSession(userId);
-          sessionsList = await getChatSessions(userId);
+          await docStore.createChatSession({ userId });
+          sessionsList = await docStore.listChatSessions({ userId });
         }
         if (!alive) return;
         setSessions(sessionsList);
@@ -97,7 +91,7 @@ const AiPanel = () => {
         // 拉取失败不阻塞，保持空状态
       });
     return () => { alive = false; };
-  }, [userId]);
+  }, [userId, docStore]);
 
   // 切换会话时加载该会话的历史（跨文档全局对话）→ 重建 turn 时间线
   useEffect(() => {
@@ -112,7 +106,7 @@ const AiPanel = () => {
     let alive = true;
     currentTurnRef.current = null;
     setTurns([]);
-    getChatHistory(userId, activeSessionId)
+    docStore.listChatHistory({ userId }, activeSessionId)
       .then((msgs) => {
         if (!alive) return;
         // 扁平消息 → 成对重组为 turn（user 开头，assistant 归入上一个 turn）
@@ -134,7 +128,7 @@ const AiPanel = () => {
         // 历史拉取失败不阻塞，保持空对话
       });
     return () => { alive = false; };
-  }, [userId, activeSessionId]);
+  }, [userId, activeSessionId, docStore]);
 
   // 每次打开面板都滚到最新（关闭时 state 保留）
   const messagesRef = useRef<HTMLDivElement>(null);
@@ -148,7 +142,7 @@ const AiPanel = () => {
 
   const refreshSessions = () => {
     if (!user) return;
-    getChatSessions(user.id)
+    docStore.listChatSessions({ userId: user.id })
       .then(setSessions)
       .catch(() => {});
   };
@@ -159,7 +153,7 @@ const AiPanel = () => {
     const active = sessions.find((s) => s.id === activeSessionId);
     if (active?.title === "新对话") return;
     try {
-      const id = await createChatSession(user.id);
+      const id = await docStore.createChatSession({ userId: user.id });
       setSessions((prev) => [
         { id, title: "新对话", createdAt: "", updatedAt: "" },
         ...prev,
@@ -182,7 +176,7 @@ const AiPanel = () => {
     }
     setConfirmingDeleteId(null);
     try {
-      await deleteChatSession(user.id, sessionId);
+      await docStore.deleteChatSession({ userId: user.id }, sessionId);
       const next = sessions.filter((s) => s.id !== sessionId);
       setSessions(next);
       if (activeSessionId === sessionId) {
@@ -190,7 +184,7 @@ const AiPanel = () => {
         if (next.length > 0) {
           setActiveSessionId(next[0].id);
         } else {
-          const id = await createChatSession(user.id);
+          const id = await docStore.createChatSession({ userId: user.id });
           setSessions([{ id, title: "新对话", createdAt: "", updatedAt: "" }]);
           setActiveSessionId(id);
         }
@@ -419,7 +413,7 @@ const AiPanel = () => {
 
   // 点击胶囊/引用跳转前先确认文档存在，已删除的文档提示而不跳转（避免 not found 页）
   const openDocument = (id: string) => {
-    getById(id)
+    docStore.getById(actor, id)
       .then(() => navigate("/documents/" + id))
       .catch(() => toast.error("文档不存在或已删除"));
   };
@@ -437,7 +431,7 @@ const AiPanel = () => {
   };
 
   const handleConfirmDelete = (noteId: string, title: string) => {
-    const promise = remove(noteId).then(() => {
+    const promise = docStore.remove(actor, noteId).then(() => {
       triggerSidebar();
       // 如果当前正在查看被删除的文档，跳转到文档列表
       if (params.documentId === noteId) {
@@ -471,7 +465,7 @@ const AiPanel = () => {
   };
 
   const handleConfirmMove = (noteId: string, title: string, parentDocument: string | null) => {
-    const promise = move(noteId, parentDocument).then(() => {
+    const promise = docStore.move(actor, noteId, parentDocument).then(() => {
       triggerSidebar();
       triggerDocument(noteId);
       markMoveResolved(noteId);

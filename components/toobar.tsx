@@ -1,10 +1,10 @@
 import { ImageIcon, Smile, X } from "@/components/icons";
-import { type Document } from "@/lib/db";
+import type { Document } from "@/lib/seams/doc-store";
+import { useActor, useDocStore } from "@/src/kernel/react";
 import IconPicker from "./icon-picker";
 import { Button } from "./ui/button";
 import { ElementRef, useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
-import { update, removeIcon } from "@/lib/db";
 import { useRefresh } from "@/hooks/use-refresh";
 import TextareaAutosize from "react-textarea-autosize";
 import useCoverImage from "../hooks/use-cover-image";
@@ -18,6 +18,8 @@ const Toolbar = ({
     initialData,
     preview
 }: ToolbarProps) => {
+    const docStore = useDocStore();
+    const actor = useActor();
     const coverImage = useCoverImage();
     const triggerDocument = useRefresh((s) => s.triggerDocument);
     const triggerSidebar = useRefresh((s) => s.triggerSidebar);
@@ -66,7 +68,7 @@ const Toolbar = ({
             setIsEditing(false);
             setDisplayValue(newValue);
         });
-        update(initialData.id, { title: newValue }).then(() => {
+        docStore.update(actor, initialData.id, { title: newValue }).then(() => {
             triggerDocument(initialData.id);
             triggerSidebar(); // 侧边栏同步显示新标题
         });
@@ -78,19 +80,19 @@ const Toolbar = ({
         if (saveTimer.current) clearTimeout(saveTimer.current);
         saveTimer.current = setTimeout(() => {
             saveTimer.current = undefined;
-            update(initialData.id, { title: value || "Untitled" });
+            docStore.update(actor, initialData.id, { title: value || "Untitled" });
         }, 400);
     };
 
     const onSelectIcon = (icon: string) => {
-        update(initialData.id, { icon }).then(() => {
+        docStore.update(actor, initialData.id, { icon }).then(() => {
             triggerDocument(initialData.id);
             triggerSidebar(); // 侧边栏同步显示新 icon
         });
     };
 
     const onRemoveIcon = () => {
-        removeIcon(initialData.id).then(() => {
+        docStore.removeIcon(actor, initialData.id).then(() => {
             triggerDocument(initialData.id);
             triggerSidebar(); // 侧边栏同步移除 icon
         });
