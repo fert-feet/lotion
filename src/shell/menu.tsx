@@ -3,7 +3,7 @@
 import { MoreHorizontal, Trash } from "@/components/icons";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
-import { archive } from "@/lib/db";
+import { useDocStore } from "@/src/kernel/react";
 import { useRefresh } from "@/hooks/use-refresh";
 import { useUser } from "@/hooks/use-user";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -18,6 +18,7 @@ const Menu = ({
     documentId,
     isArchive
 }: MenuProps) => {
+    const docStore = useDocStore();
     const navigate = useNavigate();
     const { user } = useUser();
     const triggerSidebar = useRefresh((s) => s.triggerSidebar);
@@ -29,7 +30,7 @@ const Menu = ({
             return;
         }
 
-        const promise = archive(user.id, documentId)
+        const promise = docStore.archive({ userId: user.id }, documentId)
             .then(() => {
                 triggerSidebar();
                 navigate("/documents");

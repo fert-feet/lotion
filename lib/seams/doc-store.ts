@@ -90,6 +90,8 @@ export interface DocStore {
   listSearch(actor: Actor): Promise<SidebarDocument[]>;
   /** 单文档（含 content）；`fresh` 表示绕过缓存 */
   getById(actor: Actor, id: string, options?: { fresh?: boolean }): Promise<Document | null>;
+  /** 公开预览读取：不带 Actor（只返回 isPublished 文档，未发布返回 null） */
+  getPublishedById(id: string): Promise<Document | null>;
   /** 文档概览（含子文档数），供 AI 浏览类工具 */
   listOverview(actor: Actor, parentDocument: string | null): Promise<DocumentOverviewItem[]>;
 
@@ -120,6 +122,7 @@ const DOC_STORE_METHODS = [
   "listTrash",
   "listSearch",
   "getById",
+  "getPublishedById",
   "listOverview",
   "create",
   "update",
@@ -148,8 +151,13 @@ const HOST_ONLY_METHODS = [
   "touchChatSession",
 ] as const satisfies readonly (keyof DocStore)[];
 
-/** UI 消费面：浏览器可实现的能力子集（Provider = lib/client/doc-store-rest.ts） */
-export type UiDocStore = Omit<DocStore, (typeof HOST_ONLY_METHODS)[number]>;
+/**
+ * UI 消费面：浏览器可实现的能力子集（Provider = lib/client/doc-store-rest.ts）。
+ * `prefetch` 是**客户端可选**的缓存预热提示（宿主侧无意义，故不进完整契约）。
+ */
+export type UiDocStore = Omit<DocStore, (typeof HOST_ONLY_METHODS)[number]> & {
+  prefetch?(actor: Actor, id: string): void;
+};
 
 /** UI 侧需要校验的方法清单（由上面两份清单派生，不手工重复） */
 const UI_DOC_STORE_METHODS = DOC_STORE_METHODS.filter(

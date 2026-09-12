@@ -1,6 +1,7 @@
 "use client";
 
-import { update, type Document } from "@/lib/db";
+import type { Document } from "@/lib/seams/doc-store";
+import { useActor, useDocStore } from "@/src/kernel/react";
 import { useRefresh } from "@/hooks/use-refresh";
 import React, { useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
@@ -15,6 +16,8 @@ interface TitleProps {
 const Title = ({
     initialData
 }: TitleProps) => {
+    const docStore = useDocStore();
+    const actor = useActor();
     const inputRef = useRef<HTMLInputElement>(null);
     const triggerDocument = useRefresh((s) => s.triggerDocument);
 
@@ -56,7 +59,7 @@ const Title = ({
             setIsEditing(false);
             setDisplayTitle(newTitle);
         });
-        update(initialData.id, { title: newTitle }).then(() => {
+        docStore.update(actor, initialData.id, { title: newTitle }).then(() => {
             triggerDocument(initialData.id);
         });
     };
@@ -70,7 +73,7 @@ const Title = ({
         if (saveTimer.current) clearTimeout(saveTimer.current);
         saveTimer.current = setTimeout(() => {
             saveTimer.current = undefined;
-            update(initialData.id, {
+            docStore.update(actor, initialData.id, {
                 title: value || "Untitled"
             });
         }, 400);

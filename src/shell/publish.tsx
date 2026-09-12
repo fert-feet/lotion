@@ -6,7 +6,8 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Check, Copy, Globe } from "@/components/icons";
-import { update, type Document } from "@/lib/db";
+import type { Document } from "@/lib/seams/doc-store";
+import { useActor, useDocStore } from "@/src/kernel/react";
 import { useRefresh } from "@/hooks/use-refresh";
 
 interface publishProps {
@@ -16,6 +17,8 @@ interface publishProps {
 const Publish = ({
     initialData
 }: publishProps) => {
+    const docStore = useDocStore();
+    const actor = useActor();
     const origin = useOrigin();
     const [copied, setCopied] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -25,7 +28,7 @@ const Publish = ({
 
     const onPublish = () => {
         setIsSubmitting(true);
-        const promise = update(initialData.id, { isPublished: true })
+        const promise = docStore.update(actor, initialData.id, { isPublished: true })
             .then(() => triggerDocument(initialData.id))
             .finally(() => setIsSubmitting(false));
 
@@ -38,7 +41,7 @@ const Publish = ({
 
     const onUnpublish = () => {
         setIsSubmitting(true);
-        const promise = update(initialData.id, { isPublished: false })
+        const promise = docStore.update(actor, initialData.id, { isPublished: false })
             .then(() => triggerDocument(initialData.id))
             .finally(() => setIsSubmitting(false));
 

@@ -13,6 +13,7 @@ import {
   deleteChatSession,
   getById,
   getByIdFresh,
+  getPublishedDocument,
   getChatHistory,
   getChatSessions,
   getSearch,
@@ -20,6 +21,7 @@ import {
   getSidebarAll,
   getTrash,
   move,
+  prefetchById,
   remove,
   removeCoverImage,
   removeIcon,
@@ -53,6 +55,13 @@ export function createRestDocStore(): UiDocStore {
     },
     async getById(_actor, id: string, options?: { fresh?: boolean }) {
       return options?.fresh ? getByIdFresh(id) : getById(id);
+    },
+    async getPublishedById(id: string) {
+      return getPublishedDocument(id);
+    },
+    // 缓存预热提示（客户端可选能力：宿主侧不需要）
+    prefetch(_actor, id: string) {
+      prefetchById(id);
     },
     // 浏览器没有 overview 端点：由全量列表派生（childCount 用父子关系就地统计）
     async listOverview(_actor, parentDocument: string | null) {

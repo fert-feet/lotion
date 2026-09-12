@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import ConfirmModal from "@/components/modals/confirm-modal";
 import { useUser } from "@/hooks/use-user";
 import { useRefresh } from "@/hooks/use-refresh";
-import { remove, restore } from "@/lib/db";
+import { useActor, useDocStore } from "@/src/kernel/react";
 import { Archive, Trash2, Undo2 } from "@/components/icons";
 
 interface BannerProps {
@@ -16,13 +16,15 @@ interface BannerProps {
 const Banner = ({
     documentId
 }: BannerProps) => {
+    const docStore = useDocStore();
+    const actor = useActor();
     const navigate = useNavigate();
     const { user } = useUser();
     const triggerSidebar = useRefresh((s) => s.triggerSidebar);
     const triggerDocument = useRefresh((s) => s.triggerDocument);
 
     const onRemove = () => {
-        const promise = remove(documentId).then(() => {
+        const promise = docStore.remove(actor, documentId).then(() => {
             triggerSidebar();
             navigate("/documents");
         });
@@ -36,7 +38,7 @@ const Banner = ({
 
     const onRestore = () => {
         if (!user) return;
-        const promise = restore(user.id, documentId).then(() => {
+        const promise = docStore.restore({ userId: user.id }, documentId).then(() => {
             triggerSidebar();
             triggerDocument(documentId); // 刷新文档详情，让归档横幅消失
         });

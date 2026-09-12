@@ -3,12 +3,14 @@
 import { useUser } from "@/hooks/use-user";
 import { Button } from "@/components/ui/button";
 import { FileText } from "@/components/icons";
-import { create } from "@/lib/db";
+import { useDocStore } from "@/src/kernel/react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router";
 import { useState } from "react";
 
 const DocumentsPage = () => {
+
+  const docStore = useDocStore();
   const { user } = useUser();
   const navigate = useNavigate();
   const [creating, setCreating] = useState(false);
@@ -18,7 +20,7 @@ const DocumentsPage = () => {
   const onCreate = () => {
     if (creating) return;
     setCreating(true);
-    const promise = create(user.id, "Untitled")
+    const promise = docStore.create({ userId: user.id }, "Untitled")
       .then((documentId) => { navigate(`/documents/${documentId}`); })
       .finally(() => setCreating(false));
 

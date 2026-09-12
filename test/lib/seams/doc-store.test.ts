@@ -24,6 +24,7 @@ function fakeStore(overrides: Partial<DocStore> = {}): DocStore {
     listTrash: vi.fn(async () => []),
     listSearch: vi.fn(async () => []),
     getById: vi.fn(async () => null),
+    getPublishedById: vi.fn(async () => null),
     listOverview: vi.fn(async () => []),
     create: vi.fn(async () => "new-id"),
     update: noop,

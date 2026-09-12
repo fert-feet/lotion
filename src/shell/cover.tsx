@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { ImageIcon, X } from "@/components/icons";
 import useCoverImage from "@/hooks/use-cover-image";
 import { useParams } from "react-router";
-import { removeCoverImage } from "@/lib/db";
+import { useActor, useDocStore } from "@/src/kernel/react";
 import { useRefresh } from "@/hooks/use-refresh";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -18,6 +18,8 @@ const Cover = ({
     url,
     preview
 }: CoverProps) => {
+    const docStore = useDocStore();
+    const actor = useActor();
     const params = useParams();
     const coverImage = useCoverImage();
     const triggerDocument = useRefresh((s) => s.triggerDocument);
@@ -33,12 +35,12 @@ const Cover = ({
                     await fetch(`/api/uploads/${pathMatch[1]}`, { method: "DELETE" });
                 }
             }
-            removeCoverImage(documentId)
+            docStore.removeCoverImage(actor, documentId)
                 .then(() => triggerDocument(documentId))
                 .catch(console.error);
         } catch {
             // 文件清理失败不阻塞移除封面字段
-            removeCoverImage(documentId)
+            docStore.removeCoverImage(actor, documentId)
                 .then(() => triggerDocument(documentId))
                 .catch(console.error);
         }

@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { useNavigate } from "react-router";
 import { Button } from "@/components/ui/button";
 import { useRefresh } from "@/hooks/use-refresh";
-import { update, remove } from "@/lib/db";
+import { useActor, useDocStore } from "@/src/kernel/react";
 import { FileText, Trash2 } from "@/components/icons";
 
 interface DraftBannerProps {
@@ -12,12 +12,15 @@ interface DraftBannerProps {
 }
 
 const DraftBanner = ({ documentId }: DraftBannerProps) => {
+
+  const docStore = useDocStore();
+  const actor = useActor();
   const navigate = useNavigate();
   const triggerSidebar = useRefresh((s) => s.triggerSidebar);
   const triggerDocument = useRefresh((s) => s.triggerDocument);
 
   const onConfirm = () => {
-    const promise = update(documentId, { isDraft: false }).then(() => {
+    const promise = docStore.update(actor, documentId, { isDraft: false }).then(() => {
       triggerSidebar();
       triggerDocument(documentId);
     });
@@ -30,7 +33,7 @@ const DraftBanner = ({ documentId }: DraftBannerProps) => {
   };
 
   const onDiscard = () => {
-    const promise = remove(documentId).then(() => {
+    const promise = docStore.remove(actor, documentId).then(() => {
       triggerSidebar();
       navigate("/documents");
     });

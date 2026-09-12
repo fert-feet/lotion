@@ -6,12 +6,15 @@ import { useUser } from "@/hooks/use-user";
 import { useNavigate } from "react-router";
 import { useEffect, useRef, useState } from "react";
 import useSearch from "@/hooks/use-search";
-import { getSearch, type SidebarDocument } from "@/lib/db";
+import type { SidebarDocument } from "@/lib/seams/doc-store";
+import { useDocStore } from "@/src/kernel/react";
 import { File, Search } from "@/components/icons";
 import { Dialog, DialogContent } from "./ui/dialog";
 import { cn } from "@/lib/utils";
 
 const SearchCommand = () => {
+
+  const docStore = useDocStore();
   const { user } = useUser();
   const navigate = useNavigate();
   const [documents, setDocuments] = useState<SidebarDocument[]>([]);
@@ -30,7 +33,7 @@ const SearchCommand = () => {
     if (isOpen && user) {
       // alive 标志：快速开合搜索框时丢弃过期结果
       let alive = true;
-      getSearch(user.id)
+      docStore.listSearch({ userId: user.id })
         .then((data) => { if (alive) setDocuments(data); })
         .catch(() => { if (alive) setDocuments([]); });
       setQuery("");
@@ -38,7 +41,7 @@ const SearchCommand = () => {
       setTimeout(() => inputRef.current?.focus(), 30);
       return () => { alive = false; };
     }
-  }, [isOpen, user]);
+  }, [isOpen, user, docStore]);
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {

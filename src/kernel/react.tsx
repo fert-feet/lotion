@@ -9,7 +9,8 @@
 import { createContext, useContext, useMemo, useSyncExternalStore, type ReactNode } from "react";
 import type { Context as KernelContext } from "@/lib/kernel";
 import { requireUiSlots, type UiSlots } from "@/lib/seams/ui-slots";
-import { requireUiDocStore, type UiDocStore } from "@/lib/seams/doc-store";
+import { requireUiDocStore, type Actor, type UiDocStore } from "@/lib/seams/doc-store";
+import { useUser } from "@/hooks/use-user";
 import { bootClientKernel, getClientKernel, type ClientKernel, type BootClientKernelOptions } from "./client";
 
 const ClientKernelContext = createContext<ClientKernel | null>(null);
@@ -49,6 +50,16 @@ export function useService<T>(key: string): T {
     throw new Error(`服务「${key}」未装配：请确认客户端内核的组合清单里挂载了对应提供方`);
   }
   return value;
+}
+
+/**
+ * 取当前操作主体（Actor）。
+ * 浏览器侧身份由会话 cookie 决定，REST 实现会忽略 userId —— 提供本钩子只是为了让
+ * 组件调用契约时写法与宿主侧一致（`docStore.remove(actor, id)`），而不是到处拼 userId。
+ */
+export function useActor(): Actor {
+  const { user } = useUser();
+  return useMemo(() => ({ userId: user?.id ?? "" }), [user?.id]);
 }
 
 /** 取 docStore（UI 子集） */
