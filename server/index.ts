@@ -38,8 +38,9 @@ if (loadedEnv.length > 0) {
   const names = loadedEnv.map((file) => path.relative(process.cwd(), file) || file);
   console.log(`[server] 已加载 env：${names.join("、")}`);
 }
-// 装配审计：PENDING（缺服务，插件不会工作）与 FAILED 一律打印 —— 否则 inject 门控失败是静默的
-console.log(kernel.auditText);
+// 装配报告 + 审计：插件清单、禁用项、挂载失败、PENDING（缺服务）一律打印
+// —— 否则"插件装了却不工作"只能靠猜
+console.log(kernel.startupText);
 if (!kernel.settings.ai.get().apiKey) {
   console.warn(
     "[server] ⚠️ 未检测到 DeepSeek API Key（配置层 ai.apiKey 为空）：AI 助手会报「API key is missing」，" +

@@ -16,3 +16,10 @@ export type {
   WaterfallNext,
 } from "./events";
 export { auditOk, formatAudit } from "./audit";
+export {
+  applyPatches,
+  assertStableIds,
+  formatLoadReport,
+  loadPlugins,
+} from "./loader";
+export type { LoadOptions, LoadReport, MountedEntry, PluginEntry, PluginPatch } from "./loader";

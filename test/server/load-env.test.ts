@@ -123,7 +123,7 @@ describe("server/index.ts 入口顺序", () => {
     expect(source).not.toMatch(/process\.env\.PORT/);
   });
 
-  it("启动打印装配审计（PENDING/FAILED 不能被静默吞掉）", () => {
-    expect(source).toContain("kernel.auditText");
+  it("启动打印装配报告 + 审计（PENDING/FAILED 不能被静默吞掉）", () => {
+    expect(source).toContain("kernel.startupText");
   });
 });

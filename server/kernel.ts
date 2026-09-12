@@ -9,7 +9,16 @@
 //   2. 配置从 settings 读，不再散落 process.env（env 仍是最高优先级来源）。
 //   3. 依赖可注入（db / settingsPath）：测试不碰真实 data/lotion.db。
 import type Database from "better-sqlite3";
-import { Context, auditOk, formatAudit, type AuditReport } from "@/lib/kernel";
+import {
+  Context,
+  auditOk,
+  formatAudit,
+  formatLoadReport,
+  loadPlugins,
+  type AuditReport,
+  type LoadReport,
+  type PluginEntry,
+} from "@/lib/kernel";
 import { logger } from "@/lib/logger";
 import { sqliteDocStorePlugin } from "@/lib/local/doc-store-sqlite";
 import { settingsFilePlugin } from "@/lib/local/settings-file";
@@ -20,10 +29,14 @@ import { findSettings } from "@/lib/seams/settings";
 export interface HostKernel {
   /** 根上下文（路由/工具从这里取服务） */
   ctx: Context;
+  /** 组合清单装配报告（稳定 id → fiber） */
+  load: LoadReport;
   /** 配置命名空间句柄（ai / storage / server / logging） */
   settings: LotionSettings;
   /** 启动审计报告 */
   audit: AuditReport;
+  /** 装配 + 审计的可读文本（启动日志一次打印） */
+  startupText: string;
   /** 审计报告的可读文本（启动日志用） */
   auditText: string;
   /** 拆卸整棵内核（测试与优雅停机用） */
@@ -54,11 +67,20 @@ export function bootHostKernel(options: BootHostKernelOptions = {}): HostKernel 
     },
   });
 
-  // 组合清单（P2 会抽成 lotion.config.ts；这里先按序挂载）
-  ctx.plugin(settingsFilePlugin, {
-    config: options.settingsPath ? { filePath: options.settingsPath } : undefined,
-  });
-  ctx.plugin(sqliteDocStorePlugin, { config: options.db ? { db: options.db } : undefined });
+  // 组合清单：每行必须有**稳定唯一 id**（loader 强制），便于 patch 定位与卸载
+  const entries: PluginEntry[] = [
+    {
+      id: "settings-file",
+      plugin: settingsFilePlugin,
+      config: options.settingsPath ? { filePath: options.settingsPath } : undefined,
+    },
+    {
+      id: "doc-store-sqlite",
+      plugin: sqliteDocStorePlugin,
+      config: options.db ? { db: options.db } : undefined,
+    },
+  ];
+  const load = loadPlugins(ctx, entries);
 
   const settings = installLotionSettings(ctx);
   const audit = ctx.audit();
@@ -74,10 +96,13 @@ export function bootHostKernel(options: BootHostKernelOptions = {}): HostKernel 
 
   const kernel: HostKernel = {
     ctx,
+    load,
     settings,
     audit,
     auditText,
+    startupText: `${formatLoadReport(load)}\n${auditText}`,
     async dispose() {
+      await load.dispose();
       await ctx.dispose();
       current = null;
     },

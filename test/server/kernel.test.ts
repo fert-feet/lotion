@@ -49,6 +49,10 @@ describe("server/kernel 宿主装配", () => {
     expect(kernel.audit.services).toContain("docStore");
     expect(kernel.audit.services).toContain("settings");
     expect(kernel.auditText).toContain("已装配");
+    // 装配报告：稳定 id 与 fiber 状态可追踪
+    expect(kernel.load.mounted.map((m) => m.id)).toEqual(["settings-file", "doc-store-sqlite"]);
+    expect(kernel.startupText).toContain("[loader] 已装配 2 个插件");
+    expect(kernel.startupText).toContain("[kernel] 已装配");
 
     // 通过内核拿到的 docStore 真的能读写
     const id = await getHostDocStore().create({ userId: "u1" }, "内核装配的文档");
