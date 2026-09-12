@@ -12,8 +12,12 @@ import { loadEnvFiles } from "./load-env";
 // 因此这里用动态 import（静态 import 会被提升到 loadEnvFiles() 之前执行）。
 const loadedEnv = loadEnvFiles();
 const { createApp } = await import("./app");
+const { bootHostKernel } = await import("./kernel");
 
-const PORT = Number(process.env.PORT ?? 3001);
+// 宿主内核装配（组合根）：settings / docStore 提供方在此挂载。
+// PORT 等配置改由内核的配置层读取（env > data/settings.json > 组合默认）。
+const kernel = bootHostKernel();
+const PORT = kernel.settings.server.get().port;
 const distDir = path.join(process.cwd(), "dist");
 const indexPath = path.join(distDir, "index.html");
 const hasBuild = fs.existsSync(indexPath);
@@ -29,14 +33,18 @@ if (hasBuild) {
   app.get("*", (c) => c.html(fs.readFileSync(indexPath, "utf-8")));
 }
 
-// 启动自检：env 文件加载结果 + DeepSeek key 是否就位（只打印文件名，绝不打印值）。
-// 缺 key 时提前给出可操作的提示，而不是等用户在 AI 面板看到「API key is missing」。
+// 启动自检：env 加载结果 + 内核装配审计 + DeepSeek key 是否就位（只打印文件名，绝不打印值）。
 if (loadedEnv.length > 0) {
   const names = loadedEnv.map((file) => path.relative(process.cwd(), file) || file);
   console.log(`[server] 已加载 env：${names.join("、")}`);
 }
-if (!process.env.DEEPSEEK_API_KEY) {
-  console.warn("[server] ⚠️ 未检测到 DEEPSEEK_API_KEY：AI 助手会报「API key is missing」，请在 .env.local 配置或显式导出该变量");
+// 装配审计：PENDING（缺服务，插件不会工作）与 FAILED 一律打印 —— 否则 inject 门控失败是静默的
+console.log(kernel.auditText);
+if (!kernel.settings.ai.get().apiKey) {
+  console.warn(
+    "[server] ⚠️ 未检测到 DeepSeek API Key（配置层 ai.apiKey 为空）：AI 助手会报「API key is missing」，" +
+      "请在 .env.local 设 DEEPSEEK_API_KEY，或写入 data/settings.json 的 { \"ai\": { \"apiKey\": \"...\" } }",
+  );
 }
 
 serve({ fetch: app.fetch, port: PORT }, (info) => {
