@@ -135,7 +135,8 @@ describe("server/kernel 组合清单 + 用户层 patch", () => {
     expect(routePaths(kernel.httpRoutes)).toContain("/documents");
     // 停用后 docStore 缺席 → 审计会把它标成 PENDING 而不是静默消失
     expect(kernel.audit.services).not.toContain("docStore");
-    expect(kernel.startupText).toContain("已禁用：doc-store-sqlite");
+    // dynamic-plugins 默认就是 disabled（opt-in 通道），这里只断言 doc-store 也进了禁用名单
+    expect(kernel.startupText).toContain("已禁用：dynamic-plugins、doc-store-sqlite");
   });
 
   it("patch 可整块替换插件配置（doc-store-sqlite 注入另一条连接）", async () => {

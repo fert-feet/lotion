@@ -9,7 +9,10 @@
 // （对齐 DSH 的实测结论：桌面端只有配置层热生效）。
 import type Database from "better-sqlite3";
 import type { PluginEntry, PluginPatch } from "@/lib/kernel";
-import { provideTools } from "@/lib/seams/tools";
+import { provideTools, requireTools } from "@/lib/seams/tools";
+import { provideDynamic } from "@/lib/seams/dynamic";
+import { createDynamicRunner } from "@/lib/dynamic/runner";
+import { registerDynamicPluginTools } from "@/lib/dynamic/tools";
 import { createHostToolRegistry, type HostToolRegistry } from "@/lib/ai/tools/registry";
 import { registerBuiltinTools } from "@/lib/ai/tools";
 import { sqliteDocStorePlugin } from "@/lib/local/doc-store-sqlite";
@@ -43,6 +46,29 @@ export function hostComposition(options: HostCompositionOptions = {}): PluginEnt
       id: "settings-file",
       plugin: settingsFilePlugin,
       config: options.settingsPath ? { filePath: options.settingsPath } : undefined,
+    },
+    {
+      // 动态插件通道：**默认 disabled**（opt-in）。
+      // 启用方式（改配置即可，不改代码）：data/settings.json
+      //   { "plugins": { "dynamic-plugins": { "disabled": false } } }
+      // ⚠️ 它不是安全边界：沙箱只收窄 API 面，暴露的服务与本机 shell 同级信任。
+      id: "dynamic-plugins",
+      disabled: true,
+      plugin: {
+        name: "dynamic-plugins",
+        inject: ["tools"],
+        apply: (ctx) => {
+          const runner = createDynamicRunner({
+            ctx,
+            // 白名单：动态插件只能注入这些服务（"能碰什么"显式化）
+            allowedServices: ["tools"],
+            onLog: (level, message) => console[level](message),
+          });
+          provideDynamic(ctx, runner);
+          // 自指工具：模型借此查/写/跑/停自己的插件
+          registerDynamicPluginTools(requireTools(ctx));
+        },
+      },
     },
     {
       id: "doc-store-sqlite",

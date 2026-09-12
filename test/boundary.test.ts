@@ -19,6 +19,9 @@ const FORBIDDEN = [
   /^better-sqlite3$/,
   /^@blocknote\/server-util$/,
   /^@\/lib\/seams\/http-routes$/,
+  /^@\/lib\/dynamic\//,
+  /^@\/lib\/seams\/tools$/,
+  /^@\/lib\/seams\/dynamic$/,
   /^node:/,
 ];
 

@@ -97,6 +97,7 @@ aiChatRoutes.post("/", async (c) => {
     ai,
     // 工具注册表来自内核：插件注册的工具自动对模型可见；未装配内核时回退内置注册表
     tools: getHostKernelIfBooted() ? getHostTools() : undefined,
+    context: getHostKernelIfBooted()?.ctx,
   });
 
   // 流结束后后台落库 assistant 消息（含 token 统计），随后触发上下文压缩检查

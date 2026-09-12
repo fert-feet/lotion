@@ -89,6 +89,8 @@ export async function runNoteAgent(
      * 缺省时用内置注册表 —— 于是"插件注册的工具"只在装配了内核的运行时可见。
      */
     tools?: HostToolRegistry;
+    /** 内核上下文（自指类工具用：plugin_* 等） */
+    context?: unknown;
   },
 ) {
   const ai = resolveAiRuntimeConfig(options?.ai);
@@ -228,6 +230,7 @@ export async function runNoteAgent(
       db,
       userId,
       onEvent: onToolEvent,
+      context: options?.context,
       doom: createDoomLoopTracker({
       onWarn: (name, count) => {
         logger.agent.warn("doom loop 警告", { name, count });

@@ -36,6 +36,11 @@ export interface ToolFactoryContext {
   userId: string;
   /** 工具副作用上报（note_created / question / todo_update …） */
   onEvent: (event: unknown) => void;
+  /**
+   * 内核上下文（可选）。只有**自指类工具**需要它：
+   * 例如 plugin_* 工具要从 ctx 取动态插件 runner。类型保持 unknown，接缝不依赖内核实现。
+   */
+  context?: unknown;
 }
 
 /** 工具定义：自描述（元数据 + 工厂 + 摘要 + 可选守卫） */

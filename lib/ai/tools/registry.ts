@@ -50,6 +50,8 @@ export interface BuildToolSetOptions {
   userId: string;
   onEvent?: (event: ToolEvent) => void;
   doom?: DoomLoopTracker;
+  /** 内核上下文（自指类工具用；见 ToolFactoryContext.context） */
+  context?: unknown;
 }
 
 /**
@@ -64,7 +66,12 @@ export function buildToolSet(registry: HostToolRegistry, options: BuildToolSetOp
 
   let seq = 0;
   // onEvent 在接缝层是 unknown（不依赖 AI 包），这里收窄回具体事件类型
-  const hostContext: ToolFactoryContext = { db, userId, onEvent: onEvent as (event: unknown) => void };
+  const hostContext: ToolFactoryContext = {
+    db,
+    userId,
+    onEvent: onEvent as (event: unknown) => void,
+    context: options.context,
+  };
   const wrapped: Record<string, AnyTool> = {};
 
   for (const definition of definitions) {
