@@ -23,6 +23,9 @@ importers:
       '@blocknote/server-util':
         specifier: 0.54.0
         version: 0.54.0(@floating-ui/dom@1.8.0)(@types/hast@3.0.5)(@types/react-dom@19.2.0(@types/react@19.2.0))(@types/react@19.2.0)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(y-prosemirror@1.3.7(prosemirror-model@1.25.11)(prosemirror-state@1.4.4)(prosemirror-view@1.42.3)(y-protocols@1.0.7(yjs@13.6.32))(yjs@13.6.32))(y-protocols@1.0.7(yjs@13.6.32))
+      '@deepseek-ai/cordis':
+        specifier: 4.0.2
+        version: 4.0.2
       '@fontsource/geist-mono':
         specifier: ^5.3.0
         version: 5.3.0
@@ -304,6 +307,21 @@ packages:
   '@csstools/css-tokenizer@4.0.0':
     resolution: {integrity: sha512-QxULHAm7cNu72w97JUNCBFODFaXpbDg+dP8b/oWFAZ2MTRppA3U00Y2L1HqaS4J6yBqxwa/Y3nMBaxVKbB/NsA==}
     engines: {node: '>=20.19.0'}
+
+  '@deepseek-ai/cordis@4.0.2':
+    resolution: {integrity: sha512-asOnXP1TzFSFQlHb1iegDZp0z/8WD1c7YNrwJR/Tx2bzNuMXfcekE/I67Iv6SQXeLB4csxqCngzQKANP7gdw0g==}
+    hasBin: true
+    peerDependencies:
+      '@deepseek-ai/cordis-plugin-include': ^1.0.7
+      '@deepseek-ai/cordis-plugin-loader': ^1.0.3
+    peerDependenciesMeta:
+      '@deepseek-ai/cordis-plugin-include':
+        optional: true
+      '@deepseek-ai/cordis-plugin-loader':
+        optional: true
+
+  '@deepseek-ai/cosmokit@1.8.3':
+    resolution: {integrity: sha512-qBo+ronVM6Eu2WNVJXi8JcMiqZ19T9BRIpV+5qJUFPXjGH/Z0QKcQMC/IZJ7L394YTOtJgcovbk9qP0w2GsBXQ==}
 
   '@emnapi/core@2.0.0-alpha.3':
     resolution: {integrity: sha512-AZypUeJ/yByuxyS7BlSNRDOMLMlROYtjYdIAuBmJssVz1UJDSeYxLrdizhXCFYhedC5bqd/ASy8EuNXbVVXp9g==}
@@ -2706,6 +2724,13 @@ snapshots:
       css-tree: 3.2.1
 
   '@csstools/css-tokenizer@4.0.0': {}
+
+  '@deepseek-ai/cordis@4.0.2':
+    dependencies:
+      '@deepseek-ai/cosmokit': 1.8.3
+      '@standard-schema/spec': 1.1.0
+
+  '@deepseek-ai/cosmokit@1.8.3': {}
 
   '@emnapi/core@2.0.0-alpha.3':
     dependencies:
