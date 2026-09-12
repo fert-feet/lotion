@@ -1,14 +1,15 @@
 import { streamText, stepCountIs } from "ai";
 import { createAiModel, resolveAiRuntimeConfig, type AiRuntimeConfig } from "@/lib/ai/runtime-config";
+import { buildToolSet } from "@/lib/ai/tools/registry";
 import type Database from "better-sqlite3";
 import { NOTE_ASSISTANT_PROMPT } from "./ai-prompts";
 import {
-  createTools,
+  createDefaultToolRegistry,
   createDoomLoopTracker,
-  TOOL_META,
   type ToolEvent,
   type ToolName,
 } from "./ai/tools";
+import type { HostToolRegistry } from "./ai/tools/registry";
 import { logger } from "./logger";
 
 /**
@@ -83,9 +84,15 @@ export async function runNoteAgent(
     signal?: AbortSignal;
     /** AI 运行期配置（来自 settings 配置层）；缺省时回退环境变量 */
     ai?: Partial<AiRuntimeConfig>;
+    /**
+     * 工具注册表（来自宿主内核的 tools 服务）。
+     * 缺省时用内置注册表 —— 于是"插件注册的工具"只在装配了内核的运行时可见。
+     */
+    tools?: HostToolRegistry;
   },
 ) {
   const ai = resolveAiRuntimeConfig(options?.ai);
+  const toolRegistry = options?.tools ?? createDefaultToolRegistry();
   const messages: Array<{ role: "user" | "assistant"; content: string }> = [];
 
   // 注入全部对话历史（多轮上下文让 AI 记住之前的问答，
@@ -133,7 +140,7 @@ export async function runNoteAgent(
           type: "tool_start",
           tool: e.tool,
           seq: e.seq,
-          label: TOOL_META[e.tool].label,
+          label: toolRegistry.get(e.tool)?.label ?? e.tool,
           argsText: e.argsText,
         });
         break;
@@ -217,23 +224,28 @@ export async function runNoteAgent(
       : NOTE_ASSISTANT_PROMPT,
     messages,
     // doom loop 检测（对齐 SiYuan）：相同工具+参数连续失败 3 次前端警告、5 次中止
-    tools: createTools(db, userId, onToolEvent, createDoomLoopTracker({
+    tools: buildToolSet(toolRegistry, {
+      db,
+      userId,
+      onEvent: onToolEvent,
+      doom: createDoomLoopTracker({
       onWarn: (name, count) => {
         logger.agent.warn("doom loop 警告", { name, count });
         eventQueue.push({
           type: "warning",
-          message: `检测到 AI 连续 ${count} 次以相同参数调用「${TOOL_META[name].label}」均未成功，请换一种方式操作。`,
+          message: `检测到 AI 连续 ${count} 次以相同参数调用「${toolRegistry.get(name)?.label ?? name}」均未成功，请换一种方式操作。`,
         });
       },
       onStop: (name, count) => {
         logger.agent.error("doom loop 终止", { name, count });
         eventQueue.push({
           type: "error",
-          message: `检测到重复工具调用（「${TOOL_META[name].label}」连续 ${count} 次相同参数失败），已终止本轮生成。`,
+          message: `检测到重复工具调用（「${toolRegistry.get(name)?.label ?? name}」连续 ${count} 次相同参数失败），已终止本轮生成。`,
         });
         abortFn?.();
       },
-    })),
+      }),
+    }),
     stopWhen: stepCountIs(MAX_STEPS),
     abortSignal: internalAbort.signal, // 前端终止 / deleteNote/moveNote 确认后中断生成
     onStepFinish: ({ finishReason, toolCalls }) => {

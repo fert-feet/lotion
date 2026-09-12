@@ -9,6 +9,9 @@
 // （对齐 DSH 的实测结论：桌面端只有配置层热生效）。
 import type Database from "better-sqlite3";
 import type { PluginEntry, PluginPatch } from "@/lib/kernel";
+import { provideTools } from "@/lib/seams/tools";
+import { createHostToolRegistry, type HostToolRegistry } from "@/lib/ai/tools/registry";
+import { registerBuiltinTools } from "@/lib/ai/tools";
 import { sqliteDocStorePlugin } from "@/lib/local/doc-store-sqlite";
 import { settingsFilePlugin } from "@/lib/local/settings-file";
 
@@ -19,9 +22,23 @@ export interface HostCompositionOptions {
   db?: Database.Database;
 }
 
+/** 共享的工具注册表（宿主内单例；插件可往它里面加工具） */
+export function createHostTools(): HostToolRegistry {
+  const registry = createHostToolRegistry();
+  registerBuiltinTools(registry);
+  return registry;
+}
+
 /** 组合层清单：顺序即挂载顺序 */
 export function hostComposition(options: HostCompositionOptions = {}): PluginEntry[] {
   return [
+    {
+      id: "tools-registry",
+      plugin: {
+        name: "tools-registry",
+        apply: (ctx) => provideTools(ctx, createHostTools()),
+      },
+    },
     {
       id: "settings-file",
       plugin: settingsFilePlugin,

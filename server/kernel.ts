@@ -26,6 +26,8 @@ import { createHttpRouteRegistry, provideHttpRoutes } from "@/lib/seams/http-rou
 import { hostComposition, toPluginPatches } from "./composition";
 import { apiRoutePlugins, type ApiRouteRegistry } from "./routes";
 import { requireDocStore, type DocStore } from "@/lib/seams/doc-store";
+import { TOOLS_SERVICE } from "@/lib/seams/tools";
+import type { HostToolRegistry } from "@/lib/ai/tools/registry";
 import { findSettings } from "@/lib/seams/settings";
 
 export interface HostKernel {
@@ -155,6 +157,15 @@ export function getHostKernel(): HostKernel {
 /** 取宿主内核；未装配返回 null（可选消费者 / 测试环境降级用：回退到环境变量） */
 export function getHostKernelIfBooted(): HostKernel | null {
   return current;
+}
+
+/** 便捷取用：工具注册表（内置工具 + 插件注册的工具） */
+export function getHostTools(): HostToolRegistry {
+  const registry = getHostKernel().ctx.get<HostToolRegistry>(TOOLS_SERVICE);
+  if (!registry) {
+    throw new Error(`tools 未装配：请确认组合清单里挂载了 tools-registry 条目（服务 key「${TOOLS_SERVICE}」）`);
+  }
+  return registry;
 }
 
 /** 便捷取用：宿主侧完整 docStore 契约 */

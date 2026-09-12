@@ -1,6 +1,11 @@
+// AI 工具目录（内置工具的元数据 + 摘要文案）与内置工具注册入口。
+//
+// 组装职责已搬到 lib/ai/tools/registry.ts（注册表驱动）：本文件只负责
+// 「内置工具长什么样」，以及把它们注册进注册表。
+// 加一个工具 = 写好工厂文件 + 在 registerBuiltinTools 清单里加一行；插件也可以自己 register，
+// 元数据随定义走，因此 agent 与组装代码都不需要改。
 import type Database from "better-sqlite3";
 import type { ToolSet } from "ai";
-import { logger } from "@/lib/logger";
 import { createSearchNotesTool } from "./search-notes";
 import { createReadNoteTool } from "./read-note";
 import { createCreateNoteTool } from "./create-note";
@@ -14,55 +19,28 @@ import { createRestoreNoteTool } from "./restore-note";
 import { createListTrashTool } from "./list-trash";
 import { createDeleteNoteTool } from "./delete-note";
 import { createListNotesTool } from "./list-notes";
-import { createAskUserTool, type AskQuestion } from "./ask-user";
-import { createTodoWriteTool, type TodoItem } from "./todo-write";
+import { createAskUserTool } from "./ask-user";
+import { createTodoWriteTool } from "./todo-write";
 import { createGetDocInfoTool } from "./doc-info";
 import { createGetDocOutlineTool } from "./doc-outline";
 import { createGetDocBlocksTool } from "./doc-blocks";
 import { createUpdateBlockTool } from "./update-block";
+import { buildToolSet, createHostToolRegistry, type AnyTool, type HostToolRegistry } from "./registry";
+import { createDoomLoopTracker, summariseFallback, type DoomLoopTracker, type ToolEvent, type ToolName } from "./runtime";
 
-/** 工具执行超时（毫秒）：防止 execute 卡死导致 Agent 挂起 */
-const TOOL_TIMEOUT_MS = 30_000;
-
-export type ToolName =
-  | "searchNotes"
-  | "listNotes"
-  | "readNote"
-  | "createNote"
-  | "updateNote"
-  | "renameNote"
-  | "moveNote"
-  | "setNoteIcon"
-  | "publishNote"
-  | "archiveNote"
-  | "restoreNote"
-  | "listTrash"
-  | "deleteNote"
-  | "askUser"
-  | "todoWrite"
-  | "getDocInfo"
-  | "getDocOutline"
-  | "getDocBlocks"
-  | "updateBlock";
-
-/**
- * 工具事件（对齐 DSH agent 的 tool/start + tool/end 生命周期）：
- * - tool_start / tool_end：由统一包装层自动发出（含请求内自增 seq 供前端作卡片 key）
- * - note_created / note_modified / confirm_delete / confirm_move / reference：工具副作用，
- *   tool 通过注入的 onEvent 回调上报，agent 层透传为 SSE 事件
- * - question / todo_update：对齐 SiYuan agent 的 question / todo_write 工具——
- *   结构化提问（前端选项卡片，回答作为后续消息回传）与会话任务清单
- */
-export type ToolEvent =
-  | { type: "tool_start"; tool: ToolName; seq: number; argsText: string }
-  | { type: "tool_end"; tool: ToolName; seq: number; ok: boolean; summary: string; error?: string }
-  | { type: "note_created"; noteId: string; title: string }
-  | { type: "note_modified"; noteId: string; title: string }
-  | { type: "confirm_delete"; noteId: string; title: string }
-  | { type: "confirm_move"; noteId: string; title: string; targetTitle: string | null; toRoot: boolean }
-  | { type: "question"; questions: AskQuestion[] }
-  | { type: "todo_update"; items: TodoItem[] }
-  | { type: "reference"; noteId: string; title: string };
+// 公共件住在 ./runtime（注册表也用它）；这里按旧路径再导出，保持向后兼容
+export {
+  argsText,
+  createDoomLoopTracker,
+  DOOM_LOOP_STOP_THRESHOLD,
+  DOOM_LOOP_WARN_THRESHOLD,
+  looksLikeFailure,
+  summariseFallback,
+  TOOL_TIMEOUT_MS,
+  truncate,
+  wrapToolOutput,
+} from "./runtime";
+export type { DoomLoopHandlers, DoomLoopTracker, ToolEvent, ToolName } from "./runtime";
 
 /** 工具元数据：名称 / 展示标签 / 图标 / 描述（工具定义与展示同处维护） */
 export const TOOL_META: Record<ToolName, { label: string; icon: string; description: string }> = {
@@ -91,39 +69,6 @@ export const TOOL_META: Record<ToolName, { label: string; icon: string; descript
 export const TOOL_LABELS: Record<string, string> = Object.fromEntries(
   Object.entries(TOOL_META).map(([k, v]) => [k, `${v.icon} ${v.label}`]),
 );
-
-type AnyTool = {
-  type?: unknown;
-  description?: unknown;
-  inputSchema?: unknown;
-  parameters?: unknown;
-  execute?: unknown;
-  [key: string]: unknown;
-};
-
-/** 日志/异常参数截断，避免刷屏 */
-function truncate(v: unknown, max = 200): unknown {
-  if (typeof v === "string") return v.length > max ? v.slice(0, max) + "…(+" + (v.length - max) + "字)" : v;
-  if (Array.isArray(v)) return v.map((x) => truncate(x, max));
-  if (v && typeof v === "object") {
-    const out: Record<string, unknown> = {};
-    for (const [k, val] of Object.entries(v as Record<string, unknown>)) {
-      out[k] = truncate(val, max);
-    }
-    return out;
-  }
-  return v;
-}
-
-/** 参数展示文本：JSON 序列化 + 截断（tool_start 的 argsText） */
-function argsText(args: unknown): string {
-  try {
-    const s = JSON.stringify(args, null, 2);
-    return s.length > 400 ? s.slice(0, 400) + "…" : s;
-  } catch {
-    return String(args);
-  }
-}
 
 /**
  * 每个工具的结果摘要（tool_end 卡片 summary）：
@@ -198,157 +143,63 @@ function summarizeResult(tool: ToolName, result: string): string {
       return m ? "已更新「" + m[1] + "」第 " + m[2] + " 块" : "已更新块";
     }
   }
+  return summariseFallback(result);
 }
-
-/** 失败特征词：doom loop 检测判据（工具返回文本含这些词视为"失败"） */
-const FAILURE_HINTS = /不存在|失败|拒绝|错误|无法|不能|无效|未找到|取消/;
-
-/** 判断一次工具结果是否"失败或无返回"（对齐 SiYuan doom loop 判据） */
-function looksLikeFailure(result: string): boolean {
-  return !result || result.trim() === "" || FAILURE_HINTS.test(result);
-}
-
 /**
- * 工具输出包裹（对齐 SiYuan [tool_output]...[/tool_output]）：
- * 返回给模型的工具结果统一包裹，配合系统提示中的注入防护声明，
- * 让模型把工具输出当数据而非指令。
+ * 注册内置工具。插件也可以往同一个注册表加自己的工具：
+ *   ctx.inject(["tools"], (c) => requireTools(c).register({ name, label, icon, description, create }))
  */
-function wrapToolOutput(text: string): string {
-  return `[tool_output]\n${text}\n[/tool_output]`;
-}
+export function registerBuiltinTools(registry: HostToolRegistry): void {
+  const builtins: Array<{
+    name: ToolName;
+    /** 需要副作用上报的工具把 onEvent 传进工厂 */
+    create: (db: Database.Database, userId: string, onEvent: (e: ToolEvent) => void) => AnyTool;
+  }> = [
+    { name: "searchNotes", create: (db, userId) => createSearchNotesTool(db, userId) },
+    { name: "listNotes", create: (db, userId) => createListNotesTool(db, userId) },
+    { name: "readNote", create: (db, userId, onEvent) => createReadNoteTool(db, userId, onEvent) },
+    { name: "createNote", create: (db, userId, onEvent) => createCreateNoteTool(db, userId, onEvent) },
+    { name: "updateNote", create: (db, userId, onEvent) => createUpdateNoteTool(db, userId, onEvent) },
+    { name: "renameNote", create: (db, userId, onEvent) => createRenameNoteTool(db, userId, onEvent) },
+    { name: "moveNote", create: (db, userId, onEvent) => createMoveNoteTool(db, userId, onEvent) },
+    { name: "setNoteIcon", create: (db, userId, onEvent) => createSetNoteIconTool(db, userId, onEvent) },
+    { name: "publishNote", create: (db, userId, onEvent) => createPublishNoteTool(db, userId, onEvent) },
+    { name: "archiveNote", create: (db, userId) => createArchiveNoteTool(db, userId) },
+    { name: "restoreNote", create: (db, userId, onEvent) => createRestoreNoteTool(db, userId, onEvent) },
+    { name: "listTrash", create: (db, userId) => createListTrashTool(db, userId) },
+    { name: "deleteNote", create: (db, userId, onEvent) => createDeleteNoteTool(db, userId, onEvent) },
+    { name: "askUser", create: (db, userId, onEvent) => createAskUserTool(db, userId, onEvent) },
+    { name: "todoWrite", create: (db, userId, onEvent) => createTodoWriteTool(db, userId, onEvent) },
+    { name: "getDocInfo", create: (db, userId) => createGetDocInfoTool(db, userId) },
+    { name: "getDocOutline", create: (db, userId) => createGetDocOutlineTool(db, userId) },
+    { name: "getDocBlocks", create: (db, userId) => createGetDocBlocksTool(db, userId) },
+    { name: "updateBlock", create: (db, userId, onEvent) => createUpdateBlockTool(db, userId, onEvent) },
+  ];
 
-/**
- * 统一包装工具 execute（对齐 DSH 的 tool 生命周期呈现）：
- * - execute 前发 tool_start（参数摘要），成功后发 tool_end（结果摘要），异常发 tool_end(ok=false)
- * - 记录输入参数、返回结果、耗时（此前只记录"开始"，卡死/异常完全不可见）
- * - 设置显式超时，避免 execute 挂起
- * - 返回给模型的文本统一 [tool_output] 包裹（对齐 SiYuan：工具输出是不可信数据）
- * - 失败/空结果计入 doom loop 检测（对齐 SiYuan：相同签名连续失败 → 警告/终止）
- * seq 由 createTools 闭包自增（请求内唯一），供前端工具卡片做稳定 key
- */
-function withToolEvents(
-  name: ToolName,
-  t: AnyTool,
-  nextSeq: () => number,
-  onEvent: (e: ToolEvent) => void,
-  doom: DoomLoopTracker,
-): AnyTool {
-  const rawExecute = t.execute;
-  if (typeof rawExecute !== "function") return t;
-  const execute = rawExecute as (args: unknown, options?: unknown) => Promise<unknown>;
-  return {
-    ...t,
-    timeout: TOOL_TIMEOUT_MS,
-    execute: async (args: unknown) => {
-      const seq = nextSeq();
-      const start = Date.now();
-      onEvent({ type: "tool_start", tool: name, seq, argsText: argsText(args) });
-      try {
-        const result = await execute(args);
-        const text = typeof result === "string" ? result : String(result);
-        const summary = summarizeResult(name, text);
-        onEvent({ type: "tool_end", tool: name, seq, ok: true, summary });
-        logger.tools.info("[" + name + "] 完成", {
-          args: truncate(args),
-          result: truncate(text),
-          ms: Date.now() - start,
-        });
-        // 失败/空结果计入 doom loop（成功副作用调用不参与，重置基准）
-        doom.track(name, args, looksLikeFailure(text) ? "failure" : "ok");
-        return wrapToolOutput(text);
-      } catch (e) {
-        const err = e instanceof Error ? e : new Error(String(e));
-        onEvent({ type: "tool_end", tool: name, seq, ok: false, summary: err.message, error: err.message });
-        logger.tools.error("[" + name + "] 异常", {
-          args: truncate(args),
-          error: err.message,
-          stack: err.stack,
-          ms: Date.now() - start,
-        });
-        const text = `工具 ${name} 执行出错：${err.message}。请告知用户稍后重试，或改用其他方式完成。`;
-        doom.track(name, args, "failure");
-        return wrapToolOutput(text);
-      }
-    },
-  };
-}
-
-/**
- * doom loop 检测（对齐 SiYuan doomLoopTracker）：
- * 相同工具 + 相同参数签名连续失败/空结果 —— 3 次触发警告事件，5 次触发终止回调。
- * 成功的工具调用视为产生了有用副作用，重置基准。
- */
-export interface DoomLoopTracker {
-  track(name: ToolName, args: unknown, outcome: "ok" | "failure"): void;
-}
-
-export interface DoomLoopHandlers {
-  /** 连续失败达到 warn 阈值（每次命中调用，可重复触发） */
-  onWarn?: (name: ToolName, count: number) => void;
-  /** 连续失败达到 stop 阈值：调用方应中止生成 */
-  onStop?: (name: ToolName, count: number) => void;
-}
-
-export const DOOM_LOOP_WARN_THRESHOLD = 3;
-export const DOOM_LOOP_STOP_THRESHOLD = 5;
-
-/** 参数签名：JSON 序列化 + 键排序（键序不同的等价参数视为同签名） */
-function doomSignature(name: ToolName, args: unknown): string {
-  const sortDeep = (v: unknown): unknown => {
-    if (Array.isArray(v)) return v.map(sortDeep);
-    if (v && typeof v === "object") {
-      const out: Record<string, unknown> = {};
-      for (const k of Object.keys(v as Record<string, unknown>).sort()) {
-        out[k] = sortDeep((v as Record<string, unknown>)[k]);
-      }
-      return out;
-    }
-    return v;
-  };
-  try {
-    return name + "|" + JSON.stringify(sortDeep(args));
-  } catch {
-    return name + "|" + String(args);
+  for (const item of builtins) {
+    const meta = TOOL_META[item.name];
+    registry.register({
+      name: item.name,
+      label: meta.label,
+      icon: meta.icon,
+      description: meta.description,
+      summarize: (text) => summarizeResult(item.name, text),
+      create: ({ db, userId, onEvent }) =>
+        item.create(db as Database.Database, userId, onEvent as (e: ToolEvent) => void),
+    });
   }
 }
 
-export function createDoomLoopTracker(handlers: DoomLoopHandlers): DoomLoopTracker {
-  let prevSig = "";
-  let prevName: ToolName | null = null;
-  let count = 0;
-  return {
-    track(name, args, outcome) {
-      if (outcome === "ok") {
-        // 成功调用：重置基准，避免误把后续合理调用连成"重复"
-        prevSig = "";
-        prevName = null;
-        count = 0;
-        return;
-      }
-      const sig = doomSignature(name, args);
-      if (sig === prevSig && prevSig !== "") {
-        count++;
-      } else {
-        prevSig = sig;
-        prevName = name;
-        count = 1;
-      }
-      if (count === DOOM_LOOP_WARN_THRESHOLD) {
-        logger.tools.warn("[doomLoop] 重复失败警告", { name: prevName, count });
-        handlers.onWarn?.(prevName!, count);
-      }
-      if (count >= DOOM_LOOP_STOP_THRESHOLD) {
-        logger.tools.error("[doomLoop] 重复失败终止", { name: prevName, count });
-        handlers.onStop?.(prevName!, count);
-      }
-    },
-  };
+/** 内置工具的默认注册表（无内核服务时的路径：单测与脚本用） */
+export function createDefaultToolRegistry(): HostToolRegistry {
+  const registry = createHostToolRegistry();
+  registerBuiltinTools(registry);
+  return registry;
 }
 
 /**
- * 创建 Agent 工具集（本地版：直接接收 SQLite 连接实例）。
- * 副作用通过 onEvent 回调上报（见 ToolEvent），
- * 不再接收共享可变状态对象——tool 实例按请求创建，闭包状态天然按请求隔离。
+ * 创建 Agent 工具集（兼容入口）：等价于「内置注册表 → 组装」。
+ * 需要插件贡献工具时走内核的 tools 服务（见 server/composition.ts 的 tools-registry 条目）。
  */
 export function createTools(
   db: Database.Database,
@@ -356,36 +207,5 @@ export function createTools(
   onEvent: (event: ToolEvent) => void = () => {},
   doom: DoomLoopTracker = createDoomLoopTracker({}),
 ): ToolSet {
-  const tools: Record<ToolName, AnyTool> = {
-    searchNotes: createSearchNotesTool(db, userId),
-    listNotes: createListNotesTool(db, userId),
-    readNote: createReadNoteTool(db, userId, onEvent),
-    createNote: createCreateNoteTool(db, userId, onEvent),
-    updateNote: createUpdateNoteTool(db, userId, onEvent),
-    renameNote: createRenameNoteTool(db, userId, onEvent),
-    moveNote: createMoveNoteTool(db, userId, onEvent),
-    setNoteIcon: createSetNoteIconTool(db, userId, onEvent),
-    publishNote: createPublishNoteTool(db, userId, onEvent),
-    archiveNote: createArchiveNoteTool(db, userId),
-    restoreNote: createRestoreNoteTool(db, userId, onEvent),
-    listTrash: createListTrashTool(db, userId),
-    deleteNote: createDeleteNoteTool(db, userId, onEvent),
-    askUser: createAskUserTool(db, userId, onEvent),
-    todoWrite: createTodoWriteTool(db, userId, onEvent),
-    getDocInfo: createGetDocInfoTool(db, userId),
-    getDocOutline: createGetDocOutlineTool(db, userId),
-    getDocBlocks: createGetDocBlocksTool(db, userId),
-    updateBlock: createUpdateBlockTool(db, userId, onEvent),
-  };
-
-  // 请求内工具调用自增序号（tool 卡片稳定 key）
-  let seq = 0;
-  const nextSeq = () => ++seq;
-
-  const wrapped: Record<string, AnyTool> = {};
-  for (const [name, t] of Object.entries(tools)) {
-    wrapped[name] = withToolEvents(name as ToolName, t, nextSeq, onEvent, doom);
-  }
-  // 内部容器结构满足 streamText 的 ToolSet 要求（description/inputSchema/execute/timeout）
-  return wrapped as unknown as ToolSet;
+  return buildToolSet(createDefaultToolRegistry(), { db, userId, onEvent, doom });
 }

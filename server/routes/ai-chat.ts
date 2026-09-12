@@ -15,7 +15,7 @@ import { maybeCompressSession, WINDOW_SIZE } from "@/lib/compress";
 import { logger } from "@/lib/logger";
 import { readJson, type AppEnv } from "../http";
 import { requireAuth } from "../middleware";
-import { getHostAiConfig } from "../kernel";
+import { getHostAiConfig, getHostKernelIfBooted, getHostTools } from "../kernel";
 
 /**
  * 请求幂等：靠 chat_messages(userId, requestId) 唯一约束（本地版 DDL 同款），
@@ -95,6 +95,8 @@ aiChatRoutes.post("/", async (c) => {
     summary: session.summary || undefined,
     signal: c.req.raw.signal, // 前端 abort fetch 时中断 DeepSeek 生成
     ai,
+    // 工具注册表来自内核：插件注册的工具自动对模型可见；未装配内核时回退内置注册表
+    tools: getHostKernelIfBooted() ? getHostTools() : undefined,
   });
 
   // 流结束后后台落库 assistant 消息（含 token 统计），随后触发上下文压缩检查
