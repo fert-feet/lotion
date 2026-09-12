@@ -50,6 +50,7 @@ describe("lib/local/lotion-config 组合层默认值", () => {
       storage: { dbPath: path.join("/repo", "data", "lotion.db"), uploadDir: path.join("/repo", "data", "uploads") },
       server: { port: 3001 },
       logging: { level: "info" },
+      plugins: {},
     });
   });
 

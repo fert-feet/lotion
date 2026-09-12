@@ -13,16 +13,15 @@ import {
   Context,
   auditOk,
   formatAudit,
+  applyPatches,
   formatLoadReport,
   loadPlugins,
   type AuditReport,
   type LoadReport,
-  type PluginEntry,
 } from "@/lib/kernel";
 import { logger } from "@/lib/logger";
-import { sqliteDocStorePlugin } from "@/lib/local/doc-store-sqlite";
-import { settingsFilePlugin } from "@/lib/local/settings-file";
 import { installLotionSettings, type LotionSettings } from "@/lib/local/lotion-config";
+import { hostComposition, toPluginPatches } from "./composition";
 import { requireDocStore, type DocStore } from "@/lib/seams/doc-store";
 import { findSettings } from "@/lib/seams/settings";
 
@@ -67,22 +66,33 @@ export function bootHostKernel(options: BootHostKernelOptions = {}): HostKernel 
     },
   });
 
-  // 组合清单：每行必须有**稳定唯一 id**（loader 强制），便于 patch 定位与卸载
-  const entries: PluginEntry[] = [
-    {
-      id: "settings-file",
-      plugin: settingsFilePlugin,
-      config: options.settingsPath ? { filePath: options.settingsPath } : undefined,
-    },
-    {
-      id: "doc-store-sqlite",
-      plugin: sqliteDocStorePlugin,
-      config: options.db ? { db: options.db } : undefined,
-    },
-  ];
-  const load = loadPlugins(ctx, entries);
+  // 第 1 阶段：先挂 settings 提供方（配置层是所有后续装配的输入）
+  const composition = hostComposition({ settingsPath: options.settingsPath, db: options.db });
+  const settingsEntries = composition.filter((entry) => entry.id === "settings-file");
+  const restEntries = composition.filter((entry) => entry.id !== "settings-file");
+  const loadSettings = loadPlugins(ctx, settingsEntries);
 
+  // 第 2 阶段：读用户层 patch（data/settings.json 的 `plugins` 命名空间），再装其余条目
   const settings = installLotionSettings(ctx);
+  const { entries: patchedEntries, unknownPatchIds } = applyPatches(
+    restEntries,
+    toPluginPatches(settings.plugins.get()),
+  );
+  const loadRest = loadPlugins(ctx, patchedEntries);
+
+  // 合并两份报告：settings 条目的 fiber 也要能被统一卸载/审计
+  const load: LoadReport = {
+    mounted: [...loadSettings.mounted, ...loadRest.mounted],
+    skipped: [...loadSettings.skipped, ...loadRest.skipped],
+    failed: [...loadSettings.failed, ...loadRest.failed],
+    unknownPatchIds,
+    fibers: new Map([...loadSettings.fibers, ...loadRest.fibers]),
+    dispose: async () => {
+      await loadRest.dispose();
+      await loadSettings.dispose();
+    },
+  };
+
   const audit = ctx.audit();
   const auditText = formatAudit(audit);
 

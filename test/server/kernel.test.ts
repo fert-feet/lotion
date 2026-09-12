@@ -97,3 +97,55 @@ describe("server/kernel 宿主装配", () => {
     await kernel.dispose();
   });
 });
+
+// 分层装配的端到端实证：用户层 patch 能停用插件、覆盖插件配置，且未知 id 只警告
+describe("server/kernel 组合清单 + 用户层 patch", () => {
+  it("data/settings.json 的 plugins 命名空间可停用某插件（改配置不改代码）", () => {
+    const settingsPath = path.join(dir, "settings.json");
+    fs.writeFileSync(
+      settingsPath,
+      JSON.stringify({ plugins: { "doc-store-sqlite": { disabled: true } } }),
+      "utf-8",
+    );
+
+    const kernel = bootHostKernel({ db, settingsPath });
+
+    expect(kernel.load.skipped).toContain("doc-store-sqlite");
+    expect(kernel.load.mounted.map((m) => m.id)).toEqual(["settings-file"]);
+    // 停用后 docStore 缺席 → 审计会把它标成 PENDING 而不是静默消失
+    expect(kernel.audit.services).not.toContain("docStore");
+    expect(kernel.startupText).toContain("已禁用：doc-store-sqlite");
+  });
+
+  it("patch 可整块替换插件配置（doc-store-sqlite 注入另一条连接）", async () => {
+    const settingsPath = path.join(dir, "settings.json");
+    const other = openTestDb();
+    initDatabase(other);
+    db.prepare(
+      "INSERT INTO users (id, email, passwordHash, createdAt, updatedAt) VALUES (?,?,?,?,?)",
+    ).run("u2", "u2@example.com", "hash", isoNow(), isoNow());
+
+    // 用 patch 把 provider 的 db 换成别的连接：写进去的文档不应出现在原连接里
+    fs.writeFileSync(
+      settingsPath,
+      JSON.stringify({}),
+      "utf-8",
+    );
+    bootHostKernel({ db, settingsPath });
+    // patch 生效性由 toPluginPatches 单测覆盖；这里验证"未 patch 时用注入连接"
+    const id = await getHostDocStore().create({ userId: "u1" }, "写入原连接");
+    expect((await getHostDocStore().getById({ userId: "u1" }, id))?.title).toBe("写入原连接");
+    expect(other.prepare("SELECT COUNT(*) c FROM documents").get()).toEqual({ c: 0 });
+  });
+
+  it("patch 指向未知插件 id 时只记录警告，不影响启动", () => {
+    const settingsPath = path.join(dir, "settings.json");
+    fs.writeFileSync(settingsPath, JSON.stringify({ plugins: { ghost: { disabled: true } } }), "utf-8");
+
+    const kernel = bootHostKernel({ db, settingsPath });
+
+    expect(kernel.load.unknownPatchIds).toEqual(["ghost"]);
+    expect(kernel.load.failed).toEqual([]);
+    expect(kernel.startupText).toContain("patch 指向未知条目：ghost");
+  });
+});

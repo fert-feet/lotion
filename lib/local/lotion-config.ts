@@ -39,6 +39,13 @@ export const serverSettingsSchema = z.object({
 });
 export type ServerSettings = z.infer<typeof serverSettingsSchema>;
 
+/** 装配 patch：按插件 id 覆盖 config 或禁用条目（见 server/composition.ts） */
+export const pluginsSettingsSchema = z.record(
+  z.string(),
+  z.looseObject({ disabled: z.boolean().optional(), config: z.unknown().optional() }),
+);
+export type PluginsSettings = z.infer<typeof pluginsSettingsSchema>;
+
 export const loggingSettingsSchema = z.object({
   level: z.enum(["debug", "info", "warn", "error"]).default("info"),
 });
@@ -47,6 +54,8 @@ export type LoggingSettings = z.infer<typeof loggingSettingsSchema>;
 /** 四个命名空间的读写句柄（消费方按需取用） */
 export interface LotionSettings {
   ai: SettingsSection<AiSettings>;
+  /** 插件装配 patch（用户层可停用/改配置某个插件） */
+  plugins: SettingsSection<PluginsSettings>;
   storage: SettingsSection<StorageSettings>;
   server: SettingsSection<ServerSettings>;
   logging: SettingsSection<LoggingSettings>;
@@ -62,6 +71,7 @@ export function lotionSettingsDefaults(cwd = process.cwd()) {
     } satisfies StorageSettings,
     server: { port: 3001 } satisfies ServerSettings,
     logging: { level: "info" } satisfies LoggingSettings,
+    plugins: {} satisfies PluginsSettings,
   };
 }
 
@@ -82,6 +92,7 @@ export function installLotionSettings(ctx: Context, cwd?: string): LotionSetting
     server: installSettingsSection(ctx, "server", serverSettingsSchema, base.server, {
       env: { port: "PORT" },
     }),
+    plugins: installSettingsSection(ctx, "plugins", pluginsSettingsSchema, base.plugins),
     logging: installSettingsSection(ctx, "logging", loggingSettingsSchema, base.logging, {
       env: { level: "LOG_LEVEL" },
     }),
