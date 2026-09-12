@@ -11,7 +11,7 @@ vi.mock("@/lib/local/sqlite", async (importOriginal) => {
   return { ...actual, getDb: () => state.db! };
 });
 
-const { app } = createApiTestApp();
+let app: Awaited<ReturnType<typeof createApiTestApp>>["app"];
 
 /** 在测试库中注册用户并种会话，返回带 cookie 的请求头 */
 async function authCookie(email = "a@x.com"): Promise<{ cookie: string; userId: string }> {
@@ -39,6 +39,8 @@ beforeEach(async () => {
   const db = new Database(":memory:");
   initDatabase(db);
   state.db = db;
+
+  ({ app } = await createApiTestApp());
 });
 
 describe("documents API", () => {

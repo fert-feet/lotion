@@ -6,8 +6,8 @@
 //
 // 设计取舍：内核是**进程级单例**（与宿主内核对称），Provider 只负责把它交给 React，
 // 因此测试里可以在 Provider 外层替换内核（extraPlugins），不需要重新发明 DI。
-import { createContext, useContext, useMemo, useSyncExternalStore, type ReactNode } from "react";
-import type { Context as KernelContext } from "@/lib/kernel";
+import { createContext, useContext, useMemo, useSyncExternalStore, type ReactNode, useState, useEffect } from "react";
+import { readService, type Context as KernelContext } from "@/lib/kernel";
 import { requireUiSlots, type UiSlots } from "@/lib/seams/ui-slots";
 import { requireUiDocStore, type Actor, type UiDocStore } from "@/lib/seams/doc-store";
 import { useUser } from "@/hooks/use-user";
@@ -29,7 +29,21 @@ export function KernelProvider({
     () => kernel ?? (options ? bootClientKernel(options) : getClientKernel()),
     [kernel, options],
   );
-  return <ClientKernelContext.Provider value={value}>{children}</ClientKernelContext.Provider>;
+  // Cordis 的服务在 fiber 激活（settle）后才可见：子树必须等就绪再渲染，
+  // 否则 useDocStore() 这类必需依赖会在首帧抛"未装配"。
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    void value.ready.then(() => {
+      if (alive) setReady(true);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [value]);
+  return (
+    <ClientKernelContext.Provider value={value}>{ready ? children : null}</ClientKernelContext.Provider>
+  );
 }
 
 /** 取内核上下文（未包 Provider 时回退进程级单例，便于渐进迁移） */
@@ -45,7 +59,7 @@ export function useKernelContext(): KernelContext {
 /** 取任意服务；未装配抛错（必需依赖） */
 export function useService<T>(key: string): T {
   const ctx = useKernelContext();
-  const value = ctx.get<T>(key);
+  const value = readService<T>(ctx, key);
   if (value === undefined) {
     throw new Error(`服务「${key}」未装配：请确认客户端内核的组合清单里挂载了对应提供方`);
   }

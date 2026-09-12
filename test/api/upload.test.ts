@@ -14,7 +14,7 @@ vi.mock("@/lib/local/sqlite", async (importOriginal) => {
   return { ...actual, getDb: () => state.db! };
 });
 
-const { app } = createApiTestApp();
+let app: Awaited<ReturnType<typeof createApiTestApp>>["app"];
 
 let uploadDir: string;
 
@@ -42,6 +42,8 @@ beforeEach(async () => {
 
   uploadDir = fs.mkdtempSync(path.join(os.tmpdir(), "lotion-upload-"));
   process.env.UPLOAD_DIR = uploadDir;
+
+  ({ app } = await createApiTestApp());
 });
 
 afterEach(() => {

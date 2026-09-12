@@ -8,7 +8,7 @@
 // 而这里的白名单是**代码级枚举**，绕过它需要改代码，而不是写错一行声明。
 //
 // 两端共享：客户端侧的实现走 REST（lib/dynamic/client-remote.ts），宿主侧的实现就是那些路由。
-import { Context } from "@/lib/kernel";
+import { Context, provideService, readService } from "@/lib/kernel";
 
 /**
  * 允许的 namespace 枚举（改这里 = 改契约，需同时加宿主路由）。
@@ -70,12 +70,12 @@ export function provideRemote(ctx: Context, remote: RemoteService): void {
   if (typeof remote?.call !== "function") {
     throw new Error("remote 实现不完整：需要 call()");
   }
-  ctx.provide(REMOTE_SERVICE, guardRemote(remote));
+  provideService(ctx, REMOTE_SERVICE, guardRemote(remote));
 }
 
 /** 读 remote；未装配返回 undefined */
 export function findRemote(ctx: Context): RemoteService | undefined {
-  return ctx.get<RemoteService>(REMOTE_SERVICE);
+  return readService<RemoteService>(ctx, REMOTE_SERVICE);
 }
 
 /** 读 remote；未装配抛错 */

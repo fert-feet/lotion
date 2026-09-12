@@ -1,7 +1,8 @@
 // httpRoutes 接缝单测：路径唯一 / 规范化 / 依赖门控 / 插件注册即路由（端到端）。
 import { describe, it, expect, vi } from "vitest";
 import { Hono } from "hono";
-import { Context, loadPlugins } from "@/lib/kernel";
+import { Context, loadPlugins, createRootContext, audit } from "@/lib/kernel";
+import { mount } from "@/test/mocks/mount";
 import {
   HTTP_ROUTES_SERVICE,
   createHttpRouteRegistry,
@@ -13,7 +14,7 @@ import {
 import { createApp, routePaths } from "@/server/app";
 
 describe("lib/seams/http-routes 注册表", () => {
-  it("注册并列出条目，owner 记录注册者", () => {
+  it("注册并列出条目，owner 记录注册者", async () => {
     const registry = createHttpRouteRegistry<Hono>(() => "plugin/alpha");
     const sub = new Hono();
 
@@ -22,7 +23,7 @@ describe("lib/seams/http-routes 注册表", () => {
     expect(registry.entries()).toEqual([{ path: "/alpha", app: sub, owner: "plugin/alpha" }]);
   });
 
-  it("路径规范化：无前导斜杠、带尾斜杠都视为同一条", () => {
+  it("路径规范化：无前导斜杠、带尾斜杠都视为同一条", async () => {
     expect(normalizePath("documents")).toBe("/documents");
     expect(normalizePath("/documents/")).toBe("/documents");
     expect(normalizePath("/")).toBe("/");
@@ -32,28 +33,28 @@ describe("lib/seams/http-routes 注册表", () => {
     expect(() => registry.route("/documents/", new Hono())).toThrow(/已由「unknown」注册/);
   });
 
-  it("路径重复注册抛错（一段 API 一个所有者）", () => {
+  it("路径重复注册抛错（一段 API 一个所有者）", async () => {
     const registry = createHttpRouteRegistry<Hono>(() => "plugin/a");
     registry.route("/dup", new Hono());
     expect(() => registry.route("/dup", new Hono())).toThrow(/路径「\/dup」已由「plugin\/a」注册/);
   });
 
-  it("空路径抛错", () => {
+  it("空路径抛错", async () => {
     const registry = createHttpRouteRegistry<Hono>();
     expect(() => registry.route("   ", new Hono())).toThrow(/路径不能为空/);
   });
 
-  it("未装配时 requireHttpRoutes 抛可操作错误，find 返回 undefined", () => {
-    const ctx = Context.createRoot();
+  it("未装配时 requireHttpRoutes 抛可操作错误，find 返回 undefined", async () => {
+    const ctx = createRootContext();
     expect(findHttpRoutes(ctx)).toBeUndefined();
     expect(() => requireHttpRoutes(ctx)).toThrow(/httpRoutes 未装配/);
   });
 
   it("服务随提供方插件卸载而消失（注册表条目随之作废）", async () => {
-    const ctx = Context.createRoot();
-    const fiber = ctx.plugin({
+    const ctx = createRootContext();
+    const fiber = await mount(ctx, {
       name: "http-routes",
-      apply: (c) => provideHttpRoutes(c, createHttpRouteRegistry<Hono>()),
+      apply: (c: Context) => provideHttpRoutes(c, createHttpRouteRegistry<Hono>()),
     });
     expect(requireHttpRoutes(ctx)).toBeDefined();
 
@@ -85,19 +86,19 @@ describe("server/app 由注册表装配", () => {
   });
 
   it("插件装配即路由（端到端）：加一个路由插件就有对应端点", async () => {
-    const ctx = Context.createRoot();
+    const ctx = createRootContext();
     const registry = createHttpRouteRegistry<Hono>(() => ctx.fiber.name);
     const sub = new Hono();
     sub.get("/hello", (c) => c.json({ hello: "world" }));
 
-    loadPlugins(ctx, [
-      { id: "http-routes", plugin: { name: "http-routes", apply: (c) => provideHttpRoutes(c, registry) } },
+    await loadPlugins(ctx, [
+      { id: "http-routes", plugin: { name: "http-routes", apply: (c: Context) => provideHttpRoutes(c, registry) } },
       {
         id: "route-demo",
         plugin: {
           name: "route/demo",
           inject: [HTTP_ROUTES_SERVICE],
-          apply: (c) => requireHttpRoutes<Hono>(c).route("/demo", sub),
+          apply: (c: Context) => requireHttpRoutes<Hono>(c).route("/demo", sub),
         },
       },
     ]);
@@ -110,16 +111,16 @@ describe("server/app 由注册表装配", () => {
     expect(await res.json()).toEqual({ hello: "world" });
   });
 
-  it("依赖未就绪的路由插件保持 PENDING（不会被静默忽略）", () => {
-    const ctx = Context.createRoot();
+  it("依赖未就绪的路由插件保持 PENDING（不会被静默忽略）", async () => {
+    const ctx = createRootContext();
     const spy = vi.fn();
-    ctx.plugin({
+    await mount(ctx, {
       name: "route/orphan",
       inject: [HTTP_ROUTES_SERVICE],
       apply: spy,
     });
 
     expect(spy).not.toHaveBeenCalled();
-    expect(ctx.audit().pending).toEqual([{ name: "route/orphan", missing: [HTTP_ROUTES_SERVICE] }]);
+    expect(audit(ctx).pending).toEqual([{ name: "route/orphan", missing: [HTTP_ROUTES_SERVICE] }]);
   });
 });

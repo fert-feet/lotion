@@ -13,7 +13,7 @@
 //
 // ⚠️ 保持环境无关（浏览器/服务端共用）：不 import node:/React。
 import type { z } from "zod";
-import { Context } from "@/lib/kernel";
+import { Context, provideService, readService } from "@/lib/kernel";
 import type { Disposer } from "@/lib/kernel";
 
 export interface SettingsSectionOptions<T> {
@@ -68,12 +68,12 @@ export function provideSettings(ctx: Context, provider: SettingsProvider): void 
       throw new Error(`settings 实现不完整，缺少方法：${method}`);
     }
   }
-  ctx.provide(SETTINGS_SERVICE, provider);
+  provideService(ctx, SETTINGS_SERVICE, provider);
 }
 
 /** 读 settings；未装配返回 undefined（可选依赖降级用） */
 export function findSettings(ctx: Context): SettingsProvider | undefined {
-  return ctx.get<SettingsProvider>(SETTINGS_SERVICE);
+  return readService<SettingsProvider>(ctx, SETTINGS_SERVICE);
 }
 
 /** 读 settings；未装配抛错 */

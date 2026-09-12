@@ -10,7 +10,8 @@ vi.mock("@/lib/local/sqlite", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/local/sqlite")>();
   return { ...actual, getDb: () => state.db! };
 });
-import { Context } from "@/lib/kernel";
+import {createRootContext } from "@/lib/kernel";
+import { mount } from "@/test/mocks/mount";
 import type { RemoteService } from "@/lib/seams/remote";
 import {
   REMOTE_METHODS,
@@ -27,13 +28,13 @@ import { createRemoteStub } from "@/test/mocks/client-facade";
 import { CLIENT_ALLOWED, CLIENT_SHADOWED_GLOBALS, evaluateClientHalf } from "@/lib/dynamic/client-sandbox";
 
 describe("lib/seams/remote 白名单边界", () => {
-  it("namespace 与方法都是枚举白名单", () => {
+  it("namespace 与方法都是枚举白名单", async () => {
     expect(checkRemoteCall({ namespace: "documents", method: "list" })).toBeNull();
     expect(checkRemoteCall({ namespace: "chat", method: "sessions" })).toBeNull();
     expect(checkRemoteCall({ namespace: "dynamic", method: "plugins" })).toBeNull();
   });
 
-  it("越界 namespace / 方法被拒绝，并列出允许项", () => {
+  it("越界 namespace / 方法被拒绝，并列出允许项", async () => {
     expect(checkRemoteCall({ namespace: "users", method: "list" })).toContain("不在白名单内");
     expect(checkRemoteCall({ namespace: "documents", method: "delete" })).toContain(
       "允许：list、get",
@@ -41,7 +42,7 @@ describe("lib/seams/remote 白名单边界", () => {
     expect(checkRemoteCall({ namespace: "", method: "list" })).toContain("不在白名单内");
   });
 
-  it("没有运行期动态注册路径：白名单表是只读常量", () => {
+  it("没有运行期动态注册路径：白名单表是只读常量", async () => {
     expect(Object.isFrozen(REMOTE_NAMESPACES)).toBe(false); // 数组本体可变，但没有注册 API
     expect(REMOTE_METHODS.documents).toEqual(["list", "get"]);
     // 唯一"新增能力"的方式是改这张表 + 加宿主路由（代码级变更）
@@ -49,7 +50,7 @@ describe("lib/seams/remote 白名单边界", () => {
   });
 
   it("provideRemote 会套上白名单（实现方无法绕过）", async () => {
-    const ctx = Context.createRoot();
+    const ctx = createRootContext();
     const inner = { call: vi.fn(async () => "ok" as unknown) } as unknown as RemoteService & { call: ReturnType<typeof vi.fn> };
     provideRemote(ctx, inner);
 
@@ -67,7 +68,7 @@ describe("lib/seams/remote 白名单边界", () => {
     const wrapped = guardRemote({ call: async () => "x" as unknown } as unknown as RemoteService);
     await expect(wrapped.call({ namespace: "nope", method: "m" })).rejects.toThrow(/白名单/);
 
-    const ctx = Context.createRoot();
+    const ctx = createRootContext();
     expect(findRemote(ctx)).toBeUndefined();
     expect(() => requireRemote(ctx)).toThrow(/remote 未装配/);
   });
@@ -96,9 +97,9 @@ describe("lib/seams/remote 白名单边界", () => {
     await expect(failing.call({ namespace: "chat", method: "sessions" })).rejects.toThrow(/HTTP 404/);
   });
 
-  it("remotePlugin 挂载后服务就位（客户端内核里的一行）", () => {
-    const ctx = Context.createRoot();
-    const fiber = ctx.plugin(remotePlugin);
+  it("remotePlugin 挂载后服务就位（客户端内核里的一行）", async () => {
+    const ctx = createRootContext();
+    const fiber = await mount(ctx, remotePlugin);
 
     expect(findRemote(ctx)).toBeDefined();
     void fiber;
@@ -106,8 +107,8 @@ describe("lib/seams/remote 白名单边界", () => {
 });
 
 describe("lib/dynamic/client-sandbox 客户端半边求值", () => {
-  it("合法代码交出插件形状；apply 只能用 uiSlots 与 remote", () => {
-    const ctx = Context.createRoot();
+  it("合法代码交出插件形状；apply 只能用 uiSlots 与 remote", async () => {
+    const ctx = createRootContext();
     const slots = createUiSlots<unknown>();
     provideUiSlots(ctx, slots);
     provideRemote(ctx, createRemoteStub());
@@ -140,8 +141,8 @@ describe("lib/dynamic/client-sandbox 客户端半边求值", () => {
     expect(slots.get("details.panel")).toBe("<div>插件面板</div>");
   });
 
-  it("非白名单服务取不到（ctx.get 只放行两个）", () => {
-    const ctx = Context.createRoot();
+  it("非白名单服务取不到（ctx.get 只放行两个）", async () => {
+    const ctx = createRootContext();
     provideUiSlots(ctx, createUiSlots<unknown>());
     ctx.provide("settings", { secret: true });
 
@@ -158,7 +159,7 @@ describe("lib/dynamic/client-sandbox 客户端半边求值", () => {
     expect(CLIENT_ALLOWED).toEqual(["uiSlots", "remote"]);
   });
 
-  it("被遮蔽的全局名做成陷阱函数（裸标识符拿不到真东西）", () => {
+  it("被遮蔽的全局名做成陷阱函数（裸标识符拿不到真东西）", async () => {
     const cases: Array<[string, string]> = [
       ["fetch('https://x')", "remote"],
       ["require('fs')", "require"],
@@ -171,15 +172,15 @@ describe("lib/dynamic/client-sandbox 客户端半边求值", () => {
       );
       expect(result.ok).toBe(true);
       if (result.ok) {
-        const ctx = Context.createRoot();
+        const ctx = createRootContext();
         expect(() => result.plugin.apply(ctx)).toThrow(new RegExp(hint));
       }
     }
     expect(CLIENT_SHADOWED_GLOBALS).toContain("fetch");
   });
 
-  it("process / Buffer 是 undefined（不是抛错 getter）", () => {
-    const ctx = Context.createRoot();
+  it("process / Buffer 是 undefined（不是抛错 getter）", async () => {
+    const ctx = createRootContext();
     const result = evaluateClientHalf(
       `harness.define({ apply: () => {
          if (typeof process !== "undefined") throw new Error("process 不该可见");
@@ -192,7 +193,7 @@ describe("lib/dynamic/client-sandbox 客户端半边求值", () => {
     if (result.ok) expect(() => result.plugin.apply(ctx)).not.toThrow();
   });
 
-  it("如实钉住局限：globalThis.* 绕过形参遮蔽（所以客户端半边需人工审批）", () => {
+  it("如实钉住局限：globalThis.* 绕过形参遮蔽（所以客户端半边需人工审批）", async () => {
     const result = evaluateClientHalf(
       `harness.define({ apply: () => {
          // 形参只遮蔽裸标识符，属性访问依然可达
@@ -202,13 +203,13 @@ describe("lib/dynamic/client-sandbox 客户端半边求值", () => {
     );
 
     expect(result.ok).toBe(true);
-    if (result.ok) result.plugin.apply(Context.createRoot());
+    if (result.ok) result.plugin.apply(createRootContext());
 
     expect((globalThis as unknown as { __dynLeak?: string }).__dynLeak).toBe("function");
     delete (globalThis as unknown as { __dynLeak?: string }).__dynLeak;
   });
 
-  it("语法错误 / 没有 define → 可读错误", () => {
+  it("语法错误 / 没有 define → 可读错误", async () => {
     const bad = evaluateClientHalf("harness.define({ apply(){} }); @@@", { id: "dyn-6" });
     expect(bad.ok).toBe(false);
     if (!bad.ok) expect(bad.error).toContain("语法错误");
@@ -241,7 +242,7 @@ describe("动态插件客户端半边的下发与运行", () => {
     initDatabase(db);
     state.db = db;
     _resetHostKernelForTest();
-    const kernel = bootHostKernel({ db, settingsPath });
+    const kernel = await bootHostKernel({ db, settingsPath });
 
     const user = createUser(db, "dyn@example.com", "password123");
     const token = createSession(db, user.id);
@@ -282,7 +283,7 @@ describe("动态插件客户端半边的下发与运行", () => {
     const { syncClientHalves } = await import("@/src/dynamic/client-runner");
 
     // 通道开启：remote 返回一条客户端半边
-    const ctxOn = Context.createRoot();
+    const ctxOn = createRootContext();
     const slotsOn = createUiSlots<unknown>();
     provideUiSlots(ctxOn, slotsOn);
     provideRemote(ctxOn, {
@@ -303,7 +304,7 @@ describe("动态插件客户端半边的下发与运行", () => {
     expect(slotsOn.get("details.panel")).toBe("<b>来自动态插件</b>");
 
     // 通道关闭：remote 报错（404）→ 空报告、零副作用
-    const ctxOff = Context.createRoot();
+    const ctxOff = createRootContext();
     const slotsOff = createUiSlots<unknown>();
     provideUiSlots(ctxOff, slotsOff);
     provideRemote(ctxOff, {
@@ -319,11 +320,11 @@ describe("动态插件客户端半边的下发与运行", () => {
 
   it("客户端半边语法错误 → 记入 failed，不影响其它半边", async () => {
     const { runClientHalves } = await import("@/src/dynamic/client-runner");
-    const ctx = Context.createRoot();
+    const ctx = createRootContext();
     const slots = createUiSlots<unknown>();
     provideUiSlots(ctx, slots);
 
-    const report = runClientHalves(ctx, [
+    const report = await runClientHalves(ctx, [
       { id: "bad", title: "坏的", client: "harness.define({ apply(){} }); @@@" },
       {
         id: "good",

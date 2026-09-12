@@ -154,3 +154,38 @@ export function formatAudit(report: AuditReport): string {
   }
   return lines.join("\n");
 }
+
+// ---- 边界帮助函数 ----
+//
+// Cordis 的 `ctx.get(name)` / `ctx.provide(name, …)` **只对"已声明在 Context 上的键"**有类型
+// （`K extends keyof this`）——这正是它鼓励的用法（DSH 用 `declare module` 为每个服务登记键名）。
+// Lotion 的服务名由各接缝模块自己持有（`lib/seams/*` 的 `*_SERVICE` 常量），
+// 因此在这里做一次**显式**的边界转换：类型在接缝处保证，转换集中一处、可被审查。
+
+/** 按名读服务（非严格：未提供时 undefined） */
+export function readService<T>(ctx: Context, key: string): T | undefined {
+  return (ctx as unknown as { get(name: string, strict?: boolean): unknown }).get(key, false) as
+    | T
+    | undefined;
+}
+
+/** 按名注册服务（随提供方 fiber 回收） */
+export function provideService(ctx: Context, key: string, value: unknown): void {
+  (ctx as unknown as { provide(name: string, value?: unknown): () => void }).provide(key, value);
+}
+
+/** fiber 失败原因（Cordis 把错误放在内部字段 `_error` 上） */
+export function fiberError(fiber: Fiber): string | undefined {
+  const error = (fiber as unknown as { _error?: unknown })._error;
+  if (error === undefined || error === null) return undefined;
+  return error instanceof Error ? error.message : String(error);
+}
+
+/**
+ * 注册"仅在卸载时执行"的副作用。
+ * Cordis 的 `ctx.effect(fn)` 是"**立即执行** fn，把 fn 的返回值当 disposer"；
+ * 本帮助函数把"单纯清理回调"这一常见写法表达清楚，避免误写成"回调即 disposer"。
+ */
+export function effectOnDispose(ctx: Context, disposer: () => void | Promise<void>): void {
+  ctx.effect(() => disposer);
+}

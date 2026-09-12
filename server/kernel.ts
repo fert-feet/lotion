@@ -11,11 +11,15 @@
 import type Database from "better-sqlite3";
 import {
   Context,
-  auditOk,
-  formatAudit,
   applyPatches,
+  audit as auditOf,
+  auditOk,
+  createRootContext,
+  formatAudit,
   formatLoadReport,
   loadPlugins,
+  readService,
+  settleAll,
   type AuditReport,
   type LoadReport,
   type PluginEntry,
@@ -62,16 +66,13 @@ let current: HostKernel | null = null;
  * 装配宿主内核（幂等：重复调用返回同一实例）。
  * 注意：调用前应已加载 .env（server/load-env.ts），因为 settings 的环境变量层在装配时读取。
  */
-export function bootHostKernel(options: BootHostKernelOptions = {}): HostKernel {
+/**
+ * 装配宿主内核（幂等）。**async**：Cordis 的插件激活是异步的，装配必须 settle 完才算就绪。
+ */
+export async function bootHostKernel(options: BootHostKernelOptions = {}): Promise<HostKernel> {
   if (current) return current;
 
-  const ctx = Context.createRoot({
-    onError: (error, fiberName) => {
-      logger.api.error(`[kernel] 插件「${fiberName}」激活失败`, {
-        error: error instanceof Error ? error.message : String(error),
-      });
-    },
-  });
+  const ctx = createRootContext();
 
   // 第 0 阶段：HTTP 路由注册表（路由插件的贡献点；owner 记为当前 fiber 名便于审计）
   const httpRoutes = createHttpRouteRegistry<import("./routes").ApiSubApp>(
@@ -82,7 +83,7 @@ export function bootHostKernel(options: BootHostKernelOptions = {}): HostKernel 
       id: "http-routes",
       plugin: {
         name: "http-routes",
-        apply: (c) => provideHttpRoutes(c, httpRoutes),
+        apply: (c: Context) => provideHttpRoutes(c, httpRoutes),
       },
     },
   ];
@@ -94,15 +95,18 @@ export function bootHostKernel(options: BootHostKernelOptions = {}): HostKernel 
     ...composition.filter((entry) => entry.id !== "settings-file"),
     ...apiRoutePlugins(),
   ];
-  const loadSettings = loadPlugins(ctx, [...runtimeEntries, ...settingsEntries]);
+  const loadSettings = await loadPlugins(ctx, [...runtimeEntries, ...settingsEntries]);
 
   // 第 2 阶段：读用户层 patch（data/settings.json 的 `plugins` 命名空间），再装其余条目
   const settings = installLotionSettings(ctx);
+  // ⚠️ Cordis 的 inject 门控在下一个微任务才激活：不 settle 就读不到配置层，
+  // 用户层 patch（data/settings.json 的 plugins）会被**静默忽略**。
+  await settleAll(ctx);
   const { entries: patchedEntries, unknownPatchIds } = applyPatches(
     restEntries,
     toPluginPatches(settings.plugins.get()),
   );
-  const loadRest = loadPlugins(ctx, patchedEntries);
+  const loadRest = await loadPlugins(ctx, patchedEntries);
 
   // 合并两份报告：settings 条目的 fiber 也要能被统一卸载/审计
   const load: LoadReport = {
@@ -117,14 +121,14 @@ export function bootHostKernel(options: BootHostKernelOptions = {}): HostKernel 
     },
   };
 
-  const audit = ctx.audit();
-  const auditText = formatAudit(audit);
+  const report = auditOf(ctx);
+  const auditText = formatAudit(report);
 
-  if (!auditOk(audit)) {
+  if (!auditOk(report)) {
     // 不阻断启动（缺服务可能是可选的），但必须让人看见
     logger.api.warn("[kernel] 装配审计未通过", {
-      pending: audit.pending,
-      failed: audit.failed,
+      pending: report.pending,
+      failed: report.failed,
     });
   }
 
@@ -133,12 +137,12 @@ export function bootHostKernel(options: BootHostKernelOptions = {}): HostKernel 
     httpRoutes,
     load,
     settings,
-    audit,
+    audit: report,
     auditText,
     startupText: `${formatLoadReport(load)}\n${auditText}`,
     async dispose() {
+      // 卸载本内核挂载的全部条目（Cordis 的根 fiber 常驻，不需要也不能整体 dispose）
       await load.dispose();
-      await ctx.dispose();
       current = null;
     },
   };
@@ -161,7 +165,7 @@ export function getHostKernelIfBooted(): HostKernel | null {
 
 /** 便捷取用：工具注册表（内置工具 + 插件注册的工具） */
 export function getHostTools(): HostToolRegistry {
-  const registry = getHostKernel().ctx.get<HostToolRegistry>(TOOLS_SERVICE);
+  const registry = readService<HostToolRegistry>(getHostKernel().ctx, TOOLS_SERVICE);
   if (!registry) {
     throw new Error(`tools 未装配：请确认组合清单里挂载了 tools-registry 条目（服务 key「${TOOLS_SERVICE}」）`);
   }

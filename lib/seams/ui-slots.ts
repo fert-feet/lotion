@@ -10,7 +10,7 @@
 //   list   —— 有序列表（按 order 升序，order 相同按注册顺序）。用于"工具栏按钮""侧边栏条目"。
 //
 // 泛型 `TComponent` 让本文件不依赖 React（装配方传入自己的组件类型）。
-import { Context } from "@/lib/kernel";
+import { Context, provideService, readService } from "@/lib/kernel";
 
 /** 插槽名（约定：`区域.子区域`，如 "details.panel"、"sidebar.actions"） */
 export type SlotName = string;
@@ -110,12 +110,12 @@ export function provideUiSlots<TComponent>(ctx: Context, slots: UiSlots<TCompone
   if (typeof slots?.register !== "function" || typeof slots?.get !== "function") {
     throw new Error("uiSlots 实现不完整：需要 register() / get() / list()");
   }
-  ctx.provide(UI_SLOTS_SERVICE, slots);
+  provideService(ctx, UI_SLOTS_SERVICE, slots);
 }
 
 /** 读插槽注册表；未装配返回 undefined */
 export function findUiSlots<TComponent>(ctx: Context): UiSlots<TComponent> | undefined {
-  return ctx.get<UiSlots<TComponent>>(UI_SLOTS_SERVICE);
+  return readService<UiSlots<TComponent>>(ctx, UI_SLOTS_SERVICE);
 }
 
 /** 读插槽注册表；未装配抛错 */

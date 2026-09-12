@@ -10,7 +10,7 @@
 // 插件挂载即注册、卸载即撤销（可逆副作用），agent 只按注册表组装。
 //
 // 泛型 `TTool` 让本文件不依赖 AI SDK（实现侧传入具体的 tool 类型）。
-import { Context } from "@/lib/kernel";
+import { Context, provideService, readService } from "@/lib/kernel";
 
 /** 一次工具调用的执行上下文（守卫只读它） */
 export interface ToolExecution {
@@ -111,12 +111,12 @@ export function provideTools<TTool>(ctx: Context, registry: ToolRegistry<TTool>)
   if (typeof registry?.register !== "function" || typeof registry?.list !== "function") {
     throw new Error("tools 实现不完整：需要 register() / list()");
   }
-  ctx.provide(TOOLS_SERVICE, registry);
+  provideService(ctx, TOOLS_SERVICE, registry);
 }
 
 /** 读注册表；未装配返回 undefined（可选依赖降级） */
 export function findTools<TTool>(ctx: Context): ToolRegistry<TTool> | undefined {
-  return ctx.get<ToolRegistry<TTool>>(TOOLS_SERVICE);
+  return readService<ToolRegistry<TTool>>(ctx, TOOLS_SERVICE);
 }
 
 /** 读注册表；未装配抛错 */
@@ -139,9 +139,12 @@ export function registerTool<TTool>(
   registry: ToolRegistry<TTool>,
   definition: ToolDefinition<TTool>,
 ): void {
-  registry.register(definition);
+  // Cordis 的 effect：回调立即执行、返回值作为 disposer（不是"回调即 disposer"）
   ctx.effect(() => {
-    registry.unregister(definition.name);
+    registry.register(definition);
+    return () => {
+      registry.unregister(definition.name);
+    };
   });
 }
 

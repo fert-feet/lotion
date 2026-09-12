@@ -35,7 +35,7 @@ vi.mock("@/lib/local/sqlite", async (importOriginal) => {
 
 // ---- helpers ----
 
-const { app } = createApiTestApp();
+let app: Awaited<ReturnType<typeof createApiTestApp>>["app"];
 const encoder = new TextEncoder();
 
 function postChat(body: Record<string, unknown>, cookie?: string) {
@@ -80,6 +80,8 @@ beforeEach(async () => {
     done: Promise.resolve({ text: "mock response", usage: null, references: [] }),
   });
   maybeCompressSession.mockResolvedValue(undefined);
+
+  ({ app } = await createApiTestApp());
 });
 
 afterEach(() => {

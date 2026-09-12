@@ -14,7 +14,7 @@ vi.mock("@/lib/local/sqlite", async (importOriginal) => {
   return { ...actual, getDb: () => state.db! };
 });
 
-const { app } = createApiTestApp();
+let app: Awaited<ReturnType<typeof createApiTestApp>>["app"];
 
 /** POST JSON 请求（cookie 可选） */
 function post(path: string, body?: unknown, cookie?: string) {
@@ -38,6 +38,8 @@ beforeEach(async () => {
   const db = new Database(":memory:");
   initDatabase(db);
   state.db = db;
+
+  ({ app } = await createApiTestApp());
 });
 
 describe("auth API", () => {

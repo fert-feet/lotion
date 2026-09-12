@@ -11,7 +11,7 @@
 //
 // 泛型 `SubApp` 让本文件不依赖 Hono（子系统传入自己的子应用类型），
 // 保持 lib/seams 无框架耦合。
-import { Context } from "@/lib/kernel";
+import { Context, provideService, readService } from "@/lib/kernel";
 
 /** 一条已注册的路由条目 */
 export interface HttpRouteEntry<SubApp> {
@@ -63,12 +63,12 @@ export function provideHttpRoutes<SubApp>(ctx: Context, registry: HttpRouteRegis
   if (typeof registry?.route !== "function" || typeof registry?.entries !== "function") {
     throw new Error("httpRoutes 实现不完整：需要 route() 与 entries()");
   }
-  ctx.provide(HTTP_ROUTES_SERVICE, registry);
+  provideService(ctx, HTTP_ROUTES_SERVICE, registry);
 }
 
 /** 读注册表；未装配返回 undefined */
 export function findHttpRoutes<SubApp>(ctx: Context): HttpRouteRegistry<SubApp> | undefined {
-  return ctx.get<HttpRouteRegistry<SubApp>>(HTTP_ROUTES_SERVICE);
+  return readService<HttpRouteRegistry<SubApp>>(ctx, HTTP_ROUTES_SERVICE);
 }
 
 /** 读注册表；未装配抛错（路由插件必须依赖它） */

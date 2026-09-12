@@ -10,7 +10,7 @@
 //   Definition ← 本文件：定义注册表契约 + 审批状态 + runner 契约
 //   Provider   ← lib/dynamic/runner.ts（组合清单里默认 disabled 的一行）
 //   Consumer   ← plugin_* 工具（lib/dynamic/tools.ts）与 UI 卡片
-import { Context } from "@/lib/kernel";
+import { Context, provideService, readService } from "@/lib/kernel";
 
 /** 动态包的定义（两半可以是同一段代码的不同入口） */
 export interface DynamicDefinition {
@@ -73,12 +73,12 @@ export function provideDynamic(ctx: Context, runner: DynamicRunner): void {
       throw new Error(`dynamicPlugins 实现不完整，缺少方法：${method}`);
     }
   }
-  ctx.provide(DYNAMIC_SERVICE, runner);
+  provideService(ctx, DYNAMIC_SERVICE, runner);
 }
 
 /** 读 runner；未装配返回 undefined —— **默认关闭**时就是这个状态 */
 export function findDynamic(ctx: Context): DynamicRunner | undefined {
-  return ctx.get<DynamicRunner>(DYNAMIC_SERVICE);
+  return readService<DynamicRunner>(ctx, DYNAMIC_SERVICE);
 }
 
 /** 读 runner；未装配抛错（工具实现用：默认关闭时工具根本不会被注册） */

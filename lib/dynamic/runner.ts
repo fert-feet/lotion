@@ -8,7 +8,7 @@
 //
 // 所有临时插件都是内部 `dynamic` group 的子 fiber：宿主 runner 卸载时一并回收，
 // 不留孤儿监听器（这是"可逆副作用"落到动态能力上的要求）。
-import { Context, Fiber, FiberState } from "@/lib/kernel";
+import { Context, Fiber, FiberState, fiberError, settle } from "@/lib/kernel";
 import type { DynamicDefinition, DynamicRecord, DynamicRunner, DynamicState } from "@/lib/seams/dynamic";
 import { evaluateHostHalf } from "./sandbox";
 
@@ -94,12 +94,15 @@ export function createDynamicRunner(options: CreateDynamicRunnerOptions): Dynami
 
       try {
         // 沙箱交回的 apply 返回值类型未知：收窄为内核的插件形状（运行时校验已由 harness.define 完成）
-        const fiber = options.ctx.plugin(result.plugin as unknown as Parameters<Context["plugin"]>[0], {
-          name: `${id}:${record.definition.title}`,
-        });
+        const fiber = options.ctx.plugin(
+          result.plugin as unknown as Parameters<Context["plugin"]>[0],
+          undefined,
+        ) as unknown as Fiber;
         fibers.set(id, fiber);
+        // Cordis 的激活是异步的：settle 完才知道真起来了还是 FAILED
+        await settle(fiber);
         if (fiber.state === FiberState.FAILED) {
-          return setState(id, "error", fiber.error ?? "激活失败");
+          return setState(id, "error", fiberError(fiber) ?? "激活失败");
         }
         return setState(
           id,

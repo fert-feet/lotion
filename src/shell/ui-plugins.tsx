@@ -7,7 +7,7 @@
 // 注意本文件**不被** src/kernel/client.ts 引用（避免 kernel → shell → kernel 的循环依赖）：
 // 由应用根（src/app.tsx）通过 KernelProvider 的 extraPlugins 注入。
 import type { ReactNode } from "react";
-import type { PluginEntry } from "@/lib/kernel";
+import type { Context, PluginEntry } from "@/lib/kernel";
 import { requireUiSlots, UI_SLOTS_SERVICE } from "@/lib/seams/ui-slots";
 import { LazyAiPanel } from "./lazy-panels";
 
@@ -22,7 +22,7 @@ export function shellUiPlugins(): PluginEntry[] {
       plugin: {
         name: "ui/ai-panel",
         inject: [UI_SLOTS_SERVICE],
-        apply(ctx) {
+        apply(ctx: Context) {
           requireUiSlots<ReactNode>(ctx).register({
             id: "ai-panel",
             slot: SLOT_DETAILS_PANEL,

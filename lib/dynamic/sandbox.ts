@@ -26,7 +26,21 @@ export interface HostSandboxOptions {
 }
 
 /** 沙箱里可用的上下文门面：白名单动词，隐藏框架内部 */
-const CTX_VERBS = ["effect", "on", "onWaterfall", "onSerial", "emit", "provide", "inject", "get", "plugin"] as const;
+// 只列 **Cordis** 的 ctx 词汇：读它未声明的属性会触发严格检查并抛错
+// （"cannot get property … without inject"）——上一轮就是踩了这个坑。
+const CTX_VERBS = [
+  "effect",
+  "on",
+  "once",
+  "emit",
+  "waterfall",
+  "parallel",
+  "serial",
+  "provide",
+  "set",
+  "inject",
+  "plugin",
+] as const;
 
 /** 被扣留的 API → 教学文案（错误信息本身就是文档） */
 const TRAPS: Record<string, string> = {
@@ -74,8 +88,8 @@ function scopedServiceView(real: Context, key: string, service: unknown): unknow
           target.register?.(definition);
           const name = definition?.name;
           if (typeof name === "string") {
-            // 挂到插件 fiber 的 effect 上：卸载即撤销
-            real.effect(() => {
+            // 挂到插件 fiber 的 effect 上：卸载即撤销（Cordis：回调立即执行、返回值是 disposer）
+            real.effect(() => () => {
               target.unregister?.(name);
             });
           }
@@ -95,9 +109,15 @@ function createContextFacade(real: Context): Record<string, unknown> {
       facade[verb] = (value as (...args: unknown[]) => unknown).bind(real);
     }
   }
-  // 只读服务访问：未 inject 的服务拿不到（get 是显式的探测口，与内核语义一致）
+  // 只读服务访问：strict=false（Cordis 默认要求声明过 inject；沙箱侧由服务白名单把关）
   facade.get = (key: unknown) =>
-    typeof key === "string" ? scopedServiceView(real, key, real.get(key)) : undefined;
+    typeof key === "string"
+      ? scopedServiceView(
+          real,
+          key,
+          (real as unknown as { get(k: string, strict?: boolean): unknown }).get(key, false),
+        )
+      : undefined;
   return facade;
 }
 

@@ -1,3 +1,4 @@
+import { mount } from "@/test/mocks/mount";
 // 尖刺：用**真实 Cordis**（@deepseek-ai/cordis 4.0.2）验证我们依赖的语义是否成立。
 // 这个文件是迁移决策的证据：只有下面每条都过，才把 lib/kernel 换成适配层。
 import { describe, it, expect, vi } from "vitest";
@@ -16,7 +17,7 @@ const FiberState = { PENDING: 0, LOADING: 1, ACTIVE: 2, FAILED: 3, DISPOSED: 4, 
 
 /**
  * ⚠️ 与自研内核最大的语义差异：**Cordis 的插件激活是异步的**。
- * `ctx.plugin()` 只启动加载（state=LOADING，inertia 是进行中的 Promise），
+ * `await mount(ctx, )` 只启动加载（state=LOADING，inertia 是进行中的 Promise），
  * 必须 `await fiber.inertia` 才算真正 ACTIVE —— 迁移时装配与测试都要 settle。
  */
 async function settle(fiber: Fiber): Promise<Fiber> {
@@ -46,7 +47,7 @@ describe("cordis 尖刺：我们依赖的语义", () => {
     const ctx = new Context();
     const apply = vi.fn();
 
-    const fiber = await settle(ctx.plugin({ name: "consumer", inject: ["svc"], apply }));
+    const fiber = await settle(await mount(ctx, { name: "consumer", inject: ["svc"], apply }));
 
     expect(apply).not.toHaveBeenCalled();
     expect(fiber.state).toBe(FiberState.PENDING); // 缺依赖 → 停在 PENDING
@@ -62,9 +63,9 @@ describe("cordis 尖刺：我们依赖的语义", () => {
     const ctx = new Context();
     const events: string[] = [];
     const fiber = await settle(
-      ctx.plugin({
+      await mount(ctx, {
         name: "p",
-        apply: (c) => {
+        apply: (c: Context) => {
           // ⚠️ Cordis 的 effect：回调**立即执行**并返回 disposer（与自研内核"回调即 disposer"相反）
           c.effect(() => {
             events.push("setup");
@@ -92,7 +93,7 @@ describe("cordis 尖刺：我们依赖的语义", () => {
     }
 
     const ctx = new Context();
-    const fiber = await settle(ctx.plugin({ name: "demo-provider", apply: (c) => void new Demo(c) }));
+    const fiber = await settle(await mount(ctx, { name: "demo-provider", apply: (c: Context) => void new Demo(c) }));
 
     expect((ctx.get("demo") as Demo | undefined)?.hello()).toBe("hi");
 
@@ -106,9 +107,9 @@ describe("cordis 尖刺：我们依赖的语义", () => {
     const seen: string[] = [];
 
     await settle(
-      ctx.plugin({
+      await mount(ctx, {
         name: "listener",
-        apply: (c) => {
+        apply: (c: Context) => {
           c.on("demo/event", (value) => { seen.push(value) });
         },
       }),
@@ -119,17 +120,17 @@ describe("cordis 尖刺：我们依赖的语义", () => {
 
     // waterfall：监听器收到 (…args, next)，不调用 next 即短路
     await settle(
-      ctx.plugin({
+      await mount(ctx, {
         name: "guard",
-        apply: (c) => {
+        apply: (c: Context) => {
           c.on("demo/guard", (name, next) => (name === "删除" ? "需要确认" : next(name)));
         },
       }),
     );
     await settle(
-      ctx.plugin({
+      await mount(ctx, {
         name: "inner",
-        apply: (c) => {
+        apply: (c: Context) => {
           c.on("demo/guard", (name) => `执行:${name}`);
         },
       }),
@@ -145,9 +146,9 @@ describe("cordis 尖刺：我们依赖的语义", () => {
     );
   });
 
-  it("registry：能遍历 fiber 与状态（审计的数据来源）", () => {
+  it("registry：能遍历 fiber 与状态（审计的数据来源）", async () => {
     const ctx = new Context();
-    ctx.plugin({ name: "waiter", inject: ["missing-svc"], apply: () => {} });
+    await mount(ctx, { name: "waiter", inject: ["missing-svc"], apply: () => {} });
 
     const pending: string[] = [];
     for (const runtime of ctx.registry.values()) {

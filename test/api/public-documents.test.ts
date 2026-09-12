@@ -10,7 +10,7 @@ vi.mock("@/lib/local/sqlite", async (importOriginal) => {
   return { ...actual, getDb: () => state.db! };
 });
 
-const { app } = createApiTestApp();
+let app: Awaited<ReturnType<typeof createApiTestApp>>["app"];
 
 beforeEach(async () => {
   const { initDatabase } = await import("@/lib/local/sqlite");
@@ -18,6 +18,8 @@ beforeEach(async () => {
   const db = new Database(":memory:");
   initDatabase(db);
   state.db = db;
+
+  ({ app } = await createApiTestApp());
 });
 
 describe("GET /api/public/documents/:documentId", () => {

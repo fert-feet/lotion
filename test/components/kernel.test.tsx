@@ -150,10 +150,13 @@ describe("src/shell/ui-plugins 内置 UI 插件清单", () => {
     reset();
 
     const kernel = bootClientKernel({ extraPlugins: shellUiPlugins() });
+    await kernel.ready;
 
     expect(kernel.load.mounted.map((m) => m.id)).toContain("ui-ai-panel");
     expect(kernel.uiSlots.get(SLOT_DETAILS_PANEL)).toBeDefined();
-    expect(kernel.uiSlots.entries().map((e) => e.id)).toEqual(["ai-panel"]);
+    // 注意：不要对整个 entries() 做 toEqual（Vitest 的 pretty-format 会遍历 React 元素，
+    // 触及 Cordis 的严格属性访问而抛错）——只取 id 比较
+    expect(kernel.uiSlots.entries().map((entry) => entry.id)).toEqual(["ai-panel"]);
     reset();
   });
 
@@ -163,6 +166,7 @@ describe("src/shell/ui-plugins 内置 UI 插件清单", () => {
     reset();
 
     const kernel = bootClientKernel();
+    await kernel.ready;
 
     expect(kernel.uiSlots.get(SLOT_DETAILS_PANEL)).toBeUndefined();
     reset();

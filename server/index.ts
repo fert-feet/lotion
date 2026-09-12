@@ -16,7 +16,7 @@ const { bootHostKernel } = await import("./kernel");
 
 // 宿主内核装配（组合根）：settings / docStore 提供方在此挂载。
 // PORT 等配置改由内核的配置层读取（env > data/settings.json > 组合默认）。
-const kernel = bootHostKernel();
+const kernel = await bootHostKernel();
 const PORT = kernel.settings.server.get().port;
 const distDir = path.join(process.cwd(), "dist");
 const indexPath = path.join(distDir, "index.html");

@@ -11,7 +11,7 @@
 // 否则"换实现"就退回成"改 import 路径"。校验在装配时**就地**失败（不等首次请求）。
 //
 // ⚠️ 本模块必须保持**环境无关**（浏览器/服务端共用）：不得 import node:/better-sqlite3/React。
-import { Context } from "@/lib/kernel";
+import { Context, provideService, readService } from "@/lib/kernel";
 
 /** 操作主体：本地单机版里就是当前会话用户；多用户/角色扩展时在此加字段 */
 export interface Actor {
@@ -173,18 +173,18 @@ export const DOC_STORE_SERVICE = "docStore";
  */
 export function provideDocStore(ctx: Context, store: DocStore): void {
   assertShape(store, DOC_STORE_METHODS);
-  ctx.provide(DOC_STORE_SERVICE, store);
+  provideService(ctx, DOC_STORE_SERVICE, store);
 }
 
 /** 装配 docStore 实现（浏览器侧）：只要求 UI 子集完整 */
 export function provideUiDocStore(ctx: Context, store: UiDocStore): void {
   assertShape(store, UI_DOC_STORE_METHODS);
-  ctx.provide(DOC_STORE_SERVICE, store);
+  provideService(ctx, DOC_STORE_SERVICE, store);
 }
 
 /** 读 docStore（宿主侧完整契约）；未装配返回 undefined（可选依赖降级用） */
 export function findDocStore(ctx: Context): DocStore | undefined {
-  return ctx.get<DocStore>(DOC_STORE_SERVICE);
+  return readService<DocStore>(ctx, DOC_STORE_SERVICE);
 }
 
 /** 读 docStore（宿主侧完整契约）；未装配抛错（必需依赖用） */
@@ -194,7 +194,7 @@ export function requireDocStore(ctx: Context): DocStore {
 
 /** 读 docStore（浏览器侧 UI 子集）；未装配返回 undefined */
 export function findUiDocStore(ctx: Context): UiDocStore | undefined {
-  return ctx.get<UiDocStore>(DOC_STORE_SERVICE);
+  return readService<UiDocStore>(ctx, DOC_STORE_SERVICE);
 }
 
 /** 读 docStore（浏览器侧 UI 子集）；未装配抛错 */
@@ -203,7 +203,7 @@ export function requireUiDocStore(ctx: Context): UiDocStore {
 }
 
 function require_<T>(ctx: Context): T {
-  const store = ctx.get<T>(DOC_STORE_SERVICE);
+  const store = readService<T>(ctx, DOC_STORE_SERVICE);
   if (!store) {
     throw new Error(
       `docStore 未装配：请确认组合清单里挂载了 docStore 提供方插件（服务 key「${DOC_STORE_SERVICE}」）`,

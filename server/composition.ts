@@ -8,7 +8,7 @@
 // 注意：**组合清单是静态层**（改动需重启）；用户 patch 走 settings，属于可热读的配置层
 // （对齐 DSH 的实测结论：桌面端只有配置层热生效）。
 import type Database from "better-sqlite3";
-import type { PluginEntry, PluginPatch } from "@/lib/kernel";
+import type { Context, PluginEntry, PluginPatch } from "@/lib/kernel";
 import { provideTools, requireTools } from "@/lib/seams/tools";
 import { Hono } from "hono";
 import { provideDynamic } from "@/lib/seams/dynamic";
@@ -43,7 +43,7 @@ export function hostComposition(options: HostCompositionOptions = {}): PluginEnt
       id: "tools-registry",
       plugin: {
         name: "tools-registry",
-        apply: (ctx) => provideTools(ctx, createHostTools()),
+        apply: (ctx: Context) => provideTools(ctx, createHostTools()),
       },
     },
     {
@@ -61,7 +61,7 @@ export function hostComposition(options: HostCompositionOptions = {}): PluginEnt
       plugin: {
         name: "dynamic-plugins",
         inject: ["tools", "httpRoutes"],
-        apply: (ctx) => {
+        apply: (ctx: Context) => {
           const runner = createDynamicRunner({
             ctx,
             // 白名单：动态插件只能注入这些服务（"能碰什么"显式化）

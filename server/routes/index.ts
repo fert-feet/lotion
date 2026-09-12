@@ -3,7 +3,7 @@
 // 加一个端点：在 server/routes/ 写模块 + 在这里加一行（稳定 id）—— 不再改 server/app.ts。
 // 停用一段 API：在 data/settings.json 的 plugins 里按 id 禁用（走装配 patch）。
 import type { Hono } from "hono";
-import type { PluginEntry } from "@/lib/kernel";
+import type { Context, PluginEntry } from "@/lib/kernel";
 import { requireHttpRoutes, type HttpRouteRegistry } from "@/lib/seams/http-routes";
 import type { AppEnv } from "../http";
 import { aiChatRoutes } from "./ai-chat";
@@ -25,7 +25,7 @@ function routePlugin(name: string, path: string, app: ApiSubApp): PluginEntry {
     plugin: {
       name: `route/${name}`,
       inject: ["httpRoutes"],
-      apply(ctx) {
+      apply(ctx: Context) {
         requireHttpRoutes<ApiSubApp>(ctx).route(path, app);
       },
     },

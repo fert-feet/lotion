@@ -60,7 +60,8 @@ function createClientFacade(real: Context): Record<string, unknown> {
     get: (key: unknown) => {
       if (typeof key !== "string") return undefined;
       if (!(CLIENT_ALLOWED_SERVICES as readonly string[]).includes(key)) return undefined;
-      return real.get(key);
+      // strict=false：白名单已把关
+      return (real as unknown as { get(k: string, strict?: boolean): unknown }).get(key, false);
     },
     /** 事件：允许监听（可逆，随插件卸载移除） */
     on: (name: unknown, listener: unknown) => {
@@ -72,9 +73,10 @@ function createClientFacade(real: Context): Record<string, unknown> {
         listener as (...a: unknown[]) => void,
       );
     },
+    // 透传 Cordis 的 effect 语义：回调立即执行、返回值是 disposer
     effect: (fn: unknown) => {
-      if (typeof fn !== "function") throw new Error("ctx.effect 需要函数");
-      real.effect(fn as () => void);
+      if (typeof fn !== "function") throw new Error("ctx.effect 需要函数（且应返回 disposer）");
+      real.effect(fn as never);
     },
   };
 }

@@ -11,7 +11,7 @@ vi.mock("@/lib/local/sqlite", async (importOriginal) => {
   return { ...actual, getDb: () => state.db! };
 });
 
-const { app } = createApiTestApp();
+let app: Awaited<ReturnType<typeof createApiTestApp>>["app"];
 
 async function authCookie(email = "a@x.com"): Promise<{ cookie: string; userId: string }> {
   const { createUser, createSession } = await import("@/lib/local/auth");
@@ -38,6 +38,8 @@ beforeEach(async () => {
   const db = new Database(":memory:");
   initDatabase(db);
   state.db = db;
+
+  ({ app } = await createApiTestApp());
 });
 
 describe("chat sessions API", () => {

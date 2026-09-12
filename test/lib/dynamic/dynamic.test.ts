@@ -2,7 +2,8 @@
 // 重点不只是"能跑"，而是把**边界如实钉住**：教学式陷阱、process/Buffer 保持 undefined、
 // 超时只约束同步部分、服务白名单、卸载后静默。
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { Context } from "@/lib/kernel";
+import { Context, createRootContext } from "@/lib/kernel";
+import { mount } from "@/test/mocks/mount";
 import { createToolRegistry, provideTools, requireTools } from "@/lib/seams/tools";
 import type { AnyTool } from "@/lib/ai/tools/registry";
 import { evaluateHostHalf, SANDBOX_GLOBALS } from "@/lib/dynamic/sandbox";
@@ -54,7 +55,7 @@ describe("lib/dynamic/sandbox 宿主半边求值", () => {
 
     expect(result.ok).toBe(true);
     // 求值期没有日志（apply 未执行），需要真实挂载才会打印 → 这里直接调用 apply
-    if (result.ok) result.plugin.apply(Context.createRoot());
+    if (result.ok) result.plugin.apply(createRootContext());
 
     expect(logs).toEqual(["warn:[plugin:dyn-7] later"]);
   });
@@ -129,7 +130,7 @@ describe("lib/dynamic/sandbox 宿主半边求值", () => {
 
 describe("lib/dynamic/runner 生命周期", () => {
   function makeRuntime() {
-    const ctx = Context.createRoot();
+    const ctx = createRootContext();
     const tools = createToolRegistry<AnyTool>();
     provideTools(ctx, tools);
     const runner = createDynamicRunner({ ctx, allowedServices: ["tools"] });
@@ -209,12 +210,12 @@ describe("lib/dynamic/runner 生命周期", () => {
   });
 
   it("宿主 runner 卸载时临时插件一并回收（不留孤儿）", async () => {
-    const ctx = Context.createRoot();
+    const ctx = createRootContext();
     const tools = createToolRegistry<AnyTool>();
     provideTools(ctx, tools);
-    const fiber = ctx.plugin({
+    const fiber = await mount(ctx, {
       name: "dynamic-plugins",
-      apply: (c) => provideDynamic(c, createDynamicRunner({ ctx: c, allowedServices: ["tools"] })),
+      apply: (c: Context) => provideDynamic(c, createDynamicRunner({ ctx: c, allowedServices: ["tools"] })),
     });
     const runner = requireDynamic(ctx);
     const { definition } = runner.define({ title: "演示插件", host: GOOD_CODE });
@@ -222,14 +223,13 @@ describe("lib/dynamic/runner 生命周期", () => {
     expect(tools.names()).toEqual(["ping"]);
 
     // 卸载 runner 所在的 fiber（它内部的 group 子 fiber 先被回收）
-    for (const child of fiber.children) await child.dispose();
     await fiber.dispose();
 
     expect(tools.names()).toEqual([]);
   });
 
-  it("默认关闭：未装配 runner 时工具侧拿不到能力（findDynamic 为空）", () => {
-    const ctx = Context.createRoot();
+  it("默认关闭：未装配 runner 时工具侧拿不到能力（findDynamic 为空）", async () => {
+    const ctx = createRootContext();
 
     expect(findDynamic(ctx)).toBeUndefined();
     expect(() => requireDynamic(ctx)).toThrow(/默认关闭/);
@@ -245,7 +245,7 @@ describe("动态插件通道的 opt-in 开关（组合清单 + 用户层 patch�
     init(db);
     _resetHostKernelForTest();
 
-    const kernel = bootHostKernel({ db, settingsPath: "/tmp/does-not-exist-settings.json" });
+    const kernel = await bootHostKernel({ db, settingsPath: "/tmp/does-not-exist-settings.json" });
 
     expect(kernel.load.skipped).toContain("dynamic-plugins");
     expect(kernel.audit.services).not.toContain("dynamicPlugins");
@@ -275,7 +275,7 @@ describe("动态插件通道的 opt-in 开关（组合清单 + 用户层 patch�
     init(db);
     _resetHostKernelForTest();
 
-    const kernel = bootHostKernel({ db, settingsPath });
+    const kernel = await bootHostKernel({ db, settingsPath });
     expect(kernel.load.skipped).not.toContain("dynamic-plugins");
 
     const tools = getHostTools();
@@ -329,7 +329,7 @@ describe("动态插件通道的 opt-in 开关（组合清单 + 用户层 patch�
   });
 
   it("沙箱注册的工具随 runner 卸载一并回收（不留孤儿）", async () => {
-    const ctx = Context.createRoot();
+    const ctx = createRootContext();
     const tools = createToolRegistry<AnyTool>();
     provideTools(ctx, tools);
     const runner = createDynamicRunner({ ctx, allowedServices: ["tools"] });

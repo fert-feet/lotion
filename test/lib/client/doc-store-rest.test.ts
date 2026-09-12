@@ -1,7 +1,8 @@
 // docStore 浏览器侧实现单测：契约方法 → REST 端点映射（含 listOverview 的本地派生）。
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { createRestDocStore, restDocStorePlugin } from "@/lib/client/doc-store-rest";
-import { Context } from "@/lib/kernel";
+import {createRootContext } from "@/lib/kernel";
+import { mount } from "@/test/mocks/mount";
 import { findUiDocStore, requireUiDocStore } from "@/lib/seams/doc-store";
 import { _resetDocCacheForTest } from "@/lib/db";
 
@@ -143,8 +144,8 @@ describe("lib/client/doc-store-rest 会话操作", () => {
 
 describe("lib/client/doc-store-rest 装配", () => {
   it("插件挂载后可按 UI 子集读取，卸载后消失", async () => {
-    const ctx = Context.createRoot();
-    const fiber = ctx.plugin(restDocStorePlugin);
+    const ctx = createRootContext();
+    const fiber = await mount(ctx, restDocStorePlugin);
 
     expect(requireUiDocStore(ctx)).toBeDefined();
     expect(findUiDocStore(ctx)).toBeDefined();
@@ -153,7 +154,7 @@ describe("lib/client/doc-store-rest 装配", () => {
     expect(findUiDocStore(ctx)).toBeUndefined();
   });
 
-  it("UI 子集不含宿主独有的写操作（浏览器不假装能做）", () => {
+  it("UI 子集不含宿主独有的写操作（浏览器不假装能做）", async () => {
     const store = createRestDocStore() as unknown as Record<string, unknown>;
 
     expect(store.insertChatMessage).toBeUndefined();

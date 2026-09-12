@@ -1,9 +1,11 @@
+import { mount } from "@/test/mocks/mount";
 // docStore 宿主侧实现单测：:memory: 真实 SQL 走一遍契约（防"接缝只有壳、语义走样"）。
 import { describe, it, expect, beforeEach } from "vitest";
 import type Database from "better-sqlite3";
 import { openTestDb, initDatabase, isoNow } from "@/lib/local/sqlite";
 import { createSqliteDocStore } from "@/lib/local/doc-store-sqlite";
 import type { Actor } from "@/lib/seams/doc-store";
+import { createRootContext } from "@/lib/kernel";
 
 const actor: Actor = { userId: "user-1" };
 const other: Actor = { userId: "user-2" };
@@ -111,11 +113,10 @@ describe("lib/local/doc-store-sqlite", () => {
 describe("lib/local/doc-store-sqlite 装配插件", () => {
   it("sqliteDocStorePlugin 可注入测试库：挂载即可用，卸载即消失", async () => {
     const { sqliteDocStorePlugin } = await import("@/lib/local/doc-store-sqlite");
-    const { Context } = await import("@/lib/kernel");
     const { requireDocStore, findDocStore } = await import("@/lib/seams/doc-store");
 
-    const ctx = Context.createRoot();
-    const fiber = ctx.plugin(sqliteDocStorePlugin, { config: { db } });
+    const ctx = createRootContext();
+    const fiber = await mount(ctx, sqliteDocStorePlugin, { db });
 
     const id = await requireDocStore(ctx).create(actor, "插件装配的文档");
     expect((await requireDocStore(ctx).getById(actor, id))?.title).toBe("插件装配的文档");
