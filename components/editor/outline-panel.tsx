@@ -9,18 +9,14 @@
 //
 // 可见性：容器查询按「编辑器列宽度」（而非视口宽度）判定。正文在列内居中，列宽不足以在
 // 正文右侧留出 OUTLINE_GUTTER 时隐藏，因此大纲永不覆盖正文，也不会在窄列里挤成一片。
-// 阈值由 lib/layout/columns.ts 的 outlineMinCenter 推导（narrow 1360 / wide 1616）。
+// 阈值 = lib/layout/columns.ts 的 outlineMinCenter()（1360px），由单测钉住。
 import { useState } from "react";
 import { useEditorChange } from "@blocknote/react";
 import { cn } from "@/lib/utils";
-import usePageWidth, { type PageWidth } from "@/hooks/use-page-width";
 
-// Tailwind 需要字面量类名才能生成对应工具类，故两种页面宽度各写一条
-// （数值 = outlineMinCenter("narrow" | "wide")，由 test/lib/layout/columns.test.ts 钉住）。
-const VISIBILITY_CLASS: Record<PageWidth, string> = {
-  narrow: "hidden @min-[1360px]:block",
-  wide: "hidden @min-[1616px]:block",
-};
+// Tailwind 需要字面量类名才能生成对应工具类：
+// @min-[1360px] = outlineMinCenter()，容器 = AppShell 的 CenterColumn（带 @container）。
+const VISIBILITY_CLASS = "hidden @min-[1360px]:block";
 
 /** 标题项最小形状（宽松，容忍任意 schema） */
 interface HeadingItem {
@@ -66,7 +62,6 @@ export default function OutlinePanel({
   const [headings, setHeadings] = useState<HeadingItem[]>(() =>
     collectHeadings(editor.document as readonly LooseBlock[]),
   );
-  const pageWidth = usePageWidth((s) => s.pageWidth);
 
   useEditorChange(
     (e) => {
@@ -81,7 +76,7 @@ export default function OutlinePanel({
     <aside
       className={cn(
         "absolute right-6 top-1/2 w-52 max-h-[55vh] -translate-y-1/2 overflow-y-auto border-l border-shell-border py-2 pl-2 pr-3",
-        VISIBILITY_CLASS[pageWidth],
+        VISIBILITY_CLASS,
       )}
     >
       <div className="mb-2 px-2 text-[11px] font-semibold text-shell-label-tertiary">本页大纲</div>
