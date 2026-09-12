@@ -124,7 +124,6 @@ export function evaluateClientHalf(code: string, options: ClientSandboxOptions):
 
   let factory: (...args: unknown[]) => unknown;
   try {
-    // eslint-disable-next-line @typescript-eslint/no-implied-eval
     factory = new Function(...parameterNames, `return (async () => {\n${code}\n})();`) as typeof factory;
   } catch (error) {
     return {

@@ -10,6 +10,7 @@ import type { ReactNode } from "react";
 import { Context, formatLoadReport, loadPlugins, type LoadReport, type PluginEntry } from "@/lib/kernel";
 import { restDocStorePlugin } from "@/lib/client/doc-store-rest";
 import { remotePlugin } from "@/lib/client/remote-rest";
+import { dynamicClientPlugin } from "@/src/dynamic/client-runner";
 import { createUiSlots, provideUiSlots, type UiSlots } from "@/lib/seams/ui-slots";
 
 export interface ClientKernel {
@@ -47,6 +48,8 @@ export function bootClientKernel(options: BootClientKernelOptions = {}): ClientK
     { id: "doc-store-rest", plugin: restDocStorePlugin },
     // remote：客户端→宿主能力的**白名单边界**（枚举式，无动态注册路径）
     { id: "remote", plugin: remotePlugin },
+    // 动态插件客户端半边：宿主没启用通道时是空操作（端点 404 → 什么都不做）
+    { id: "dynamic-client", plugin: dynamicClientPlugin },
     ...(options.extraPlugins ?? []),
   ];
   const load = loadPlugins(ctx, entries);

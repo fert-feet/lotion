@@ -1,5 +1,4 @@
 // 客户端侧测试桩：remote / uiSlots 的假实现（多个用例共用）。
-import { createUiSlots, type UiSlots } from "@/lib/seams/ui-slots";
 import type { RemoteService } from "@/lib/seams/remote";
 
 /** 记录所有调用的 remote 假实现（白名单由 provideRemote 统一套上） */
@@ -14,7 +13,3 @@ export function createRemoteStub(): RemoteService & { calls: Array<{ namespace: 
   };
 }
 
-/** 空的插槽注册表 */
-export function createSlotsStub(): UiSlots<unknown> {
-  return createUiSlots<unknown>();
-}

@@ -10,7 +10,11 @@
 import type Database from "better-sqlite3";
 import type { PluginEntry, PluginPatch } from "@/lib/kernel";
 import { provideTools, requireTools } from "@/lib/seams/tools";
+import { Hono } from "hono";
 import { provideDynamic } from "@/lib/seams/dynamic";
+import { requireHttpRoutes } from "@/lib/seams/http-routes";
+import { requireAuth } from "./middleware";
+import type { AppEnv, } from "./http";
 import { createDynamicRunner } from "@/lib/dynamic/runner";
 import { registerDynamicPluginTools } from "@/lib/dynamic/tools";
 import { createHostToolRegistry, type HostToolRegistry } from "@/lib/ai/tools/registry";
@@ -56,7 +60,7 @@ export function hostComposition(options: HostCompositionOptions = {}): PluginEnt
       disabled: true,
       plugin: {
         name: "dynamic-plugins",
-        inject: ["tools"],
+        inject: ["tools", "httpRoutes"],
         apply: (ctx) => {
           const runner = createDynamicRunner({
             ctx,
@@ -67,6 +71,24 @@ export function hostComposition(options: HostCompositionOptions = {}): PluginEnt
           provideDynamic(ctx, runner);
           // 自指工具：模型借此查/写/跑/停自己的插件
           registerDynamicPluginTools(requireTools(ctx));
+
+          // 客户端半边的下发通道：只回**已批准**的客户端半边，**绝不下发 host 代码**
+          const dynamicRoutes = new Hono<AppEnv>();
+          dynamicRoutes.use("*", requireAuth);
+          dynamicRoutes.get("/plugins", (c) =>
+            c.json(
+              runner
+                .list()
+                .filter((record) => record.state === "approved" && record.definition.client)
+                .map((record) => ({
+                  id: record.definition.id,
+                  title: record.definition.title,
+                  description: record.definition.description ?? null,
+                  client: record.definition.client,
+                })),
+            ),
+          );
+          requireHttpRoutes(ctx).route("/dynamic", dynamicRoutes);
         },
       },
     },
