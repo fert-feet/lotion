@@ -49,7 +49,8 @@ export function hostComposition(options: HostCompositionOptions = {}): PluginEnt
     {
       id: "settings-file",
       plugin: settingsFilePlugin,
-      config: options.settingsPath ? { filePath: options.settingsPath } : undefined,
+      // 声明了 Config 的插件必须收到配置对象（至少 {}）
+      config: { filePath: options.settingsPath },
     },
     {
       // 动态插件通道：**默认 disabled**（opt-in）。
@@ -95,7 +96,7 @@ export function hostComposition(options: HostCompositionOptions = {}): PluginEnt
     {
       id: "doc-store-sqlite",
       plugin: sqliteDocStorePlugin,
-      config: options.db ? { db: options.db } : undefined,
+      config: { db: options.db },
     },
   ];
 }

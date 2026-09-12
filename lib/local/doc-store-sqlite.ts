@@ -4,6 +4,7 @@
 // 本文件只做**转发与 Actor 绑定**：所有 SQL 语义仍由 lib/local/db.ts 持有，
 // 换实现（libsql / 远程）时替换本文件即可，消费方与契约都不用动。
 import type Database from "better-sqlite3";
+import { z } from "zod";
 import type { PluginObject } from "@/lib/kernel";
 import { getDb } from "./sqlite";
 import {
@@ -121,13 +122,27 @@ export function createSqliteDocStore(db?: Database.Database): DocStore {
 }
 
 /**
+ * 插件配置的 Standard Schema：`db` 必须是"看起来像 better-sqlite3 连接"的对象
+ * （有 prepare 方法）。Cordis 在启动前校验，配错了不会拖到第一次查询才炸。
+ */
+export const sqliteDocStoreConfig = z.object({
+  db: z
+    .custom<Database.Database>(
+      (value) => typeof (value as { prepare?: unknown } | undefined)?.prepare === "function",
+      "需要一个 better-sqlite3 连接（含 prepare 方法）",
+    )
+    .optional(),
+});
+
+/**
  * 装配插件：把 SQLite 版 docStore 挂到内核上（组合清单里的一行）。
  * config.db 可注入测试库（:memory:）；不传则用进程单例连接（getDb）。
  */
 export const sqliteDocStorePlugin: PluginObject = {
   name: "doc-store-sqlite",
+  Config: sqliteDocStoreConfig,
   apply(ctx, config?: unknown) {
-    const db = (config as { db?: Database.Database } | undefined)?.db;
+    const { db } = sqliteDocStoreConfig.parse(config ?? {});
     provideDocStore(ctx, createSqliteDocStore(db));
   },
 };

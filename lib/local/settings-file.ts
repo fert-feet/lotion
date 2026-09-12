@@ -5,7 +5,7 @@
 // 用户层校验失败时**不炸进程**：记日志并退回 base/env —— 手改坏的配置文件不该让 app 起不来。
 import fs from "node:fs";
 import path from "node:path";
-import type { z } from "zod";
+import { z } from "zod";
 import type { PluginObject } from "@/lib/kernel";
 import { logger } from "@/lib/logger";
 import {
@@ -193,14 +193,22 @@ export function createSettingsFileProvider(
   return provider;
 }
 
+/** 插件配置的 Standard Schema（Cordis 在插件启动**之前**校验；非法则 fiber FAILED、apply 不执行） */
+export const settingsFileConfig = z.object({
+  /** 用户层配置文件路径；省略则用 resolveSettingsPath() */
+  filePath: z.string().min(1).optional(),
+});
+
 /**
  * 装配插件：把 settings 提供方挂到内核上（组合清单里的一行）。
- * config.filePath 可注入测试用临时配置文件。
+ * ⚠️ 声明了 `Config` 的插件**必须收到配置对象**（至少 `{}`）—— Cordis 会先校验再启动，
+ * 完全不传 config 会被判为校验失败（组合清单里因此始终传对象）。
  */
 export const settingsFilePlugin: PluginObject = {
   name: "settings-file",
+  Config: settingsFileConfig,
   apply(ctx, config?: unknown) {
-    const filePath = (config as { filePath?: string } | undefined)?.filePath;
+    const { filePath } = settingsFileConfig.parse(config ?? {});
     provideSettings(ctx, createSettingsFileProvider(filePath ? { filePath } : {}));
   },
 };
