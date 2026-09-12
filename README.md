@@ -103,6 +103,23 @@ pnpm dev
 
 生产模式：`pnpm build && pnpm start` → 单进程同时提供 API 与静态资源（[http://localhost:3001](http://localhost:3001)）。
 
+### 配置有两层（env > data/settings.json > 组合默认）
+
+```json
+{
+  "ai": { "model": "deepseek-chat" },
+  "server": { "port": 3100 },
+  "plugins": { "dynamic-plugins": { "disabled": false } }
+}
+```
+
+- `ai` / `storage` / `server` / `logging`：改完 **无需重启** 即生效（AI 模型与 Key 每次请求解析）
+- `plugins`：**装配 patch**，按插件 id 覆盖配置或停用插件（清单见 `server/composition.ts`、`src/shell/ui-plugins.tsx`）
+- `dynamic-plugins` 是**默认关闭**的 opt-in 通道（让 AI 现场写插件并热挂载）。开启前请先读
+  [`docs/插件化架构.md`](docs/插件化架构.md) 的「安全姿态」表 —— 它**不是沙箱边界**（宿主半边与本机 shell 同级信任，客户端半边需人工审批）。
+
+架构总览、服务/接缝一览、以及「写一个插件要改哪些文件」见 [`docs/插件化架构.md`](docs/插件化架构.md) 附录 A。
+
 ## 项目结构
 
 ```
