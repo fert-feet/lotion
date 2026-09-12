@@ -107,3 +107,20 @@ describe("lib/local/doc-store-sqlite", () => {
     expect(doc?.coverImage).toBeNull();
   });
 });
+
+describe("lib/local/doc-store-sqlite 装配插件", () => {
+  it("sqliteDocStorePlugin 可注入测试库：挂载即可用，卸载即消失", async () => {
+    const { sqliteDocStorePlugin } = await import("@/lib/local/doc-store-sqlite");
+    const { Context } = await import("@/lib/kernel");
+    const { requireDocStore, findDocStore } = await import("@/lib/seams/doc-store");
+
+    const ctx = Context.createRoot();
+    const fiber = ctx.plugin(sqliteDocStorePlugin, { config: { db } });
+
+    const id = await requireDocStore(ctx).create(actor, "插件装配的文档");
+    expect((await requireDocStore(ctx).getById(actor, id))?.title).toBe("插件装配的文档");
+
+    await fiber.dispose();
+    expect(findDocStore(ctx)).toBeUndefined();
+  });
+});

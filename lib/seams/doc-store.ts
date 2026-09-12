@@ -138,33 +138,78 @@ const DOC_STORE_METHODS = [
   "touchChatSession",
 ] as const satisfies readonly (keyof DocStore)[];
 
+/**
+ * 仅宿主侧存在的写操作：浏览器不直连数据库，这些由服务端路由 / AI 端点负责。
+ * 把它们从 UI 消费面里去掉，而不是让浏览器实现"假装能做"的方法。
+ */
+const HOST_ONLY_METHODS = [
+  "insertChatMessage",
+  "setChatSessionTitle",
+  "touchChatSession",
+] as const satisfies readonly (keyof DocStore)[];
+
+/** UI 消费面：浏览器可实现的能力子集（Provider = lib/client/doc-store-rest.ts） */
+export type UiDocStore = Omit<DocStore, (typeof HOST_ONLY_METHODS)[number]>;
+
+/** UI 侧需要校验的方法清单（由上面两份清单派生，不手工重复） */
+const UI_DOC_STORE_METHODS = DOC_STORE_METHODS.filter(
+  (name) => !(HOST_ONLY_METHODS as readonly string[]).includes(name),
+);
+
 /** 服务 key（一个 key 一个提供方；重复注册由内核抛错） */
 export const DOC_STORE_SERVICE = "docStore";
 
 /**
- * 装配 docStore 实现：**就地**校验方法完整性，缺方法立刻抛错。
+ * 装配 docStore 实现（宿主侧）：**就地**校验方法完整性，缺方法立刻抛错。
  * @throws 缺少方法时抛错（错误信息列出全部缺失方法名）
  */
 export function provideDocStore(ctx: Context, store: DocStore): void {
-  const missing = DOC_STORE_METHODS.filter(
+  assertShape(store, DOC_STORE_METHODS);
+  ctx.provide(DOC_STORE_SERVICE, store);
+}
+
+/** 装配 docStore 实现（浏览器侧）：只要求 UI 子集完整 */
+export function provideUiDocStore(ctx: Context, store: UiDocStore): void {
+  assertShape(store, UI_DOC_STORE_METHODS);
+  ctx.provide(DOC_STORE_SERVICE, store);
+}
+
+/** 读 docStore（宿主侧完整契约）；未装配返回 undefined（可选依赖降级用） */
+export function findDocStore(ctx: Context): DocStore | undefined {
+  return ctx.get<DocStore>(DOC_STORE_SERVICE);
+}
+
+/** 读 docStore（宿主侧完整契约）；未装配抛错（必需依赖用） */
+export function requireDocStore(ctx: Context): DocStore {
+  return require_<DocStore>(ctx);
+}
+
+/** 读 docStore（浏览器侧 UI 子集）；未装配返回 undefined */
+export function findUiDocStore(ctx: Context): UiDocStore | undefined {
+  return ctx.get<UiDocStore>(DOC_STORE_SERVICE);
+}
+
+/** 读 docStore（浏览器侧 UI 子集）；未装配抛错 */
+export function requireUiDocStore(ctx: Context): UiDocStore {
+  return require_<UiDocStore>(ctx);
+}
+
+function require_<T>(ctx: Context): T {
+  const store = ctx.get<T>(DOC_STORE_SERVICE);
+  if (!store) {
+    throw new Error(
+      `docStore 未装配：请确认组合清单里挂载了 docStore 提供方插件（服务 key「${DOC_STORE_SERVICE}」）`,
+    );
+  }
+  return store;
+}
+
+/** 校验实现是否具备清单里的全部方法（就地失败，不留半个服务） */
+function assertShape(store: object, methods: readonly string[]): void {
+  const missing = methods.filter(
     (name) => typeof (store as unknown as Record<string, unknown>)[name] !== "function",
   );
   if (missing.length > 0) {
     throw new Error(`docStore 实现不完整，缺少方法：${missing.join("、")}`);
   }
-  ctx.provide(DOC_STORE_SERVICE, store);
-}
-
-/** 读 docStore；未装配返回 undefined（可选依赖降级用） */
-export function findDocStore(ctx: Context): DocStore | undefined {
-  return ctx.get<DocStore>(DOC_STORE_SERVICE);
-}
-
-/** 读 docStore；未装配抛错（必需依赖用，错误信息指明缺哪一行装配） */
-export function requireDocStore(ctx: Context): DocStore {
-  const store = findDocStore(ctx);
-  if (!store) {
-    throw new Error(`docStore 未装配：请确认组合清单里挂载了 docStore 提供方插件（服务 key「${DOC_STORE_SERVICE}」）`);
-  }
-  return store;
 }

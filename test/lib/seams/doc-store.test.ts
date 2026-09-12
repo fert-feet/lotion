@@ -4,8 +4,11 @@ import { Context } from "@/lib/kernel";
 import {
   DOC_STORE_SERVICE,
   findDocStore,
+  findUiDocStore,
   provideDocStore,
+  provideUiDocStore,
   requireDocStore,
+  requireUiDocStore,
   type DocStore,
   type Document as SeamDocument,
 } from "@/lib/seams/doc-store";
@@ -53,6 +56,29 @@ describe("lib/seams/doc-store 与既有数据面的类型一致性", () => {
 });
 
 describe("lib/seams/doc-store 装配校验", () => {
+  it("UI 子集装配：只要求浏览器可实现的方法（宿主独有的写操作不参与校验）", () => {
+    const ctx = Context.createRoot();
+    const uiStore = fakeStore();
+    // 故意删掉宿主独有的三个方法：UI 侧装配仍应成功
+    delete (uiStore as unknown as Record<string, unknown>).insertChatMessage;
+    delete (uiStore as unknown as Record<string, unknown>).setChatSessionTitle;
+    delete (uiStore as unknown as Record<string, unknown>).touchChatSession;
+
+    provideUiDocStore(ctx, uiStore);
+
+    expect(requireUiDocStore(ctx)).toBe(uiStore);
+    expect(requireDocStore(ctx)).toBe(uiStore); // 同一个 key：宿主侧视图读到的就是它
+  });
+
+  it("UI 子集缺失方法同样就地抛错", () => {
+    const ctx = Context.createRoot();
+    const uiStore = fakeStore();
+    delete (uiStore as unknown as Record<string, unknown>).listSidebarAll;
+
+    expect(() => provideUiDocStore(ctx, uiStore)).toThrow(/缺少方法：listSidebarAll/);
+    expect(findUiDocStore(ctx)).toBeUndefined();
+  });
+
   it("实现完整时装配成功，可按契约读取", () => {
     const ctx = Context.createRoot();
     const store = fakeStore();

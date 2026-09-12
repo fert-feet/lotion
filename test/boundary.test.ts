@@ -8,7 +8,7 @@ import path from "node:path";
 
 const ROOT = path.resolve(import.meta.dirname, "../..");
 /** 会被打进浏览器 bundle 的目录 */
-const CLIENT_DIRS = ["src", "components", "hooks"];
+const CLIENT_DIRS = ["src", "components", "hooks", "lib/client"];
 /** 禁止客户端值导入的服务端模块（better-sqlite3 为原生模块，进客户端必炸） */
 const FORBIDDEN = [
   /^@\/lib\/local\//,

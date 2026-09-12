@@ -4,6 +4,7 @@
 // 本文件只做**转发与 Actor 绑定**：所有 SQL 语义仍由 lib/local/db.ts 持有，
 // 换实现（libsql / 远程）时替换本文件即可，消费方与契约都不用动。
 import type Database from "better-sqlite3";
+import type { PluginObject } from "@/lib/kernel";
 import { getDb } from "./sqlite";
 import {
   archiveDocument,
@@ -34,6 +35,7 @@ import type {
   DocStore,
   DocumentUpdateFields,
 } from "@/lib/seams/doc-store";
+import { provideDocStore } from "@/lib/seams/doc-store";
 
 /**
  * 用给定连接构造 docStore 实现（测试可注入 :memory: 库）。
@@ -113,3 +115,15 @@ export function createSqliteDocStore(db?: Database.Database): DocStore {
     },
   };
 }
+
+/**
+ * 装配插件：把 SQLite 版 docStore 挂到内核上（组合清单里的一行）。
+ * config.db 可注入测试库（:memory:）；不传则用进程单例连接（getDb）。
+ */
+export const sqliteDocStorePlugin: PluginObject = {
+  name: "doc-store-sqlite",
+  apply(ctx, config?: unknown) {
+    const db = (config as { db?: Database.Database } | undefined)?.db;
+    provideDocStore(ctx, createSqliteDocStore(db));
+  },
+};
