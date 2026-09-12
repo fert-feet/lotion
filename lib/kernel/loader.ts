@@ -100,11 +100,7 @@ export function applyPatches(
  * 按清单装配插件。逐条挂载、逐条记录；**单条失败不影响其它条目**。
  * @returns 装配报告（含卸载函数）
  */
-export function loadPlugins(
-  ctx: Context,
-  entries: readonly PluginEntry[],
-  options: LoadOptions = {},
-): LoadReport {
+export function loadPlugins(ctx: Context, entries: readonly PluginEntry[]): LoadReport {
   assertStableIds(entries);
 
   const report: LoadReport = {
