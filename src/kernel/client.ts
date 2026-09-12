@@ -9,6 +9,7 @@
 import type { ReactNode } from "react";
 import { Context, formatLoadReport, loadPlugins, type LoadReport, type PluginEntry } from "@/lib/kernel";
 import { restDocStorePlugin } from "@/lib/client/doc-store-rest";
+import { remotePlugin } from "@/lib/client/remote-rest";
 import { createUiSlots, provideUiSlots, type UiSlots } from "@/lib/seams/ui-slots";
 
 export interface ClientKernel {
@@ -44,6 +45,8 @@ export function bootClientKernel(options: BootClientKernelOptions = {}): ClientK
       plugin: { name: "ui-slots", apply: (c) => provideUiSlots(c, uiSlots) },
     },
     { id: "doc-store-rest", plugin: restDocStorePlugin },
+    // remote：客户端→宿主能力的**白名单边界**（枚举式，无动态注册路径）
+    { id: "remote", plugin: remotePlugin },
     ...(options.extraPlugins ?? []),
   ];
   const load = loadPlugins(ctx, entries);
