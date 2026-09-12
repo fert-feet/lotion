@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import type Database from "better-sqlite3";
 import { openTestDb, initDatabase, isoNow } from "@/lib/local/sqlite";
+import { routePaths } from "@/server/app";
 import {
   _resetHostKernelForTest,
   bootHostKernel,
@@ -49,10 +50,25 @@ describe("server/kernel 宿主装配", () => {
     expect(kernel.audit.services).toContain("docStore");
     expect(kernel.audit.services).toContain("settings");
     expect(kernel.auditText).toContain("已装配");
-    // 装配报告：稳定 id 与 fiber 状态可追踪
-    expect(kernel.load.mounted.map((m) => m.id)).toEqual(["settings-file", "doc-store-sqlite"]);
-    expect(kernel.startupText).toContain("[loader] 已装配 2 个插件");
+    // 装配报告：稳定 id 与 fiber 状态可追踪（1 注册表 + 2 提供方 + 8 路由插件）
+    const ids = kernel.load.mounted.map((m) => m.id);
+    expect(ids).toContain("http-routes");
+    expect(ids).toContain("settings-file");
+    expect(ids).toContain("doc-store-sqlite");
+    expect(kernel.startupText).toContain(`[loader] 已装配 ${ids.length} 个插件`);
     expect(kernel.startupText).toContain("[kernel] 已装配");
+
+    // 路由确实由插件注册进注册表（端到端：组合清单 → 路由插件 → 注册表）
+    expect(routePaths(kernel.httpRoutes)).toEqual([
+      "/auth",
+      "/me",
+      "/documents",
+      "/chat/sessions",
+      "/ai/chat",
+      "/upload",
+      "/uploads",
+      "/public/documents",
+    ]);
 
     // 通过内核拿到的 docStore 真的能读写
     const id = await getHostDocStore().create({ userId: "u1" }, "内核装配的文档");
@@ -111,7 +127,12 @@ describe("server/kernel 组合清单 + 用户层 patch", () => {
     const kernel = bootHostKernel({ db, settingsPath });
 
     expect(kernel.load.skipped).toContain("doc-store-sqlite");
-    expect(kernel.load.mounted.map((m) => m.id)).toEqual(["settings-file"]);
+    const ids = kernel.load.mounted.map((m) => m.id);
+    expect(ids).toContain("settings-file");
+    expect(ids).not.toContain("doc-store-sqlite");
+    // 其余插件（含全部路由）照常装配 —— 停用一个插件不影响其它插件
+    expect(ids).toContain("route-documents");
+    expect(routePaths(kernel.httpRoutes)).toContain("/documents");
     // 停用后 docStore 缺席 → 审计会把它标成 PENDING 而不是静默消失
     expect(kernel.audit.services).not.toContain("docStore");
     expect(kernel.startupText).toContain("已禁用：doc-store-sqlite");

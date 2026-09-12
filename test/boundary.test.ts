@@ -18,6 +18,7 @@ const FORBIDDEN = [
   /^@\/lib\/ai\//,
   /^better-sqlite3$/,
   /^@blocknote\/server-util$/,
+  /^@\/lib\/seams\/http-routes$/,
   /^node:/,
 ];
 

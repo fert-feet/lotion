@@ -2,7 +2,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import type Database from "better-sqlite3";
 import { SESSION_COOKIE } from "@/lib/local/auth";
-import { createApp } from "@/server/app";
+import { createApiTestApp } from "../mocks/api-app";
 
 const state = vi.hoisted(() => ({ db: null as Database.Database | null }));
 
@@ -11,7 +11,7 @@ vi.mock("@/lib/local/sqlite", async (importOriginal) => {
   return { ...actual, getDb: () => state.db! };
 });
 
-const app = createApp();
+const { app } = createApiTestApp();
 
 /** 在测试库中注册用户并种会话，返回带 cookie 的请求头 */
 async function authCookie(email = "a@x.com"): Promise<{ cookie: string; userId: string }> {

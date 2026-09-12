@@ -4,7 +4,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type Database from "better-sqlite3";
 import { SESSION_COOKIE } from "@/lib/local/auth";
-import { createApp } from "@/server/app";
+import { createApiTestApp } from "../mocks/api-app";
 
 // ---- mocks ----
 
@@ -35,7 +35,7 @@ vi.mock("@/lib/local/sqlite", async (importOriginal) => {
 
 // ---- helpers ----
 
-const app = createApp();
+const { app } = createApiTestApp();
 const encoder = new TextEncoder();
 
 function postChat(body: Record<string, unknown>, cookie?: string) {

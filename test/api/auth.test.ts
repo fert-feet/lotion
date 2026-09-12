@@ -4,7 +4,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import type Database from "better-sqlite3";
 import { SESSION_COOKIE } from "@/lib/local/auth";
-import { createApp } from "@/server/app";
+import { createApiTestApp } from "../mocks/api-app";
 
 const state = vi.hoisted(() => ({ db: null as Database.Database | null }));
 
@@ -14,7 +14,7 @@ vi.mock("@/lib/local/sqlite", async (importOriginal) => {
   return { ...actual, getDb: () => state.db! };
 });
 
-const app = createApp();
+const { app } = createApiTestApp();
 
 /** POST JSON 请求（cookie 可选） */
 function post(path: string, body?: unknown, cookie?: string) {

@@ -1,7 +1,7 @@
 // 公开预览端点单测：无鉴权，仅已发布文档可见
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import type Database from "better-sqlite3";
-import { createApp } from "@/server/app";
+import { createApiTestApp } from "../mocks/api-app";
 
 const state = vi.hoisted(() => ({ db: null as Database.Database | null }));
 
@@ -10,7 +10,7 @@ vi.mock("@/lib/local/sqlite", async (importOriginal) => {
   return { ...actual, getDb: () => state.db! };
 });
 
-const app = createApp();
+const { app } = createApiTestApp();
 
 beforeEach(async () => {
   const { initDatabase } = await import("@/lib/local/sqlite");

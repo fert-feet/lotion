@@ -18,16 +18,21 @@ import {
   loadPlugins,
   type AuditReport,
   type LoadReport,
+  type PluginEntry,
 } from "@/lib/kernel";
 import { logger } from "@/lib/logger";
 import { installLotionSettings, type LotionSettings } from "@/lib/local/lotion-config";
+import { createHttpRouteRegistry, provideHttpRoutes } from "@/lib/seams/http-routes";
 import { hostComposition, toPluginPatches } from "./composition";
+import { apiRoutePlugins, type ApiRouteRegistry } from "./routes";
 import { requireDocStore, type DocStore } from "@/lib/seams/doc-store";
 import { findSettings } from "@/lib/seams/settings";
 
 export interface HostKernel {
   /** 根上下文（路由/工具从这里取服务） */
   ctx: Context;
+  /** HTTP 路由注册表（server/app.ts 用它装配 /api/*） */
+  httpRoutes: ApiRouteRegistry;
   /** 组合清单装配报告（稳定 id → fiber） */
   load: LoadReport;
   /** 配置命名空间句柄（ai / storage / server / logging） */
@@ -66,11 +71,28 @@ export function bootHostKernel(options: BootHostKernelOptions = {}): HostKernel 
     },
   });
 
+  // 第 0 阶段：HTTP 路由注册表（路由插件的贡献点；owner 记为当前 fiber 名便于审计）
+  const httpRoutes = createHttpRouteRegistry<import("./routes").ApiSubApp>(
+    () => ctx.fiber.name,
+  );
+  const runtimeEntries: PluginEntry[] = [
+    {
+      id: "http-routes",
+      plugin: {
+        name: "http-routes",
+        apply: (c) => provideHttpRoutes(c, httpRoutes),
+      },
+    },
+  ];
+
   // 第 1 阶段：先挂 settings 提供方（配置层是所有后续装配的输入）
   const composition = hostComposition({ settingsPath: options.settingsPath, db: options.db });
   const settingsEntries = composition.filter((entry) => entry.id === "settings-file");
-  const restEntries = composition.filter((entry) => entry.id !== "settings-file");
-  const loadSettings = loadPlugins(ctx, settingsEntries);
+  const restEntries = [
+    ...composition.filter((entry) => entry.id !== "settings-file"),
+    ...apiRoutePlugins(),
+  ];
+  const loadSettings = loadPlugins(ctx, [...runtimeEntries, ...settingsEntries]);
 
   // 第 2 阶段：读用户层 patch（data/settings.json 的 `plugins` 命名空间），再装其余条目
   const settings = installLotionSettings(ctx);
@@ -106,6 +128,7 @@ export function bootHostKernel(options: BootHostKernelOptions = {}): HostKernel 
 
   const kernel: HostKernel = {
     ctx,
+    httpRoutes,
     load,
     settings,
     audit,
