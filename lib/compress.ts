@@ -1,5 +1,5 @@
 import { generateText } from "ai";
-import { deepSeek } from "@ai-sdk/deepseek";
+import { createAiModel, resolveAiRuntimeConfig, type AiRuntimeConfig } from "@/lib/ai/runtime-config";
 import { getDb } from "./local/sqlite";
 import {
   listChatHistory,
@@ -21,7 +21,6 @@ import { logger } from "./logger";
 
 // ---- 参数 ----
 export const WINDOW_SIZE = 100; // 滑动窗口：最近 100 条消息（50 轮）保留原文
-const COMPRESS_MODEL = process.env.AI_MODEL || "deepseek-v4-flash";
 const COMPRESS_BATCH_MAX = 500; // 单次最多压多少条（防极端暴涨，被截掉的最旧部分不参与也不标记）
 const SUMMARY_MAX_CHARS = 800; // 摘要长度上限
 
@@ -77,9 +76,11 @@ const sessionLocks = new Map<string, Promise<void>>();
 export async function maybeCompressSession(
   userId: string,
   sessionId: string,
+  options?: { ai?: Partial<AiRuntimeConfig> },
 ): Promise<void> {
+  const ai = resolveAiRuntimeConfig(options?.ai);
   const prev = sessionLocks.get(sessionId) ?? Promise.resolve();
-  const run = prev.then(() => runCompress(userId, sessionId));
+  const run = prev.then(() => runCompress(userId, sessionId, ai));
   // 锁链存"永不 reject"的版本：runCompress 内部已兜底，此处防意外 reject 污染后续调用
   const tracked = run.catch(() => {});
   sessionLocks.set(sessionId, tracked);
@@ -95,6 +96,7 @@ export async function maybeCompressSession(
 async function runCompress(
   userId: string,
   sessionId: string,
+  ai: AiRuntimeConfig,
 ): Promise<void> {
   try {
     const db = getDb();
@@ -137,7 +139,7 @@ async function runCompress(
     }
 
     const { text } = await generateText({
-      model: deepSeek(COMPRESS_MODEL),
+      model: createAiModel(ai),
       system: COMPRESS_SYSTEM,
       prompt: buildSummaryPrompt(input, oldSummary),
       maxOutputTokens: 2_000,

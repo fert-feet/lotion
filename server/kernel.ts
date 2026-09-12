@@ -86,14 +86,27 @@ export function bootHostKernel(options: BootHostKernelOptions = {}): HostKernel 
   return kernel;
 }
 
-/** 取宿主内核（未装配则按默认参数装配） */
+/** 取宿主内核；未装配即抛错（**不隐式装配**：避免测试/脚本意外碰到真实 data/lotion.db） */
 export function getHostKernel(): HostKernel {
-  return current ?? bootHostKernel();
+  if (!current) {
+    throw new Error("宿主内核未装配：请在入口调用 bootHostKernel()（server/index.ts 已调用）");
+  }
+  return current;
+}
+
+/** 取宿主内核；未装配返回 null（可选消费者 / 测试环境降级用：回退到环境变量） */
+export function getHostKernelIfBooted(): HostKernel | null {
+  return current;
 }
 
 /** 便捷取用：宿主侧完整 docStore 契约 */
 export function getHostDocStore(): DocStore {
   return requireDocStore(getHostKernel().ctx);
+}
+
+/** 便捷取用：AI 运行期配置（内核未装配时返回 undefined → 由消费方回退环境变量） */
+export function getHostAiConfig(): { model: string; apiKey: string } | undefined {
+  return current?.settings.ai.get();
 }
 
 /** 是否已装配（诊断用） */
@@ -103,7 +116,7 @@ export function isHostKernelBooted(): boolean {
 
 /** 已装配的 settings 提供方（未挂载时 undefined） */
 export function getHostSettingsProvider() {
-  return findSettings(getHostKernel().ctx);
+  return current ? findSettings(current.ctx) : undefined;
 }
 
 /** 测试用：清空单例 */

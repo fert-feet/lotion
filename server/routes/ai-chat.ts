@@ -15,6 +15,7 @@ import { maybeCompressSession, WINDOW_SIZE } from "@/lib/compress";
 import { logger } from "@/lib/logger";
 import { readJson, type AppEnv } from "../http";
 import { requireAuth } from "../middleware";
+import { getHostAiConfig } from "../kernel";
 
 /**
  * 请求幂等：靠 chat_messages(userId, requestId) 唯一约束（本地版 DDL 同款），
@@ -85,10 +86,15 @@ aiChatRoutes.post("/", async (c) => {
     logger.api.warn("拉取对话历史失败，本次无上下文", { error: String(e) });
   }
 
+  // AI 运行期配置来自配置层（env > data/settings.json > 组合默认）；内核未装配时回退环境变量。
+  // 每次请求都解析：改模型/key 后**无需重启**即可生效。
+  const ai = getHostAiConfig();
+
   const { stream, done } = await runNoteAgent(db, user.id, prompt, {
     history,
     summary: session.summary || undefined,
     signal: c.req.raw.signal, // 前端 abort fetch 时中断 DeepSeek 生成
+    ai,
   });
 
   // 流结束后后台落库 assistant 消息（含 token 统计），随后触发上下文压缩检查
@@ -104,7 +110,7 @@ aiChatRoutes.post("/", async (c) => {
         totalTokens: (result.usage?.inputTokens ?? 0) + (result.usage?.outputTokens ?? 0),
       }),
     )
-    .then(() => maybeCompressSession(user.id, sessionId))
+    .then(() => maybeCompressSession(user.id, sessionId, ai ? { ai } : undefined))
     .catch((e) => {
       logger.api.error("assistant 消息落库失败", { error: String(e) });
     });

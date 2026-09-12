@@ -1,5 +1,5 @@
 import { streamText, stepCountIs } from "ai";
-import { deepSeek } from "@ai-sdk/deepseek";
+import { createAiModel, resolveAiRuntimeConfig, type AiRuntimeConfig } from "@/lib/ai/runtime-config";
 import type Database from "better-sqlite3";
 import { NOTE_ASSISTANT_PROMPT } from "./ai-prompts";
 import {
@@ -61,8 +61,7 @@ export interface AgentResult {
 /** AI 读取过的笔记（引用来源） */
 export type AgentReference = { noteId: string; title: string };
 
-// ---- 配置：集中管理，模型可经环境变量覆盖 ----
-const AI_MODEL = process.env.AI_MODEL || "deepseek-v4-flash";
+// ---- 配置：模型/Key 每次调用时从配置层解析（见 lib/ai/runtime-config.ts）----
 const MAX_STEPS = 5; // Agent 最大工具调用步数
 const STREAM_TIMEOUT_MS = 120_000; // 单次流读取超时
 const EVENT_POLL_INTERVAL_MS = 200; // 副作用事件轮询间隔（tool 与流层解耦后的兜底唤醒）
@@ -78,8 +77,15 @@ export async function runNoteAgent(
   db: Database.Database,
   userId: string,
   prompt: string,
-  options?: { history?: AgentHistoryMessage[]; summary?: string; signal?: AbortSignal },
+  options?: {
+    history?: AgentHistoryMessage[];
+    summary?: string;
+    signal?: AbortSignal;
+    /** AI 运行期配置（来自 settings 配置层）；缺省时回退环境变量 */
+    ai?: Partial<AiRuntimeConfig>;
+  },
 ) {
+  const ai = resolveAiRuntimeConfig(options?.ai);
   const messages: Array<{ role: "user" | "assistant"; content: string }> = [];
 
   // 注入全部对话历史（多轮上下文让 AI 记住之前的问答，
@@ -94,7 +100,14 @@ export async function runNoteAgent(
   }
 
   messages.push({ role: "user", content: prompt });
-  logger.agent.info("开始 Agent 执行", { userId, prompt: prompt.slice(0, 100), historyCount: history.length, hasSummary: !!options?.summary });
+  logger.agent.info("开始 Agent 执行", {
+    userId,
+    prompt: prompt.slice(0, 100),
+    historyCount: history.length,
+    hasSummary: !!options?.summary,
+    model: ai.model,
+    hasApiKey: ai.apiKey !== "",
+  });
 
   let stepCount = 0;
   let toolCount = 0;
@@ -197,7 +210,7 @@ export async function runNoteAgent(
   }
 
   const result = streamText({
-    model: deepSeek(AI_MODEL),
+    model: createAiModel(ai),
     // 上下文压缩：早期对话以摘要形式注入 system（重写式摘要保留语义与文档 id 引用）
     system: options?.summary
       ? `${NOTE_ASSISTANT_PROMPT}\n\n以下是本会话早期对话的摘要（已压缩，细节以摘要为准）：\n${options.summary}`

@@ -179,13 +179,14 @@ describe("POST /api/ai/chat", () => {
     expect(row.title).toBe(prompt.slice(0, 20));
   });
 
-  it("assistant 落库后触发上下文压缩检查（新签名 userId, sessionId）", async () => {
+  it("assistant 落库后触发上下文压缩检查（新签名 userId, sessionId[, { ai }]）", async () => {
     const { cookie, sessionId, userId } = await seedAuth();
     const res = await postChat({ prompt: "hi", sessionId, requestId: "r-compress" }, cookie);
     await res.text();
 
     await vi.waitFor(() => {
-      expect(maybeCompressSession).toHaveBeenCalledWith(userId, sessionId);
+      // 第三参是 AI 运行期配置（来自配置层）；本用例未装配宿主内核 → undefined（消费方回退环境变量）
+      expect(maybeCompressSession).toHaveBeenCalledWith(userId, sessionId, undefined);
     });
   });
 

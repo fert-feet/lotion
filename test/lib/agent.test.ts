@@ -14,6 +14,7 @@ const { mockConfig } = vi.hoisted(() => ({
     emitError: false,
     capturedMessages: [] as Array<{ role: string; content: string }>,
     capturedSystem: "" as string,
+    capturedModel: null as { modelId?: string; config?: { apiKey?: string } } | null,
     abortSignal: null as AbortSignal | null,
   },
 }));
@@ -32,6 +33,7 @@ vi.mock("ai", async (importOriginal) => {
       onFinish?: (info: { finishReason: string; usage: unknown; text: string; steps: unknown[] }) => void;
     }) => {
       // 捕获注入 streamText 的消息（断言历史注入/中止行为用）
+      mockConfig.capturedModel = (options as { model?: { modelId?: string; config?: { apiKey?: string } } }).model ?? null;
       mockConfig.capturedMessages = options.messages ?? [];
       mockConfig.capturedSystem = options.system ?? "";
       // 捕获 abortSignal：断言 deleteNote 中止行为
@@ -312,5 +314,44 @@ describe("runNoteAgent 会话摘要注入", () => {
     await readEvents(stream);
 
     expect(mockConfig.capturedSystem).not.toContain("以下是本会话早期对话的摘要");
+  });
+});
+// 配置层接线：模型/密钥在**每次调用时**解析（改配置不需要重启进程）
+describe("runNoteAgent AI 运行期配置", () => {
+  it("显式传入的配置层值决定模型与密钥", async () => {
+    const { stream } = await runNoteAgent(db, "user-1", "你好", {
+      ai: { model: "configured-model", apiKey: "sk-configured-1234" },
+    });
+    await readEvents(stream);
+
+    expect(mockConfig.capturedModel?.modelId).toBe("configured-model");
+  });
+
+  it("未传配置时回退环境变量；环境变量也没有则用默认模型", async () => {
+    const saved = { model: process.env.AI_MODEL, key: process.env.DEEPSEEK_API_KEY };
+    process.env.AI_MODEL = "model-from-env";
+    process.env.DEEPSEEK_API_KEY = "sk-from-env";
+    try {
+      const { stream } = await runNoteAgent(db, "user-1", "你好");
+      await readEvents(stream);
+      expect(mockConfig.capturedModel?.modelId).toBe("model-from-env");
+    } finally {
+      if (saved.model === undefined) delete process.env.AI_MODEL;
+      else process.env.AI_MODEL = saved.model;
+      if (saved.key === undefined) delete process.env.DEEPSEEK_API_KEY;
+      else process.env.DEEPSEEK_API_KEY = saved.key;
+    }
+  });
+
+  it("配置为空串时不被当成有效值（回退到默认模型）", async () => {
+    const savedModel = process.env.AI_MODEL;
+    delete process.env.AI_MODEL;
+    try {
+      const { stream } = await runNoteAgent(db, "user-1", "你好", { ai: { model: "   ", apiKey: "" } });
+      await readEvents(stream);
+      expect(mockConfig.capturedModel?.modelId).toBe("deepseek-v4-flash");
+    } finally {
+      if (savedModel !== undefined) process.env.AI_MODEL = savedModel;
+    }
   });
 });
