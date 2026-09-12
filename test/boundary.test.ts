@@ -77,4 +77,23 @@ describe("客户端 / 服务端边界", () => {
     }
     expect(offenders).toEqual([]);
   });
+
+  // 内核（lib/kernel）浏览器与服务端共用同一份：必须环境无关，
+  // 否则客户端打包会把 better-sqlite3 / node:vm 之类带进浏览器 bundle。
+  it("内核必须是环境无关的纯 TS（不得引用 node:/服务端专用模块/React）", () => {
+    const offenders: string[] = [];
+    for (const file of walk(path.join(ROOT, "lib/kernel"))) {
+      const source = fs.readFileSync(file, "utf8");
+      for (const spec of valueImports(source)) {
+        if (
+          FORBIDDEN.some((re) => re.test(spec)) ||
+          /^react/.test(spec) ||
+          /^@\/lib\/local\//.test(spec)
+        ) {
+          offenders.push(`${path.relative(ROOT, file)} → ${spec}`);
+        }
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
 });
