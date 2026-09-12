@@ -1,0 +1,124 @@
+// docStore 契约单测：装配期校验（缺方法就地失败）+ 内核装配/读取 + 与既有类型面的一致性。
+import { describe, it, expect, vi } from "vitest";
+import { Context } from "@/lib/kernel";
+import {
+  DOC_STORE_SERVICE,
+  findDocStore,
+  provideDocStore,
+  requireDocStore,
+  type DocStore,
+  type Document as SeamDocument,
+} from "@/lib/seams/doc-store";
+import type { Document as ClientDocument } from "@/lib/db";
+import type { Document as ServerDocument } from "@/lib/local/db";
+
+/** 造一个"形状完整"的假实现：各方法都是 spy，便于断言转发 */
+function fakeStore(overrides: Partial<DocStore> = {}): DocStore {
+  const noop = vi.fn(async () => undefined);
+  const base = {
+    listSidebarAll: vi.fn(async () => []),
+    listSidebar: vi.fn(async () => []),
+    listTrash: vi.fn(async () => []),
+    listSearch: vi.fn(async () => []),
+    getById: vi.fn(async () => null),
+    listOverview: vi.fn(async () => []),
+    create: vi.fn(async () => "new-id"),
+    update: noop,
+    archive: noop,
+    restore: noop,
+    move: noop,
+    remove: noop,
+    removeIcon: noop,
+    removeCoverImage: noop,
+    listChatSessions: vi.fn(async () => []),
+    createChatSession: vi.fn(async () => "session-id"),
+    deleteChatSession: noop,
+    listChatHistory: vi.fn(async () => []),
+    insertChatMessage: noop,
+    setChatSessionTitle: noop,
+    touchChatSession: noop,
+  } as unknown as DocStore;
+  return Object.assign(base, overrides);
+}
+
+describe("lib/seams/doc-store 与既有数据面的类型一致性", () => {
+  it("客户端（lib/db）与服务端（lib/local/db）的 Document 都能赋给接缝契约（编译期防漂移）", () => {
+    const clientDoc = { id: "client" } as ClientDocument;
+    const seamFromClient: SeamDocument = clientDoc;
+    const serverDoc = { id: "server" } as ServerDocument;
+    const seamFromServer: SeamDocument = serverDoc;
+
+    expect([seamFromClient.id, seamFromServer.id]).toEqual(["client", "server"]);
+  });
+});
+
+describe("lib/seams/doc-store 装配校验", () => {
+  it("实现完整时装配成功，可按契约读取", () => {
+    const ctx = Context.createRoot();
+    const store = fakeStore();
+
+    provideDocStore(ctx, store);
+
+    expect(requireDocStore(ctx)).toBe(store);
+    expect(findDocStore(ctx)).toBe(store);
+    expect(ctx.serviceKeys).toContain(DOC_STORE_SERVICE);
+  });
+
+  it("缺少方法时**就地**抛错，并列出全部缺失方法（不等首次请求才炸）", () => {
+    const ctx = Context.createRoot();
+    const incomplete = fakeStore();
+    delete (incomplete as unknown as Record<string, unknown>).move;
+    delete (incomplete as unknown as Record<string, unknown>).listChatHistory;
+
+    expect(() => provideDocStore(ctx, incomplete)).toThrow(/缺少方法：move、listChatHistory/);
+    // 校验失败不应留下半个服务
+    expect(findDocStore(ctx)).toBeUndefined();
+  });
+
+  it("未装配时 requireDocStore 抛可操作的错误，findDocStore 返回 undefined", () => {
+    const ctx = Context.createRoot();
+
+    expect(findDocStore(ctx)).toBeUndefined();
+    expect(() => requireDocStore(ctx)).toThrow(/docStore 未装配/);
+  });
+
+  it("重复装配由内核抛错（一个 key 一个提供方）", () => {
+    const ctx = Context.createRoot();
+    provideDocStore(ctx, fakeStore());
+
+    expect(() => provideDocStore(ctx, fakeStore())).toThrow(/已由插件/);
+  });
+
+  it("服务随提供方插件卸载而消失（依赖方据此回到 PENDING）", async () => {    const ctx = Context.createRoot();
+    const fiber = ctx.plugin({
+      name: "doc-store-provider",
+      apply: (c) => provideDocStore(c, fakeStore()),
+    });
+    expect(requireDocStore(ctx)).toBeDefined();
+
+    await fiber.dispose();
+
+    expect(findDocStore(ctx)).toBeUndefined();
+    expect(ctx.audit().pending.some((p) => p.missing.includes(DOC_STORE_SERVICE))).toBe(false);
+  });
+
+  it("消费方可用 inject 门控等待 docStore（缺失时保持 PENDING 并被审计发现）", () => {
+    const ctx = Context.createRoot();
+    const got: string[] = [];
+    ctx.plugin({
+      name: "consumer",
+      inject: [DOC_STORE_SERVICE],
+      apply: (c) => {
+        got.push(requireDocStore(c).constructor.name);
+      },
+    });
+
+    expect(got).toEqual([]);
+    expect(ctx.audit().pending).toEqual([{ name: "consumer", missing: [DOC_STORE_SERVICE] }]);
+
+    ctx.plugin({ name: "provider", apply: (c) => provideDocStore(c, fakeStore()) });
+
+    expect(got).toHaveLength(1);
+    expect(ctx.audit().pending).toEqual([]);
+  });
+});
