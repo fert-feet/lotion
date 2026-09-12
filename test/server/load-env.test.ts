@@ -113,4 +113,17 @@ describe("server/index.ts 入口顺序", () => {
     // 不允许出现静态 `from "./app"`（会先于 loadEnvFiles 执行）
     expect(source).not.toMatch(/from\s+["']\.\/app["']/);
   });
+
+  it("内核在 env 之后装配，端口来自配置层（不再直接读 process.env.PORT）", () => {
+    const loadAt = source.indexOf("loadEnvFiles(");
+    const kernelImportAt = source.indexOf('import("./kernel")');
+    expect(kernelImportAt).toBeGreaterThan(loadAt);
+    expect(source).toContain("bootHostKernel()");
+    expect(source).toContain("kernel.settings.server.get().port");
+    expect(source).not.toMatch(/process\.env\.PORT/);
+  });
+
+  it("启动打印装配审计（PENDING/FAILED 不能被静默吞掉）", () => {
+    expect(source).toContain("kernel.auditText");
+  });
 });
