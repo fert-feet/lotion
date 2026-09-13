@@ -131,6 +131,6 @@ describe("lib/local/lotion-config 两层合并（端到端）", () => {
     const ai = described.find((item) => item.namespace === "ai");
 
     expect(ai, `describe() 未包含 ai 命名空间，实际：${JSON.stringify(described.map((d) => d.namespace))}`).toBeDefined();
-    expect(ai?.value.apiKey).toBe("sk-7****19a3");
+    expect(ai?.value.apiKey).toBe("sk-l****0000");
   });
 });

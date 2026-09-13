@@ -54,7 +54,7 @@ describe("lib/seams/settings 脱敏", () => {
     expect(isSecretField("password")).toBe(true);
     expect(isSecretField("model")).toBe(false);
 
-    expect(maskSecret("sk-lotion-test-key-0000")).toBe("sk-7****19a3");
+    expect(maskSecret("sk-lotion-test-key-0000")).toBe("sk-l****0000");
     expect(maskSecret("short")).toBe("****");
     expect(maskSecret(undefined)).toBe("");
   });
@@ -124,11 +124,11 @@ describe("lib/local/settings-file 两层合并", () => {
     expect(seen[0].apiKey).toBe("sk-lotion-test-key-0000");
     // 落盘为明文（本地单机版语义），但 describe 输出必须脱敏
     const onDisk = JSON.parse(fs.readFileSync(filePath, "utf-8"));
-    expect(onDisk.ai.apiKey).toContain("sk-786be");
+    expect(onDisk.ai.apiKey).toContain("sk-lotion-test");
 
     const [info] = provider.describe();
     expect(info.namespace).toBe("ai");
-    expect(info.value.apiKey).toBe("sk-7****19a3");
+    expect(info.value.apiKey).toBe("sk-l****0000");
     expect(info.value.model).toBe("deepseek-v4-flash");
   });
 
