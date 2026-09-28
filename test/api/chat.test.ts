@@ -90,3 +90,30 @@ describe("chat sessions API", () => {
     expect(await (await call(`/api/chat/sessions/${id}/messages`, "GET", cookie)).json()).toEqual([]);
   });
 });
+
+/** 建一个用户 + 一个会话（会话归属该用户） */
+async function seedSession(): Promise<{ cookie: string; userId: string; sessionId: string }> {
+  const { cookie, userId } = await authCookie();
+  const { createChatSession } = await import("@/lib/local/db");
+  const sessionId = createChatSession(state.db!, userId);
+  return { cookie, userId, sessionId };
+}
+
+describe("PATCH /api/chat/sessions/:id 重命名", () => {
+  it("重命名成功并落库；空标题 400、超长 400、不存在 404、未登录 401", async () => {
+    const { cookie, sessionId } = await seedSession();
+    const ok = await call(`/api/chat/sessions/${sessionId}`, "PATCH", cookie, { title: "新标题" });
+    expect(ok.status).toBe(200);
+    const row = state.db!.prepare("SELECT title FROM chat_sessions WHERE id = ?").get(sessionId) as {
+      title: string;
+    };
+    expect(row.title).toBe("新标题");
+
+    expect((await call(`/api/chat/sessions/${sessionId}`, "PATCH", cookie, { title: "  " })).status).toBe(400);
+    expect(
+      (await call(`/api/chat/sessions/${sessionId}`, "PATCH", cookie, { title: "x".repeat(61) })).status,
+    ).toBe(400);
+    expect((await call("/api/chat/sessions/ghost", "PATCH", cookie, { title: "x" })).status).toBe(404);
+    expect((await call(`/api/chat/sessions/${sessionId}`, "PATCH", undefined, { title: "x" })).status).toBe(401);
+  });
+});

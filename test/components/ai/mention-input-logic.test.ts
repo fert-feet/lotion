@@ -38,6 +38,15 @@ describe("resolveMentionKey：键盘意图", () => {
     expect(resolveMentionKey({ ...base, key: "Escape" })).toEqual({ kind: "escape" });
   });
 
+  it("空输入按 ↑ 召回历史；有内容时不召回（那是正常光标移动）", () => {
+    expect(resolveMentionKey({ ...base, key: "ArrowUp", empty: true })).toEqual({ kind: "recall" });
+    expect(resolveMentionKey({ ...base, key: "ArrowUp", empty: false })).toEqual({ kind: "ignore" });
+    // @ 菜单开着时 ↑ 仍然是"高亮上一个候选"
+    expect(
+      resolveMentionKey({ ...base, key: "ArrowUp", empty: true, mentionOpen: true, itemCount: 2 }),
+    ).toEqual({ kind: "highlight", delta: -1 });
+  });
+
   it("其他按键不拦（正常输入）", () => {
     expect(resolveMentionKey({ ...base, key: "a" })).toEqual({ kind: "ignore" });
   });

@@ -7,21 +7,15 @@
 // 本组件只负责 I/O 与编排：请求生命周期、队列调度、滚动、确认/提问的回填。
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router";
-import { Bot, Check, History, Loader2, MessageSquare, Plus, Send, Sparkles, Square, Trash2, X } from "@/components/icons";
+import { Bot, History, Loader2, Plus, Send, Sparkles, Square, X } from "@/components/icons";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
 import { useLayout } from "@/hooks/use-layout";
 import { useUser } from "@/hooks/use-user";
 import { useRefresh } from "@/hooks/use-refresh";
 import type { ChatSession } from "@/lib/seams/doc-store";
 import { useActor, useDocStore } from "@/src/kernel/react";
 import MentionInput, { type MentionInputHandle } from "./mention-input";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { createTurn, type Question, type SseEvent, type Turn } from "./ai/types";
 import {
   applyTurnEvent,
@@ -37,6 +31,8 @@ import {
   type QueuedMessage,
 } from "./ai/turn-reducer";
 import { TurnView } from "./ai/turn";
+import { SessionMenu } from "./ai/session-menu";
+import { recentUserMessages, stepRecallIndex } from "./ai/session-utils";
 
 /** 粘底判定阈值：距底小于该值就算"跟到底部" */
 const STICK_THRESHOLD_PX = 80;
@@ -56,8 +52,6 @@ const AiPanel = () => {
   // ---- 会话状态 ----
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
-  const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
-  const confirmTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ---- turn 时间线 ----
   const [turns, setTurns] = useState<Turn[]>([]);
@@ -83,6 +77,10 @@ const AiPanel = () => {
   const userId = user?.id;
 
   /** 立即提交（工具/副作用事件） */
+  // turns 的最新值（稳定回调里读取，避免闭包过期）
+  const turnsRef = useRef<Turn[]>([]);
+  turnsRef.current = turns;
+
   const commit = useCallback(() => {
     if (mountedRef.current) setTurns((prev) => [...prev]);
   }, []);
@@ -96,13 +94,12 @@ const AiPanel = () => {
     });
   }, [commit]);
 
-  // 卸载收尾：取消飞行中的 rAF 与确认计时器（原实现在已卸载组件上 setState 且计时器泄漏）
+  // 卸载收尾：取消飞行中的 rAF（原实现在已卸载组件上 setState）
   useEffect(() => {
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
       if (textRaf.current !== null) cancelAnimationFrame(textRaf.current);
-      if (confirmTimer.current) clearTimeout(confirmTimer.current);
     };
   }, []);
 
@@ -239,14 +236,6 @@ const AiPanel = () => {
 
   const handleDeleteSession = async (sessionId: string) => {
     if (!user) return;
-    // 二次确认：第一次点击进入确认态，3 秒内再点才删除
-    if (confirmingDeleteId !== sessionId) {
-      setConfirmingDeleteId(sessionId);
-      if (confirmTimer.current) clearTimeout(confirmTimer.current);
-      confirmTimer.current = setTimeout(() => setConfirmingDeleteId(null), 3000);
-      return;
-    }
-    setConfirmingDeleteId(null);
     try {
       await docStore.deleteChatSession({ userId: user.id }, sessionId);
       const next = sessions.filter((s) => s.id !== sessionId);
@@ -265,6 +254,16 @@ const AiPanel = () => {
       toast.error("删除会话失败");
     }
   };
+
+  // 重命名会话（历史会话列表的行内编辑）
+  const handleRenameSession = useCallback((sessionId: string, title: string) => {
+    if (!user) return;
+    setSessions((prev) => prev.map((s) => (s.id === sessionId ? { ...s, title } : s)));
+    docStore.setChatSessionTitle({ userId: user.id }, sessionId, title).catch(() => {
+      toast.error("重命名失败");
+      refreshSessions();
+    });
+  }, [user, docStore, refreshSessions]);
 
   // ---- 发送与 SSE 事件消费 ----
 
@@ -407,6 +406,7 @@ const AiPanel = () => {
   // 输入框发送入口：流式进行中则入队排队（记录会话快照），结束后自动发送
   const handleSend = (content: string) => {
     if (!content || !activeSessionId) return;
+    recallIndexRef.current = -1;
 
     if (streamingRef.current) {
       const item = createQueuedMessage(content, activeSessionId);
@@ -417,6 +417,15 @@ const AiPanel = () => {
 
     void sendMessageRef.current(content, activeSessionId);
   };
+
+  // 输入框为空时按 ↑：召回本会话最近发过的消息（最新的在前，可连续往回走）
+  const recallIndexRef = useRef(-1);
+  const handleRecall = useCallback(() => {
+    const history = recentUserMessages(turnsRef.current);
+    const next = stepRecallIndex(recallIndexRef.current, history.length, -1);
+    recallIndexRef.current = next;
+    if (next >= 0 && history[next]) mentionRef.current?.setText(history[next]);
+  }, []);
 
   // 终止当前流式生成（服务端通过 abortSignal 同步中断）
   const handleStop = useCallback(() => {
@@ -598,41 +607,14 @@ const AiPanel = () => {
                 <History className="h-4 w-4" />
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="max-h-80 w-64 overflow-y-auto">
-              {sessions.length === 0 && (
-                <div className="px-2 py-1.5 text-xs text-shell-label-tertiary">暂无历史会话</div>
-              )}
-              {sessions.map((s) => (
-                <DropdownMenuItem
-                  key={s.id}
-                  onClick={() => setActiveSessionId(s.id)}
-                  className="flex cursor-pointer items-center gap-2"
-                >
-                  <MessageSquare className="h-3.5 w-3.5 shrink-0 text-shell-label-tertiary" />
-                  <span className="min-w-0 flex-1 truncate">{s.title}</span>
-                  {s.id === activeSessionId && <Check className="h-3.5 w-3.5 shrink-0 text-shell-accent" />}
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      void handleDeleteSession(s.id);
-                    }}
-                    className={cn(
-                      "shrink-0 cursor-pointer rounded p-0.5 hover:bg-destructive/10 hover:text-destructive",
-                      confirmingDeleteId === s.id
-                        ? "bg-destructive/10 text-destructive"
-                        : "text-shell-label-tertiary"
-                    )}
-                    title={confirmingDeleteId === s.id ? "再次点击确认删除" : "删除会话"}
-                  >
-                    {confirmingDeleteId === s.id ? (
-                      <span className="px-0.5 text-[10px] font-medium">确认?</span>
-                    ) : (
-                      <Trash2 className="h-3.5 w-3.5" />
-                    )}
-                  </button>
-                </DropdownMenuItem>
-              ))}
+            <DropdownMenuContent align="end" className="w-72 p-0">
+              <SessionMenu
+                sessions={sessions}
+                activeSessionId={activeSessionId}
+                onSelect={(id) => setActiveSessionId(id)}
+                onRename={handleRenameSession}
+                onDelete={(id) => void handleDeleteSession(id)}
+              />
             </DropdownMenuContent>
           </DropdownMenu>
           <button
@@ -758,6 +740,7 @@ const AiPanel = () => {
             onSubmit={handleSend}
             onEmptyChange={setInputEmpty}
             onEscape={loading ? handleStop : undefined}
+            onRecall={handleRecall}
             placeholder={loading ? "正在生成，输入后自动排队发送..." : "输入你的问题，@ 可提及文档..."}
             className="px-1 pt-2.5"
           />

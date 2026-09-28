@@ -13,7 +13,9 @@ export type MentionKeyAction =
   | { kind: "select" }
   | { kind: "close" }
   | { kind: "escape" }
-  | { kind: "submit" };
+  | { kind: "submit" }
+  /** 空输入时按 ↑：召回上一条用户消息 */
+  | { kind: "recall" };
 
 export interface MentionKeyInput {
   key: string;
@@ -23,6 +25,8 @@ export interface MentionKeyInput {
   mentionOpen: boolean;
   /** 当前 @ 候选条数（0 时 Enter 应该发送而不是"选中"） */
   itemCount: number;
+  /** 输入框是否为空（空输入时 ↑ 召回历史） */
+  empty?: boolean;
 }
 
 /** 键盘意图（纯函数：可单测，不碰 DOM） */
@@ -34,6 +38,9 @@ export function resolveMentionKey(input: MentionKeyInput): MentionKeyAction {
     if (input.key === "ArrowUp") return { kind: "highlight", delta: -1 };
     if (input.key === "Enter") return { kind: "select" };
   }
+
+  // 空输入按 ↑ → 召回上一条用户消息（聊天界面的通用约定）
+  if (input.key === "ArrowUp" && input.empty) return { kind: "recall" };
 
   if (input.key === "Escape") {
     return input.mentionOpen ? { kind: "close" } : { kind: "escape" };

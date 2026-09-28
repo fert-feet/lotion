@@ -162,7 +162,6 @@ const DOC_STORE_METHODS = [
  */
 const HOST_ONLY_METHODS = [
   "insertChatMessage",
-  "setChatSessionTitle",
   "touchChatSession",
 ] as const satisfies readonly (keyof DocStore)[];
 

@@ -4,8 +4,10 @@ import { getDb } from "@/lib/local/sqlite";
 import {
   createChatSession,
   deleteChatSession,
+  getChatSession,
   listChatHistory,
   listChatSessions,
+  setChatSessionTitle,
 } from "@/lib/local/db";
 import { readJson, type AppEnv } from "../http";
 import { requireAuth } from "../middleware";
@@ -27,6 +29,22 @@ chatRoutes.post("/", async (c) => {
   const title = parsed.ok ? parsed.data.title : undefined; // body 非法时按默认标题创建（与原实现一致）
   const id = createChatSession(getDb(), user.id, title || "新对话");
   return c.json({ id });
+});
+
+/** PATCH /api/chat/sessions/:sessionId —— 重命名会话（标题 ≤ 60 字） */
+chatRoutes.patch("/:sessionId", async (c) => {
+  const user = c.get("user");
+  const sessionId = c.req.param("sessionId");
+  const parsed = await readJson<{ title?: string }>(c);
+  if (!parsed.ok) return c.json({ error: "请求体不是合法 JSON" }, 400);
+  const title = parsed.data.title?.trim();
+  if (!title) return c.json({ error: "title 必填" }, 400);
+  if (title.length > 60) return c.json({ error: "标题不能超过 60 字" }, 400);
+
+  const db = getDb();
+  if (!getChatSession(db, user.id, sessionId)) return c.json({ error: "Session not found" }, 404);
+  setChatSessionTitle(db, user.id, sessionId, title);
+  return c.json({ ok: true, title });
 });
 
 /** DELETE /api/chat/sessions/:sessionId —— 删除会话（消息级联删除） */

@@ -63,9 +63,9 @@ describe("lib/seams/doc-store 装配校验", () => {
   it("UI 子集装配：只要求浏览器可实现的方法（宿主独有的写操作不参与校验）", async () => {
     const ctx = createRootContext();
     const uiStore = fakeStore();
-    // 故意删掉宿主独有的三个方法：UI 侧装配仍应成功
+    // 故意删掉宿主独有的两个方法：UI 侧装配仍应成功
+    // （setChatSessionTitle 不在其中：重命名会话是 UI 功能，浏览器经 REST 实现）
     delete (uiStore as unknown as Record<string, unknown>).insertChatMessage;
-    delete (uiStore as unknown as Record<string, unknown>).setChatSessionTitle;
     delete (uiStore as unknown as Record<string, unknown>).touchChatSession;
 
     provideUiDocStore(ctx, uiStore);

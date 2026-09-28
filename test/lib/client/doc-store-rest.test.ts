@@ -158,7 +158,8 @@ describe("lib/client/doc-store-rest 装配", () => {
     const store = createRestDocStore() as unknown as Record<string, unknown>;
 
     expect(store.insertChatMessage).toBeUndefined();
-    expect(store.setChatSessionTitle).toBeUndefined();
     expect(store.touchChatSession).toBeUndefined();
+    // 重命名会话是 UI 功能（浏览器经 PATCH /api/chat/sessions/:id 实现），不在宿主独有之列
+    expect(typeof store.setChatSessionTitle).toBe("function");
   });
 });

@@ -20,6 +20,7 @@ import {
   getSearch,
   getSidebar,
   getSidebarAll,
+  setChatSessionTitle,
   getTrash,
   move,
   prefetchById,
@@ -117,6 +118,9 @@ export function createRestDocStore(): UiDocStore {
     },
     async deleteChatSession(_actor, sessionId: string) {
       await deleteChatSession("", sessionId);
+    },
+    async setChatSessionTitle(_actor, sessionId: string, title: string) {
+      await setChatSessionTitle(sessionId, title);
     },
     async undoAiChanges(_actor, requestId: string) {
       const { restored, skipped } = await undoAiChanges(requestId);

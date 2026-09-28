@@ -24,6 +24,8 @@ interface MentionInputProps {
   onEmptyChange?: (empty: boolean) => void;
   /** Esc（@ 菜单未打开时）：用于"停止生成"这类面板级快捷键 */
   onEscape?: () => void;
+  /** 空输入时按 ↑：召回上一条消息（由面板决定召回什么） */
+  onRecall?: () => void;
   placeholder?: string;
   className?: string;
   ref?: React.Ref<MentionInputHandle>;
@@ -43,6 +45,7 @@ export default function MentionInput({
   onSubmit,
   onEmptyChange,
   onEscape,
+  onRecall,
   placeholder,
   className,
   ref,
@@ -55,6 +58,8 @@ export default function MentionInput({
   const [mentionOpen, setMentionOpen] = useState(false);
   const [mentionQuery, setMentionQuery] = useState("");
   const [highlightIndex, setHighlightIndex] = useState(0);
+  // 输入框空状态（供 ↑ 召回判定，不走 state 以免每次击键重渲）
+  const emptyRef = useRef(true);
 
   // 文档列表（@ 选择的数据源）：依赖 sidebarKey——新建/删除/归档/AI 创建文档等
   // 任何触发侧边栏刷新的操作都会递增它，保证 @ 列表及时拿到新文档
@@ -82,7 +87,9 @@ export default function MentionInput({
   const handleInput = useCallback(() => {
     const el = editorRef.current;
     if (!el) return;
-    onEmptyChange?.(!el.textContent?.trim());
+    const empty = !el.textContent?.trim();
+    emptyRef.current = empty;
+    onEmptyChange?.(empty);
 
     const sel = window.getSelection();
     if (!sel || sel.rangeCount === 0) return closeMention();
@@ -141,6 +148,7 @@ export default function MentionInput({
     sel?.addRange(range);
 
     setMentionOpen(false);
+    emptyRef.current = false;
     onEmptyChange?.(false);
     el.focus();
   }, [onEmptyChange]);
@@ -155,6 +163,7 @@ export default function MentionInput({
     onSubmit(text);
     if (editorRef.current) editorRef.current.innerHTML = "";
     setMentionOpen(false);
+    emptyRef.current = true;
     onEmptyChange?.(true);
     editorRef.current?.focus();
   }, [onSubmit, onEmptyChange, serialize]);
@@ -182,7 +191,9 @@ export default function MentionInput({
         el.appendChild(chip);
       }
       setMentionOpen(false);
-      onEmptyChange?.(!el.textContent?.trim());
+      const empty = !el.textContent?.trim();
+      emptyRef.current = empty;
+      onEmptyChange?.(empty);
       el.focus();
     },
     [onEmptyChange],
@@ -200,6 +211,7 @@ export default function MentionInput({
         isComposing: e.nativeEvent.isComposing,
         mentionOpen,
         itemCount: filtered.length,
+        empty: emptyRef.current,
       });
 
       switch (action.kind) {
@@ -224,6 +236,10 @@ export default function MentionInput({
         case "escape":
           onEscape?.();
           return;
+        case "recall":
+          e.preventDefault();
+          onRecall?.();
+          return;
         case "submit":
           e.preventDefault();
           submit();
@@ -232,7 +248,7 @@ export default function MentionInput({
           return;
       }
     },
-    [mentionOpen, filtered, highlightIndex, insertMention, closeMention, submit, onEscape]
+    [mentionOpen, filtered, highlightIndex, insertMention, closeMention, submit, onEscape, onRecall]
   );
 
   return (

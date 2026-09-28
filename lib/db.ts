@@ -177,6 +177,15 @@ export async function update(
   docCache.delete(id); // 使缓存失效，下次 getById 重新拉取
 }
 
+/** 重命名 AI 会话（AI 面板的历史会话列表） */
+export async function setChatSessionTitle(sessionId: string, title: string) {
+  await api(`/api/chat/sessions/${sessionId}`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ title }),
+  });
+}
+
 /**
  * 撤销某一轮 AI 请求对文档的隐式改动（AI 面板「撤销本次改动」）。
  */
