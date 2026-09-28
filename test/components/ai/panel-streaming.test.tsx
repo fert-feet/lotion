@@ -59,6 +59,23 @@ function mockApi(options: { streamDelayMs?: number; draftNoteId?: string } = {})
         calls.push({ url, method, body: String(init?.body ?? "") });
         return json({ ok: true });
       }
+      if (url.includes("/api/documents/draft-")) {
+        // 新建的草稿文档：内容在创建时就已写入（跳过去就能看）
+        return json({
+          id: url.split("/").pop(),
+          title: "AI 草稿",
+          userId: "u1",
+          isArchived: false,
+          isDraft: true,
+          parentDocument: null,
+          content: "草稿正文内容",
+          coverImage: null,
+          icon: null,
+          isPublished: false,
+          createdAt: "",
+          updatedAt: "",
+        });
+      }
       if (url.includes("/api/ai/chat")) {
         const events = [
           { type: "turn_start", turn: 1, startedAt: new Date().toISOString() },
@@ -268,5 +285,25 @@ describe("AI 草稿在对话栏内确认", () => {
       true,
     );
     expect(container.textContent ?? "").toContain("已丢弃草稿「AI 草稿」");
+  });
+});
+
+describe("新建后的流程：跳转查看 → 再确认保存", () => {
+  it("note_created 后自动跳到新文档，对话卡片同时可确认（内容此时已可见）", async () => {
+    mockApi({ draftNoteId: "draft-9" });
+    const router = await mountPanel();
+    await sendMessage("帮我写一篇笔记");
+    // 等跳转延迟（500ms）+ 文档页拉取
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 700));
+    });
+
+    expect(router.state.location.pathname, "建完应跳到新文档让用户查看").toBe(
+      "/documents/draft-9",
+    );
+    const text = container.textContent ?? "";
+    expect(text, "新文档的标题应已可见（不需要先点保存）").toContain("AI 草稿");
+    expect(text, "确认卡片仍应同屏可见").toContain("已创建草稿「AI 草稿」");
+    expect(text).toContain("确认保存");
   });
 });

@@ -49,6 +49,9 @@ const STICK_THRESHOLD_PX = 80;
 /** 历史分页大小（每次「加载更早」再多拉这么多条） */
 const HISTORY_PAGE = 40;
 
+/** AI 建完笔记后跳转的延迟：让本轮叙述先落屏，再带用户去看新文档 */
+const NAVIGATE_DELAY_MS = 500;
+
 const AiPanel = () => {
   const docStore = useDocStore();
   const actor = useActor();
@@ -393,6 +396,9 @@ const AiPanel = () => {
     setLoading(true);
     stickToBottomRef.current = true;
 
+    // 本轮已自动跳转过新建文档（只跳第一篇，避免连续创建时来回跳）
+    let hasNavigated = false;
+
     const controller = new AbortController();
     abortRef.current = controller;
     /** 本请求是否仍归自己所有（切会话会把 abortRef 置空） */
@@ -441,11 +447,15 @@ const AiPanel = () => {
             triggerDocument(effect.noteId);
             triggerSidebar();
           } else if (effect.kind === "note_created") {
-            // 不再 800ms 后强制跳转（会打断正在阅读/输入的用户）：给一个可点的 toast；
-            // 确认动作在对话卡片上完成（打开 / 丢弃 / 确认保存）
-            toast.success(`已生成草稿「${effect.title || "无标题"}」，在对话里确认保存或丢弃`, {
-              action: { label: "打开", onClick: () => navigate("/documents/" + effect.noteId) },
-            });
+            // 建完直接跳过去让用户**查看**（这是用户明确的流程要求：
+            // 新建 → 跳转查看 → 确认无误再点保存）。每轮只跳一次，避免多篇草稿来回跳。
+            // 确认卡片仍在对话栏里（保存 / 丢弃），跳转后两者同屏可见。
+            toast.success(`已生成草稿「${effect.title || "无标题"}」，确认无误后点「确认保存」`);
+            if (!hasNavigated) {
+              hasNavigated = true;
+              const noteId = effect.noteId;
+              window.setTimeout(() => navigate("/documents/" + noteId), NAVIGATE_DELAY_MS);
+            }
           }
         }
       };
