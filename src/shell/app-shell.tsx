@@ -33,9 +33,21 @@ function DetailsPanel() {
   return <>{panel ?? null}</>;
 }
 
-/** 详情列 grid item；宽度 0 时保持子树挂载（关闭不卸载）。 */
-function DetailsColumn(props: { children?: ReactNode }) {
-  return <div className="material-sidebar min-w-0 overflow-hidden border-l-[0.5px] border-shell-border">{props.children}</div>;
+/** 详情列 grid item；宽度 0 时保持子树挂载（关闭不卸载）。
+ *  `overlay`：让步链把 details 压成 0（窗口放不下三栏）时改为右侧浮层——
+ *  此时面板仍是同一个 React 位置，不重挂载、流式状态不丢（此前窄屏直接打不开 AI 面板）。 */
+function DetailsColumn(props: { children?: ReactNode; overlay?: boolean }) {
+  return (
+    <div
+      className={
+        props.overlay
+          ? "material-sidebar fixed inset-y-0 right-0 z-40 w-[min(440px,100vw)] min-w-0 overflow-hidden border-l-[0.5px] border-shell-border shadow-[var(--shadow-lg)]"
+          : "material-sidebar min-w-0 overflow-hidden border-l-[0.5px] border-shell-border"
+      }
+    >
+      {props.children}
+    </div>
+  );
 }
 
 /**
@@ -134,6 +146,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   const narrow = useLayout((s) => s.narrow);
   const narrowExpanded = useLayout((s) => s.narrowExpanded);
   const details = useLayout((s) => s.details);
+  const toggleDetails = useLayout((s) => s.toggleDetails);
+  const closeDetails = useLayout((s) => s.closeDetails);
   const frameRef = useRef<HTMLDivElement | null>(null);
   // SSR 水合安全：首渲用固定宽（与服务端一致），挂载后 ResizeObserver 立即校正真实宽度
   const [viewport, setViewport] = useState(1440);
@@ -148,6 +162,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   const cols = computeColumns(viewport, sidebarPreference, details === 0 ? 0 : details);
   const colsRef = useRef(cols);
   colsRef.current = cols;
+  /** 用户期望打开 details，但让步链把它压成了 0（窗口太窄）→ 用浮层承载 */
+  const detailsOverlay = details > 0 && cols.details === 0;
 
   // 跟踪 frame 自身盒宽（非窗口）：rAF 节流 ResizeObserver。
   useEffect(() => {
@@ -167,6 +183,18 @@ export function AppShell({ children }: { children: ReactNode }) {
       if (raf !== null) cancelAnimationFrame(raf);
     };
   }, []);
+
+  // ⌘J / Ctrl+J：开合右侧 AI 面板（对齐 DSH 的 details 列快捷键）
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "j") {
+        e.preventDefault();
+        toggleDetails();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [toggleDetails]);
 
   // 拖拽基准：抓取时定格当前渲染宽，整个手势期间冻结，dx 不叠加。
   const sidebarBase = useRef(0);
@@ -205,7 +233,17 @@ export function AppShell({ children }: { children: ReactNode }) {
         </main>
       </CenterColumn>
 
-      <DetailsColumn>
+      {/* 让步链放不下三栏（details 被压成 0）但用户期望打开时：浮层呈现 + 点击遮罩关闭。
+          面板仍在同一 React 位置 → 不重挂载，流式状态与草稿都保留。 */}
+      {detailsOverlay && (
+        <div
+          className="fixed inset-0 z-30 bg-black/20"
+          onClick={closeDetails}
+          aria-hidden="true"
+        />
+      )}
+
+      <DetailsColumn overlay={detailsOverlay}>
         {/* 详情列内容由 UI 插件贡献（当前是 ui-ai-panel）；0 宽时仅视觉关闭、不卸载 */}
         <DetailsPanel />
       </DetailsColumn>

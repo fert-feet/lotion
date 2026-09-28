@@ -1,9 +1,11 @@
 "use client";
 
 // AI 面板（details 列）——DSH 风格 turn 时间线：
-// 一轮用户输入 = 一个 Turn（用户气泡 + 工具卡片序列 + 文档副作用卡片 + 叙述 + 引用 + footer），
-// SSE 事件按 turn 归组渲染，工具生命周期以卡片呈现（running → done/error）。
-import { useEffect, useRef, useState } from "react";
+// 一轮用户输入 = 一个 Turn（用户气泡 + 有序 part 序列 + 引用 + footer），
+// SSE 事件按到达顺序归组渲染（状态流转见 ./ai/turn-reducer.ts，纯逻辑已抽出去可测）。
+//
+// 本组件只负责 I/O 与编排：请求生命周期、队列调度、滚动、确认/提问的回填。
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { Bot, Check, History, Loader2, MessageSquare, Plus, Send, Sparkles, Square, Trash2, X } from "@/components/icons";
 import { toast } from "sonner";
@@ -20,8 +22,23 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { createTurn, type SseEvent, type Turn } from "./ai/types";
+import { createTurn, type Question, type SseEvent, type Turn } from "./ai/types";
+import {
+  applyTurnEvent,
+  createQueuedMessage,
+  enqueue,
+  finalizeTurn,
+  markNoteResolved,
+  markQuestionAnswered,
+  rebuildTurns,
+  removeQueueAt,
+  takeNextForSession,
+  type QueuedMessage,
+} from "./ai/turn-reducer";
 import { TurnView } from "./ai/turn";
+
+/** 粘底判定阈值：距底小于该值就算"跟到底部" */
+const STICK_THRESHOLD_PX = 80;
 
 const AiPanel = () => {
   const docStore = useDocStore();
@@ -43,25 +60,18 @@ const AiPanel = () => {
 
   // ---- turn 时间线 ----
   const [turns, setTurns] = useState<Turn[]>([]);
-  // 当前流式回合（SSE 事件直接改该对象，commit 触发渲染）
+  // 当前流式回合（reducer 就地改该对象，commit 触发渲染）
   const currentTurnRef = useRef<Turn | null>(null);
   // 流式文本 rAF 节流
   const textRaf = useRef<number | null>(null);
-  const commitText = () => {
-    if (textRaf.current !== null) return;
-    textRaf.current = requestAnimationFrame(() => {
-      textRaf.current = null;
-      setTurns((prev) => [...prev]);
-    });
-  };
-  // 立即提交（工具/副作用事件）
-  const commit = () => setTurns((prev) => [...prev]);
+  // 卸载守卫：rAF / fetch 回调可能在组件卸载后落地
+  const mountedRef = useRef(true);
 
   // 流式请求控制：当前是否在生成、终止用 AbortController、待发送队列（含会话快照）
   const streamingRef = useRef(false);
   const abortRef = useRef<AbortController | null>(null);
-  const queueRef = useRef<Array<{ content: string; sessionId: string }>>([]);
-  const [queueItems, setQueueItems] = useState<Array<{ content: string; sessionId: string }>>([]);
+  const queueRef = useRef<QueuedMessage[]>([]);
+  const [queueItems, setQueueItems] = useState<QueuedMessage[]>([]);
   const [inputEmpty, setInputEmpty] = useState(true);
   const [loading, setLoading] = useState(false);
   const mentionRef = useRef<MentionInputHandle>(null);
@@ -70,6 +80,43 @@ const AiPanel = () => {
   activeSessionRef.current = activeSessionId;
 
   const userId = user?.id;
+
+  /** 立即提交（工具/副作用事件） */
+  const commit = useCallback(() => {
+    if (mountedRef.current) setTurns((prev) => [...prev]);
+  }, []);
+
+  /** 流式文本提交（每帧最多一次） */
+  const commitText = useCallback(() => {
+    if (textRaf.current !== null) return;
+    textRaf.current = requestAnimationFrame(() => {
+      textRaf.current = null;
+      commit();
+    });
+  }, [commit]);
+
+  // 卸载收尾：取消飞行中的 rAF 与确认计时器（原实现在已卸载组件上 setState 且计时器泄漏）
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      if (textRaf.current !== null) cancelAnimationFrame(textRaf.current);
+      if (confirmTimer.current) clearTimeout(confirmTimer.current);
+    };
+  }, []);
+
+  // ---- 发送（先声明 ref，供队列调度与稳定回调引用最新闭包）----
+  const sendMessageRef = useRef<(content: string, sessionId: string) => Promise<void>>(async () => {});
+
+  /** 队列调度：只取**当前激活会话**的待发消息（切会话绝不把旧会话的消息发出去） */
+  const drainQueue = useCallback(() => {
+    if (streamingRef.current) return;
+    const { item, rest } = takeNextForSession(queueRef.current, activeSessionRef.current);
+    if (!item) return;
+    queueRef.current = rest;
+    if (mountedRef.current) setQueueItems(rest);
+    setTimeout(() => { void sendMessageRef.current(item.content, item.sessionId); }, 60);
+  }, []);
 
   // 初始化：加载会话列表；无会话时自动创建一个（全局对话，不绑定文档）
   useEffect(() => {
@@ -109,43 +156,54 @@ const AiPanel = () => {
     docStore.listChatHistory({ userId }, activeSessionId)
       .then((msgs) => {
         if (!alive) return;
-        // 扁平消息 → 成对重组为 turn（user 开头，assistant 归入上一个 turn）
-        const rebuilt: Turn[] = [];
-        let current: Turn | null = null;
-        for (const m of msgs) {
-          if (m.role === "user") {
-            current = createTurn(m.content);
-            rebuilt.push(current);
-          } else if (current) {
-            current.text = m.content;
-            current.status = "done";
-            current.durationMs = 0;
-          }
-        }
-        setTurns(rebuilt);
+        setTurns(rebuildTurns(msgs));
       })
       .catch(() => {
         // 历史拉取失败不阻塞，保持空对话
+      })
+      .finally(() => {
+        // 回到本会话时把属于它的排队消息接着发出去（另一端 drainQueue 只在发送结束时调度）
+        if (alive) drainQueue();
       });
     return () => { alive = false; };
-  }, [userId, activeSessionId, docStore]);
+  }, [userId, activeSessionId, docStore, drainQueue]);
 
-  // 每次打开面板都滚到最新（关闭时 state 保留）
+  // ---- 滚动：粘底才跟随（原来无条件 scrollTo 底部，用户上翻读历史会被每帧打断）----
   const messagesRef = useRef<HTMLDivElement>(null);
+  const stickToBottomRef = useRef(true);
+  const [showJumpToBottom, setShowJumpToBottom] = useState(false);
+
+  const scrollToBottom = useCallback((smooth = false) => {
+    const el = messagesRef.current;
+    if (!el) return;
+    el.scrollTo({ top: el.scrollHeight, behavior: smooth ? "smooth" : "auto" });
+    stickToBottomRef.current = true;
+    setShowJumpToBottom(false);
+  }, []);
+
+  const onMessagesScroll = useCallback(() => {
+    const el = messagesRef.current;
+    if (!el) return;
+    const distance = el.scrollHeight - el.scrollTop - el.clientHeight;
+    const atBottom = distance < STICK_THRESHOLD_PX;
+    stickToBottomRef.current = atBottom;
+    setShowJumpToBottom((prev) => (prev === !atBottom ? prev : !atBottom));
+  }, []);
+
+  // 打开面板 / 新内容落地时，只有"仍贴底"才自动跟随，否则显示"回到底部"
   useEffect(() => {
-    if (detailsOpen) {
-      messagesRef.current?.scrollTo(0, messagesRef.current.scrollHeight);
-    }
-  }, [detailsOpen, turns]);
+    if (!detailsOpen) return;
+    if (stickToBottomRef.current) scrollToBottom();
+  }, [detailsOpen, turns, scrollToBottom]);
 
   // ---- 会话操作 ----
 
-  const refreshSessions = () => {
+  const refreshSessions = useCallback(() => {
     if (!user) return;
     docStore.listChatSessions({ userId: user.id })
-      .then(setSessions)
+      .then((list) => { if (mountedRef.current) setSessions(list); })
       .catch(() => {});
-  };
+  }, [user, docStore]);
 
   const handleNewSession = async () => {
     if (!user) return;
@@ -193,12 +251,15 @@ const AiPanel = () => {
       toast.error("删除会话失败");
     }
   };
+
   // ---- 发送与 SSE 事件消费 ----
 
   // 真正发起请求：首次发送与队列调度共用（不检查 loading，由 streamingRef 保证不并发）。
   // sessionId 为发起时快照：队列中的消息即使期间切换会话，仍发到入队时的会话。
   const sendMessage = async (content: string, sessionId: string) => {
     if (!content || !sessionId) return;
+    // 归属防御：只允许为当前激活会话发请求（队列取件已按会话过滤，这里是兜底）
+    if (activeSessionRef.current !== sessionId) return;
     streamingRef.current = true;
 
     // 新建 turn 并挂为当前流式回合
@@ -206,11 +267,14 @@ const AiPanel = () => {
     currentTurnRef.current = turn;
     setTurns((prev) => [...prev, turn]);
     setLoading(true);
+    stickToBottomRef.current = true;
 
     const controller = new AbortController();
     abortRef.current = controller;
-
-    let hasNavigated = false; // note_created 自动跳转只执行一次
+    /** 本请求是否仍归自己所有（切会话会把 abortRef 置空） */
+    const owned = () => abortRef.current === controller;
+    /** 当前会话是否仍是发起时的会话 */
+    const stillActive = () => activeSessionRef.current === sessionId;
 
     try {
       const response = await fetch("/api/ai/chat", {
@@ -220,6 +284,7 @@ const AiPanel = () => {
           prompt: content,
           sessionId,
           requestId: crypto.randomUUID(), // 服务端幂等，防重复提交
+          documentId: params.documentId, // 当前文档上下文（服务端注入 system）
         }),
         signal: controller.signal, // 终止按钮 abort 此请求
       });
@@ -235,100 +300,28 @@ const AiPanel = () => {
       const decoder = new TextDecoder();
       let buffer = "";
 
-      // SSE 事件分发：事件按 turn 归组（工具卡片 / 副作用卡片 / 引用 / footer）
+      // SSE 事件分发：一律交给 reducer（顺序、去重、状态流转都在那里）
       const handleEvent = (event: SseEvent) => {
         const t = currentTurnRef.current;
-        if (!t) return;
-        switch (event.type) {
-          case "turn_start":
-            break; // turn 已在发送时创建
-          case "text":
-            t.text += event.text;
-            commitText();
-            break;
-          case "tool_start":
-            t.tools.push({
-              seq: event.seq,
-              tool: event.tool,
-              label: event.label,
-              argsText: event.argsText,
-              state: "running",
-              summary: "",
-            });
-            commit();
-            break;
-          case "tool_end": {
-            const card = t.tools.find((c) => c.seq === event.seq);
-            if (card) {
-              card.state = event.ok ? "done" : "error";
-              card.summary = event.summary;
-            }
-            commit();
-            break;
-          }
-          case "note_created":
-            t.notes.push({ kind: "created", noteId: event.noteId, title: event.title });
-            commit();
-            if (!hasNavigated) {
-              hasNavigated = true;
-              setTimeout(() => {
-                navigate("/documents/" + event.noteId);
-              }, 800);
-            }
-            break;
-          case "note_modified":
-            t.notes.push({ kind: "modified", noteId: event.noteId, title: event.title });
-            commit();
-            triggerDocument(event.noteId);
+        if (!t || !owned() || !stillActive()) return;
+        const effects = applyTurnEvent(t, event);
+        // 文本走 rAF 节流，其余事件立即提交
+        if (event.type === "text") commitText();
+        else commit();
+        for (const effect of effects) {
+          if (effect.kind === "toast") {
+            if (effect.level === "warning") toast.warning(effect.message);
+            else toast.error(effect.message);
+          } else if (effect.kind === "note_modified") {
+            triggerDocument(effect.noteId);
             triggerSidebar();
-            break;
-          case "confirm_delete":
-            if (!t.notes.some((n) => n.kind === "delete_confirm" && !n.resolved)) {
-              t.notes.push({ kind: "delete_confirm", noteId: event.noteId, title: event.title, resolved: false });
-            }
-            commit();
-            break;
-          case "confirm_move":
-            if (!t.notes.some((n) => n.kind === "move_confirm" && !n.resolved)) {
-              t.notes.push({
-                kind: "move_confirm",
-                noteId: event.noteId,
-                title: event.title,
-                targetTitle: event.targetTitle,
-                toRoot: event.toRoot,
-                resolved: false,
-              });
-            }
-            commit();
-            break;
-          case "question":
-            t.questions = event.questions;
-            commit();
-            break;
-          case "todo_update":
-            t.todos = event.items;
-            commit();
-            break;
-          case "warning":
-            toast.warning(event.message);
-            break;
-          case "reference":
-            if (!t.references.some((r) => r.noteId === event.noteId)) {
-              t.references.push({ noteId: event.noteId, title: event.title });
-              commit();
-            }
-            break;
-          case "turn_end":
-            t.status = "done";
-            t.durationMs = event.durationMs;
-            t.tokens = event.tokens;
-            commit();
-            break;
-          case "error":
-            t.status = "error";
-            commit();
-            toast.error("AI 生成出错：" + event.message);
-            break;
+          } else if (effect.kind === "note_created") {
+            // 不再 800ms 后强制跳转（会打断正在阅读/输入的用户）：给一个可点的 toast，
+            // 卡片上的「打开」按钮也一直在
+            toast.success(`已创建「${effect.title || "无标题"}」`, {
+              action: { label: "打开", onClick: () => navigate("/documents/" + effect.noteId) },
+            });
+          }
         }
       };
 
@@ -343,101 +336,101 @@ const AiPanel = () => {
           buffer = buffer.slice(sep + 2);
           if (!raw.startsWith("data: ")) continue;
           try {
-            handleEvent(JSON.parse(raw.slice(6)));
+            handleEvent(JSON.parse(raw.slice(6)) as SseEvent);
           } catch {
             // 非 JSON 事件行直接忽略
           }
         }
+
+        // 会话已被切走：停止消费旧流，避免旧文本落进新会话
+        if (!owned() || !stillActive()) break;
       }
 
       // 流自然结束但未收到 turn_end（旧服务端/异常）：补一个 done 态
       const t = currentTurnRef.current;
-      if (t && t.status === "running") {
-        t.status = "done";
-        t.durationMs = Date.now() - t.createdAt;
+      if (t && owned() && t.status === "running") {
+        finalizeTurn(t, "done");
         commit();
       }
       refreshSessions(); // 刷新会话列表（首个问题会自动命名会话）
     } catch (err) {
+      const t = currentTurnRef.current;
       if (controller.signal.aborted) {
         // 用户主动停止（同一会话）：回合标记为 done，保留已生成的部分内容；
-        // 切换会话导致的中止（activeSessionId 已变）不处理，避免旧流污染新会话
-        const t = currentTurnRef.current;
-        if (t && activeSessionRef.current === sessionId) {
-          t.status = "done";
-          t.durationMs = Date.now() - t.createdAt;
+        // 切换会话导致的中止不处理，避免旧流污染新会话
+        if (t && stillActive()) {
+          finalizeTurn(t, "done");
           commit();
           toast.info("已停止生成");
         }
-      } else {
-        toast.error(
+      } else if (t && owned() && stillActive()) {
+        // 原实现只弹 toast，回合会永远停在"正在思考"（status 仍是 running）
+        finalizeTurn(
+          t,
+          "error",
           err instanceof Error && err.message === "DuplicateRequest"
             ? "请求已提交，请勿重复发送"
             : "AI 请求失败，请稍后再试",
         );
+        commit();
       }
     } finally {
-      // 归属校验：请求已被会话切换接管（abortRef 被置 null）时不调度队列/清理状态。
-      // 用 if 包裹而非 finally 内 return——finally 中的 return 会吞掉异常（no-unsafe-finally）。
-      if (abortRef.current === controller) {
+      // 归属校验：请求已被会话切换接管（abortRef 被置 null）时不清理状态、不调度队列
+      if (owned()) {
         streamingRef.current = false;
-        setLoading(false);
+        if (mountedRef.current) setLoading(false);
         abortRef.current = null;
-        // 队列调度：当前请求结束（正常/终止/失败）后自动发送下一条（含会话快照）
-        const next = queueRef.current.shift();
-        setQueueItems([...queueRef.current]);
-        if (next) {
-          setTimeout(() => sendMessage(next.content, next.sessionId), 60);
-        }
       }
+      if (!streamingRef.current) drainQueue();
     }
   };
+  sendMessageRef.current = sendMessage;
 
   // 输入框发送入口：流式进行中则入队排队（记录会话快照），结束后自动发送
   const handleSend = (content: string) => {
     if (!content || !activeSessionId) return;
 
     if (streamingRef.current) {
-      queueRef.current = [...queueRef.current, { content, sessionId: activeSessionId }];
-      setQueueItems([...queueRef.current]);
+      const item = createQueuedMessage(content, activeSessionId);
+      queueRef.current = enqueue(queueRef.current, item);
+      setQueueItems(queueRef.current);
       return;
     }
 
-    void sendMessage(content, activeSessionId);
+    void sendMessageRef.current(content, activeSessionId);
   };
 
   // 终止当前流式生成（服务端通过 abortSignal 同步中断）
-  const handleStop = () => {
+  const handleStop = useCallback(() => {
     abortRef.current?.abort();
-  };
+  }, []);
+
+  // 失败回合重试：把同一条用户输入作为新一轮发出
+  const handleRetry = useCallback((turn: Turn) => {
+    const sessionId = activeSessionRef.current;
+    if (!sessionId) return;
+    void sendMessageRef.current(turn.userContent, sessionId);
+  }, []);
 
   // 点击胶囊/引用跳转前先确认文档存在，已删除的文档提示而不跳转（避免 not found 页）
-  const openDocument = (id: string) => {
+  const openDocument = useCallback((id: string) => {
     docStore.getById(actor, id)
       .then(() => navigate("/documents/" + id))
       .catch(() => toast.error("文档不存在或已删除"));
-  };
+  }, [docStore, actor, navigate]);
 
-  // 删除确认：确认后真正删除并标记该卡片已解决
-  const markDeleteResolved = (noteId: string) => {
-    setTurns((prev) =>
-      prev.map((t) => ({
-        ...t,
-        notes: t.notes.map((n) =>
-          n.kind === "delete_confirm" && n.noteId === noteId ? { ...n, resolved: true } : n
-        ),
-      })),
-    );
-  };
+  // ---- 确认卡 / 提问卡的回填（稳定回调：TurnView 是 memo 的）----
 
-  const handleConfirmDelete = (noteId: string, title: string) => {
+  const markResolved = useCallback((kind: "delete_confirm" | "move_confirm", noteId: string) => {
+    setTurns((prev) => markNoteResolved(prev, kind, noteId));
+  }, []);
+
+  const handleConfirmDelete = useCallback((noteId: string, title: string) => {
     const promise = docStore.remove(actor, noteId).then(() => {
       triggerSidebar();
       // 如果当前正在查看被删除的文档，跳转到文档列表
-      if (params.documentId === noteId) {
-        navigate("/documents");
-      }
-      markDeleteResolved(noteId);
+      if (params.documentId === noteId) navigate("/documents");
+      markResolved("delete_confirm", noteId);
     });
 
     toast.promise(promise, {
@@ -445,66 +438,65 @@ const AiPanel = () => {
       success: "「" + title + "」已永久删除",
       error: "删除失败",
     });
-  };
+    // 失败时卡片保持待确认态（用户可重试）；同时保证调用方拿到的 promise 不产生未处理拒绝
+    return promise.then(() => undefined, () => undefined);
+  }, [docStore, actor, triggerSidebar, params.documentId, navigate, markResolved]);
 
-  const handleCancelDelete = (noteId: string) => {
-    markDeleteResolved(noteId);
+  const handleCancelDelete = useCallback((noteId: string) => {
+    markResolved("delete_confirm", noteId);
     toast.info("已取消删除");
-  };
+  }, [markResolved]);
 
-  // 移动确认（对齐 SiYuan 写操作确认）：确认后走 REST 真正移动并刷新
-  const markMoveResolved = (noteId: string) => {
-    setTurns((prev) =>
-      prev.map((t) => ({
-        ...t,
-        notes: t.notes.map((n) =>
-          n.kind === "move_confirm" && n.noteId === noteId ? { ...n, resolved: true } : n
-        ),
-      })),
-    );
-  };
-
-  const handleConfirmMove = (noteId: string, title: string, parentDocument: string | null) => {
+  const handleConfirmMove = useCallback((noteId: string, title: string, parentDocument: string | null) => {
     const promise = docStore.move(actor, noteId, parentDocument).then(() => {
       triggerSidebar();
       triggerDocument(noteId);
-      markMoveResolved(noteId);
+      markResolved("move_confirm", noteId);
     });
     toast.promise(promise, {
       loading: "正在移动「" + title + "」...",
       success: "「" + title + "」已移动",
       error: "移动失败",
     });
-  };
+    return promise.then(() => undefined, () => undefined);
+  }, [docStore, actor, triggerSidebar, triggerDocument, markResolved]);
 
-  const handleCancelMove = (noteId: string) => {
-    markMoveResolved(noteId);
+  const handleCancelMove = useCallback((noteId: string) => {
+    markResolved("move_confirm", noteId);
     toast.info("已取消移动");
-  };
+  }, [markResolved]);
 
   // 问题回答回传（对齐 SiYuan question 工具）：把用户选择拼接为新的用户消息发送，
-  // AI 在下一轮看到回答后继续执行
-  const handleQuestionAnswer = (question: string, answers: string[], customText?: string) => {
-    const parts = answers.filter(Boolean);
-    if (customText?.trim()) parts.push(customText.trim());
-    const content = parts.length > 0 ? `【回答】${question}\n${parts.join("；")}` : `【回答】${question}\n（用户未选择，跳过）`;
-    handleSend(content);
-  };
+  // AI 在下一轮看到回答后继续执行；卡片同时回填为"已回答"（不可重复提交）
+  const handleQuestionAnswer = useCallback(
+    (turnId: string, index: number, question: Question, answers: string[], customText?: string) => {
+      if (question.answered) return;
+      const parts = answers.filter(Boolean);
+      if (customText?.trim()) parts.push(customText.trim());
+      const answerText = parts.length > 0 ? parts.join("；") : "（未选择，跳过）";
+      setTurns((prev) => markQuestionAnswered(prev, turnId, index, answerText));
+      handleSend(`【回答】${question.question}\n${answerText}`);
+    },
+    // handleSend 每次渲染都会重建，但只捕获 ref/state，语义稳定；这里刻意不依赖它
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
 
   // 移除/清空队列
   const removeFromQueue = (index: number) => {
-    queueRef.current = queueRef.current.filter((_, i) => i !== index);
-    setQueueItems([...queueRef.current]);
+    queueRef.current = removeQueueAt(queueRef.current, index);
+    setQueueItems(queueRef.current);
   };
 
   const clearQueue = () => {
     queueRef.current = [];
     setQueueItems([]);
   };
+
   // ---- 渲染：DSH DetailsPanel 头部 + turn 时间线 + 悬浮输入卡 ----
 
   return (
-    <aside className="flex h-full min-w-0 flex-col overflow-hidden">
+    <aside className="flex h-full min-w-0 flex-col overflow-hidden" aria-label="AI 文档助手">
       {/* 头部：pad 14/12/12/12，标题 14/20 wt500，28px 圆形操作 */}
       <div className="flex shrink-0 items-center justify-between gap-2 border-b-[0.5px] border-shell-border px-2.5 py-2">
         <div className="flex min-w-0 items-center gap-2">
@@ -586,7 +578,11 @@ const AiPanel = () => {
       </div>
 
       {/* turn 时间线：唯一滚动区 + 底部渐变 fade */}
-      <div ref={messagesRef} className="relative min-h-0 flex-1 overflow-y-auto">
+      <div
+        ref={messagesRef}
+        onScroll={onMessagesScroll}
+        className="relative min-h-0 flex-1 overflow-y-auto"
+      >
         <div className="flex min-h-full flex-col gap-4 px-3.5 py-4">
           {turns.length === 0 && !loading && (
             <div className="flex flex-1 flex-col items-center justify-center gap-4 pb-16 text-center">
@@ -596,9 +592,9 @@ const AiPanel = () => {
               <div className="space-y-1.5">
                 <p className="text-[22px] font-semibold leading-7 tracking-[-0.02em] text-shell-label-primary">你好，我是你的文档助手</p>
                 <p className="text-[13px] leading-5 text-shell-label-tertiary">
-                  帮你撰写、整理和管理笔记。
+                  我可以帮你搜索、撰写、改写和整理笔记。
                   <br />
-                  写新笔记时我会直接创建草稿，你确认或丢弃即可。
+                  改动会写进文档，「删除」这类破坏性操作会先问你确认。
                 </p>
               </div>
             </div>
@@ -614,10 +610,20 @@ const AiPanel = () => {
               onConfirmMove={handleConfirmMove}
               onCancelMove={handleCancelMove}
               onAnswerQuestion={handleQuestionAnswer}
+              onRetry={handleRetry}
             />
           ))}
         </div>
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-9 bg-gradient-to-t from-shell-bg-base to-transparent" />
+        {showJumpToBottom && (
+          <button
+            type="button"
+            onClick={() => scrollToBottom(true)}
+            className="material-popover absolute bottom-3 left-1/2 z-10 flex h-7 -translate-x-1/2 cursor-pointer items-center gap-1 rounded-full border-[0.5px] border-shell-border-l2 px-3 text-xs font-medium text-shell-label-secondary shadow-[var(--shadow-md)] transition-colors hover:text-shell-label-primary"
+          >
+            回到底部
+          </button>
+        )}
       </div>
 
       {/* 悬浮输入卡 */}
@@ -639,10 +645,15 @@ const AiPanel = () => {
             <div className="max-h-28 space-y-1 overflow-y-auto">
               {queueItems.map((item, index) => (
                 <div
-                  key={index + "-" + item.content}
+                  key={item.id}
                   className="flex items-center gap-2 rounded-md bg-shell-bg-base/70 px-2 py-1"
                 >
                   <span className="min-w-0 flex-1 truncate text-xs text-shell-label-primary/80">{item.content}</span>
+                  {item.sessionId !== activeSessionId && (
+                    <span className="shrink-0 rounded bg-shell-row-active px-1 text-[10px] text-shell-label-tertiary">
+                      其他会话
+                    </span>
+                  )}
                   <button
                     type="button"
                     onClick={() => removeFromQueue(index)}
@@ -662,6 +673,7 @@ const AiPanel = () => {
             ref={mentionRef}
             onSubmit={handleSend}
             onEmptyChange={setInputEmpty}
+            onEscape={loading ? handleStop : undefined}
             placeholder={loading ? "正在生成，输入后自动排队发送..." : "输入你的问题，@ 可提及文档..."}
             className="px-1 pt-2.5"
           />
@@ -670,15 +682,16 @@ const AiPanel = () => {
               {loading ? (
                 <>
                   <Loader2 className="h-3 w-3 animate-spin" />
-                  <span className="truncate">正在生成…</span>
+                  <span className="truncate">正在生成…（Esc 停止）</span>
                 </>
               ) : (
-                <span className="truncate">@ 可提及文档</span>
+                <span className="truncate">@ 可提及文档 · Enter 发送 / Shift+Enter 换行</span>
               )}
             </div>
             <button
               type="button"
               title={loading ? "停止生成" : "发送"}
+              aria-label={loading ? "停止生成" : "发送"}
               onClick={loading ? handleStop : () => mentionRef.current?.submit()}
               disabled={!loading && inputEmpty}
               className="flex h-7 w-7 flex-none cursor-pointer items-center justify-center rounded-full bg-primary text-primary-foreground transition-all duration-150 hover:bg-[color-mix(in_srgb,var(--primary)_88%,black)] active:scale-95 disabled:cursor-default disabled:opacity-35"

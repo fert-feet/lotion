@@ -6,6 +6,7 @@ import type { SidebarDocument } from "@/lib/seams/doc-store";
 import { useDocStore } from "@/src/kernel/react";
 import { truncateMentionTitle } from "@/lib/mention";
 import { FileText } from "@/components/icons";
+import { resolveMentionKey, serializeMentionEditor } from "./mention-input-logic";
 import { useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 
@@ -19,6 +20,8 @@ interface MentionInputProps {
   onSubmit: (text: string) => void;
   /** 内容是否为空（供外部禁用发送按钮） */
   onEmptyChange?: (empty: boolean) => void;
+  /** Esc（@ 菜单未打开时）：用于"停止生成"这类面板级快捷键 */
+  onEscape?: () => void;
   placeholder?: string;
   className?: string;
   ref?: React.Ref<MentionInputHandle>;
@@ -31,11 +34,13 @@ const MENTION_TOKEN_RE = /@([\p{L}\p{N}_-]*)$/u;
  * 支持 @提及文档的胶囊输入框：
  * - 输入 @ 弹出文档选择列表，可继续输入过滤，↑↓/Enter/Esc 键盘操作
  * - 选中后以胶囊（标题 + 截断 id）插入，前后可继续输入自然语言
- * - 提交时序列化为 `[@标题](文档id)` 文本
+ * - Enter 发送、Shift+Enter 换行（多行草稿）；Esc 关闭菜单或触发面板级回调
+ * - 提交时序列化为 `[@标题](文档id)` 文本（<br>/<div> 换行还原为 \n）
  */
 export default function MentionInput({
   onSubmit,
   onEmptyChange,
+  onEscape,
   placeholder,
   className,
   ref,
@@ -138,23 +143,8 @@ export default function MentionInput({
     el.focus();
   }, [onEmptyChange]);
 
-  // 序列化：胶囊 → [@标题](id)，其余为纯文本
-  const serialize = useCallback((): string => {
-    const el = editorRef.current;
-    if (!el) return "";
-    let out = "";
-    const visit = (node: Node) => {
-      if (node.nodeType === Node.TEXT_NODE) {
-        out += node.textContent ?? "";
-      } else if (node instanceof HTMLElement && node.dataset.docId) {
-        out += `[@${node.dataset.docTitle}](${node.dataset.docId})`;
-      } else {
-        for (const child of Array.from(node.childNodes)) visit(child);
-      }
-    };
-    for (const child of Array.from(el.childNodes)) visit(child);
-    return out;
-  }, []);
+  // 序列化：胶囊 → [@标题](id)，<br>/块级元素换行 → \n，其余为纯文本
+  const serialize = useCallback((): string => serializeMentionEditor(editorRef.current), []);
 
   // 提交：序列化 → 回调 → 清空编辑器
   const submit = useCallback(() => {
@@ -172,37 +162,46 @@ export default function MentionInput({
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      if (e.nativeEvent.isComposing) return; // IME 组词中不拦截
+      // 键盘意图由纯函数判定（Enter 发送 / Shift+Enter 换行 / Esc 关菜单或交还面板）
+      const action = resolveMentionKey({
+        key: e.key,
+        shiftKey: e.shiftKey,
+        isComposing: e.nativeEvent.isComposing,
+        mentionOpen,
+        itemCount: filtered.length,
+      });
 
-      if (mentionOpen && filtered.length > 0) {
-        if (e.key === "ArrowDown") {
+      switch (action.kind) {
+        case "highlight":
           e.preventDefault();
-          setHighlightIndex((i) => Math.min(i + 1, filtered.length - 1));
+          setHighlightIndex((i) =>
+            action.delta === 1
+              ? Math.min(i + 1, filtered.length - 1)
+              : Math.max(i - 1, 0),
+          );
           return;
-        }
-        if (e.key === "ArrowUp") {
-          e.preventDefault();
-          setHighlightIndex((i) => Math.max(i - 1, 0));
-          return;
-        }
-        if (e.key === "Enter") {
+        case "select": {
           e.preventDefault();
           // 防御：clamp 后仍可能处于竞态窗口，取不到目标时忽略
           const target = filtered[Math.min(highlightIndex, filtered.length - 1)];
           if (target) insertMention(target);
           return;
         }
-      }
-      if (e.key === "Escape") {
-        closeMention();
-        return;
-      }
-      if (e.key === "Enter") {
-        e.preventDefault();
-        submit();
+        case "close":
+          closeMention();
+          return;
+        case "escape":
+          onEscape?.();
+          return;
+        case "submit":
+          e.preventDefault();
+          submit();
+          return;
+        case "ignore":
+          return;
       }
     },
-    [mentionOpen, filtered, highlightIndex, insertMention, closeMention, submit]
+    [mentionOpen, filtered, highlightIndex, insertMention, closeMention, submit, onEscape]
   );
 
   return (

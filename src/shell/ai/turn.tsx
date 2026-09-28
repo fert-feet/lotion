@@ -1,7 +1,10 @@
 "use client";
 
-// 单个回合（turn）渲染：用户气泡 + AI 工具卡片序列 + 文档副作用卡片 + 叙述文本 + 引用 + 回合 footer。
-import { useEffect, useState } from "react";
+// 单个回合（turn）渲染：用户气泡 + **按事件顺序**的时间线（叙述/工具卡/副作用卡/待办/提问/警告）
+// + 引用 chips + 回合 footer（耗时 / token / 失败重试）。
+// 旧实现把工具卡固定堆在叙述上方，文本→工具→文本的交错顺序会丢；现在按 turn.parts 顺序渲染。
+import { memo, useEffect, useState } from "react";
+import { AlertTriangle, Check, Loader2, RefreshCw } from "@/components/icons";
 import { MarkdownText } from "@/components/markdown/MarkdownText";
 import { truncateMentionTitle } from "@/lib/mention";
 import { cn } from "@/lib/utils";
@@ -10,14 +13,23 @@ import { formatDuration } from "./types";
 import { ToolCard } from "./tool-card";
 import { NoteCard } from "./note-card";
 
+type ConfirmResult = void | Promise<unknown>;
+
 interface TurnProps {
   turn: Turn;
   onOpenDocument: (id: string) => void;
-  onConfirmDelete: (noteId: string, title: string) => void;
+  onConfirmDelete: (noteId: string, title: string) => ConfirmResult;
   onCancelDelete: (noteId: string) => void;
-  onConfirmMove: (noteId: string, title: string, parentDocument: string | null) => void;
+  onConfirmMove: (noteId: string, title: string, parentDocument: string | null) => ConfirmResult;
   onCancelMove: (noteId: string) => void;
-  onAnswerQuestion: (question: string, answers: string[], customText?: string) => void;
+  onAnswerQuestion: (
+    turnId: string,
+    index: number,
+    question: Question,
+    answers: string[],
+    customText?: string,
+  ) => void;
+  onRetry: (turn: Turn) => void;
 }
 
 /** 用户消息里的 [@标题](id) 提及 → 胶囊 */
@@ -112,16 +124,30 @@ function TodoCard({ items }: { items: TodoItem[] }) {
   );
 }
 
-/** 结构化提问卡片（对齐 SiYuan question 工具：选项按钮，回答回传为新消息） */
+/** 结构化提问卡片（对齐 SiYuan question 工具：选项按钮，回答回传为新消息；答过即只读） */
 function QuestionCard({
   question,
   onAnswer,
 }: {
   question: Question;
-  onAnswer: (question: string, answers: string[], customText?: string) => void;
+  onAnswer: (answers: string[], customText?: string) => void;
 }) {
   const [selected, setSelected] = useState<string[]>([]);
   const [custom, setCustom] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  if (question.answered) {
+    return (
+      <div className="flex items-start gap-2 rounded-[10px] border-[0.5px] border-shell-border-l2 bg-[color-mix(in_srgb,var(--foreground)_4%,transparent)] px-3 py-2">
+        <Check className="mt-0.5 h-3.5 w-3.5 flex-none text-shell-accent" />
+        <div className="min-w-0">
+          <p className="text-xs leading-5 text-shell-label-tertiary">{question.question}</p>
+          <p className="text-[13px] leading-5 text-shell-label-primary">{question.answered}</p>
+        </div>
+      </div>
+    );
+  }
+
   const toggle = (label: string) => {
     setSelected((prev) =>
       question.multiple
@@ -133,7 +159,10 @@ function QuestionCard({
           : [label],
     );
   };
-  const submit = () => onAnswer(question.question, selected, question.custom === false ? undefined : custom);
+  const submit = () => {
+    setSubmitting(true);
+    onAnswer(selected, question.custom === false ? undefined : custom);
+  };
 
   return (
     <div className="rounded-[10px] border-[0.5px] border-shell-border-l2 bg-[color-mix(in_srgb,var(--foreground)_4%,transparent)] px-3 py-2.5">
@@ -146,9 +175,10 @@ function QuestionCard({
             <button
               key={opt.label}
               type="button"
+              disabled={submitting}
               onClick={() => toggle(opt.label)}
               className={cn(
-                "cursor-pointer rounded-lg border px-3 py-2 text-left transition-colors",
+                "cursor-pointer rounded-lg border px-3 py-2 text-left transition-colors disabled:cursor-default disabled:opacity-60",
                 active
                   ? "border-shell-accent/60 bg-shell-accent/10"
                   : "border-shell-border-l2 hover:bg-shell-row-active",
@@ -162,6 +192,7 @@ function QuestionCard({
         {question.custom !== false && (
           <input
             value={custom}
+            disabled={submitting}
             onChange={(e) => setCustom(e.target.value)}
             placeholder="自定义回答（可选）"
             className="h-8 rounded-lg border border-shell-border-l2 bg-transparent px-2.5 text-[13px] text-shell-label-primary outline-none placeholder:text-shell-label-caption focus:border-shell-accent/50"
@@ -171,9 +202,11 @@ function QuestionCard({
       <div className="mt-2.5 flex justify-end">
         <button
           type="button"
+          disabled={submitting}
           onClick={submit}
-          className="inline-flex h-7 cursor-pointer items-center gap-1 rounded-lg bg-shell-accent px-3 text-xs font-medium text-white transition-opacity hover:opacity-90"
+          className="inline-flex h-7 cursor-pointer items-center gap-1 rounded-lg bg-shell-accent px-3 text-xs font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-default disabled:opacity-60"
         >
+          {submitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
           提交回答
         </button>
       </div>
@@ -181,7 +214,42 @@ function QuestionCard({
   );
 }
 
-export function TurnView({ turn, onOpenDocument, onConfirmDelete, onCancelDelete, onConfirmMove, onCancelMove, onAnswerQuestion }: TurnProps) {
+/** 警告 / 失败卡：原来只有一闪而过的 toast，刷新后什么都不剩 */
+function NoticeCard({ level, message, onRetry }: { level: "warning" | "error"; message: string; onRetry?: () => void }) {
+  const danger = level === "error";
+  return (
+    <div
+      role={danger ? "alert" : "status"}
+      className={cn(
+        "rounded-[10px] border-[0.5px] px-3 py-2.5",
+        danger ? "border-destructive/25 bg-destructive/5" : "border-amber-500/25 bg-amber-500/5",
+      )}
+    >
+      <div className="flex items-start gap-2">
+        <AlertTriangle className={cn("mt-0.5 h-3.5 w-3.5 flex-none", danger ? "text-destructive" : "text-amber-500")} />
+        <p className={cn("min-w-0 flex-1 text-[13px] leading-5", danger ? "text-destructive" : "text-shell-label-primary")}>
+          {message}
+        </p>
+        {onRetry && (
+          <button
+            type="button"
+            onClick={onRetry}
+            className="inline-flex flex-none cursor-pointer items-center gap-1 rounded-lg px-2 py-0.5 text-xs font-medium text-destructive transition-colors hover:bg-destructive/10"
+          >
+            <RefreshCw className="h-3 w-3" />
+            重试
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function TurnViewInner({ turn, onOpenDocument, onConfirmDelete, onCancelDelete, onConfirmMove, onCancelMove, onAnswerQuestion, onRetry }: TurnProps) {
+  const running = turn.status === "running";
+  const lastPartIndex = turn.parts.length - 1;
+  const trailingText = turn.parts[lastPartIndex]?.kind === "text";
+
   return (
     <div className="flex flex-col gap-2.5">
       {/* 用户气泡：DSH 22px 圆角专用色 */}
@@ -191,29 +259,28 @@ export function TurnView({ turn, onOpenDocument, onConfirmDelete, onCancelDelete
         </div>
       </div>
 
-      {/* AI 回合内容 */}
+      {/* AI 回合内容：严格按事件顺序 */}
       <div className="flex flex-col gap-2">
-        {/* 工具调用卡片序列（按 seq 稳定排序） */}
-        {turn.tools.length > 0 && (
-          <div className="flex flex-col gap-1">
-            {turn.tools.map((card) => <ToolCard key={card.seq} card={card} />)}
-          </div>
-        )}
-
-        {/* 会话任务清单（todo_write） */}
-        {turn.todos.length > 0 && <TodoCard items={turn.todos} />}
-
-        {/* 结构化提问（askUser） */}
-        {turn.questions.map((q, i) => (
-          <QuestionCard key={i} question={q} onAnswer={onAnswerQuestion} />
-        ))}
-
-        {/* 文档副作用卡片 */}
-        {turn.notes.length > 0 && (
-          <div className="flex flex-col gap-1.5">
-            {turn.notes
-              .filter((n) => !(n.kind === "delete_confirm" && n.resolved) && !(n.kind === "move_confirm" && n.resolved))
-              .map((note, i) => (
+        {turn.parts.map((part, i) => {
+          switch (part.kind) {
+            case "text":
+              return (
+                <div key={i} className="text-[14px] leading-[1.6] text-shell-label-primary">
+                  <MarkdownText
+                    text={part.text}
+                    streaming={running && i === lastPartIndex}
+                    onOpenDocument={onOpenDocument}
+                  />
+                </div>
+              );
+            case "tool": {
+              const card = turn.tools.find((c) => c.seq === part.seq);
+              return card ? <ToolCard key={i} card={card} /> : null;
+            }
+            case "note": {
+              const note = turn.notes[part.index];
+              if (!note) return null;
+              return (
                 <NoteCard
                   key={i}
                   note={note}
@@ -223,23 +290,38 @@ export function TurnView({ turn, onOpenDocument, onConfirmDelete, onCancelDelete
                   onConfirmMove={onConfirmMove}
                   onCancelMove={onCancelMove}
                 />
-              ))}
-          </div>
-        )}
+              );
+            }
+            case "todo":
+              return turn.todos.length > 0 ? <TodoCard key={i} items={turn.todos} /> : null;
+            case "question": {
+              const q = turn.questions[part.index];
+              if (!q) return null;
+              return (
+                <QuestionCard
+                  key={i}
+                  question={q}
+                  onAnswer={(answers, customText) => onAnswerQuestion(turn.id, part.index, q, answers, customText)}
+                />
+              );
+            }
+            case "warning": {
+              const message = turn.warnings[part.index];
+              return message ? <NoticeCard key={i} level="warning" message={message} /> : null;
+            }
+          }
+        })}
 
-        {/* 叙述文本：DSH 对齐 markdown（md-content 样式由 markdown.css 提供，流式增量渲染） */}
-        {(turn.text || turn.status === "running") && (
-          <div className={cn("text-[14px] leading-[1.6] text-shell-label-primary")}>
-            {turn.text ? (
-              <MarkdownText
-                text={turn.text}
-                streaming={turn.status === "running"}
-                onOpenDocument={onOpenDocument}
-              />
-            ) : turn.status === "running" ? (
-              <RunningClock startedAt={turn.createdAt} />
-            ) : null}
-          </div>
+        {/* 还没吐出任何文本时的思考指示 */}
+        {running && !trailingText && <RunningClock startedAt={turn.createdAt} />}
+
+        {/* 失败卡：错误事件或请求失败都走这里（原实现只有 toast，回合还一直转圈） */}
+        {turn.status === "error" && (
+          <NoticeCard
+            level="error"
+            message={turn.errorMessage || "生成失败，请重试"}
+            onRetry={() => onRetry(turn)}
+          />
         )}
 
         {/* 引用 chips：AI 读取/涉及的笔记 */}
@@ -259,14 +341,16 @@ export function TurnView({ turn, onOpenDocument, onConfirmDelete, onCancelDelete
           </div>
         )}
 
-        {/* 回合 footer：耗时 / token（对齐 DSH TurnTail） */}
-        {turn.status === "done" && turn.durationMs !== null && (
+        {/* 回合 footer：耗时 / token（对齐 DSH TurnTail）；失败回合由上方错误卡承载 */}
+        {turn.status === "done" && (
           <div className="flex items-center gap-1 pt-0.5 text-[11px] leading-[16px] text-shell-label-caption">
-            <span>耗时 {formatDuration(turn.durationMs)}</span>
+            {turn.durationMs !== null && <span>耗时 {formatDuration(turn.durationMs)}</span>}
             {turn.tokens !== null && (
               <>
-                <span className="h-0.5 w-0.5 rounded-full bg-shell-label-caption" />
-                <span>输出 {turn.tokens.output.toLocaleString()} tokens</span>
+                {turn.durationMs !== null && <span className="h-0.5 w-0.5 rounded-full bg-shell-label-caption" />}
+                <span>
+                  {turn.tokens.input.toLocaleString()} in / {turn.tokens.output.toLocaleString()} out tokens
+                </span>
               </>
             )}
           </div>
@@ -275,3 +359,6 @@ export function TurnView({ turn, onOpenDocument, onConfirmDelete, onCancelDelete
     </div>
   );
 }
+
+/** memo：流式期间每帧只应重渲"正在长的那一轮"，历史回合靠浅比较跳过 */
+export const TurnView = memo(TurnViewInner);
