@@ -40,7 +40,7 @@ pnpm test:watch   # Vitest 监听模式
    ▼
 Hono（server/，Node 进程）
    ├── requireAuth 中间件（会话 cookie → c.get("user")）
-   ├── 16 个 REST 端点（server/routes/）
+   ├── 25 个 REST 端点（server/routes/，路由即插件；含 /api/documents/:id/append、/api/ai/undo）
    ├── 直接调用 lib/local/db.ts（原生 SQLite，无 HTTP 中转）
    └── 静态资源 dist/ + public/ + SPA 回退
 ```
@@ -59,17 +59,19 @@ server/
 ├── app.ts                  # 装配 /api/*（可测试，不监听端口）
 ├── http.ts                 # AppEnv 类型 / readJson / 统一错误响应
 ├── middleware.ts           # requireAuth（会话校验）
-└── routes/                 # auth / me / documents / chat / ai-chat(SSE) / upload / public-documents
+└── routes/                 # auth / me / documents / chat / ai-chat(SSE) / ai-undo / upload / public-documents
 lib/
 ├── db.ts                   # 客户端数据访问入口：全部走 fetch REST（⚠️ 仅浏览器）
 ├── local/                  # ⚠️ 服务端专用（禁止客户端导入）
 │   ├── sqlite.ts            # 连接单例(WAL) + 启动迁移执行器 + UUID/时间戳工具
-│   ├── migrations.ts        # SQLite DDL（users/sessions/documents/chat_sessions/chat_messages）
+│   ├── migrations.ts        # SQLite DDL（users/sessions/documents/chat_sessions/chat_messages/ai_changes）
 │   ├── db.ts                # 本地 SQL 实现（与 lib/db.ts 函数一一对应，显式 userId 过滤）
 │   ├── auth.ts              # scrypt 哈希 + 会话管理 + cookie 工具
 │   ├── request-user.ts      # 从请求 cookie 解析会话用户（中间件调用）
 │   └── uploads.ts           # 上传目录解析（UPLOAD_DIR）
-├── agent.ts                # Agent 核心：streamText + doom loop 检测 + SSE 事件流包装
+├── agent.ts                # Agent 核心：streamText + doom loop 检测 + SSE 事件流包装 + 回合快照/改动前快照
+├── chat-snapshot.ts        # 回合快照类型 + 宽容解析（客户端/服务端共享，⚠️ 环境无关）
+├── tool-meta.ts            # 工具标签/图标单一真相源（客户端 AI 面板也导入）
 ├── ai/tools/               # 19 个 Tool（search/list/read/create/update/rename/move/icon/publish/archive/restore/trash/delete/askUser/todoWrite/docInfo/docOutline/docBlocks/updateBlock）+ blocks-util.ts
 ├── ai-prompts.ts           # AI 系统提示词（领域概念/使用模式/规范/安全）
 ├── content.ts              # 文档内容适配层·客户端安全部分（isBlockNoteJson/toEditorBlocks/标题提取）
@@ -81,9 +83,13 @@ components/                 # shadcn/ui + Toolbar + SearchCommand + Upload + edi
 test/                       # Vitest 单测（lib/ / api/ / components/ 同构）
 ```
 
-- 数据库 5 张表：users / sessions / documents / chat_sessions / chat_messages（每次启动自动迁移）
+- 数据库 6 张表：users / sessions / documents / chat_sessions / chat_messages / ai_changes
+  （每次启动自动迁移，当前 4 个迁移；chat_messages.metadata=回合快照，chat_sessions.documentId=会话绑定文档）
 - `documents` 自引用（`parentDocument`）支持嵌套；多用户隔离靠**应用层显式 userId 过滤**（无 RLS）
-- AI 面板在 `src/shell/ai-panel.tsx`，details 列常驻，流式渲染
+- AI 面板在 `src/shell/ai-panel.tsx`（纯逻辑在 `src/shell/ai/turn-reducer.ts`，有单测），
+  details 列常驻、流式渲染；⌘J 开合，窄屏由 shell 渲染成右侧浮层
+- AI 回合的三条持久化通道：assistant 消息正文（纯文本回放）、`chat_messages.metadata`
+  回合快照（工具卡/副作用卡/引用/待办/提问/耗时/requestId）、`ai_changes` 改动前快照（撤销）
 - sidebar 宽度可拖拽（264-420px），可折叠为 56px rail
 - 运行时数据：`data/lotion.db`（可用 `LOTION_DB_PATH` 覆盖）、`data/uploads/`（可用 `UPLOAD_DIR` 覆盖），均 gitignore
 
@@ -116,6 +122,9 @@ test/                       # Vitest 单测（lib/ / api/ / components/ 同构�
 - Zustand store 模式：`isOpen / onOpen / onClose / toggle`
 - 数据库操作统一通过 `lib/db.ts` 导出函数，不在组件中直接写 SQL/查询
 - 图片上传到本地磁盘 `data/uploads/`（**后期换图床**：改 `server/routes/upload.ts`，`{ url }` 契约不变）
+- AI 改动的边界：只有**隐式写入**（updateNote/updateBlock/renameNote/setNoteIcon/publishNote/
+  archiveNote/restoreNote）进 `ai_changes` 可撤销；用户显式确认过的删除/移动不进（确认框本身
+  已是一次确认，永久删除也无法用"恢复字段"表达）
 - AI 流协议：`POST /api/ai/chat` 返回 SSE（`text/event-stream`），每行 `data: <json>\n\n`，事件类型 `turn_start / text / tool_start / tool_end / note_created / note_modified / confirm_delete / confirm_move / question / todo_update / reference / warning / turn_end / error`（见 `lib/agent.ts` 的 `AgentStreamEvent`）；前端 `ai-panel.tsx` 按 `\n\n` 分隔解析事件行，**不要改成拼接文本 + 正则提取标记**
 - Agent 通信：tool 副作用经注入的 `onEvent` 回调上报（`lib/ai/tools/index.ts` 的 `ToolEvent`），agent 层聚合为事件队列转 SSE，**不要恢复共享可变对象（`pendingNoteId.current` 等）+ 轮询模式**
 - 不要在 `messages` 数组中放 `role: "system"`，用 `streamText({ system: "..." })` 参数

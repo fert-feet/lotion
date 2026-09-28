@@ -34,8 +34,16 @@
 - **19 个工具自主决策** — 检索 / 写入 / 组织 / 交互四类（见下），SSE 事件流实时推送每一步进度
 - **流式事件协议** — 14 种事件类型，前端按事件行解析（非拼接文本 + 正则提取）
 - **Doom loop 检测** — 相同工具 + 参数连续失败 3 次警告、5 次中止（对齐 SiYuan）
-- **上下文压缩** — 滑动窗口保留最近 100 条消息原文，滑出部分由模型重写式摘要（`lib/compress.ts`）
-- **常驻 AI 面板** — details 列常驻挂载，关闭不丢状态
+- **上下文压缩** — 滑动窗口保留最近 100 条消息原文（注入最近 N 条），滑出部分由模型重写式摘要（`lib/compress.ts`）
+- **常驻 AI 面板** — details 列常驻挂载，关闭不丢状态；⌘J / Ctrl+J 开合，窄屏自动变右侧浮层
+- **回合快照** — 每轮的工具卡 / 副作用卡 / 引用 / 待办 / 提问 / 耗时随 assistant 消息落库
+  （`chat_messages.metadata`），刷新或切换会话后时间线完整重建（不再只剩一段纯文本）
+- **AI 改动可撤销** — 写类工具执行前先拍文档快照（`ai_changes` 表），回合操作条的
+  「撤销本次改动」把标题/正文/图标/发布态等恢复回去（幂等、可跨多篇文档）
+- **附件上下文** — 可附加 .md/.txt/.json/.csv 等文本文件（单文件 20k 字符、单轮最多 3 个），
+  内容当轮拼进 prompt，清单落在用户消息上（刷新后仍看得到附了什么）
+- **当前文档上下文** — 提问自动带上正在查看的文档，说"这篇 / 它"无需再 @
+- **会话绑定文档** — 新建会话自动绑定当前文档，历史列表可切换「全部会话 / 只看本文档」
 
 ## 它如何工作
 
@@ -47,6 +55,7 @@
                   askUser/todoWrite/docInfo/docOutline/docBlocks/updateBlock）
   → onEvent 上报副作用（创建 / 修改 / 删除确认 / 移动确认 / 提问 / 待办 / 引用）
   → SSE 事件行 data: <json> → 前端解析 → 跳转 / 刷新 / 确认 / 进度展示
+  → onFinish 落库 assistant 消息 + 回合快照；写类工具执行前落库"改动前快照"（撤销用）
 ```
 
 | 事件类型 | 含义 |
@@ -133,6 +142,9 @@ src/
 │   ├── app-shell.tsx             # DSH 风格三栏 shell（sidebar|center|details + 拖拽手柄）
 │   ├── sidebar/                  # 侧边栏：header 搜索胶囊 / 文档树 / footer / rail
 │   ├── ai-panel.tsx + ai/        # AI 面板（details 列常驻，SSE 流式渲染）
+│   ├── turn-reducer.ts       # 事件→turn / 历史重建 / 队列（纯逻辑，单测覆盖）
+│   ├── session-menu.tsx      # 历史会话（搜索 / 重命名 / 只看本文档）
+│   └── attachments.ts        # 文本附件读取与校验
 │   ├── editor.tsx                # BlockNote 入口（schema / 斜杠菜单 / @提及 / 图片上传）
 │   └── title.tsx / cover.tsx / navbar.tsx / publish.tsx / draft-banner.tsx / trash-box.tsx
 ├── marketing/                    # 着陆页组件
@@ -154,16 +166,22 @@ lib/
 ├── content.ts                    # 客户端安全的内容适配（isBlockNoteJson / toEditorBlocks）
 ├── content-server.ts             # ⚠️ 服务端专用：JSON ↔ Markdown（@blocknote/server-util）
 ├── blocknote-schema.ts           # 自定义 schema（callout / mention），客户端服务端共享
-├── agent.ts                      # Agent 核心：streamText + doom loop 检测 + SSE 事件流包装
+├── agent.ts                      # Agent 核心：streamText + doom loop + 回合快照 + 改动前快照（撤销）
 ├── ai/tools/                     # 19 个 Agent Tool（+ blocks-util.ts 块 JSON 展平/取文本）
+├── chat-snapshot.ts              # 回合快照类型与宽容解析（客户端/服务端共享）
+├── tool-meta.ts                  # 工具标签/图标单一真相源（客户端也导入）
 ├── ai-prompts.ts / compress.ts   # 系统提示词 / 上下文压缩
 └── layout/columns.ts             # 三栏让步链纯函数（常量 + computeColumns）
-test/                             # Vitest 单测（与 lib/、server/ 同构，282 个用例）
+test/                             # Vitest 单测（与 lib/、server/ 同构，584 个用例）
 ```
 
-## 数据模型（SQLite 5 张表）
+## 数据模型（SQLite 6 张表）
 
-`users` / `sessions` / `documents` / `chat_sessions` / `chat_messages`，每次启动自动迁移（`lib/local/migrations.ts` 内嵌 DDL + `_migrations` 记录表）。
+`users` / `sessions` / `documents` / `chat_sessions` / `chat_messages` / `ai_changes`，每次启动自动迁移（`lib/local/migrations.ts` 内嵌 DDL + `_migrations` 记录表，当前 4 个迁移）。
+
+- `chat_messages.metadata`：assistant 消息的**回合快照**（工具卡/副作用卡/引用/待办/提问/警告/耗时/requestId）与 user 消息的**附件清单**
+- `chat_sessions.documentId`：会话绑定的文档（可空 = 全局会话；文档删除时置空）
+- `ai_changes`：每轮 AI 写入前的文档快照（按 `requestId` 分组，撤销的原料）
 
 `documents` 表（应用层显式 `userId` 过滤，无 RLS；`userId` / `parentDocument` 上建索引）：
 
@@ -188,7 +206,7 @@ pnpm build        # vite 构建客户端到 dist/
 pnpm start        # 运行 Hono（托管 dist/ + API，单机自托管）
 pnpm typecheck    # tsc --noEmit
 pnpm lint         # ESLint
-pnpm test         # Vitest 单测（282 个用例，内存 SQLite + Hono app.request）
+pnpm test         # Vitest 单测（584 个用例，内存 SQLite + Hono app.request）
 pnpm test:watch   # Vitest 监听模式
 ```
 
