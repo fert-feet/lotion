@@ -26,12 +26,14 @@ describe("lib/local/sqlite", () => {
         "documents",
         "chat_sessions",
         "chat_messages",
+        "ai_changes",
       ]),
     );
     const applied = db.prepare("SELECT name FROM _migrations").all() as { name: string }[];
     expect(applied.map((m) => m.name)).toEqual([
       "001_initial_schema",
       "002_chat_message_metadata",
+      "003_ai_changes",
     ]);
   });
 
@@ -39,7 +41,7 @@ describe("lib/local/sqlite", () => {
     initDatabase(db);
     initDatabase(db);
     const rows = db.prepare("SELECT name FROM _migrations").all() as { name: string }[];
-    expect(rows).toHaveLength(2);
+    expect(rows).toHaveLength(3);
   });
 
   it("WAL 与 foreign_keys PRAGMA 生效", () => {

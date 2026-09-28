@@ -18,6 +18,9 @@ import {
   deleteChatSession,
   listChatSessions,
   listChatHistory,
+  insertAiChange,
+  listAiChanges,
+  undoAiChanges,
   getChatSessionSummary,
   setChatSessionSummary,
   markMessagesCompressed,
@@ -346,5 +349,103 @@ describe("lib/local/db AI 会话", () => {
     expect(listChatSessions(db, other)).toHaveLength(0);
     expect(listChatHistory(db, other, sid)).toHaveLength(0);
     expect(getChatSessionSummary(db, other, sid)).toBeNull();
+  });
+});
+
+describe("AI 改动快照与撤销", () => {
+  let db: Database.Database;
+  let userId: string;
+
+  beforeEach(() => {
+    db = openTestDb();
+    userId = seedUser(db);
+  });
+
+  it("记录→列出→撤销：文档恢复到改动前状态，且撤销幂等", () => {
+    const docId = createDocument(db, userId, "原标题");
+    updateDocument(db, docId, { content: "原内容" });
+    const before = getDocumentById(db, docId, userId)!;
+
+    insertAiChange(db, {
+      userId,
+      requestId: "req-1",
+      documentId: docId,
+      beforeState: JSON.stringify({
+        title: before.title,
+        content: before.content,
+        icon: before.icon,
+        coverImage: before.coverImage,
+        parentDocument: before.parentDocument,
+        isPublished: before.isPublished,
+        isArchived: before.isArchived,
+      }),
+    });
+
+    // AI 改写
+    updateDocument(db, docId, { title: "AI 改的标题", content: "AI 改的内容", isPublished: true });
+
+    expect(listAiChanges(db, userId, "req-1")).toHaveLength(1);
+    const { restored, skipped } = undoAiChanges(db, userId, "req-1");
+    expect(restored).toEqual([docId]);
+    expect(skipped).toBe(0);
+
+    const after = getDocumentById(db, docId, userId)!;
+    expect(after.title).toBe("原标题");
+    expect(after.content).toBe("原内容");
+    expect(after.isPublished).toBe(false);
+
+    // 幂等：再撤一次没有内容可恢复
+    expect(undoAiChanges(db, userId, "req-1")).toEqual({ restored: [], skipped: 0 });
+  });
+
+  it("其他用户的 requestId 查不到、撤不到（无 RLS 的显式归属过滤）", () => {
+    const other = seedUser(db, "ai-other@x.com");
+    const docId = createDocument(db, other, "别人的");
+    insertAiChange(db, {
+      userId: other,
+      requestId: "req-other",
+      documentId: docId,
+      beforeState: JSON.stringify({ title: "别人的" }),
+    });
+    expect(listAiChanges(db, userId, "req-other")).toHaveLength(0);
+    expect(undoAiChanges(db, userId, "req-other").restored).toEqual([]);
+  });
+
+  it("文档已被删除 / 快照损坏：跳过并标记，不抛异常", () => {
+    insertAiChange(db, {
+      userId,
+      requestId: "req-broken",
+      documentId: "ghost-doc",
+      beforeState: JSON.stringify({ title: "x" }),
+    });
+    insertAiChange(db, {
+      userId,
+      requestId: "req-broken",
+      documentId: createDocument(db, userId, "存在但快照坏"),
+      beforeState: "{不是 JSON",
+    });
+
+    const result = undoAiChanges(db, userId, "req-broken");
+    expect(result.restored).toEqual([]);
+    expect(result.skipped).toBe(2);
+    expect(listAiChanges(db, userId, "req-broken")).toHaveLength(0);
+  });
+
+  it("父文档已不存在时把 parentDocument 归零（不恢复出悬空父引用）", () => {
+    const parentId = createDocument(db, userId, "父");
+    const childId = createDocument(db, userId, "子", parentId);
+    const before = getDocumentById(db, childId, userId)!;
+    expect(before.parentDocument).toBe(parentId);
+
+    insertAiChange(db, {
+      userId,
+      requestId: "req-parent",
+      documentId: childId,
+      beforeState: JSON.stringify({ title: "子", parentDocument: parentId }),
+    });
+    deleteDocument(db, parentId); // ON DELETE SET NULL → 子文档 parent 变 null
+
+    undoAiChanges(db, userId, "req-parent");
+    expect(getDocumentById(db, childId, userId)!.parentDocument).toBeNull();
   });
 });

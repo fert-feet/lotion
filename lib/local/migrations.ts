@@ -102,4 +102,23 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_chat_messages_request_id
 ALTER TABLE chat_messages ADD COLUMN "metadata" TEXT;
 `,
   },
+  {
+    // 003：AI 改动的"改动前快照"（撤销用）。每个被 AI 写过的文档一行，
+    // 按 (userId, requestId) 分组；撤销 = 把这些字段恢复回去并标记 undoneAt。
+    // 只覆盖 AI 的隐式写入（updateNote/updateBlock/renameNote/setNoteIcon/publishNote/
+    // archiveNote/restoreNote）；用户**显式确认**过的删除/移动不在此列（确认框已是一次确认）。
+    name: "003_ai_changes",
+    sql: `
+CREATE TABLE IF NOT EXISTS ai_changes (
+  "id"           TEXT PRIMARY KEY,
+  "userId"       TEXT NOT NULL REFERENCES users("id") ON DELETE CASCADE,
+  "requestId"    TEXT NOT NULL,
+  "documentId"   TEXT NOT NULL,
+  "beforeState"  TEXT NOT NULL,
+  "createdAt"    TEXT NOT NULL,
+  "undoneAt"     TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_ai_changes_request ON ai_changes ("userId", "requestId");
+`,
+  },
 ];

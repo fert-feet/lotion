@@ -178,6 +178,17 @@ export async function update(
 }
 
 /**
+ * 撤销某一轮 AI 请求对文档的隐式改动（AI 面板「撤销本次改动」）。
+ */
+export async function undoAiChanges(requestId: string) {
+  return api<{ ok: boolean; restored: string[]; skipped: number }>("/api/ai/undo", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ requestId }),
+  });
+}
+
+/**
  * 追加一段 Markdown 到文档末尾（AI 面板「插入到当前文档」）。
  * 转换（Markdown → BlockNote 块）在服务端做，客户端只发原文。
  */

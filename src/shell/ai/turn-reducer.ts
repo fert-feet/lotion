@@ -72,6 +72,7 @@ export function applyTurnEvent(turn: Turn, event: SseEvent): TurnEffect[] {
     case "note_modified":
       turn.notes.push({ kind: "modified", noteId: event.noteId, title: event.title });
       turn.parts.push({ kind: "note", index: turn.notes.length - 1 });
+      if (!turn.changedDocuments.includes(event.noteId)) turn.changedDocuments.push(event.noteId);
       effects.push({ kind: "note_modified", noteId: event.noteId, title: event.title });
       break;
     case "confirm_delete":
@@ -207,6 +208,8 @@ export function restoreTurn(turn: Turn, content: string, snapshot: TurnSnapshot)
   }));
   turn.todos = snapshot.todos.map((t) => ({ ...t }));
   turn.warnings = [...snapshot.warnings];
+  turn.changedDocuments = [...snapshot.changedDocuments];
+  turn.requestId = snapshot.requestId;
   turn.durationMs = snapshot.durationMs;
   turn.status = snapshot.errorMessage ? "error" : "done";
   turn.errorMessage = snapshot.errorMessage ?? undefined;

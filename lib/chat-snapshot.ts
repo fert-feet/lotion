@@ -72,6 +72,10 @@ export interface TurnSnapshot {
   durationMs: number | null;
   /** 该轮以失败告终时的原因（error 事件 / doom loop 终止）；正常结束为 null */
   errorMessage: string | null;
+  /** 本轮被 AI 写过的文档 id（非空 = 这一轮可以「撤销本次改动」） */
+  changedDocuments: string[];
+  /** 该轮的服务端请求 id（撤销接口入参）；由路由落库时补写 */
+  requestId: string | null;
   parts: SnapshotPart[];
   tools: SnapshotToolCard[];
   notes: SnapshotNote[];
@@ -87,6 +91,8 @@ export function createTurnSnapshot(): TurnSnapshot {
     version: TURN_SNAPSHOT_VERSION,
     durationMs: null,
     errorMessage: null,
+    changedDocuments: [],
+    requestId: null,
     parts: [],
     tools: [],
     notes: [],
@@ -136,6 +142,10 @@ export function parseTurnSnapshot(value: unknown): TurnSnapshot | null {
   const snapshot = createTurnSnapshot();
   snapshot.durationMs = typeof raw.durationMs === "number" ? raw.durationMs : null;
   snapshot.errorMessage = typeof raw.errorMessage === "string" ? raw.errorMessage : null;
+  snapshot.changedDocuments = asArray(raw.changedDocuments).filter(
+    (id): id is string => typeof id === "string" && id.length > 0,
+  );
+  snapshot.requestId = typeof raw.requestId === "string" ? raw.requestId : null;
 
   for (const part of raw.parts) {
     if (!isRecord(part)) continue;

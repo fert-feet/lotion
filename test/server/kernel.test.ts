@@ -65,6 +65,7 @@ describe("server/kernel 宿主装配", () => {
       "/documents",
       "/chat/sessions",
       "/ai/chat",
+      "/ai/undo",
       "/upload",
       "/uploads",
       "/public/documents",

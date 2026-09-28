@@ -131,6 +131,7 @@ function withToolEvents(
         tool: name,
         seq,
         argsText: argsText(args),
+        args,
       });
 
       try {

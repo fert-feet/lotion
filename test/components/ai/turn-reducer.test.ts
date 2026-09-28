@@ -329,6 +329,37 @@ describe("rebuildTurns：快照恢复", () => {
     expect(turn.status).toBe("done");
   });
 
+  it("恢复 changedDocuments 与 requestId（刷新后撤销按钮仍可用）", () => {
+    const snapshot = {
+      version: 1,
+      durationMs: 5,
+      errorMessage: null,
+      changedDocuments: ["n1", "n2"],
+      requestId: "req-42",
+      parts: [{ kind: "text", chars: 0 }],
+      tools: [],
+      notes: [],
+      references: [],
+      questions: [],
+      todos: [],
+      warnings: [],
+    };
+    const [turn] = rebuildTurns([userMsg("改两篇"), assistantMsg("", snapshot, false)]);
+    expect(turn.changedDocuments).toEqual(["n1", "n2"]);
+    expect(turn.requestId).toBe("req-42");
+    expect(turn.undone).toBeUndefined();
+  });
+
+  it("实时事件里的 note_modified 立即记入 changedDocuments（不用等落库）", () => {
+    const turn = createTurn("改一下");
+    feed(turn, [
+      { type: "note_modified", noteId: "n1", title: "A" },
+      { type: "note_modified", noteId: "n1", title: "A" },
+      { type: "note_modified", noteId: "n2", title: "B" },
+    ]);
+    expect(turn.changedDocuments).toEqual(["n1", "n2"]);
+  });
+
   it("提问卡的回答状态被恢复（刷新后不会重复回答同一问题）", () => {
     const snapshot = {
       version: 1,

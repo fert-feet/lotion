@@ -113,7 +113,12 @@ export interface DocStore {
   removeIcon(actor: Actor, id: string): Promise<void>;
   removeCoverImage(actor: Actor, id: string): Promise<void>;
 
-  // ---- AI 会话 ----
+  // ---- AI 会话与 AI 改动 ----
+  /** 撤销某一轮 AI 请求对文档的隐式改动（requestId 来自回合快照） */
+  undoAiChanges(
+    actor: Actor,
+    requestId: string,
+  ): Promise<{ restored: string[]; skipped: number }>;
   listChatSessions(actor: Actor, limit?: number): Promise<ChatSession[]>;
   createChatSession(actor: Actor, title?: string): Promise<string>;
   deleteChatSession(actor: Actor, sessionId: string): Promise<void>;
@@ -141,6 +146,7 @@ const DOC_STORE_METHODS = [
   "remove",
   "removeIcon",
   "removeCoverImage",
+  "undoAiChanges",
   "listChatSessions",
   "createChatSession",
   "deleteChatSession",

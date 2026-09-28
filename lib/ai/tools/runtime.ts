@@ -21,7 +21,14 @@ export type ToolName = string;
  * - question / todo_update：结构化提问与会话任务清单
  */
 export type ToolEvent =
-  | { type: "tool_start"; tool: ToolName; seq: number; argsText: string }
+  | {
+      type: "tool_start";
+      tool: ToolName;
+      seq: number;
+      argsText: string;
+      /** 原始参数（agent 用它在**写入前**给文档拍快照，实现"撤销本次改动"） */
+      args?: unknown;
+    }
   | { type: "tool_end"; tool: ToolName; seq: number; ok: boolean; summary: string; error?: string }
   | { type: "note_created"; noteId: string; title: string }
   | { type: "note_modified"; noteId: string; title: string }

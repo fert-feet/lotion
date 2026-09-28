@@ -130,6 +130,109 @@ export function listChatHistory(
   return db.prepare(sql).all(...params, limit) as ChatMessage[];
 }
 
+// ---- AI 改动快照（撤销）----
+
+export interface AiChangeRow {
+  id: string;
+  documentId: string;
+  beforeState: string;
+}
+
+/** 记录一次"改动前"文档状态（requestId = 该轮 AI 请求的幂等键） */
+export function insertAiChange(
+  db: Database.Database,
+  input: { userId: string; requestId: string; documentId: string; beforeState: string },
+): void {
+  db.prepare(
+    `INSERT INTO ai_changes (id, userId, requestId, documentId, beforeState, createdAt)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+  ).run(newId(), input.userId, input.requestId, input.documentId, input.beforeState, isoNow());
+}
+
+/** 某轮请求尚未撤销的改动快照（按插入顺序） */
+export function listAiChanges(
+  db: Database.Database,
+  userId: string,
+  requestId: string,
+): AiChangeRow[] {
+  return db
+    .prepare(
+      `SELECT id, documentId, beforeState FROM ai_changes
+       WHERE userId = ? AND requestId = ? AND undoneAt IS NULL
+       ORDER BY rowid ASC`,
+    )
+    .all(userId, requestId) as AiChangeRow[];
+}
+
+/** 快照里可恢复的字段（宽容解析：坏/旧格式返回 null） */
+export function parseUndoState(raw: string): Record<string, unknown> | null {
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return null;
+    return parsed as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 撤销某轮 AI 的全部隐式改动（把 beforeState 恢复回文档）。
+ * 幂等：已撤销的不再恢复；文档已被删除/快照损坏的条目标记跳过（restored 里不含，skipped +1）。
+ * 父文档已不存在时把 parentDocument 归零，避免恢复出悬空父引用。
+ */
+export function undoAiChanges(
+  db: Database.Database,
+  userId: string,
+  requestId: string,
+): { restored: string[]; skipped: number } {
+  const rows = listAiChanges(db, userId, requestId);
+  const restored: string[] = [];
+  const undoneIds: string[] = [];
+  let skipped = 0;
+
+  for (const row of rows) {
+    const doc = getDocumentById(db, row.documentId, userId);
+    const state = parseUndoState(row.beforeState);
+    if (!doc || !state) {
+      undoneIds.push(row.id);
+      skipped++;
+      continue;
+    }
+
+    let parentDocument: string | null =
+      typeof state.parentDocument === "string" ? state.parentDocument : null;
+    if (parentDocument !== null && !getDocumentById(db, parentDocument, userId)) {
+      parentDocument = null;
+    }
+
+    const fields: Record<string, unknown> = {};
+    if (typeof state.title === "string") fields.title = state.title;
+    if (typeof state.content === "string" || state.content === null) fields.content = state.content;
+    if (typeof state.icon === "string" || state.icon === null) fields.icon = state.icon;
+    if (typeof state.coverImage === "string" || state.coverImage === null) fields.coverImage = state.coverImage;
+    if (typeof state.parentDocument === "string" || state.parentDocument === null) {
+      fields.parentDocument = parentDocument;
+    }
+    if (typeof state.isPublished === "boolean") fields.isPublished = state.isPublished;
+    if (typeof state.isArchived === "boolean") fields.isArchived = state.isArchived;
+
+    updateDocument(db, row.documentId, fields as never);
+    restored.push(row.documentId);
+    undoneIds.push(row.id);
+  }
+
+  markAiChangesUndone(db, undoneIds);
+  return { restored, skipped };
+}
+
+/** 标记这些改动已撤销（幂等：已标记的不重复写入） */
+export function markAiChangesUndone(db: Database.Database, ids: string[]): void {
+  if (ids.length === 0) return;
+  const stmt = db.prepare(`UPDATE ai_changes SET undoneAt = ? WHERE id = ? AND undoneAt IS NULL`);
+  const now = isoNow();
+  for (const id of ids) stmt.run(now, id);
+}
+
 /** 读取会话（含标题与摘要，AI 路由归属校验用） */
 export function getChatSession(
   db: Database.Database,

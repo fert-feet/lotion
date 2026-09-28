@@ -4,6 +4,7 @@ import { buildToolSet } from "@/lib/ai/tools/registry";
 import type Database from "better-sqlite3";
 import { NOTE_ASSISTANT_PROMPT } from "./ai-prompts";
 import { createTurnSnapshot, type TurnSnapshot } from "./chat-snapshot";
+import { getDocumentById } from "./local/db";
 import {
   createDefaultToolRegistry,
   createDoomLoopTracker,
@@ -87,12 +88,50 @@ export interface AgentResult {
   references: { noteId: string; title: string }[];
   durationMs: number;
   toolCount: number;
+  /** 本轮被 AI 改写的文档及其**改动前**状态（撤销用） */
+  changes: AgentChange[];
   /** 本轮结构化快照（落库用：刷新后重建工具卡/副作用卡/引用/待办/提问） */
   snapshot: TurnSnapshot;
 }
 
 /** AI 读取过的笔记（引用来源） */
 export type AgentReference = { noteId: string; title: string };
+
+/** 一次 AI 写入前的文档快照（撤销 = 恢复这些字段） */
+export interface AgentChange {
+  documentId: string;
+  before: {
+    title: string;
+    content: string | null;
+    icon: string | null;
+    coverImage: string | null;
+    parentDocument: string | null;
+    isPublished: boolean;
+    isArchived: boolean;
+  };
+}
+
+/**
+ * 会**写文档**的内置工具（deleteNote/moveNote 走用户确认后的 REST，不在此列）。
+ * 约定：这些工具的入参都带 `noteId`。
+ */
+const MUTATING_TOOLS = new Set([
+  "updateNote",
+  "updateBlock",
+  "renameNote",
+  "setNoteIcon",
+  "publishNote",
+  "archiveNote",
+  "restoreNote",
+]);
+
+/** 从工具入参里取文档 id（改写入参名时这里会失效 —— 有单测钉住） */
+export function mutatingDocumentId(tool: string, args: unknown): string | null {
+  if (!MUTATING_TOOLS.has(tool)) return null;
+  if (typeof args !== "object" || args === null) return null;
+  const noteId = (args as { noteId?: unknown }).noteId;
+  return typeof noteId === "string" && noteId ? noteId : null;
+}
 
 // ---- 配置：模型/Key 每次调用时从配置层解析（见 lib/ai/runtime-config.ts）----
 const MAX_STEPS = 5; // Agent 最大工具调用步数
@@ -162,6 +201,8 @@ export async function runNoteAgent(
   const eventQueue: AgentStreamEvent[] = [];
   // 引用来源：tool 上报后聚合，落库用（流内已即时推送）
   const references: AgentReference[] = [];
+  // 写入前快照（撤销用）：按文档去重，保留**最早**那份（首次改动前的状态）
+  const changes: AgentChange[] = [];
   // 本轮结构化快照：与 SSE 事件**同序**累积（文本段只记字符数，正文走 chat_messages.content）。
   // 前端实时渲染走 SSE，刷新/切会话时用这份快照重建同一条时间线。
   const snapshot = createTurnSnapshot();
@@ -188,6 +229,32 @@ export async function runNoteAgent(
     switch (e.type) {
       case "tool_start": {
         toolCount++;
+        // 写入前拍快照（"撤销本次改动"）：趁工具还没执行，把文档当前状态存下来
+        const changedId = mutatingDocumentId(e.tool, e.args);
+        if (changedId && !changes.some((c) => c.documentId === changedId)) {
+          try {
+            const doc = getDocumentById(db, changedId, userId);
+            if (doc) {
+              changes.push({
+                documentId: doc.id,
+                before: {
+                  title: doc.title,
+                  content: doc.content,
+                  icon: doc.icon,
+                  coverImage: doc.coverImage,
+                  parentDocument: doc.parentDocument,
+                  isPublished: doc.isPublished,
+                  isArchived: doc.isArchived,
+                },
+              });
+            }
+          } catch (err) {
+            logger.agent.warn("改动前快照失败，本轮该文档不可撤销", {
+              documentId: changedId,
+              error: String(err),
+            });
+          }
+        }
         const label = toolRegistry.get(e.tool)?.label ?? e.tool;
         eventQueue.push({
           type: "tool_start",
@@ -297,12 +364,13 @@ export async function runNoteAgent(
   // 避免 done 悬挂导致 assistant 消息静默不落库。
   let resolveDone: (r: AgentResult) => void = () => {};
   let doneResolved = false;
-  const resolveDoneSafe = (r: Omit<AgentResult, "snapshot">) => {
+  const resolveDoneSafe = (r: Omit<AgentResult, "snapshot" | "changes">) => {
     if (doneResolved) return;
     doneResolved = true;
     // 快照的耗时与结果同源（历史重建时 footer 才不会显示"耗时 0ms"）
     snapshot.durationMs = r.durationMs;
-    resolveDone({ ...r, snapshot });
+    snapshot.changedDocuments = changes.map((c) => c.documentId);
+    resolveDone({ ...r, snapshot, changes });
   };
   const done = new Promise<AgentResult>((res) => { resolveDone = res; });
   // 已推送的叙述文本累计：中止/异常路径下用它落库"已生成的部分"。

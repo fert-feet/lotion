@@ -249,6 +249,56 @@ describe("POST /api/ai/chat", () => {
     expect(agentArgs.currentDocument).toBeUndefined();
   });
 
+  it("AI 的隐式改动落库到 ai_changes（撤销依赖它）", async () => {
+    runNoteAgent.mockResolvedValue({
+      stream: mockStream(),
+      done: Promise.resolve({
+        text: "改好了",
+        usage: null,
+        references: [],
+        snapshot: {
+          version: 1,
+          durationMs: 1,
+          errorMessage: null,
+          changedDocuments: [],
+          requestId: null,
+          parts: [],
+          tools: [],
+          notes: [],
+          references: [],
+          questions: [],
+          todos: [],
+          warnings: [],
+        },
+        changes: [
+          {
+            documentId: "doc-x",
+            before: {
+              title: "旧标题",
+              content: "旧内容",
+              icon: null,
+              coverImage: null,
+              parentDocument: null,
+              isPublished: false,
+              isArchived: false,
+            },
+          },
+        ],
+      }),
+    });
+    const { cookie, sessionId } = await seedAuth();
+    const res = await postChat({ prompt: "改标题", sessionId, requestId: "r-change" }, cookie);
+    await res.text();
+
+    await vi.waitFor(() => {
+      const row = state.db!
+        .prepare("SELECT documentId, beforeState FROM ai_changes WHERE requestId = ?")
+        .get("r-change") as { documentId: string; beforeState: string };
+      expect(row.documentId).toBe("doc-x");
+      expect(JSON.parse(row.beforeState).title).toBe("旧标题");
+    });
+  });
+
   it("assistant 消息落库携带回合快照（刷新后工具卡/引用/耗时都能重建）", async () => {
     runNoteAgent.mockResolvedValue({
       stream: mockStream(),

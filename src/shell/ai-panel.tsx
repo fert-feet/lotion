@@ -276,8 +276,12 @@ const AiPanel = () => {
     if (activeSessionRef.current !== sessionId) return;
     streamingRef.current = true;
 
+    // 请求 id 一次生成：既做幂等键，也是「撤销本次改动」的入参
+    const requestId = crypto.randomUUID();
+
     // 新建 turn 并挂为当前流式回合
     const turn = createTurn(content);
+    turn.requestId = requestId;
     currentTurnRef.current = turn;
     setTurns((prev) => [...prev, turn]);
     setLoading(true);
@@ -297,7 +301,7 @@ const AiPanel = () => {
         body: JSON.stringify({
           prompt: content,
           sessionId,
-          requestId: crypto.randomUUID(), // 服务端幂等，防重复提交
+          requestId, // 服务端幂等，防重复提交
           documentId: params.documentId, // 当前文档上下文（服务端注入 system）
         }),
         signal: controller.signal, // 终止按钮 abort 此请求
@@ -425,6 +429,29 @@ const AiPanel = () => {
     if (!sessionId) return;
     void sendMessageRef.current(turn.userContent, sessionId);
   }, []);
+
+  // 撤销本轮 AI 改动：恢复改动前的文档状态（改了几篇就恢复几篇）
+  const handleUndo = useCallback((turn: Turn) => {
+    if (!turn.requestId) return;
+    const requestId = turn.requestId;
+    const promise = docStore.undoAiChanges(actor, requestId).then(({ restored }) => {
+      if (restored.length === 0) {
+        // 已经撤销过 / 文档已删除：只更新按钮态
+        setTurns((prev) => prev.map((t) => (t.requestId === requestId ? { ...t, undone: true } : t)));
+        return null;
+      }
+      setTurns((prev) => prev.map((t) => (t.requestId === requestId ? { ...t, undone: true } : t)));
+      triggerSidebar();
+      const current = params.documentId;
+      if (current && restored.includes(current)) triggerDocument(current);
+      return restored.length;
+    });
+    toast.promise(promise, {
+      loading: "正在撤销本次改动…",
+      success: (count) => (count ? `已撤销本次改动（${count} 篇文档）` : "本轮改动已无可撤销内容"),
+      error: "撤销失败",
+    });
+  }, [docStore, actor, triggerSidebar, triggerDocument, params.documentId]);
 
   // 编辑重发：把该轮用户输入回填到输入框（胶囊还原为胶囊），用户改完自己发
   const handleEditUser = useCallback((turn: Turn) => {
@@ -663,6 +690,7 @@ const AiPanel = () => {
               onCancelMove={handleCancelMove}
               onAnswerQuestion={handleQuestionAnswer}
               onRetry={handleRetry}
+              onUndo={handleUndo}
               onEditUser={handleEditUser}
               onInsertToDocument={handleInsertToDocument}
               onSaveAsNote={handleSaveAsNote}

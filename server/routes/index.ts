@@ -7,6 +7,7 @@ import type { Context, PluginEntry } from "@/lib/kernel";
 import { requireHttpRoutes, type HttpRouteRegistry } from "@/lib/seams/http-routes";
 import type { AppEnv } from "../http";
 import { aiChatRoutes } from "./ai-chat";
+import { aiUndoRoutes } from "./ai-undo";
 import { authRoutes } from "./auth";
 import { chatRoutes } from "./chat";
 import { documentsRoutes } from "./documents";
@@ -40,6 +41,7 @@ export function apiRoutePlugins(): PluginEntry[] {
     routePlugin("documents", "/documents", documentsRoutes),
     routePlugin("chat-sessions", "/chat/sessions", chatRoutes),
     routePlugin("ai-chat", "/ai/chat", aiChatRoutes),
+    routePlugin("ai-undo", "/ai/undo", aiUndoRoutes),
     routePlugin("upload", "/upload", uploadRoutes),
     routePlugin("uploads", "/uploads", uploadsRoutes),
     routePlugin("public-documents", "/public/documents", publicDocumentsRoutes),

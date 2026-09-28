@@ -27,6 +27,7 @@ import {
   removeCoverImage,
   removeIcon,
   restore,
+  undoAiChanges,
   update,
 } from "@/lib/db";
 import {
@@ -116,6 +117,10 @@ export function createRestDocStore(): UiDocStore {
     },
     async deleteChatSession(_actor, sessionId: string) {
       await deleteChatSession("", sessionId);
+    },
+    async undoAiChanges(_actor, requestId: string) {
+      const { restored, skipped } = await undoAiChanges(requestId);
+      return { restored, skipped };
     },
     async listChatHistory(_actor, sessionId: string, limit?: number) {
       return getChatHistory("", sessionId, limit);

@@ -7,6 +7,7 @@ import { runNoteAgent, type AgentHistoryMessage } from "@/lib/agent";
 import {
   getChatSession,
   getDocumentById,
+  insertAiChange,
   listChatHistory,
   insertChatMessage,
   setChatSessionTitle,
@@ -121,6 +122,21 @@ aiChatRoutes.post("/", async (c) => {
 
   // 流结束后后台落库 assistant 消息（含 token 统计与结构化快照），随后触发上下文压缩检查
   const finish = done
+    .then((result) => {
+      // 改动的"改动前快照"落库（撤销用）：按 requestId 分组；没有 requestId 就无法撤销，跳过
+      const changes = result.changes ?? [];
+      if (requestId && changes.length > 0) {
+        for (const change of changes) {
+          insertAiChange(db, {
+            userId: user.id,
+            requestId,
+            documentId: change.documentId,
+            beforeState: JSON.stringify(change.before),
+          });
+        }
+      }
+      return result;
+    })
     .then((result) =>
       insertChatMessage(db, {
         userId: user.id,
@@ -130,8 +146,9 @@ aiChatRoutes.post("/", async (c) => {
         promptTokens: result.usage?.inputTokens ?? 0,
         completionTokens: result.usage?.outputTokens ?? 0,
         totalTokens: (result.usage?.inputTokens ?? 0) + (result.usage?.outputTokens ?? 0),
-        // 快照让刷新/切会话后的时间线仍然有工具卡、副作用卡、引用、待确认操作
-        metadata: JSON.stringify(result.snapshot),
+        // 快照让刷新/切会话后的时间线仍然有工具卡、副作用卡、引用、待确认操作，
+        // 并带上 requestId（撤销按钮的入参）
+        metadata: JSON.stringify({ ...result.snapshot, requestId: requestId ?? null }),
       }),
     )
     .then(() => maybeCompressSession(user.id, sessionId, ai ? { ai } : undefined))

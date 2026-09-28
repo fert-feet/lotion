@@ -111,6 +111,12 @@ export interface Turn {
   status: "running" | "done" | "error";
   /** status === "error" 时的原因 */
   errorMessage?: string;
+  /** 本轮被 AI 写过的文档（非空 = 可撤销）；刷新后由快照恢复 */
+  changedDocuments: string[];
+  /** 该轮对应的服务端请求 id（撤销接口的入参）；旧数据/未落库时为 null */
+  requestId: string | null;
+  /** 用户已撤销本轮改动（内存态，避免重复点） */
+  undone?: boolean;
   durationMs: number | null;
   tokens: { input: number; output: number } | null;
   createdAt: number;
@@ -129,6 +135,8 @@ export function createTurn(userContent: string): Turn {
     todos: [],
     warnings: [],
     status: "running",
+    changedDocuments: [],
+    requestId: null,
     durationMs: null,
     tokens: null,
     createdAt: Date.now(),

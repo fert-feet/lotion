@@ -5,7 +5,7 @@
 // 旧实现把工具卡固定堆在叙述上方，文本→工具→文本的交错顺序会丢；现在按 turn.parts 顺序渲染。
 import { memo, useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { AlertTriangle, Check, Copy, FileText, Loader2, PenLine, Plus, RefreshCw } from "@/components/icons";
+import { AlertTriangle, Check, Copy, FileText, Loader2, PenLine, Plus, RefreshCw, Undo } from "@/components/icons";
 import { MarkdownText } from "@/components/markdown/MarkdownText";
 import { truncateMentionTitle } from "@/lib/mention";
 import { cn } from "@/lib/utils";
@@ -31,6 +31,8 @@ interface TurnProps {
     customText?: string,
   ) => void;
   onRetry: (turn: Turn) => void;
+  /** 撤销本轮 AI 对文档的改动 */
+  onUndo: (turn: Turn) => void;
   /** 编辑重发：把该轮用户输入回填到输入框 */
   onEditUser: (turn: Turn) => void;
   /** 把该轮回答追加到当前文档（没有打开文档时按钮不显示） */
@@ -259,6 +261,7 @@ function TurnActions({
   turn,
   canInsertToDocument,
   onRetry,
+  onUndo,
   onEditUser,
   onInsertToDocument,
   onSaveAsNote,
@@ -266,6 +269,7 @@ function TurnActions({
   turn: Turn;
   canInsertToDocument: boolean;
   onRetry: (turn: Turn) => void;
+  onUndo: (turn: Turn) => void;
   onEditUser: (turn: Turn) => void;
   onInsertToDocument: (turn: Turn) => void;
   onSaveAsNote: (turn: Turn) => void;
@@ -293,6 +297,22 @@ function TurnActions({
             复制
           </span>
         </button>
+      )}
+      {turn.changedDocuments.length > 0 && turn.requestId && !turn.undone && (
+        <button
+          type="button"
+          onClick={() => onUndo(turn)}
+          className={actionClass}
+          title={`恢复这轮改动前的文档（${turn.changedDocuments.length} 篇）`}
+        >
+          <span className="inline-flex items-center gap-1">
+            <Undo className="h-3 w-3" />
+            撤销本次改动
+          </span>
+        </button>
+      )}
+      {turn.undone && turn.changedDocuments.length > 0 && (
+        <span className="px-1.5 py-0.5 text-shell-label-caption">已撤销本次改动</span>
       )}
       <button
         type="button"
@@ -346,7 +366,7 @@ function TurnActions({
   );
 }
 
-function TurnViewInner({ turn, onOpenDocument, onConfirmDelete, onCancelDelete, onConfirmMove, onCancelMove, onAnswerQuestion, onRetry, onEditUser, onInsertToDocument, onSaveAsNote, canInsertToDocument }: TurnProps) {
+function TurnViewInner({ turn, onOpenDocument, onConfirmDelete, onCancelDelete, onConfirmMove, onCancelMove, onAnswerQuestion, onRetry, onUndo, onEditUser, onInsertToDocument, onSaveAsNote, canInsertToDocument }: TurnProps) {
   const running = turn.status === "running";
   const lastPartIndex = turn.parts.length - 1;
   const trailingText = turn.parts[lastPartIndex]?.kind === "text";
@@ -458,6 +478,7 @@ function TurnViewInner({ turn, onOpenDocument, onConfirmDelete, onCancelDelete, 
               turn={turn}
               canInsertToDocument={canInsertToDocument}
               onRetry={onRetry}
+              onUndo={onUndo}
               onEditUser={onEditUser}
               onInsertToDocument={onInsertToDocument}
               onSaveAsNote={onSaveAsNote}

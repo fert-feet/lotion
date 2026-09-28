@@ -313,6 +313,41 @@ describe("runNoteAgent 结构化快照（落库后重建时间线用）", () => 
   });
 });
 
+describe("runNoteAgent 改动前快照（撤销用）", () => {
+  it("写类工具执行前拍下文档状态，并记进快照的 changedDocuments", async () => {
+    mockConfig.tool = "updateNote";
+    const { stream, done } = await runNoteAgent(db, "user-1", "改一下这篇");
+    await readEvents(stream);
+    const result = await done;
+
+    expect(result.changes).toHaveLength(1);
+    expect(result.changes[0].documentId).toBe(mockConfig.noteId);
+    expect(result.changes[0].before.content).toBe("笔记内容");
+    expect(result.snapshot.changedDocuments).toEqual([mockConfig.noteId]);
+  });
+
+  it("同一文档被改多次只留最早一份快照（撤销回到首次改动前）", async () => {
+    const { mutatingDocumentId } = await import("@/lib/agent");
+    expect(mutatingDocumentId("updateNote", { noteId: "d1" })).toBe("d1");
+    expect(mutatingDocumentId("updateBlock", { noteId: "d1", blockId: "b1" })).toBe("d1");
+    expect(mutatingDocumentId("renameNote", { noteId: "d1", title: "x" })).toBe("d1");
+    // 非写类工具 / 没有 noteId：不拍快照
+    expect(mutatingDocumentId("readNote", { noteId: "d1" })).toBeNull();
+    expect(mutatingDocumentId("searchNotes", { query: "x" })).toBeNull();
+    expect(mutatingDocumentId("updateNote", {})).toBeNull();
+    expect(mutatingDocumentId("updateNote", null)).toBeNull();
+  });
+
+  it("只读工具不产生可撤销改动", async () => {
+    mockConfig.tool = "readNote";
+    const { stream, done } = await runNoteAgent(db, "user-1", "读一下");
+    await readEvents(stream);
+    const result = await done;
+    expect(result.changes).toEqual([]);
+    expect(result.snapshot.changedDocuments).toEqual([]);
+  });
+});
+
 describe("runNoteAgent deleteNote 中止语义", () => {
   it("deleteNote 触发确认后中止本轮生成（避免确认前继续执行其他工具）", async () => {
     mockConfig.tool = "deleteNote";
