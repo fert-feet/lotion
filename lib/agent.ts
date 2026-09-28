@@ -3,6 +3,7 @@ import { createAiModel, resolveAiRuntimeConfig, type AiRuntimeConfig } from "@/l
 import { buildToolSet } from "@/lib/ai/tools/registry";
 import type Database from "better-sqlite3";
 import { NOTE_ASSISTANT_PROMPT } from "./ai-prompts";
+import { createTurnSnapshot, type TurnSnapshot } from "./chat-snapshot";
 import {
   createDefaultToolRegistry,
   createDoomLoopTracker,
@@ -86,6 +87,8 @@ export interface AgentResult {
   references: { noteId: string; title: string }[];
   durationMs: number;
   toolCount: number;
+  /** 本轮结构化快照（落库用：刷新后重建工具卡/副作用卡/引用/待办/提问） */
+  snapshot: TurnSnapshot;
 }
 
 /** AI 读取过的笔记（引用来源） */
@@ -159,6 +162,22 @@ export async function runNoteAgent(
   const eventQueue: AgentStreamEvent[] = [];
   // 引用来源：tool 上报后聚合，落库用（流内已即时推送）
   const references: AgentReference[] = [];
+  // 本轮结构化快照：与 SSE 事件**同序**累积（文本段只记字符数，正文走 chat_messages.content）。
+  // 前端实时渲染走 SSE，刷新/切会话时用这份快照重建同一条时间线。
+  const snapshot = createTurnSnapshot();
+  /** 追加文本段（连续 chunk 合并，与前端 reducer 的合并规则一致） */
+  const snapshotText = (chars: number) => {
+    if (chars <= 0) return;
+    const last = snapshot.parts[snapshot.parts.length - 1];
+    if (last && last.kind === "text") last.chars += chars;
+    else snapshot.parts.push({ kind: "text", chars });
+  };
+  /** 待确认卡去重（AI 可能重复调用同一工具） */
+  const hasPendingConfirm = (
+    kind: "delete_confirm" | "move_confirm",
+    noteId: string,
+  ): boolean =>
+    snapshot.notes.some((n) => n.kind === kind && n.noteId === noteId && !n.resolved);
   // deleteNote/moveNote 已触发确认：onStepFinish 检测到后中止本轮生成，
   // 确认流程挂起等用户确认（前端确认后走 REST 执行）
   let confirmPending = false;
@@ -167,17 +186,28 @@ export async function runNoteAgent(
 
   const onToolEvent = (e: ToolEvent) => {
     switch (e.type) {
-      case "tool_start":
+      case "tool_start": {
         toolCount++;
+        const label = toolRegistry.get(e.tool)?.label ?? e.tool;
         eventQueue.push({
           type: "tool_start",
           tool: e.tool,
           seq: e.seq,
-          label: toolRegistry.get(e.tool)?.label ?? e.tool,
+          label,
           argsText: e.argsText,
         });
+        snapshot.tools.push({
+          seq: e.seq,
+          tool: e.tool,
+          label,
+          argsText: e.argsText,
+          state: "running",
+          summary: "",
+        });
+        snapshot.parts.push({ kind: "tool", seq: e.seq });
         break;
-      case "tool_end":
+      }
+      case "tool_end": {
         eventQueue.push({
           type: "tool_end",
           tool: e.tool,
@@ -186,16 +216,36 @@ export async function runNoteAgent(
           summary: e.summary,
           error: e.error,
         });
+        const card = snapshot.tools.find((c) => c.seq === e.seq);
+        if (card) {
+          card.state = e.ok ? "done" : "error";
+          card.summary = e.summary;
+          card.error = e.ok ? undefined : e.error;
+        }
         break;
+      }
       case "note_created":
         eventQueue.push({ type: "note_created", noteId: e.noteId, title: e.title });
+        snapshot.notes.push({ kind: "created", noteId: e.noteId, title: e.title });
+        snapshot.parts.push({ kind: "note", index: snapshot.notes.length - 1 });
         break;
       case "note_modified":
         eventQueue.push({ type: "note_modified", noteId: e.noteId, title: e.title });
+        snapshot.notes.push({ kind: "modified", noteId: e.noteId, title: e.title });
+        snapshot.parts.push({ kind: "note", index: snapshot.notes.length - 1 });
         break;
       case "confirm_delete":
         confirmPending = true;
         eventQueue.push({ type: "confirm_delete", noteId: e.noteId, title: e.title });
+        if (!hasPendingConfirm("delete_confirm", e.noteId)) {
+          snapshot.notes.push({
+            kind: "delete_confirm",
+            noteId: e.noteId,
+            title: e.title,
+            resolved: false,
+          });
+          snapshot.parts.push({ kind: "note", index: snapshot.notes.length - 1 });
+        }
         break;
       case "confirm_move":
         confirmPending = true;
@@ -206,12 +256,29 @@ export async function runNoteAgent(
           targetTitle: e.targetTitle,
           toRoot: e.toRoot,
         });
+        if (!hasPendingConfirm("move_confirm", e.noteId)) {
+          snapshot.notes.push({
+            kind: "move_confirm",
+            noteId: e.noteId,
+            title: e.title,
+            targetTitle: e.targetTitle,
+            toRoot: e.toRoot,
+            resolved: false,
+          });
+          snapshot.parts.push({ kind: "note", index: snapshot.notes.length - 1 });
+        }
         break;
       case "question":
         eventQueue.push({ type: "question", questions: e.questions });
+        for (const q of e.questions) {
+          snapshot.questions.push({ ...q });
+          snapshot.parts.push({ kind: "question", index: snapshot.questions.length - 1 });
+        }
         break;
       case "todo_update":
         eventQueue.push({ type: "todo_update", items: e.items });
+        snapshot.todos = e.items.map((i) => ({ ...i }));
+        if (!snapshot.parts.some((p) => p.kind === "todo")) snapshot.parts.push({ kind: "todo" });
         break;
       case "reference":
         // 流内即时推送（前端直接渲染引用 chip）
@@ -219,6 +286,7 @@ export async function runNoteAgent(
         // 同时聚合，供 AgentResult 落库
         if (!references.some((r) => r.noteId === e.noteId)) {
           references.push({ noteId: e.noteId, title: e.title });
+          snapshot.references.push({ noteId: e.noteId, title: e.title });
         }
         break;
     }
@@ -229,10 +297,12 @@ export async function runNoteAgent(
   // 避免 done 悬挂导致 assistant 消息静默不落库。
   let resolveDone: (r: AgentResult) => void = () => {};
   let doneResolved = false;
-  const resolveDoneSafe = (r: AgentResult) => {
+  const resolveDoneSafe = (r: Omit<AgentResult, "snapshot">) => {
     if (doneResolved) return;
     doneResolved = true;
-    resolveDone(r);
+    // 快照的耗时与结果同源（历史重建时 footer 才不会显示"耗时 0ms"）
+    snapshot.durationMs = r.durationMs;
+    resolveDone({ ...r, snapshot });
   };
   const done = new Promise<AgentResult>((res) => { resolveDone = res; });
   // 已推送的叙述文本累计：中止/异常路径下用它落库"已生成的部分"。
@@ -267,17 +337,16 @@ export async function runNoteAgent(
       doom: createDoomLoopTracker({
       onWarn: (name, count) => {
         logger.agent.warn("doom loop 警告", { name, count });
-        eventQueue.push({
-          type: "warning",
-          message: `检测到 AI 连续 ${count} 次以相同参数调用「${toolRegistry.get(name)?.label ?? name}」均未成功，请换一种方式操作。`,
-        });
+        const message = `检测到 AI 连续 ${count} 次以相同参数调用「${toolRegistry.get(name)?.label ?? name}」均未成功，请换一种方式操作。`;
+        eventQueue.push({ type: "warning", message });
+        snapshot.warnings.push(message);
+        snapshot.parts.push({ kind: "warning", index: snapshot.warnings.length - 1 });
       },
       onStop: (name, count) => {
         logger.agent.error("doom loop 终止", { name, count });
-        eventQueue.push({
-          type: "error",
-          message: `检测到重复工具调用（「${toolRegistry.get(name)?.label ?? name}」连续 ${count} 次相同参数失败），已终止本轮生成。`,
-        });
+        const message = `检测到重复工具调用（「${toolRegistry.get(name)?.label ?? name}」连续 ${count} 次相同参数失败），已终止本轮生成。`;
+        eventQueue.push({ type: "error", message });
+        snapshot.errorMessage = message;
         abortFn?.();
       },
       }),
@@ -306,7 +375,9 @@ export async function runNoteAgent(
     onError: ({ error }) => {
       // 生成中途出错（如模型 API 异常）：推送 error 事件让前端明确提示，而非静默断流
       logger.agent.error("Agent 执行出错", { error: String(error) });
-      eventQueue.push({ type: "error", message: error instanceof Error ? error.message : String(error) });
+      const message = error instanceof Error ? error.message : String(error);
+      eventQueue.push({ type: "error", message });
+      snapshot.errorMessage = message;
     },
     onAbort: () => {
       // 用户停止 / 确认类工具中止生成：立刻用已累计文本收尾（onFinish 不会触发）
@@ -467,6 +538,7 @@ export async function runNoteAgent(
       }
 
       accumulatedText += value ?? "";
+      snapshotText((value ?? "").length);
       controller.enqueue(sseEvent({ type: "text", text: value ?? "" }));
     },
   });

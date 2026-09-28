@@ -32,6 +32,10 @@ export type ChatMessage = {
   role: "user" | "assistant";
   content: string;
   createdAt: string;
+  /** assistant 消息的结构化快照 JSON（工具卡/副作用卡/引用/待办/提问/警告/耗时） */
+  metadata?: string | null;
+  promptTokens?: number;
+  completionTokens?: number;
 };
 
 export type ChatSession = {
@@ -50,6 +54,8 @@ export type ChatMessageInput = {
   completionTokens?: number;
   totalTokens?: number;
   requestId?: string;
+  /** 结构化快照（JSON 字符串）；仅 assistant 消息携带 */
+  metadata?: string | null;
 };
 
 // ---- 行映射：SQLite INTEGER(0/1) → JS boolean，字段裁剪到上层类型 ----
@@ -96,8 +102,10 @@ export function deleteChatSession(db: Database.Database, userId: string, session
 }
 
 /**
- * 拉取会话对话历史（按 createdAt 升序注入模型）。
+ * 拉取会话对话历史（返回顺序恒为 createdAt 升序，可直接注入模型）。
  * uncompressedOnly：只取未被压缩标记的消息（压缩检查用，与 lib/db.ts 一致）。
+ * limit：取**最新** limit 条（先倒序截断再摆正）——滑动窗口注入的必须是最近的消息，
+ * 旧实现 ASC+LIMIT 拿到的是最旧的 N 条（压缩失败时窗口会注入远古对话）。
  */
 export function listChatHistory(
   db: Database.Database,
@@ -106,17 +114,20 @@ export function listChatHistory(
   limit?: number,
   opts: { uncompressedOnly?: boolean } = {},
 ): ChatMessage[] {
-  let sql = `SELECT id, role, content, createdAt FROM chat_messages WHERE userId = ? AND sessionId = ?`;
+  const where: string[] = [`userId = ?`, `sessionId = ?`];
   const params: (string | number)[] = [userId, sessionId];
-  if (opts.uncompressedOnly) {
-    sql += ` AND compressed = 0`;
+  if (opts.uncompressedOnly) where.push(`compressed = 0`);
+  const columns = `id, role, content, createdAt, metadata, promptTokens, completionTokens`;
+  const base = `SELECT ${columns} FROM chat_messages WHERE ${where.join(" AND ")}`;
+
+  if (limit === undefined) {
+    return db.prepare(`${base} ORDER BY createdAt ASC, rowid ASC`).all(...params) as ChatMessage[];
   }
-  sql += ` ORDER BY createdAt ASC, rowid ASC`;
-  if (limit !== undefined) {
-    sql += ` LIMIT ?`;
-    params.push(limit);
-  }
-  return db.prepare(sql).all(...params) as ChatMessage[];
+  // 子查询里倒序取最新 N 条，外层再按时间正序返回
+  // （子查询不暴露 rowid，需显式带出来做次级排序键，保证同毫秒消息的稳定顺序）
+  const inner = `SELECT ${columns}, rowid AS _rowid FROM chat_messages WHERE ${where.join(" AND ")}`;
+  const sql = `SELECT ${columns} FROM (${inner} ORDER BY createdAt DESC, _rowid DESC LIMIT ?) ORDER BY createdAt ASC, _rowid ASC`;
+  return db.prepare(sql).all(...params, limit) as ChatMessage[];
 }
 
 /** 读取会话（含标题与摘要，AI 路由归属校验用） */
@@ -193,8 +204,8 @@ export function markMessagesCompressed(db: Database.Database, userId: string, id
 export function insertChatMessage(db: Database.Database, input: ChatMessageInput): void {
   db.prepare(
     `INSERT INTO chat_messages
-       (id, userId, sessionId, role, content, promptTokens, completionTokens, totalTokens, requestId, createdAt)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (id, userId, sessionId, role, content, promptTokens, completionTokens, totalTokens, requestId, metadata, createdAt)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     newId(),
     input.userId,
@@ -205,6 +216,7 @@ export function insertChatMessage(db: Database.Database, input: ChatMessageInput
     input.completionTokens ?? 0,
     input.totalTokens ?? 0,
     input.requestId ?? null,
+    input.metadata ?? null,
     isoNow(),
   );
 }

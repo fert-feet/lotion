@@ -291,10 +291,31 @@ describe("lib/local/db AI 会话", () => {
 
     const limited = listChatHistory(db, userId, sid, 2);
     expect(limited).toHaveLength(2);
+    // limit = **最新** N 条（滑动窗口注入最近对话，而不是最早的 N 条）
+    expect(limited.map((m) => m.content)).toEqual(["a1", "q2"]);
 
     markMessagesCompressed(db, userId, [history[0].id, history[1].id]);
     const uncompressed = listChatHistory(db, userId, sid, undefined, { uncompressedOnly: true });
     expect(uncompressed.map((m) => m.content)).toEqual(["q2"]);
+  });
+
+  it("metadata（回合快照）随消息落库并原样读回；token 统计也能读回", () => {
+    const sid = createChatSession(db, userId);
+    const snapshot = JSON.stringify({ version: 1, parts: [{ kind: "text", chars: 2 }], durationMs: 88 });
+    insertChatMessage(db, {
+      userId,
+      sessionId: sid,
+      role: "assistant",
+      content: "回答",
+      promptTokens: 7,
+      completionTokens: 9,
+      metadata: snapshot,
+    });
+
+    const [row] = listChatHistory(db, userId, sid);
+    expect(row.metadata).toBe(snapshot);
+    expect(row.promptTokens).toBe(7);
+    expect(row.completionTokens).toBe(9);
   });
 
   it("requestId 重复触发唯一约束（对应 PG 23505，上层按 409 处理）", () => {

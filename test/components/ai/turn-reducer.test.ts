@@ -11,6 +11,7 @@ import {
   finalizeTurn,
   markNoteResolved,
   markQuestionAnswered,
+  pendingDeleteIds,
   rebuildTurns,
   removeQueueAt,
   takeNextForSession,
@@ -215,6 +216,144 @@ describe("rebuildTurns：扁平消息 → 时间线", () => {
   });
 });
 
+describe("rebuildTurns：快照恢复", () => {
+  const assistantMsg = (content: string, metadata: unknown, tokens = true): ChatMessage => ({
+    id: "m-" + content,
+    role: "assistant",
+    content,
+    createdAt: "2024-01-01T00:00:00.000Z",
+    metadata: typeof metadata === "string" ? metadata : JSON.stringify(metadata),
+    promptTokens: tokens ? 11 : undefined,
+    completionTokens: tokens ? 22 : undefined,
+  });
+  const userMsg = (content: string): ChatMessage => ({
+    id: "u-" + content,
+    role: "user",
+    content,
+    createdAt: "2024-01-01T00:00:00.000Z",
+  });
+
+  it("工具卡 / 引用 / 待办 / 提问 / 警告 / 耗时 / token 全部恢复，part 顺序与实时一致", () => {
+    const content = "先查一下，";
+    const snapshot = {
+      version: 1,
+      durationMs: 4321,
+      errorMessage: null,
+      parts: [
+        { kind: "text", chars: 3 }, // "先查一"
+        { kind: "tool", seq: 1 },
+        { kind: "text", chars: 2 }, // "下，"
+        { kind: "warning", index: 0 },
+        { kind: "todo" },
+        { kind: "note", index: 0 },
+      ],
+      tools: [{ seq: 1, tool: "searchNotes", label: "搜索笔记", argsText: "{}", state: "done", summary: "找到 2 篇" }],
+      notes: [{ kind: "created", noteId: "n1", title: "草稿" }],
+      references: [{ noteId: "n1", title: "草稿" }],
+      questions: [],
+      todos: [{ content: "写摘要", status: "completed" }],
+      warnings: ["连续 3 次失败"],
+    };
+
+    const [turn] = rebuildTurns([userMsg("总结"), assistantMsg(content, snapshot)]);
+    expect(turn.parts.map((p) => p.kind)).toEqual(["text", "tool", "text", "warning", "todo", "note"]);
+    expect(turn.parts[0]).toEqual({ kind: "text", text: "先查一" });
+    expect(turn.parts[2]).toEqual({ kind: "text", text: "下，" });
+    expect(turn.text).toBe(content);
+    expect(turn.tools[0].summary).toBe("找到 2 篇");
+    expect(turn.references).toEqual([{ noteId: "n1", title: "草稿" }]);
+    expect(turn.todos).toEqual([{ content: "写摘要", status: "completed" }]);
+    expect(turn.warnings).toEqual(["连续 3 次失败"]);
+    expect(turn.durationMs).toBe(4321);
+    expect(turn.tokens).toEqual({ input: 11, output: 22 });
+    expect(turn.status).toBe("done");
+  });
+
+  it("待确认的删除卡刷新后仍在（此前切会话就静默消失，用户永远确认不了）", () => {
+    const snapshot = {
+      version: 1,
+      durationMs: 10,
+      errorMessage: null,
+      parts: [{ kind: "note", index: 0 }],
+      notes: [{ kind: "delete_confirm", noteId: "n1", title: "旧笔记", resolved: false }],
+      tools: [],
+      references: [],
+      questions: [],
+      todos: [],
+      warnings: [],
+    };
+    const [turn] = rebuildTurns([userMsg("删了它"), assistantMsg("", snapshot, false)]);
+    expect(turn.notes).toEqual([
+      { kind: "delete_confirm", noteId: "n1", title: "旧笔记", resolved: false },
+    ]);
+  });
+
+  it("失败轮次刷新后仍是失败态（errorMessage 一起恢复）", () => {
+    const snapshot = {
+      version: 1,
+      durationMs: 900,
+      errorMessage: "AI 请求失败，请稍后再试",
+      parts: [{ kind: "text", chars: 0 }],
+      tools: [],
+      notes: [],
+      references: [],
+      questions: [],
+      todos: [],
+      warnings: [],
+    };
+    const [turn] = rebuildTurns([userMsg("问"), assistantMsg("", snapshot)]);
+    expect(turn.status).toBe("error");
+    expect(turn.errorMessage).toBe("AI 请求失败，请稍后再试");
+  });
+
+  it("快照文本段与正文长度不一致时补末尾文本段（中止/版本漂移也不丢字）", () => {
+    const snapshot = {
+      version: 1,
+      durationMs: null,
+      errorMessage: null,
+      parts: [{ kind: "text", chars: 2 }],
+      tools: [],
+      notes: [],
+      references: [],
+      questions: [],
+      todos: [],
+      warnings: [],
+    };
+    const [turn] = rebuildTurns([userMsg("问"), assistantMsg("前两个字后面还有", snapshot)]);
+    expect(turn.parts).toEqual([{ kind: "text", text: "前两个字后面还有" }]);
+  });
+
+  it("快照损坏（坏 JSON）时降级为纯文本，不抛异常", () => {
+    const [turn] = rebuildTurns([userMsg("问"), assistantMsg("回答", "{坏掉的 JSON")]);
+    expect(turn.parts).toEqual([{ kind: "text", text: "回答" }]);
+    expect(turn.status).toBe("done");
+  });
+
+  it("提问卡的回答状态被恢复（刷新后不会重复回答同一问题）", () => {
+    const snapshot = {
+      version: 1,
+      durationMs: 1,
+      errorMessage: null,
+      parts: [{ kind: "question", index: 0 }],
+      tools: [],
+      notes: [],
+      references: [],
+      questions: [
+        {
+          header: "范围",
+          question: "包含旧文档吗？",
+          options: [{ label: "要", description: "" }],
+          answered: "要",
+        },
+      ],
+      todos: [],
+      warnings: [],
+    };
+    const [turn] = rebuildTurns([userMsg("问"), assistantMsg("", snapshot, false)]);
+    expect(turn.questions[0].answered).toBe("要");
+  });
+});
+
 describe("发送队列：按会话取件", () => {
   it("只取当前会话的消息，且保持 FIFO；其他会话的消息留在队列里", () => {
     const a1 = createQueuedMessage("A1", "s1");
@@ -248,5 +387,22 @@ describe("发送队列：按会话取件", () => {
     expect(q1.id).not.toBe(q2.id);
     const queue = enqueue(enqueue([], q1), q2);
     expect(removeQueueAt(queue, 0)).toEqual([q2]);
+  });
+});
+
+describe("pendingDeleteIds：刷新后的删除对账", () => {
+  it("收集未解决的删除确认（去重），忽略已解决与其他类型", () => {
+    const a = createTurn("a");
+    feed(a, [
+      { type: "confirm_delete", noteId: "n1", title: "A" },
+      { type: "confirm_delete", noteId: "n2", title: "B" },
+      { type: "confirm_move", noteId: "n3", title: "C", targetTitle: null, toRoot: true },
+    ]);
+    const b = createTurn("b");
+    feed(b, [{ type: "confirm_delete", noteId: "n1", title: "A" }]);
+    const resolved = markNoteResolved([b], "delete_confirm", "n1");
+
+    expect(pendingDeleteIds([...resolved, a])).toEqual(["n1", "n2"]);
+    expect(pendingDeleteIds([])).toEqual([]);
   });
 });

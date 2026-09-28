@@ -41,6 +41,10 @@ export type ChatMessage = {
   role: "user" | "assistant";
   content: string;
   createdAt: string;
+  /** assistant 消息的结构化快照 JSON（工具卡/副作用卡/引用/待办/提问/警告/耗时） */
+  metadata?: string | null;
+  promptTokens?: number;
+  completionTokens?: number;
 };
 
 export type ChatSession = {
@@ -64,6 +68,8 @@ export type ChatMessageInput = {
   completionTokens?: number;
   totalTokens?: number;
   requestId?: string;
+  /** 结构化快照 JSON（assistant 消息携带，用于刷新后重建 turn 时间线） */
+  metadata?: string | null;
 };
 
 /** 文档列表项（含子文档数，供目录/浏览类消费方） */

@@ -29,15 +29,17 @@ describe("lib/local/sqlite", () => {
       ]),
     );
     const applied = db.prepare("SELECT name FROM _migrations").all() as { name: string }[];
-    expect(applied).toHaveLength(1);
-    expect(applied[0].name).toBe("001_initial_schema");
+    expect(applied.map((m) => m.name)).toEqual([
+      "001_initial_schema",
+      "002_chat_message_metadata",
+    ]);
   });
 
   it("迁移幂等：重复 init 不报错、不重复记录", () => {
     initDatabase(db);
     initDatabase(db);
     const rows = db.prepare("SELECT name FROM _migrations").all() as { name: string }[];
-    expect(rows).toHaveLength(1);
+    expect(rows).toHaveLength(2);
   });
 
   it("WAL 与 foreign_keys PRAGMA 生效", () => {

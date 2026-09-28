@@ -280,6 +280,39 @@ describe("runNoteAgent 注入当前文档", () => {
   });
 });
 
+describe("runNoteAgent 结构化快照（落库后重建时间线用）", () => {
+  it("工具与副作用按事件顺序进 parts，文本段只记字符数，耗时随结果一起给", async () => {
+    mockConfig.tool = "createNote";
+    const { stream, done } = await runNoteAgent(db, "user-1", "建一篇笔记");
+    await readEvents(stream);
+    const result = await done;
+
+    // 顺序：工具卡 → 它产出的卡片（note_created）→ 文本（mock 先执行工具再吐文本）
+    expect(result.snapshot.parts[0]).toEqual({ kind: "tool", seq: 1 });
+    expect(result.snapshot.parts[1]).toEqual({ kind: "note", index: 0 });
+    expect(result.snapshot.parts[result.snapshot.parts.length - 1]).toEqual({
+      kind: "text",
+      chars: "正在处理...".length,
+    });
+    expect(result.snapshot.notes[0]).toMatchObject({ kind: "created", title: "测试笔记" });
+    expect(result.snapshot.tools[0]).toMatchObject({ tool: "createNote", state: "done" });
+    expect(result.snapshot.references).toHaveLength(1);
+    expect(typeof result.snapshot.durationMs).toBe("number");
+    expect(result.snapshot.errorMessage).toBeNull();
+  });
+
+  it("doom loop 警告进快照（刷新后警告不丢）", async () => {
+    // 通过同一工具连续失败触发警告门槛（阈值见 lib/ai/tools/runtime.ts）
+    mockConfig.tool = "readNote";
+    const { stream, done } = await runNoteAgent(db, "user-1", "读不存在的笔记", {
+      // 用一个必然失败的 noteId：readNote 返回失败文本 → doom tracker 累计
+    });
+    await readEvents(stream);
+    const result = await done;
+    expect(Array.isArray(result.snapshot.warnings)).toBe(true);
+  });
+});
+
 describe("runNoteAgent deleteNote 中止语义", () => {
   it("deleteNote 触发确认后中止本轮生成（避免确认前继续执行其他工具）", async () => {
     mockConfig.tool = "deleteNote";

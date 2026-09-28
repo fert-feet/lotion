@@ -30,6 +30,7 @@ import {
   finalizeTurn,
   markNoteResolved,
   markQuestionAnswered,
+  pendingDeleteIds,
   rebuildTurns,
   removeQueueAt,
   takeNextForSession,
@@ -154,9 +155,22 @@ const AiPanel = () => {
     currentTurnRef.current = null;
     setTurns([]);
     docStore.listChatHistory({ userId }, activeSessionId)
-      .then((msgs) => {
+      .then(async (msgs) => {
         if (!alive) return;
-        setTurns(rebuildTurns(msgs));
+        const rebuilt = rebuildTurns(msgs);
+        setTurns(rebuilt);
+        // 对账：已确认删除的文档不在了 → 卡片显示为"已删除"，不再弹一张点了必然报错的确认卡
+        const gone = (await Promise.all(
+          pendingDeleteIds(rebuilt).map(async (noteId) => {
+            try {
+              return (await docStore.getById(actor, noteId)) === null ? noteId : null;
+            } catch {
+              return null; // 读失败不当成"已删除"
+            }
+          }),
+        )).filter((id): id is string => !!id);
+        if (!alive || gone.length === 0) return;
+        setTurns((prev) => gone.reduce((acc, noteId) => markNoteResolved(acc, "delete_confirm", noteId), prev));
       })
       .catch(() => {
         // 历史拉取失败不阻塞，保持空对话
@@ -166,7 +180,7 @@ const AiPanel = () => {
         if (alive) drainQueue();
       });
     return () => { alive = false; };
-  }, [userId, activeSessionId, docStore, drainQueue]);
+  }, [userId, activeSessionId, docStore, actor, drainQueue]);
 
   // ---- 滚动：粘底才跟随（原来无条件 scrollTo 底部，用户上翻读历史会被每帧打断）----
   const messagesRef = useRef<HTMLDivElement>(null);

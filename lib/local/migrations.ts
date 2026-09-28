@@ -93,4 +93,13 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_chat_messages_request_id
   WHERE "requestId" IS NOT NULL;
 `,
   },
+  {
+    // 002：assistant 消息的结构化快照（工具卡 / 副作用卡 / 引用 / 待办 / 提问 / 警告 / 耗时）。
+    // 没有它时刷新会话只剩一段纯文本：工具卡、待确认的删除/移动、引用全部消失。
+    // ALTER TABLE ADD COLUMN 是 SQLite 支持的轻量迁移（新库由 001 建表后再补这一列）。
+    name: "002_chat_message_metadata",
+    sql: `
+ALTER TABLE chat_messages ADD COLUMN "metadata" TEXT;
+`,
+  },
 ];

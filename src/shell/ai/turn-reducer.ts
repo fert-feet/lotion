@@ -12,7 +12,8 @@
 // 改完由调用方 commit 触发渲染）；其余函数返回新数组/新对象，便于测试与 React 比较。
 
 import type { ChatMessage } from "@/lib/seams/doc-store";
-import { createTurn, type NoteEvent, type SseEvent, type Turn } from "./types";
+import { parseTurnSnapshot, type TurnSnapshot } from "@/lib/chat-snapshot";
+import { createTurn, type NoteEvent, type SseEvent, type Turn, type TurnPart } from "./types";
 
 /** 事件带来的外部副作用：由组件层执行（toast / 路由 / 刷新），reducer 不碰 IO */
 export type TurnEffect =
@@ -160,8 +161,8 @@ export function finalizeTurn(
 
 /**
  * 扁平消息历史 → turn 时间线。
- * 只有正文：工具卡/副作用卡/引用等结构化信息由 assistant 消息的快照承载
- * （见 `rebuildTurns` 的 snapshot 参数；没有快照时退化为纯文本时间线）。
+ * assistant 消息带结构化快照（chat_messages.metadata）时**完整恢复**工具卡/副作用卡/
+ * 引用/待办/提问/警告/耗时；没有快照（旧数据）时退化为纯文本时间线。
  */
 export function rebuildTurns(messages: ChatMessage[]): Turn[] {
   const turns: Turn[] = [];
@@ -174,12 +175,64 @@ export function rebuildTurns(messages: ChatMessage[]): Turn[] {
       current.durationMs = null;
       turns.push(current);
     } else if (current) {
-      current.parts.push({ kind: "text", text: m.content });
-      current.text = m.content;
-      current.status = "done";
+      const snapshot = parseTurnSnapshot(m.metadata ?? null);
+      if (snapshot) {
+        restoreTurn(current, m.content, snapshot);
+      } else {
+        current.parts.push({ kind: "text", text: m.content });
+        current.text = m.content;
+        current.status = "done";
+      }
+      if (m.promptTokens !== undefined || m.completionTokens !== undefined) {
+        current.tokens = { input: m.promptTokens ?? 0, output: m.completionTokens ?? 0 };
+      }
     }
   }
   return turns;
+}
+
+/**
+ * 用快照恢复一轮（就地写 turn）：
+ * 文本段只存了字符数，按序从消息正文切片；切片总长与正文不一致时，剩余部分补成
+ * 末尾文本段（自愈，绝不吞字）。
+ */
+export function restoreTurn(turn: Turn, content: string, snapshot: TurnSnapshot): void {
+  turn.text = content;
+  turn.tools = snapshot.tools.map((c) => ({ ...c }));
+  turn.notes = snapshot.notes.map((n) => ({ ...n }));
+  turn.references = snapshot.references.map((r) => ({ ...r }));
+  turn.questions = snapshot.questions.map((q) => ({
+    ...q,
+    options: q.options.map((o) => ({ ...o })),
+  }));
+  turn.todos = snapshot.todos.map((t) => ({ ...t }));
+  turn.warnings = [...snapshot.warnings];
+  turn.durationMs = snapshot.durationMs;
+  turn.status = snapshot.errorMessage ? "error" : "done";
+  turn.errorMessage = snapshot.errorMessage ?? undefined;
+
+  const parts: TurnPart[] = [];
+  let offset = 0;
+  for (const part of snapshot.parts) {
+    if (part.kind !== "text") {
+      parts.push({ ...part });
+      continue;
+    }
+    const text = content.slice(offset, offset + part.chars);
+    offset += part.chars;
+    if (!text) continue;
+    const last = parts[parts.length - 1];
+    if (last && last.kind === "text") last.text += text;
+    else parts.push({ kind: "text", text });
+  }
+  // 正文比快照记录的文本段长（如中止路径的快照偏差）：补尾段，不丢字
+  if (offset < content.length) {
+    const rest = content.slice(offset);
+    const last = parts[parts.length - 1];
+    if (last && last.kind === "text") last.text += rest;
+    else parts.push({ kind: "text", text: rest });
+  }
+  turn.parts = parts;
 }
 
 /** 把某张确认卡标记为已解决（渲染为"已删除/已移动"的收尾行） */
@@ -202,8 +255,22 @@ export function markNoteResolved(
   return changed ? next : turns;
 }
 
-/** 回填提问卡的回答（卡片随之变为不可再答，避免重复提交同一问题） */
-export function markQuestionAnswered(
+/**
+ * 待确认删除的文档 id（去重）。
+ * 用途：刷新后用"文档是否还在"对账 —— 已确认删除的文档不在了，卡片就该显示为已删除，
+ * 而不是重新弹一张点了必然报错的"确认永久删除"（元数据不写回，靠事实对账）。
+ */
+export function pendingDeleteIds(turns: Turn[]): string[] {
+  const ids = new Set<string>();
+  for (const turn of turns) {
+    for (const note of turn.notes) {
+      if (note.kind === "delete_confirm" && !note.resolved) ids.add(note.noteId);
+    }
+  }
+  return [...ids];
+}
+
+/** 回填提问卡的回答（卡片随之变为不可再答，避免重复提交同一问题） */export function markQuestionAnswered(
   turns: Turn[],
   turnId: string,
   index: number,

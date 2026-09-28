@@ -248,4 +248,39 @@ describe("POST /api/ai/chat", () => {
     const agentArgs = runNoteAgent.mock.calls[0][3] as { currentDocument?: unknown };
     expect(agentArgs.currentDocument).toBeUndefined();
   });
+
+  it("assistant 消息落库携带回合快照（刷新后工具卡/引用/耗时都能重建）", async () => {
+    runNoteAgent.mockResolvedValue({
+      stream: mockStream(),
+      done: Promise.resolve({
+        text: "回答",
+        usage: null,
+        references: [],
+        snapshot: {
+          version: 1,
+          durationMs: 777,
+          errorMessage: null,
+          parts: [{ kind: "text", chars: 2 }],
+          tools: [],
+          notes: [],
+          references: [],
+          questions: [],
+          todos: [],
+          warnings: [],
+        },
+      }),
+    });
+    const { cookie, sessionId } = await seedAuth();
+    const res = await postChat({ prompt: "hi", sessionId, requestId: "r-snapshot" }, cookie);
+    await res.text();
+
+    await vi.waitFor(() => {
+      const row = state.db!
+        .prepare(
+          "SELECT metadata FROM chat_messages WHERE sessionId = ? AND role = 'assistant'",
+        )
+        .get(sessionId) as { metadata: string | null };
+      expect(JSON.parse(row.metadata!)).toMatchObject({ version: 1, durationMs: 777 });
+    });
+  });
 });

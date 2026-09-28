@@ -119,7 +119,7 @@ aiChatRoutes.post("/", async (c) => {
     context: getHostKernelIfBooted()?.ctx,
   });
 
-  // 流结束后后台落库 assistant 消息（含 token 统计），随后触发上下文压缩检查
+  // 流结束后后台落库 assistant 消息（含 token 统计与结构化快照），随后触发上下文压缩检查
   const finish = done
     .then((result) =>
       insertChatMessage(db, {
@@ -130,6 +130,8 @@ aiChatRoutes.post("/", async (c) => {
         promptTokens: result.usage?.inputTokens ?? 0,
         completionTokens: result.usage?.outputTokens ?? 0,
         totalTokens: (result.usage?.inputTokens ?? 0) + (result.usage?.outputTokens ?? 0),
+        // 快照让刷新/切会话后的时间线仍然有工具卡、副作用卡、引用、待确认操作
+        metadata: JSON.stringify(result.snapshot),
       }),
     )
     .then(() => maybeCompressSession(user.id, sessionId, ai ? { ai } : undefined))
