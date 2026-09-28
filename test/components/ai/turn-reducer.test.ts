@@ -14,6 +14,7 @@ import {
   pendingDeleteIds,
   rebuildTurns,
   removeQueueAt,
+  shouldDispatchQueued,
   takeNextForSession,
 } from "@/src/shell/ai/turn-reducer";
 import type { ChatMessage } from "@/lib/seams/doc-store";
@@ -458,5 +459,23 @@ describe("rebuildTurns：用户消息的附件清单", () => {
       { id: "u1", role: "user", content: "hi", createdAt: "x", metadata: "{坏" },
     ]);
     expect(turn.attachments).toEqual([]);
+  });
+});
+
+describe("shouldDispatchQueued：停止后不再自动续发", () => {
+  const queue = [createQueuedMessage("排队的话", "s1")];
+
+  it("正常结束：有本会话的待发消息就发", () => {
+    expect(shouldDispatchQueued({ streaming: false, suppressed: false }, queue, "s1")).toBe(true);
+  });
+
+  it("用户点过「停止生成」：不自动续发（否则像是中断无效，它又自己开始思考）", () => {
+    expect(shouldDispatchQueued({ streaming: false, suppressed: true }, queue, "s1")).toBe(false);
+  });
+
+  it("仍在生成中 / 没有本会话的待发消息 → 不发", () => {
+    expect(shouldDispatchQueued({ streaming: true, suppressed: false }, queue, "s1")).toBe(false);
+    expect(shouldDispatchQueued({ streaming: false, suppressed: false }, queue, "s2")).toBe(false);
+    expect(shouldDispatchQueued({ streaming: false, suppressed: false }, [], "s1")).toBe(false);
   });
 });

@@ -154,6 +154,7 @@ describe("POST /api/ai/chat", () => {
         text: "回答",
         usage: { inputTokens: 10, outputTokens: 20 },
         references: [],
+        aborted: false,
       }),
     });
     const { cookie, sessionId } = await seedAuth();
@@ -249,6 +250,88 @@ describe("POST /api/ai/chat", () => {
     expect(agentArgs.currentDocument).toBeUndefined();
   });
 
+  it("注入的历史**不含本轮 prompt**（先拉历史再落库，模型不会看到两遍）", async () => {
+    const { cookie, sessionId, userId } = await seedAuth();
+    const { insertChatMessage } = await import("@/lib/local/db");
+    insertChatMessage(state.db!, { userId, sessionId, role: "user", content: "上一轮的问题" });
+
+    await (await postChat({ prompt: "这一轮的问题", sessionId, requestId: "r-history" }, cookie)).text();
+
+    const args = runNoteAgent.mock.calls[0][3] as { history?: Array<{ role: string; content: string }> };
+    const contents = (args.history ?? []).map((m) => m.content);
+    expect(contents).toContain("上一轮的问题");
+    expect(contents).not.toContain("这一轮的问题");
+  });
+
+  it("首 token 前被中断（空回答且无结构化内容）不落库 assistant 消息", async () => {
+    runNoteAgent.mockResolvedValue({
+      stream: mockStream(),
+      done: Promise.resolve({
+        text: "",
+        usage: null,
+        references: [],
+        aborted: true,
+        snapshot: {
+          version: 1,
+          durationMs: 900,
+          errorMessage: null,
+          changedDocuments: [],
+          requestId: null,
+          parts: [],
+          tools: [],
+          notes: [],
+          references: [],
+          questions: [],
+          todos: [],
+          warnings: [],
+        },
+      }),
+    });
+    const { cookie, sessionId } = await seedAuth();
+    await (await postChat({ prompt: "写长文", sessionId, requestId: "r-empty" }, cookie)).text();
+
+    await vi.waitFor(() => {
+      const rows = state.db!
+        .prepare("SELECT role FROM chat_messages WHERE sessionId = ? ORDER BY rowid")
+        .all(sessionId) as { role: string }[];
+      expect(rows.map((r) => r.role)).toEqual(["user"]); // 只有用户消息，没有空回答
+    });
+  });
+
+  it("中断前已生成部分内容 / 有工具卡时仍然落库（刷新后能看到这一轮做了什么）", async () => {
+    runNoteAgent.mockResolvedValue({
+      stream: mockStream(),
+      done: Promise.resolve({
+        text: "写到一半",
+        usage: null,
+        references: [],
+        aborted: true,
+        snapshot: {
+          version: 1,
+          durationMs: 900,
+          errorMessage: null,
+          changedDocuments: [],
+          requestId: null,
+          parts: [{ kind: "text", chars: 4 }],
+          tools: [],
+          notes: [],
+          references: [],
+          questions: [],
+          todos: [],
+          warnings: [],
+        },
+      }),
+    });
+    const { cookie, sessionId } = await seedAuth();
+    await (await postChat({ prompt: "写长文", sessionId, requestId: "r-partial" }, cookie)).text();
+    await vi.waitFor(() => {
+      const row = state.db!
+        .prepare("SELECT content FROM chat_messages WHERE sessionId = ? AND role = 'assistant'")
+        .get(sessionId) as { content: string };
+      expect(row.content).toBe("写到一半");
+    });
+  });
+
   it("附件拼进本轮 prompt（库里仍存用户原话），清单落进 user 消息 metadata", async () => {
     const { cookie, sessionId } = await seedAuth();
     const res = await postChat(
@@ -307,6 +390,7 @@ describe("POST /api/ai/chat", () => {
         text: "改好了",
         usage: null,
         references: [],
+        aborted: false,
         snapshot: {
           version: 1,
           durationMs: 1,
@@ -357,6 +441,7 @@ describe("POST /api/ai/chat", () => {
         text: "回答",
         usage: null,
         references: [],
+        aborted: false,
         snapshot: {
           version: 1,
           durationMs: 777,

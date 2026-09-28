@@ -14,6 +14,8 @@ const { mockConfig } = vi.hoisted(() => ({
     emitError: false,
     /** 模拟"中止/读取异常"：吐出首个 chunk 后让流报错，且**不触发 onFinish** */
     streamError: false,
+    /** 模拟"长回答还在生成"：吐出首个 chunk 后保持流打开（不 onFinish、不关闭） */
+    hold: false,
     capturedMessages: [] as Array<{ role: string; content: string }>,
     capturedSystem: "" as string,
     capturedModel: null as { modelId?: string; config?: { apiKey?: string } } | null,
@@ -80,7 +82,7 @@ vi.mock("ai", async (importOriginal) => {
             // 正常路径：立刻触发 onFinish 并关流（与真实 SDK 的 finish 回调等价）；
             // streamError 路径不在这里收尾——等消费者先读到 chunk，再由 pull 让流报错，
             // 以此模拟"已经吐出部分文本后中止、且不走 onFinish"。
-            if (!mockConfig.streamError) {
+            if (!mockConfig.streamError && !mockConfig.hold) {
               options.onFinish?.({
                 finishReason: "stop",
                 usage: { inputTokens: 1, outputTokens: 2 },
@@ -91,6 +93,7 @@ vi.mock("ai", async (importOriginal) => {
             }
           },
           pull(controller) {
+            if (mockConfig.hold) return; // 保持打开：等对端 cancel
             if (settled) return;
             settled = true;
             if (mockConfig.streamError) controller.error(new Error("mock stream broken"));
@@ -154,6 +157,7 @@ beforeEach(() => {
   mockConfig.emitStepFinish = false;
   mockConfig.emitError = false;
   mockConfig.streamError = false;
+  mockConfig.hold = false;
   mockConfig.capturedMessages = [];
   mockConfig.abortSignal = null;
 });
@@ -244,6 +248,32 @@ describe("runNoteAgent SSE 事件注入", () => {
   });
 });
 
+describe("runNoteAgent 历史注入：被中断的上一轮", () => {
+  it("连续两条 user 消息时给前一条加注释（避免模型回答已放弃的请求），且 prompt 只出现一次", async () => {
+    const { stream } = await runNoteAgent(db, "user-1", "只回两个字：收到", {
+      history: [{ role: "user", content: "请写一篇 1000 字的文章" }],
+    });
+    await readEvents(stream);
+
+    const messages = mockConfig.capturedMessages;
+    expect(messages).toHaveLength(2);
+    expect(messages[0].content).toContain("请写一篇 1000 字的文章");
+    expect(messages[0].content).toContain("用户已停止这一轮");
+    expect(messages[1]).toEqual({ role: "user", content: "只回两个字：收到" });
+  });
+
+  it("user/assistant 正常成对时**不**加注释", async () => {
+    const { stream } = await runNoteAgent(db, "user-1", "继续", {
+      history: [
+        { role: "user", content: "问题" },
+        { role: "assistant", content: "回答" },
+      ],
+    });
+    await readEvents(stream);
+    expect(mockConfig.capturedMessages.map((m) => m.content)).toEqual(["问题", "回答", "继续"]);
+  });
+});
+
 describe("buildSystemPrompt：当前文档上下文", () => {
   it("没有当前文档时只给基础提示", async () => {
     const { buildSystemPrompt } = await import("@/lib/agent");
@@ -277,6 +307,32 @@ describe("runNoteAgent 注入当前文档", () => {
     });
     expect(mockConfig.capturedSystem).toContain("引用笔记");
     expect(mockConfig.capturedSystem).toContain(mockConfig.noteId);
+  });
+});
+
+describe("runNoteAgent 中断语义（用户点『停止』）", () => {
+  it("正常结束 aborted=false；流被 cancel 时 aborted=true **并真正中止模型生成**", async () => {
+    const normal = await runNoteAgent(db, "user-1", "你好");
+    await readEvents(normal.stream);
+    expect((await normal.done).aborted).toBe(false);
+
+    // 客户端断开 → node-server 会 cancel 响应流：必须把 abortSignal 打下去
+    mockConfig.streamError = true; // 模拟"首 token 前就被中断"（不触发 onFinish）
+    const interrupted = await runNoteAgent(db, "user-1", "写一篇长文");
+    await interrupted.stream.cancel();
+    const result = await interrupted.done;
+    expect(result.aborted).toBe(true);
+    expect(mockConfig.abortSignal?.aborted).toBe(true);
+  });
+
+  it("request signal 被中止时 aborted=true（前端 abort fetch 的路径）", async () => {
+    mockConfig.hold = true; // 回答还在生成中
+    const controller = new AbortController();
+    const { stream, done } = await runNoteAgent(db, "user-1", "长文", { signal: controller.signal });
+    controller.abort(); // 前端 abort fetch → node-server 关闭请求 → signal 触发
+    await stream.cancel();
+    expect((await done).aborted).toBe(true);
+    expect(mockConfig.abortSignal?.aborted).toBe(true);
   });
 });
 
@@ -412,7 +468,11 @@ describe("runNoteAgent 历史注入（全量，无预算限制）", () => {
 
   it("单条历史消息不截断（原样注入）", async () => {
     const longContent = "字".repeat(5_000);
-    const history = [{ role: "user" as const, content: longContent }];
+    // 成对的 user/assistant 历史：不做"被中断的那一轮"注释（那条规则见上一组用例）
+    const history = [
+      { role: "user" as const, content: longContent },
+      { role: "assistant" as const, content: "上一轮的回答" },
+    ];
     const { stream } = await runNoteAgent(db, "user-1", "继续", { history });
     await readEvents(stream);
 

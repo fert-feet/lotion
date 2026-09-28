@@ -329,6 +329,22 @@ export function removeQueueAt(queue: QueuedMessage[], index: number): QueuedMess
 }
 
 /**
+ * 要不要自动发送队列里的下一条（纯函数，便于单测）：
+ * - 正在生成中：不动（等本轮结束）
+ * - 用户刚点过「停止生成」：**不自动续发**（中止的语义就是"停下来"，
+ *   否则用户会看到"点了中断它又自己开始思考"，误以为中断无效）
+ * - 当前会话没有待发消息：不动
+ */
+export function shouldDispatchQueued(
+  gate: { streaming: boolean; suppressed: boolean },
+  queue: QueuedMessage[],
+  sessionId: string | null,
+): boolean {
+  if (gate.streaming || gate.suppressed) return false;
+  return takeNextForSession(queue, sessionId).item !== null;
+}
+
+/**
  * 取出该会话最早的一条待发消息。
  * 返回 rest 而不仅是新数组：调用方需要拿到 rest 与 item 两个结果。
  */

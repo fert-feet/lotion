@@ -27,6 +27,7 @@ import {
   pendingDeleteIds,
   rebuildTurns,
   removeQueueAt,
+  shouldDispatchQueued,
   takeNextForSession,
   type QueuedMessage,
 } from "./ai/turn-reducer";
@@ -77,6 +78,9 @@ const AiPanel = () => {
   const streamingRef = useRef(false);
   const abortRef = useRef<AbortController | null>(null);
   const queueRef = useRef<QueuedMessage[]>([]);
+  /** 用户显式「停止生成」后置位：不再自动续发队列（点「继续发送」才恢复） */
+  const queueSuppressedRef = useRef(false);
+  const [queueSuppressed, setQueueSuppressed] = useState(false);
   const [queueItems, setQueueItems] = useState<QueuedMessage[]>([]);
   const [inputEmpty, setInputEmpty] = useState(true);
   // 历史分页：一次拉最近 HISTORY_PAGE 条；更早的按需加载（长会话不再一次性全量拉取）
@@ -126,9 +130,13 @@ const AiPanel = () => {
     (content: string, sessionId: string, attachments?: ChatAttachment[]) => Promise<void>
   >(async () => {});
 
-  /** 队列调度：只取**当前激活会话**的待发消息（切会话绝不把旧会话的消息发出去） */
+  /** 队列调度：只取**当前激活会话**的待发消息；用户点过停止后不自动续发 */
   const drainQueue = useCallback(() => {
-    if (streamingRef.current) return;
+    if (!shouldDispatchQueued(
+      { streaming: streamingRef.current, suppressed: queueSuppressedRef.current },
+      queueRef.current,
+      activeSessionRef.current,
+    )) return;
     const { item, rest } = takeNextForSession(queueRef.current, activeSessionRef.current);
     if (!item) return;
     queueRef.current = rest;
@@ -456,6 +464,8 @@ const AiPanel = () => {
   const handleSend = (content: string) => {
     if (!content || !activeSessionId) return;
     recallIndexRef.current = -1;
+    queueSuppressedRef.current = false; // 用户主动发消息 → 队列恢复自动发送
+    setQueueSuppressed(false);
 
     if (streamingRef.current) {
       const item = createQueuedMessage(content, activeSessionId);
@@ -476,10 +486,35 @@ const AiPanel = () => {
     if (next >= 0 && history[next]) mentionRef.current?.setText(history[next]);
   }, []);
 
-  // 终止当前流式生成（服务端通过 abortSignal 同步中断）
+  // 终止当前流式生成（服务端通过 abortSignal 同步中断；不再自动续发排队消息）
   const handleStop = useCallback(() => {
+    queueSuppressedRef.current = true;
+    setQueueSuppressed(true);
     abortRef.current?.abort();
   }, []);
+
+  // 停止并立刻开一个新对话（"这次不聊了 / 换个话题"一步到位）。
+  // 用 ref 转发到"最新一次渲染的函数"，既保证 TurnView 的 memo 不被新函数引用击穿，
+  // 又能读到最新的 sessions / activeSessionId（否则会拿到过期闭包）。
+  const stopAndNewSessionRef = useRef<() => void>(() => {});
+  stopAndNewSessionRef.current = () => {
+    handleStop();
+    const active = sessions.find((s) => s.id === activeSessionId);
+    if (active?.title === "新对话") {
+      // 已经是空的新对话：不重复创建，明确告诉用户（否则会以为按钮坏了）
+      toast.info("当前已经是新对话，已停止生成");
+      return;
+    }
+    void handleNewSession();
+  };
+  const handleStopAndNewSession = useCallback(() => stopAndNewSessionRef.current(), []);
+
+  // 恢复队列自动发送（用户点「继续发送」）
+  const resumeQueue = useCallback(() => {
+    queueSuppressedRef.current = false;
+    setQueueSuppressed(false);
+    drainQueue();
+  }, [drainQueue]);
 
   // 失败回合重试：把同一条用户输入作为新一轮发出
   const handleRetry = useCallback((turn: Turn) => {
@@ -743,6 +778,8 @@ const AiPanel = () => {
               onCancelMove={handleCancelMove}
               onAnswerQuestion={handleQuestionAnswer}
               onRetry={handleRetry}
+              onStop={handleStop}
+              onStopAndNewSession={handleStopAndNewSession}
               onUndo={handleUndo}
               onPreviewChanges={handlePreviewChanges}
               onEditUser={handleEditUser}
@@ -771,7 +808,17 @@ const AiPanel = () => {
             <div className="mb-1.5 flex items-center justify-between">
               <span className="text-xs font-medium text-shell-label-secondary">
                 待发送队列（{queueItems.length}）
+                {queueSuppressed && <span className="ml-1 text-shell-label-tertiary">· 已暂停自动发送</span>}
               </span>
+              {queueSuppressed && (
+                <button
+                  type="button"
+                  onClick={resumeQueue}
+                  className="cursor-pointer text-xs text-shell-accent hover:underline"
+                >
+                  继续发送
+                </button>
+              )}
               <button
                 type="button"
                 onClick={clearQueue}

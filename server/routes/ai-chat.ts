@@ -61,6 +61,32 @@ export function withAttachments(prompt: string, attachments: ChatAttachment[]): 
   return `${prompt}\n\n---\n以下是用户随消息提供的文件内容（供参考，可能不完整）：\n\n${blocks.join("\n\n")}`;
 }
 
+/**
+ * 该轮要不要落库 assistant 消息（纯函数，便于单测）：
+ * - 有正文 → 落库（含"停止生成"时已生成的部分内容）
+ * - 没有正文但有结构化内容（工具卡/引用/待办/提问/警告）→ 落库，刷新后仍能看到这一轮做了什么
+ * - 两者都没有（首 token 之前就被中断 / 直接失败）→ **不落库**：
+ *   否则历史里会躺一条空回答（模型下一轮还会看到一个空的 assistant 消息）
+ */
+export function shouldPersistAssistantMessage(result: {
+  text: string;
+  snapshot: {
+    tools: unknown[];
+    notes: unknown[];
+    references: unknown[];
+    questions: unknown[];
+    todos: unknown[];
+    warnings: unknown[];
+  };
+}): boolean {
+  if (result.text.trim().length > 0) return true;
+  const { tools, notes, references, questions, todos, warnings } = result.snapshot;
+  return (
+    tools.length + notes.length + references.length + questions.length + todos.length + warnings.length >
+    0
+  );
+}
+
 function isUniqueViolation(e: unknown): boolean {
   return (
     typeof e === "object" &&
@@ -94,7 +120,31 @@ aiChatRoutes.post("/", async (c) => {
   const session = getChatSession(db, user.id, sessionId);
   if (!session) return c.json({ error: "Session not found" }, 404);
 
+  // 首个问题自动命名会话，其余仅刷新 updatedAt（失败不阻塞主流程）
+  try {
+    if (session.title === "新对话") {
+      setChatSessionTitle(db, user.id, sessionId, prompt.slice(0, 20));
+    } else {
+      touchChatSession(db, user.id, sessionId);
+    }
+  } catch (e) {
+    logger.api.error("会话更新失败", { error: String(e) });
+  }
+
+  // 先拉历史、后落库本轮用户消息：否则刚插入的 prompt 会既出现在 history 里、
+  // 又作为 prompt 注入一次 —— 模型会看到两遍同一句话。
+  // 滑动窗口：早期对话已压缩为 summary，注入最近 WINDOW_SIZE 条原文，其余靠摘要承载（lib/compress.ts）
+  let history: AgentHistoryMessage[] = [];
+  try {
+    const msgs = listChatHistory(db, user.id, sessionId, WINDOW_SIZE, { uncompressedOnly: true });
+    history = msgs.map((m) => ({ role: m.role, content: m.content }));
+    logger.api.info("注入对话历史", { count: history.length, hasSummary: !!session.summary });
+  } catch (e) {
+    logger.api.warn("拉取对话历史失败，本次无上下文", { error: String(e) });
+  }
+
   // 落库用户消息（携带 requestId 作幂等键；冲突=重复请求直接拒绝）。其他失败不阻塞主流程。
+  // 位置在拉历史之后：历史里不应包含本轮 prompt（见上）。
   try {
     insertChatMessage(db, {
       userId: user.id,
@@ -116,28 +166,6 @@ aiChatRoutes.post("/", async (c) => {
       return c.json({ error: "Duplicate request" }, 409);
     }
     logger.api.error("用户消息落库失败", { error: String(e) });
-  }
-
-  // 首个问题自动命名会话，其余仅刷新 updatedAt（失败不阻塞主流程）
-  try {
-    if (session.title === "新对话") {
-      setChatSessionTitle(db, user.id, sessionId, prompt.slice(0, 20));
-    } else {
-      touchChatSession(db, user.id, sessionId);
-    }
-  } catch (e) {
-    logger.api.error("会话更新失败", { error: String(e) });
-  }
-
-  // 拉取该会话未压缩的对话历史注入 Agent（滑动窗口：早期对话已压缩为 summary，
-  // 注入最近 WINDOW_SIZE 条原文，其余靠摘要承载；压缩见 lib/compress.ts）
-  let history: AgentHistoryMessage[] = [];
-  try {
-    const msgs = listChatHistory(db, user.id, sessionId, WINDOW_SIZE, { uncompressedOnly: true });
-    history = msgs.map((m) => ({ role: m.role, content: m.content }));
-    logger.api.info("注入对话历史", { count: history.length, hasSummary: !!session.summary });
-  } catch (e) {
-    logger.api.warn("拉取对话历史失败，本次无上下文", { error: String(e) });
   }
 
   // AI 运行期配置来自配置层（env > data/settings.json > 组合默认）；内核未装配时回退环境变量。
@@ -187,8 +215,15 @@ aiChatRoutes.post("/", async (c) => {
       }
       return result;
     })
-    .then((result) =>
-      insertChatMessage(db, {
+    .then((result) => {
+      if (!shouldPersistAssistantMessage(result)) {
+        logger.api.info("本轮无可落库内容（中断在首 token 前或直接失败），跳过 assistant 消息", {
+          sessionId,
+          aborted: result.aborted,
+        });
+        return result;
+      }
+      return insertChatMessage(db, {
         userId: user.id,
         sessionId,
         role: "assistant",
@@ -199,8 +234,8 @@ aiChatRoutes.post("/", async (c) => {
         // 快照让刷新/切会话后的时间线仍然有工具卡、副作用卡、引用、待确认操作，
         // 并带上 requestId（撤销按钮的入参）
         metadata: JSON.stringify({ ...result.snapshot, requestId: requestId ?? null }),
-      }),
-    )
+      });
+    })
     .then(() => maybeCompressSession(user.id, sessionId, ai ? { ai } : undefined))
     .catch((e) => {
       logger.api.error("assistant 消息落库失败", { error: String(e) });

@@ -5,7 +5,7 @@
 // 旧实现把工具卡固定堆在叙述上方，文本→工具→文本的交错顺序会丢；现在按 turn.parts 顺序渲染。
 import { memo, useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { AlertTriangle, Check, ChevronDown, Copy, FileText, Loader2, PenLine, Plus, RefreshCw, Undo } from "@/components/icons";
+import { AlertTriangle, Check, ChevronDown, Copy, FileText, Loader2, PenLine, Plus, RefreshCw, Square, Undo } from "@/components/icons";
 import { MarkdownText } from "@/components/markdown/MarkdownText";
 import { truncateMentionTitle } from "@/lib/mention";
 import { cn } from "@/lib/utils";
@@ -32,6 +32,9 @@ interface TurnProps {
     customText?: string,
   ) => void;
   onRetry: (turn: Turn) => void;
+  /** 停止本轮生成（用户点「停止」/「停止并开新对话」） */
+  onStop: () => void;
+  onStopAndNewSession: () => void;
   /** 撤销本轮 AI 对文档的改动 */
   onUndo: (turn: Turn) => void;
   /** 拉取本轮改动的改动前后对照（懒加载，点「查看改动」时才请求） */
@@ -83,6 +86,37 @@ function RunningClock({ startedAt }: { startedAt: number }) {
       <span>正在思考</span>
       {elapsed >= 15000 && <span className="tabular-nums">· {formatDuration(elapsed)}</span>}
     </div>
+  );
+}
+
+/** 回合内的停止操作：显式文字按钮（用户明确要求"点中断"要看得见） */
+function StopActions({
+  onStop,
+  onStopAndNewSession,
+}: {
+  onStop: () => void;
+  onStopAndNewSession: () => void;
+}) {
+  return (
+    <span className="flex flex-none items-center gap-1.5" data-stop-actions>
+      <button
+        type="button"
+        onClick={onStop}
+        className="inline-flex h-6 cursor-pointer items-center gap-1 rounded-lg border-[0.5px] border-shell-border-l2 px-2 text-[11px] font-medium text-shell-label-secondary transition-colors hover:bg-shell-row-hover hover:text-shell-label-primary"
+      >
+        <Square className="h-2.5 w-2.5" />
+        停止生成
+      </button>
+      <button
+        type="button"
+        onClick={onStopAndNewSession}
+        title="停止当前生成并开一个新对话"
+        className="inline-flex h-6 cursor-pointer items-center gap-1 rounded-lg px-2 text-[11px] font-medium text-shell-label-tertiary transition-colors hover:bg-shell-row-hover hover:text-shell-label-primary"
+      >
+        <Plus className="h-3 w-3" />
+        停止并开新对话
+      </button>
+    </span>
   );
 }
 
@@ -426,7 +460,7 @@ function TurnActions({
   );
 }
 
-function TurnViewInner({ turn, onOpenDocument, onConfirmDelete, onCancelDelete, onConfirmMove, onCancelMove, onAnswerQuestion, onRetry, onUndo, onPreviewChanges, onEditUser, onInsertToDocument, onSaveAsNote, canInsertToDocument }: TurnProps) {
+function TurnViewInner({ turn, onOpenDocument, onConfirmDelete, onCancelDelete, onConfirmMove, onCancelMove, onAnswerQuestion, onRetry, onStop, onStopAndNewSession, onUndo, onPreviewChanges, onEditUser, onInsertToDocument, onSaveAsNote, canInsertToDocument }: TurnProps) {
   const running = turn.status === "running";
   const lastPartIndex = turn.parts.length - 1;
   const trailingText = turn.parts[lastPartIndex]?.kind === "text";
@@ -507,8 +541,17 @@ function TurnViewInner({ turn, onOpenDocument, onConfirmDelete, onCancelDelete, 
           }
         })}
 
-        {/* 还没吐出任何文本时的思考指示 */}
-        {running && !trailingText && <RunningClock startedAt={turn.createdAt} />}
+        {/* 还没吐出任何文本时的思考指示 —— 并给出**显式**的停止入口：
+            此前只有输入框右侧一个无文字的方块图标，用户找不到"终止对话" */}
+        {running && !trailingText && (
+          <div className="flex flex-wrap items-center gap-2">
+            <RunningClock startedAt={turn.createdAt} />
+            <StopActions onStop={onStop} onStopAndNewSession={onStopAndNewSession} />
+          </div>
+        )}
+
+        {/* 已经在吐字了也能停：贴在最后一轮内容下方 */}
+        {running && trailingText && <StopActions onStop={onStop} onStopAndNewSession={onStopAndNewSession} />}
 
         {/* 失败卡：错误事件或请求失败都走这里（原实现只有 toast，回合还一直转圈） */}
         {turn.status === "error" && (

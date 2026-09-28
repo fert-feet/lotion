@@ -90,6 +90,8 @@ export interface AgentResult {
   toolCount: number;
   /** 本轮被 AI 改写的文档及其**改动前**状态（撤销用） */
   changes: AgentChange[];
+  /** 本轮是否被中止（用户停止 / 客户端断开 / doom loop）：决定空回答是否落库 */
+  aborted: boolean;
   /** 本轮结构化快照（落库用：刷新后重建工具卡/副作用卡/引用/待办/提问） */
   snapshot: TurnSnapshot;
 }
@@ -182,6 +184,17 @@ export async function runNoteAgent(
   }
 
   messages.push({ role: "user", content: prompt });
+
+  // 连续两条 user 消息 = 前一轮被用户中断/失败（没有 assistant 记录）：给前一条补一句说明，
+  // 否则模型会把那个已经被放弃的请求也当成待回答的问题（"写 1000 字文章" + "只回两个字"）。
+  for (let i = 0; i < messages.length - 1; i += 1) {
+    if (messages[i].role === "user" && messages[i + 1].role === "user") {
+      messages[i] = {
+        ...messages[i],
+        content: `${messages[i].content}\n\n（用户已停止这一轮，未生成回答）`,
+      };
+    }
+  }
   logger.agent.info("开始 Agent 执行", {
     userId,
     prompt: prompt.slice(0, 100),
@@ -364,13 +377,16 @@ export async function runNoteAgent(
   // 避免 done 悬挂导致 assistant 消息静默不落库。
   let resolveDone: (r: AgentResult) => void = () => {};
   let doneResolved = false;
-  const resolveDoneSafe = (r: Omit<AgentResult, "snapshot" | "changes">) => {
+  /** 是否被中止（request signal / abort 回调 / 流 cancel / doom loop 四处置位） */
+  let aborted = false;
+  const resolveDoneSafe = (r: Omit<AgentResult, "snapshot" | "changes" | "aborted">) => {
     if (doneResolved) return;
     doneResolved = true;
+
     // 快照的耗时与结果同源（历史重建时 footer 才不会显示"耗时 0ms"）
     snapshot.durationMs = r.durationMs;
     snapshot.changedDocuments = changes.map((c) => c.documentId);
-    resolveDone({ ...r, snapshot, changes });
+    resolveDone({ ...r, snapshot, changes, aborted });
   };
   const done = new Promise<AgentResult>((res) => { resolveDone = res; });
   // 已推送的叙述文本累计：中止/异常路径下用它落库"已生成的部分"。
@@ -385,9 +401,17 @@ export async function runNoteAgent(
   const internalAbort = new AbortController();
   if (options?.signal) {
     if (options.signal.aborted) {
+      aborted = true;
       internalAbort.abort();
     } else {
-      options.signal.addEventListener("abort", () => internalAbort.abort(), { once: true });
+      options.signal.addEventListener(
+        "abort",
+        () => {
+          aborted = true;
+          internalAbort.abort();
+        },
+        { once: true },
+      );
     }
   }
 
@@ -449,6 +473,7 @@ export async function runNoteAgent(
     },
     onAbort: () => {
       // 用户停止 / 确认类工具中止生成：立刻用已累计文本收尾（onFinish 不会触发）
+      aborted = true;
       logger.agent.info("生成被中止，落库已生成的部分内容", { textLen: accumulatedText.length });
       resolveDoneSafe({
         text: accumulatedText,
@@ -481,7 +506,10 @@ export async function runNoteAgent(
       });
     },
   });
-  abortFn = () => internalAbort.abort();
+  abortFn = () => {
+    aborted = true;
+    internalAbort.abort();
+  };
 
   // 包装流：SSE 事件行输出（data: <json>\n\n），事件与文本分通道，前端按行解析
   const textStream = result.textStream;
@@ -540,7 +568,11 @@ export async function runNoteAgent(
       setTimeout(() => cleanupRef?.(), STREAM_TIMEOUT_MS + 5000);
     },
     cancel() {
-      // 外部取消（前端 abort / 客户端断开）时回收定时器，避免泄漏
+      // 外部取消（前端 abort / 客户端断开）：既回收定时器，也**真正中止模型生成**
+      // （此前只清定时器，靠 request signal 兜底；node-server 会在客户端断开时 cancel 流，
+      //  这条路径必须自己把 abortSignal 打下去，否则模型继续烧 token）
+      aborted = true;
+      internalAbort.abort();
       cleanupRef?.();
       // 兜底 resolve：取消后 done 不悬挂，并保留已生成的部分内容
       resolveDoneSafe({
