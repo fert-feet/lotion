@@ -235,6 +235,34 @@ export function undoAiChanges(
   return { restored, skipped };
 }
 
+/**
+ * 某一轮 AI 改动的"改动前后"对照（Markdown）。
+ * 宿主侧实现：REST 侧的同一功能在 server/routes/ai-undo.ts（两侧都做 Markdown 转换）。
+ */
+export async function previewAiChanges(
+  db: Database.Database,
+  userId: string,
+  requestId: string,
+): Promise<Array<{ documentId: string; title: string; beforeTitle: string; before: string; after: string }>> {
+  const { toMarkdown } = await import("./../content-server");
+  const rows = listAiChanges(db, userId, requestId);
+  const out: Array<{ documentId: string; title: string; beforeTitle: string; before: string; after: string }> = [];
+  for (const row of rows) {
+    const doc = getDocumentById(db, row.documentId, userId);
+    const state = parseUndoState(row.beforeState);
+    if (!doc || !state) continue;
+    const beforeContent = typeof state.content === "string" ? state.content : "";
+    out.push({
+      documentId: row.documentId,
+      title: doc.title,
+      beforeTitle: typeof state.title === "string" ? state.title : doc.title,
+      before: (await toMarkdown(beforeContent)).slice(0, 4000),
+      after: (await toMarkdown(doc.content)).slice(0, 4000),
+    });
+  }
+  return out;
+}
+
 /** 标记这些改动已撤销（幂等：已标记的不重复写入） */
 export function markAiChangesUndone(db: Database.Database, ids: string[]): void {
   if (ids.length === 0) return;

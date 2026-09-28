@@ -201,6 +201,13 @@ export async function undoAiChanges(requestId: string) {
   });
 }
 
+/** 某一轮 AI 改动的改动前后对照（AI 面板「查看改动」） */
+export async function previewAiChanges(requestId: string) {
+  return api<{
+    changes: Array<{ documentId: string; title: string; beforeTitle: string; before: string; after: string }>;
+  }>("/api/ai/undo/" + encodeURIComponent(requestId) + "/preview");
+}
+
 /**
  * 追加一段 Markdown 到文档末尾（AI 面板「插入到当前文档」）。
  * 转换（Markdown → BlockNote 块）在服务端做，客户端只发原文。

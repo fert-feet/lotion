@@ -20,6 +20,7 @@ import {
   insertChatMessage,
   listChatHistory,
   listChatSessions,
+  previewAiChanges,
   undoAiChanges,
   listDocumentsOverview,
   listSearch,
@@ -108,6 +109,9 @@ export function createSqliteDocStore(db?: Database.Database): DocStore {
     // ---- AI 会话 ----
     async undoAiChanges(actor: Actor, requestId: string) {
       return undoAiChanges(conn(), actor.userId, requestId);
+    },
+    async previewAiChanges(actor: Actor, requestId: string) {
+      return previewAiChanges(conn(), actor.userId, requestId);
     },
     async listChatSessions(actor: Actor, limit?: number) {
       return listChatSessions(conn(), actor.userId, limit);

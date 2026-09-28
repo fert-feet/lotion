@@ -5,10 +5,11 @@
 // 旧实现把工具卡固定堆在叙述上方，文本→工具→文本的交错顺序会丢；现在按 turn.parts 顺序渲染。
 import { memo, useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { AlertTriangle, Check, Copy, FileText, Loader2, PenLine, Plus, RefreshCw, Undo } from "@/components/icons";
+import { AlertTriangle, Check, ChevronDown, Copy, FileText, Loader2, PenLine, Plus, RefreshCw, Undo } from "@/components/icons";
 import { MarkdownText } from "@/components/markdown/MarkdownText";
 import { truncateMentionTitle } from "@/lib/mention";
 import { cn } from "@/lib/utils";
+import type { AiChangePreview } from "@/lib/seams/doc-store";
 import type { Question, TodoItem, Turn } from "./types";
 import { formatDuration } from "./types";
 import { ToolCard } from "./tool-card";
@@ -33,6 +34,8 @@ interface TurnProps {
   onRetry: (turn: Turn) => void;
   /** 撤销本轮 AI 对文档的改动 */
   onUndo: (turn: Turn) => void;
+  /** 拉取本轮改动的改动前后对照（懒加载，点「查看改动」时才请求） */
+  onPreviewChanges: (turn: Turn) => Promise<AiChangePreview[]>;
   /** 编辑重发：把该轮用户输入回填到输入框 */
   onEditUser: (turn: Turn) => void;
   /** 把该轮回答追加到当前文档（没有打开文档时按钮不显示） */
@@ -262,6 +265,7 @@ function TurnActions({
   canInsertToDocument,
   onRetry,
   onUndo,
+  onPreviewChanges,
   onEditUser,
   onInsertToDocument,
   onSaveAsNote,
@@ -270,6 +274,7 @@ function TurnActions({
   canInsertToDocument: boolean;
   onRetry: (turn: Turn) => void;
   onUndo: (turn: Turn) => void;
+  onPreviewChanges: (turn: Turn) => Promise<AiChangePreview[]>;
   onEditUser: (turn: Turn) => void;
   onInsertToDocument: (turn: Turn) => void;
   onSaveAsNote: (turn: Turn) => void;
@@ -287,6 +292,21 @@ function TurnActions({
 
   const actionClass =
     "cursor-pointer rounded-md px-1.5 py-0.5 transition-colors hover:bg-shell-row-hover hover:text-shell-label-secondary";
+
+  const [preview, setPreview] = useState<AiChangePreview[] | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const togglePreview = useCallback(async () => {
+    if (preview) {
+      setPreview(null);
+      return;
+    }
+    setPreviewLoading(true);
+    try {
+      setPreview(await onPreviewChanges(turn));
+    } finally {
+      setPreviewLoading(false);
+    }
+  }, [preview, onPreviewChanges, turn]);
 
   return (
     <span className="flex flex-wrap items-center gap-1" data-turn-actions>
@@ -311,8 +331,48 @@ function TurnActions({
           </span>
         </button>
       )}
+      {turn.changedDocuments.length > 0 && !turn.undone && (
+        <button
+          type="button"
+          onClick={() => void togglePreview()}
+          className={actionClass}
+          title="看看 AI 到底改了哪些内容"
+        >
+          <span className="inline-flex items-center gap-1">
+            {previewLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <ChevronDown className="h-3 w-3" />}
+            {preview ? "收起改动" : "查看改动"}
+          </span>
+        </button>
+      )}
       {turn.undone && turn.changedDocuments.length > 0 && (
         <span className="px-1.5 py-0.5 text-shell-label-caption">已撤销本次改动</span>
+      )}
+      {preview && preview.length > 0 && (
+        <div className="mt-1 w-full basis-full space-y-2 rounded-[10px] border-[0.5px] border-shell-border-l2 bg-shell-bg-base/60 p-2.5">
+          {preview.map((change) => (
+            <div key={change.documentId} className="space-y-1">
+              <p className="text-[11px] font-medium text-shell-label-secondary">
+                {change.beforeTitle === change.title
+                  ? change.title
+                  : `${change.beforeTitle} → ${change.title}`}
+              </p>
+              <div className="grid grid-cols-2 gap-2 text-[11px] leading-4">
+                <div className="rounded-md bg-destructive/5 p-2">
+                  <p className="mb-1 text-[10px] font-medium text-destructive">改动前</p>
+                  <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-words font-mono text-shell-label-secondary">
+                    {change.before.trim() || "（空）"}
+                  </pre>
+                </div>
+                <div className="rounded-md bg-shell-accent/5 p-2">
+                  <p className="mb-1 text-[10px] font-medium text-shell-accent">改动后</p>
+                  <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-words font-mono text-shell-label-secondary">
+                    {change.after.trim() || "（空）"}
+                  </pre>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
       )}
       <button
         type="button"
@@ -366,7 +426,7 @@ function TurnActions({
   );
 }
 
-function TurnViewInner({ turn, onOpenDocument, onConfirmDelete, onCancelDelete, onConfirmMove, onCancelMove, onAnswerQuestion, onRetry, onUndo, onEditUser, onInsertToDocument, onSaveAsNote, canInsertToDocument }: TurnProps) {
+function TurnViewInner({ turn, onOpenDocument, onConfirmDelete, onCancelDelete, onConfirmMove, onCancelMove, onAnswerQuestion, onRetry, onUndo, onPreviewChanges, onEditUser, onInsertToDocument, onSaveAsNote, canInsertToDocument }: TurnProps) {
   const running = turn.status === "running";
   const lastPartIndex = turn.parts.length - 1;
   const trailingText = turn.parts[lastPartIndex]?.kind === "text";
@@ -493,6 +553,7 @@ function TurnViewInner({ turn, onOpenDocument, onConfirmDelete, onCancelDelete, 
               canInsertToDocument={canInsertToDocument}
               onRetry={onRetry}
               onUndo={onUndo}
+              onPreviewChanges={onPreviewChanges}
               onEditUser={onEditUser}
               onInsertToDocument={onInsertToDocument}
               onSaveAsNote={onSaveAsNote}

@@ -124,6 +124,62 @@ describe("POST /api/ai/undo", () => {
     expect((await call("/api/ai/undo", "POST", undefined, { requestId: "x" })).status).toBe(401);
   });
 
+  it("GET preview 返回改动前后的 Markdown（看清 AI 改了什么）", async () => {
+    const { cookie, userId } = await authCookie();
+    const { createDocument, updateDocument, getDocumentById, insertAiChange } = await import(
+      "@/lib/local/db"
+    );
+    const docId = createDocument(state.db!, userId, "原标题");
+    updateDocument(state.db!, docId, { content: "改动前的正文" });
+    const before = getDocumentById(state.db!, docId, userId)!;
+    insertAiChange(state.db!, {
+      userId,
+      requestId: "req-preview",
+      documentId: docId,
+      beforeState: JSON.stringify({
+        title: before.title,
+        content: before.content,
+        icon: null,
+        coverImage: null,
+        parentDocument: null,
+        isPublished: false,
+        isArchived: false,
+      }),
+    });
+    // AI 改写
+    updateDocument(state.db!, docId, { title: "新标题", content: "改动后的正文" });
+
+    const res = await call("/api/ai/undo/req-preview/preview", "GET", cookie);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { changes: Array<Record<string, string>> };
+    expect(body.changes).toHaveLength(1);
+    expect(body.changes[0].documentId).toBe(docId);
+    expect(body.changes[0].beforeTitle).toBe("原标题");
+    expect(body.changes[0].title).toBe("新标题");
+    expect(body.changes[0].before).toContain("改动前的正文");
+    expect(body.changes[0].after).toContain("改动后的正文");
+  });
+
+  it("preview 不泄漏别人的改动，撤销后也不再返回", async () => {
+    const a = await authCookie("preview-a@x.com");
+    const { cookie, userId } = await authCookie("preview-b@x.com");
+    const { createDocument, insertAiChange } = await import("@/lib/local/db");
+    const docId = createDocument(state.db!, userId, "B 的文档");
+    insertAiChange(state.db!, {
+      userId,
+      requestId: "req-preview-b",
+      documentId: docId,
+      beforeState: JSON.stringify({ title: "B 的文档", content: "B 的内容" }),
+    });
+
+    const foreign = await call("/api/ai/undo/req-preview-b/preview", "GET", a.cookie);
+    expect(((await foreign.json()) as { changes: unknown[] }).changes).toEqual([]);
+
+    await call("/api/ai/undo", "POST", cookie, { requestId: "req-preview-b" });
+    const after = await call("/api/ai/undo/req-preview-b/preview", "GET", cookie);
+    expect(((await after.json()) as { changes: unknown[] }).changes).toEqual([]);
+  });
+
   it("GET /api/ai/undo/:requestId 报告是否还有可撤销改动", async () => {
     const { cookie, userId } = await authCookie();
     const { insertAiChange, createDocument } = await import("@/lib/local/db");

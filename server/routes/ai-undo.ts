@@ -8,7 +8,8 @@
 // 幂等：已撤销的改动不再重复恢复（restored: []），前端据此把按钮收起来。
 import { Hono } from "hono";
 import { getDb } from "@/lib/local/sqlite";
-import { listAiChanges, undoAiChanges } from "@/lib/local/db";
+import { getDocumentById, listAiChanges, parseUndoState, undoAiChanges } from "@/lib/local/db";
+import { toMarkdown } from "@/lib/content-server";
 import { logger } from "@/lib/logger";
 import { readJson, type AppEnv } from "../http";
 import { requireAuth } from "../middleware";
@@ -34,6 +35,35 @@ aiUndoRoutes.post("/", async (c) => {
     skipped,
   });
   return c.json({ ok: true, restored, skipped });
+});
+
+/**
+ * GET /api/ai/undo/:requestId/preview —— 改动前后对照（"AI 到底改了什么"）。
+ * 返回每篇被改文档的标题与 before/after 的 Markdown（截断到 4000 字，够看清改了什么）。
+ */
+const PREVIEW_MAX_CHARS = 4_000;
+
+aiUndoRoutes.get("/:requestId/preview", async (c) => {
+  const user = c.get("user");
+  const db = getDb();
+  const requestId = c.req.param("requestId");
+  const rows = listAiChanges(db, user.id, requestId);
+
+  const changes = [];
+  for (const row of rows) {
+    const doc = getDocumentById(db, row.documentId, user.id);
+    const state = parseUndoState(row.beforeState);
+    if (!doc || !state) continue;
+    const beforeContent = typeof state.content === "string" ? state.content : "";
+    changes.push({
+      documentId: row.documentId,
+      title: doc.title,
+      beforeTitle: typeof state.title === "string" ? state.title : doc.title,
+      before: (await toMarkdown(beforeContent)).slice(0, PREVIEW_MAX_CHARS),
+      after: (await toMarkdown(doc.content)).slice(0, PREVIEW_MAX_CHARS),
+    });
+  }
+  return c.json({ changes });
 });
 
 /** GET /api/ai/undo/:requestId —— 该轮是否还有可撤销的改动（前端按钮态） */

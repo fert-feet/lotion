@@ -47,6 +47,15 @@ export type ChatMessage = {
   completionTokens?: number;
 };
 
+/** AI 改动前后对照（每篇被改文档一条） */
+export type AiChangePreview = {
+  documentId: string;
+  title: string;
+  beforeTitle: string;
+  before: string;
+  after: string;
+};
+
 export type ChatSession = {
   id: string;
   title: string;
@@ -121,6 +130,8 @@ export interface DocStore {
     actor: Actor,
     requestId: string,
   ): Promise<{ restored: string[]; skipped: number }>;
+  /** 某一轮 AI 改动的"改动前后"对照（Markdown 文本，用于预览"AI 改了什么"） */
+  previewAiChanges(actor: Actor, requestId: string): Promise<AiChangePreview[]>;
   listChatSessions(actor: Actor, limit?: number): Promise<ChatSession[]>;
   createChatSession(actor: Actor, title?: string, documentId?: string | null): Promise<string>;
   deleteChatSession(actor: Actor, sessionId: string): Promise<void>;
@@ -149,6 +160,7 @@ const DOC_STORE_METHODS = [
   "removeIcon",
   "removeCoverImage",
   "undoAiChanges",
+  "previewAiChanges",
   "listChatSessions",
   "createChatSession",
   "deleteChatSession",

@@ -30,6 +30,7 @@ function fakeStore(overrides: Partial<DocStore> = {}): DocStore {
     create: vi.fn(async () => "new-id"),
     update: noop,
     undoAiChanges: vi.fn(async () => ({ restored: [], skipped: 0 })),
+    previewAiChanges: vi.fn(async () => []),
     appendMarkdown: noop,
     archive: noop,
     restore: noop,

@@ -511,6 +511,12 @@ const AiPanel = () => {
     });
   }, [docStore, actor, triggerSidebar, triggerDocument, params.documentId]);
 
+  // 查看改动：懒加载本轮每篇文档的改动前后对照
+  const handlePreviewChanges = useCallback(
+    (turn: Turn) => (turn.requestId ? docStore.previewAiChanges(actor, turn.requestId) : Promise.resolve([])),
+    [docStore, actor],
+  );
+
   // 编辑重发：把该轮用户输入回填到输入框（胶囊还原为胶囊），用户改完自己发
   const handleEditUser = useCallback((turn: Turn) => {
     mentionRef.current?.setText(turn.userContent);
@@ -738,6 +744,7 @@ const AiPanel = () => {
               onAnswerQuestion={handleQuestionAnswer}
               onRetry={handleRetry}
               onUndo={handleUndo}
+              onPreviewChanges={handlePreviewChanges}
               onEditUser={handleEditUser}
               onInsertToDocument={handleInsertToDocument}
               onSaveAsNote={handleSaveAsNote}

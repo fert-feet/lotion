@@ -8,6 +8,7 @@
 import type { PluginObject } from "@/lib/kernel";
 import {
   appendMarkdown,
+  previewAiChanges,
   archive,
   create,
   createChatSession,
@@ -121,6 +122,10 @@ export function createRestDocStore(): UiDocStore {
     },
     async setChatSessionTitle(_actor, sessionId: string, title: string) {
       await setChatSessionTitle(sessionId, title);
+    },
+    async previewAiChanges(_actor, requestId: string) {
+      const { changes } = await previewAiChanges(requestId);
+      return changes;
     },
     async undoAiChanges(_actor, requestId: string) {
       const { restored, skipped } = await undoAiChanges(requestId);

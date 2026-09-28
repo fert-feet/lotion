@@ -149,6 +149,12 @@ describe("lib/client/doc-store-rest 会话操作", () => {
       expect.objectContaining({ method: "POST", body: JSON.stringify({ requestId: "req-1" }) }),
     ]);
 
+    // 改动预览（回合操作条）
+    fetchMock.mockImplementation(async () => jsonRes({ changes: [{ documentId: "d1", before: "a", after: "b" }] }));
+    const preview = await store.previewAiChanges(actor, "req-1");
+    expect(lastCall()[0]).toBe("/api/ai/undo/req-1/preview");
+    expect(preview).toHaveLength(1);
+
     fetchMock.mockImplementation(async () => jsonRes({ ok: true }));
     await store.deleteChatSession(actor, "s1");
     expect(lastCall()).toEqual([
