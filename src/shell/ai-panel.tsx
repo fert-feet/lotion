@@ -43,6 +43,9 @@ import {
 /** 粘底判定阈值：距底小于该值就算"跟到底部" */
 const STICK_THRESHOLD_PX = 80;
 
+/** 历史分页大小（每次「加载更早」再多拉这么多条） */
+const HISTORY_PAGE = 40;
+
 const AiPanel = () => {
   const docStore = useDocStore();
   const actor = useActor();
@@ -74,6 +77,10 @@ const AiPanel = () => {
   const queueRef = useRef<QueuedMessage[]>([]);
   const [queueItems, setQueueItems] = useState<QueuedMessage[]>([]);
   const [inputEmpty, setInputEmpty] = useState(true);
+  // 历史分页：一次拉最近 HISTORY_PAGE 条；更早的按需加载（长会话不再一次性全量拉取）
+  const [historyLimit, setHistoryLimit] = useState(HISTORY_PAGE);
+  const historySessionRef = useRef<string | null>(null);
+  const [hasMoreHistory, setHasMoreHistory] = useState(false);
   // 待发送附件（文本类）：随下一条消息发出
   const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -160,13 +167,18 @@ const AiPanel = () => {
       setLoading(false);
     }
     let alive = true;
-    currentTurnRef.current = null;
-    setTurns([]);
-    docStore.listChatHistory({ userId }, activeSessionId)
+    // 只有切换会话才清空时间线；「加载更早」（historyLimit 变化）保留当前视图
+    if (historySessionRef.current !== activeSessionId) {
+      historySessionRef.current = activeSessionId;
+      currentTurnRef.current = null;
+      setTurns([]);
+    }
+    docStore.listChatHistory({ userId }, activeSessionId, historyLimit)
       .then(async (msgs) => {
         if (!alive) return;
         const rebuilt = rebuildTurns(msgs);
         setTurns(rebuilt);
+        setHasMoreHistory(msgs.length >= historyLimit);
         // 对账：已确认删除的文档不在了 → 卡片显示为"已删除"，不再弹一张点了必然报错的确认卡
         const gone = (await Promise.all(
           pendingDeleteIds(rebuilt).map(async (noteId) => {
@@ -188,7 +200,12 @@ const AiPanel = () => {
         if (alive) drainQueue();
       });
     return () => { alive = false; };
-  }, [userId, activeSessionId, docStore, actor, drainQueue]);
+  }, [userId, activeSessionId, docStore, actor, drainQueue, historyLimit]);
+
+  // 切会话时把分页窗口复位（否则新会话仍按上一个会话加载过的深度拉取）
+  useEffect(() => {
+    setHistoryLimit(HISTORY_PAGE);
+  }, [activeSessionId]);
 
   // ---- 滚动：粘底才跟随（原来无条件 scrollTo 底部，用户上翻读历史会被每帧打断）----
   const messagesRef = useRef<HTMLDivElement>(null);
@@ -670,9 +687,22 @@ const AiPanel = () => {
       <div
         ref={messagesRef}
         onScroll={onMessagesScroll}
+        role="log"
+        aria-live="polite"
+        aria-relevant="additions text"
+        aria-label="与文档助手的对话"
         className="relative min-h-0 flex-1 overflow-y-auto"
       >
         <div className="flex min-h-full flex-col gap-4 px-3.5 py-4">
+          {hasMoreHistory && turns.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setHistoryLimit((n) => n + HISTORY_PAGE)}
+              className="mx-auto cursor-pointer rounded-full border-[0.5px] border-shell-border-l2 px-3 py-1 text-xs text-shell-label-secondary transition-colors hover:bg-shell-row-hover hover:text-shell-label-primary"
+            >
+              加载更早的消息
+            </button>
+          )}
           {turns.length === 0 && !loading && (
             <div className="flex flex-1 flex-col items-center justify-center gap-4 pb-16 text-center">
               <div className="flex h-12 w-12 items-center justify-center rounded-[14px] bg-ai text-ai-foreground shadow-[var(--shadow-sm)]">
@@ -752,6 +782,7 @@ const AiPanel = () => {
                     type="button"
                     onClick={() => removeFromQueue(index)}
                     title="移除该条"
+                    aria-label="移除这条待发送消息"
                     className="shrink-0 cursor-pointer rounded-sm p-0.5 text-shell-label-tertiary transition-colors hover:bg-shell-row-hover hover:text-shell-label-primary"
                   >
                     <X className="h-3 w-3" />
@@ -776,6 +807,7 @@ const AiPanel = () => {
                 <button
                   type="button"
                   title="移除附件"
+                  aria-label={`移除附件 ${item.name}`}
                   onClick={() => setAttachments((prev) => prev.filter((_, i) => i !== index))}
                   className="flex-none cursor-pointer rounded-sm p-0.5 hover:text-shell-label-primary"
                 >

@@ -258,6 +258,7 @@ export default function MentionInput({
         contentEditable
         role="textbox"
         aria-multiline="true"
+        aria-label={placeholder ?? "输入消息，可用 @ 提及文档"}
         data-placeholder={placeholder}
         onInput={handleInput}
         onKeyDown={handleKeyDown}

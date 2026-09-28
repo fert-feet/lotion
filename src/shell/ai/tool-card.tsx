@@ -21,6 +21,7 @@ export function ToolCard({ card }: { card: ToolCardState }) {
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
+        aria-label={`工具调用 ${card.label}：${running ? "执行中" : failed ? "失败" : "完成"}`}
         className={cn(
           "group/tool relative flex w-full items-center gap-2 overflow-hidden rounded-xl px-3 py-2 text-left",
           "hover:bg-shell-row-hover",

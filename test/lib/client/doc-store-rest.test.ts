@@ -133,6 +133,22 @@ describe("lib/client/doc-store-rest 会话操作", () => {
     await store.listChatHistory(actor, "s1", 10);
     expect(lastCall()[0]).toBe("/api/chat/sessions/s1/messages?limit=10");
 
+    // 重命名会话（UI 功能，走 PATCH）
+    fetchMock.mockImplementation(async () => jsonRes({ ok: true }));
+    await store.setChatSessionTitle(actor, "s1", "新标题");
+    expect(lastCall()).toEqual([
+      "/api/chat/sessions/s1",
+      expect.objectContaining({ method: "PATCH", body: JSON.stringify({ title: "新标题" }) }),
+    ]);
+
+    // 撤销 AI 改动（回合操作条）
+    fetchMock.mockImplementation(async () => jsonRes({ ok: true, restored: ["d1"], skipped: 0 }));
+    await store.undoAiChanges(actor, "req-1");
+    expect(lastCall()).toEqual([
+      "/api/ai/undo",
+      expect.objectContaining({ method: "POST", body: JSON.stringify({ requestId: "req-1" }) }),
+    ]);
+
     fetchMock.mockImplementation(async () => jsonRes({ ok: true }));
     await store.deleteChatSession(actor, "s1");
     expect(lastCall()).toEqual([

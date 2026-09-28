@@ -53,6 +53,7 @@ export function SessionMenu({ sessions, activeSessionId, onSelect, onRename, onD
           // 菜单内输入：阻止 Radix 把按键当菜单导航
           onKeyDown={(e) => e.stopPropagation()}
           placeholder="搜索会话"
+          aria-label="搜索历史会话"
           className="h-6 min-w-0 flex-1 bg-transparent text-xs text-shell-label-primary outline-none placeholder:text-shell-label-caption"
         />
       </div>
@@ -70,6 +71,7 @@ export function SessionMenu({ sessions, activeSessionId, onSelect, onRename, onD
             <div key={session.id} className="flex items-center gap-1.5 px-2 py-1">
               <input
                 autoFocus
+                aria-label="会话标题"
                 value={draftTitle}
                 onChange={(e) => setDraftTitle(e.target.value)}
                 onKeyDown={(e) => {
