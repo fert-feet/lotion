@@ -99,6 +99,28 @@ async function seedSession(): Promise<{ cookie: string; userId: string; sessionI
   return { cookie, userId, sessionId };
 }
 
+describe("POST /api/chat/sessions 绑定文档", () => {
+  it("绑定自己的文档；别人的/不存在的文档降级为全局会话", async () => {
+    const { cookie, userId } = await authCookie();
+    const { createDocument, listChatSessions } = await import("@/lib/local/db");
+    const mine = createDocument(state.db!, userId, "我的文档");
+
+    const bound = await (await call("/api/chat/sessions", "POST", cookie, { documentId: mine })).json();
+    expect(bound.documentId).toBe(mine);
+
+    const foreignOwner = (await authCookie("session-owner@x.com")).userId;
+    const foreign = createDocument(state.db!, foreignOwner, "别人的文档");
+    const fallback = await (await call("/api/chat/sessions", "POST", cookie, { documentId: foreign })).json();
+    expect(fallback.documentId).toBeNull();
+
+    const missing = await (await call("/api/chat/sessions", "POST", cookie, { documentId: "ghost" })).json();
+    expect(missing.documentId).toBeNull();
+
+    const list = listChatSessions(state.db!, userId);
+    expect(list.filter((s) => s.documentId === mine)).toHaveLength(1);
+  });
+});
+
 describe("PATCH /api/chat/sessions/:id 重命名", () => {
   it("重命名成功并落库；空标题 400、超长 400、不存在 404、未登录 401", async () => {
     const { cookie, sessionId } = await seedSession();

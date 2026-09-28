@@ -52,6 +52,8 @@ export type ChatSession = {
   title: string;
   createdAt: string;
   updatedAt: string;
+  /** 绑定的文档 id（null/未设置 = 全局会话） */
+  documentId?: string | null;
 };
 
 /** 可更新字段白名单（与 REST PATCH 白名单一致） */
@@ -120,7 +122,7 @@ export interface DocStore {
     requestId: string,
   ): Promise<{ restored: string[]; skipped: number }>;
   listChatSessions(actor: Actor, limit?: number): Promise<ChatSession[]>;
-  createChatSession(actor: Actor, title?: string): Promise<string>;
+  createChatSession(actor: Actor, title?: string, documentId?: string | null): Promise<string>;
   deleteChatSession(actor: Actor, sessionId: string): Promise<void>;
   listChatHistory(actor: Actor, sessionId: string, limit?: number): Promise<ChatMessage[]>;
   insertChatMessage(actor: Actor, input: ChatMessageInput): Promise<void>;

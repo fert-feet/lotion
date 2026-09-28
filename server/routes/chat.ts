@@ -5,6 +5,7 @@ import {
   createChatSession,
   deleteChatSession,
   getChatSession,
+  getDocumentById,
   listChatHistory,
   listChatSessions,
   setChatSessionTitle,
@@ -22,13 +23,18 @@ chatRoutes.get("/", (c) => {
   return c.json(listChatSessions(getDb(), user.id));
 });
 
-/** POST /api/chat/sessions —— 新建会话 */
+/** POST /api/chat/sessions —— 新建会话（可选绑定文档：{ documentId }） */
 chatRoutes.post("/", async (c) => {
   const user = c.get("user");
-  const parsed = await readJson<{ title?: string }>(c);
+  const parsed = await readJson<{ title?: string; documentId?: string | null }>(c);
   const title = parsed.ok ? parsed.data.title : undefined; // body 非法时按默认标题创建（与原实现一致）
-  const id = createChatSession(getDb(), user.id, title || "新对话");
-  return c.json({ id });
+  const requested = parsed.ok ? parsed.data.documentId ?? null : null;
+  const db = getDb();
+  // 归属校验：只能绑定自己的文档；非自己的/不存在的一律降级为全局会话
+  const documentId =
+    requested && getDocumentById(db, requested, user.id) ? requested : null;
+  const id = createChatSession(db, user.id, title || "新对话", documentId);
+  return c.json({ id, documentId });
 });
 
 /** PATCH /api/chat/sessions/:sessionId —— 重命名会话（标题 ≤ 60 字） */

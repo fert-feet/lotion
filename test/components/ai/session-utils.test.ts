@@ -3,6 +3,7 @@ import { describe, it, expect } from "vitest";
 import type { ChatSession } from "@/lib/seams/doc-store";
 import {
   filterSessions,
+  filterSessionsByScope,
   formatRelativeTime,
   recentUserMessages,
   sortSessionsByRecent,
@@ -34,6 +35,24 @@ describe("filterSessions / sortSessionsByRecent", () => {
     ];
     expect(sortSessionsByRecent(input).map((s) => s.id)).toEqual(["fresh", "new", "old"]);
     expect(input.map((s) => s.id)).toEqual(["old", "new", "fresh"]);
+  });
+});
+
+describe("filterSessionsByScope", () => {
+  const list = [
+    { ...session("1", "全局"), documentId: null },
+    { ...session("2", "文档 A"), documentId: "doc-a" },
+    { ...session("3", "文档 B"), documentId: "doc-b" },
+  ];
+
+  it("all 全部；document 只看当前文档；没有打开文档时 document 为空", () => {
+    expect(filterSessionsByScope(list, "all", "doc-a").map((s) => s.id)).toEqual(["1", "2", "3"]);
+    expect(filterSessionsByScope(list, "document", "doc-a").map((s) => s.id)).toEqual(["2"]);
+    expect(filterSessionsByScope(list, "document", null)).toEqual([]);
+  });
+
+  it("global 只看未绑定文档的会话", () => {
+    expect(filterSessionsByScope(list, "global", "doc-a").map((s) => s.id)).toEqual(["1"]);
   });
 });
 

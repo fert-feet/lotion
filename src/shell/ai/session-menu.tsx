@@ -4,7 +4,7 @@
 // 搜索 / 相对时间 / 行内重命名 / 删除二次确认（用项目既有的 AlertDialog 原语）。
 // 从 ai-panel.tsx 抽出来是为了让面板只管编排，不把列表交互细节堆在 700 行里。
 import { useState } from "react";
-import { Check, MessageSquare, PenLine, Search, Trash2 } from "@/components/icons";
+import { Check, FileText, MessageSquare, PenLine, Search, Trash2 } from "@/components/icons";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,9 +25,22 @@ interface SessionMenuProps {
   onSelect: (sessionId: string) => void;
   onRename: (sessionId: string, title: string) => void;
   onDelete: (sessionId: string) => void;
+  /** 作用域过滤（会话可绑定文档） */
+  scope?: "all" | "document";
+  canFilterByDocument?: boolean;
+  onScopeChange?: (scope: "all" | "document") => void;
 }
 
-export function SessionMenu({ sessions, activeSessionId, onSelect, onRename, onDelete }: SessionMenuProps) {
+export function SessionMenu({
+  sessions,
+  activeSessionId,
+  onSelect,
+  onRename,
+  onDelete,
+  scope = "all",
+  canFilterByDocument = false,
+  onScopeChange,
+}: SessionMenuProps) {
   const [query, setQuery] = useState("");
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [draftTitle, setDraftTitle] = useState("");
@@ -57,6 +70,26 @@ export function SessionMenu({ sessions, activeSessionId, onSelect, onRename, onD
           className="h-6 min-w-0 flex-1 bg-transparent text-xs text-shell-label-primary outline-none placeholder:text-shell-label-caption"
         />
       </div>
+
+      {canFilterByDocument && (
+        <div className="flex items-center gap-1 border-b-[0.5px] border-shell-border px-2 py-1">
+          {(["all", "document"] as const).map((value) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => onScopeChange?.(value)}
+              className={cn(
+                "cursor-pointer rounded-md px-2 py-0.5 text-[11px] transition-colors",
+                scope === value
+                  ? "bg-shell-row-active text-shell-label-primary"
+                  : "text-shell-label-tertiary hover:bg-shell-row-hover",
+              )}
+            >
+              {value === "all" ? "全部会话" : "只看本文档"}
+            </button>
+          ))}
+        </div>
+      )}
 
       {visible.length === 0 && (
         <div className="px-2 py-2 text-xs text-shell-label-tertiary">
@@ -96,6 +129,9 @@ export function SessionMenu({ sessions, activeSessionId, onSelect, onRename, onD
           >
             <MessageSquare className="h-3.5 w-3.5 shrink-0 text-shell-label-tertiary" />
             <span className="min-w-0 flex-1 truncate">{session.title}</span>
+            {session.documentId && (
+              <FileText className="h-3 w-3 shrink-0 text-shell-label-caption" aria-label="已绑定文档" />
+            )}
             <span className="shrink-0 text-[10px] tabular-nums text-shell-label-caption">
               {formatRelativeTime(session.updatedAt)}
             </span>

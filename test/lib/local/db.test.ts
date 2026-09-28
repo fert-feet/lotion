@@ -352,6 +352,33 @@ describe("lib/local/db AI 会话", () => {
   });
 });
 
+describe("会话与文档绑定", () => {
+  let db: Database.Database;
+  let userId: string;
+
+  beforeEach(() => {
+    db = openTestDb();
+    userId = seedUser(db);
+  });
+
+  it("新建会话可绑定文档，列表带出 documentId；默认是全局会话", () => {
+    const docId = createDocument(db, userId, "绑定的文档");
+    const bound = createChatSession(db, userId, "新对话", docId);
+    const global = createChatSession(db, userId, "全局对话");
+
+    const list = listChatSessions(db, userId);
+    expect(list.find((s) => s.id === bound)?.documentId).toBe(docId);
+    expect(list.find((s) => s.id === global)?.documentId ?? null).toBeNull();
+  });
+
+  it("文档被删除后会话保留、绑定置空（ON DELETE SET NULL）", () => {
+    const docId = createDocument(db, userId, "临时文档");
+    const sessionId = createChatSession(db, userId, "新对话", docId);
+    deleteDocument(db, docId);
+    expect(listChatSessions(db, userId).find((s) => s.id === sessionId)?.documentId ?? null).toBeNull();
+  });
+});
+
 describe("AI 改动快照与撤销", () => {
   let db: Database.Database;
   let userId: string;

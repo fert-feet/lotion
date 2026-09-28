@@ -43,6 +43,8 @@ export type ChatSession = {
   title: string;
   createdAt: string;
   updatedAt: string;
+  /** 绑定的文档 id（NULL = 全局会话） */
+  documentId?: string | null;
 };
 
 export type ChatMessageInput = {
@@ -80,19 +82,27 @@ const SIDEBAR_COLUMNS =
 export function listChatSessions(db: Database.Database, userId: string, limit = 50): ChatSession[] {
   return db
     .prepare(
-      `SELECT id, title, createdAt, updatedAt FROM chat_sessions
+      `SELECT id, title, createdAt, updatedAt, documentId FROM chat_sessions
        WHERE userId = ? ORDER BY updatedAt DESC, rowid DESC LIMIT ?`,
     )
     .all(userId, limit) as ChatSession[];
 }
 
-/** 新建会话，返回新会话 id */
-export function createChatSession(db: Database.Database, userId: string, title = "新对话"): string {
+/**
+ * 新建会话，返回新会话 id。
+ * documentId：把会话绑定到某篇文档（"这篇文档的对话"）；归属由调用方（路由）校验。
+ */
+export function createChatSession(
+  db: Database.Database,
+  userId: string,
+  title = "新对话",
+  documentId: string | null = null,
+): string {
   const id = newId();
   const now = isoNow();
   db.prepare(
-    `INSERT INTO chat_sessions (id, userId, title, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?)`,
-  ).run(id, userId, title, now, now);
+    `INSERT INTO chat_sessions (id, userId, title, documentId, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?)`,
+  ).run(id, userId, title, documentId, now, now);
   return id;
 }
 

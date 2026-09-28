@@ -32,7 +32,7 @@ import {
 } from "./ai/turn-reducer";
 import { TurnView } from "./ai/turn";
 import { SessionMenu } from "./ai/session-menu";
-import { recentUserMessages, stepRecallIndex } from "./ai/session-utils";
+import { filterSessionsByScope, recentUserMessages, stepRecallIndex } from "./ai/session-utils";
 import {
   ATTACHMENT_EXTENSIONS,
   readAttachmentFile,
@@ -60,6 +60,8 @@ const AiPanel = () => {
 
   // ---- 会话状态 ----
   const [sessions, setSessions] = useState<ChatSession[]>([]);
+  // 会话作用域：全部 / 只看本文档 / 只看全局（会话可绑定到某篇文档）
+  const [sessionScope, setSessionScope] = useState<"all" | "document">("all");
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
 
   // ---- turn 时间线 ----
@@ -143,7 +145,7 @@ const AiPanel = () => {
         if (!alive) return;
         let sessionsList = list;
         if (sessionsList.length === 0) {
-          await docStore.createChatSession({ userId });
+          await docStore.createChatSession({ userId }, undefined, params.documentId ?? null);
           sessionsList = await docStore.listChatSessions({ userId });
         }
         if (!alive) return;
@@ -154,6 +156,8 @@ const AiPanel = () => {
         // 拉取失败不阻塞，保持空状态
       });
     return () => { alive = false; };
+    // 首次进入只跑一次（含当前文档绑定），避免每次路由变化都重建会话
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, docStore]);
 
   // 切换会话时加载该会话的历史（跨文档全局对话）→ 重建 turn 时间线
@@ -250,9 +254,9 @@ const AiPanel = () => {
     const active = sessions.find((s) => s.id === activeSessionId);
     if (active?.title === "新对话") return;
     try {
-      const id = await docStore.createChatSession({ userId: user.id });
+      const id = await docStore.createChatSession({ userId: user.id }, undefined, params.documentId ?? null);
       setSessions((prev) => [
-        { id, title: "新对话", createdAt: "", updatedAt: "" },
+        { id, title: "新对话", createdAt: "", updatedAt: "", documentId: params.documentId ?? null },
         ...prev,
       ]);
       setActiveSessionId(id);
@@ -654,7 +658,10 @@ const AiPanel = () => {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-72 p-0">
               <SessionMenu
-                sessions={sessions}
+                sessions={filterSessionsByScope(sessions, sessionScope, params.documentId)}
+                scope={sessionScope}
+                canFilterByDocument={!!params.documentId}
+                onScopeChange={setSessionScope}
                 activeSessionId={activeSessionId}
                 onSelect={(id) => setActiveSessionId(id)}
                 onRename={handleRenameSession}

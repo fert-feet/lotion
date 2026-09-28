@@ -112,8 +112,11 @@ export function createSqliteDocStore(db?: Database.Database): DocStore {
     async listChatSessions(actor: Actor, limit?: number) {
       return listChatSessions(conn(), actor.userId, limit);
     },
-    async createChatSession(actor: Actor, title?: string) {
-      return createChatSession(conn(), actor.userId, title);
+    async createChatSession(actor: Actor, title?: string, documentId?: string | null) {
+      // 归属校验：只能绑定自己的文档
+      const bound =
+        documentId && getDocumentById(conn(), documentId, actor.userId) ? documentId : null;
+      return createChatSession(conn(), actor.userId, title, bound);
     },
     async deleteChatSession(actor: Actor, sessionId: string) {
       deleteChatSession(conn(), actor.userId, sessionId);

@@ -63,11 +63,15 @@ export async function getChatSessions(_userId: string): Promise<ChatSession[]> {
 }
 
 /** 新建会话，返回新会话 id */
-export async function createChatSession(_userId: string, title = "新对话"): Promise<string> {
+export async function createChatSession(
+  _userId: string,
+  title = "新对话",
+  documentId: string | null = null,
+): Promise<string> {
   const { id } = await api<{ id: string }>("/api/chat/sessions", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ title }),
+    body: JSON.stringify({ title, documentId }),
   });
   return id;
 }

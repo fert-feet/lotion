@@ -113,8 +113,8 @@ export function createRestDocStore(): UiDocStore {
     async listChatSessions() {
       return getChatSessions("");
     },
-    async createChatSession(_actor, title?: string) {
-      return createChatSession("", title);
+    async createChatSession(_actor, title?: string, documentId?: string | null) {
+      return createChatSession("", title, documentId);
     },
     async deleteChatSession(_actor, sessionId: string) {
       await deleteChatSession("", sessionId);

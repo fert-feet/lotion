@@ -24,6 +24,23 @@ export function sortSessionsByRecent(sessions: ChatSession[]): ChatSession[] {
   return [...sessions].sort((a, b) => ts(b) - ts(a));
 }
 
+/**
+ * 按文档筛选会话：'all' 全部；'document' 只看绑定到该文档的会话；
+ * 'global' 只看未绑定文档的全局会话。
+ */
+export function filterSessionsByScope(
+  sessions: ChatSession[],
+  scope: "all" | "document" | "global",
+  documentId: string | null | undefined,
+): ChatSession[] {
+  if (scope === "all") return sessions;
+  if (scope === "document") {
+    if (!documentId) return [];
+    return sessions.filter((s) => s.documentId === documentId);
+  }
+  return sessions.filter((s) => !s.documentId);
+}
+
 /** 相对时间（now 可注入，便于单测） */
 export function formatRelativeTime(iso: string | undefined, now: number = Date.now()): string {
   if (!iso) return "";

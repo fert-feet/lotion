@@ -121,4 +121,13 @@ CREATE TABLE IF NOT EXISTS ai_changes (
 CREATE INDEX IF NOT EXISTS idx_ai_changes_request ON ai_changes ("userId", "requestId");
 `,
   },
+  {
+    // 004：会话可绑定一个文档（"这篇文档的对话"）。NULL = 全局会话（默认）。
+    // 文档被删除时置空（ON DELETE SET NULL），会话本身保留。
+    name: "004_chat_session_document",
+    sql: `
+ALTER TABLE chat_sessions ADD COLUMN "documentId" TEXT REFERENCES documents("id") ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS idx_chat_sessions_document ON chat_sessions ("userId", "documentId", "updatedAt" DESC);
+`,
+  },
 ];
