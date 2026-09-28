@@ -17,6 +17,7 @@ import {
 } from "@/lib/local/db";
 import { readJson, type AppEnv } from "../http";
 import { requireAuth } from "../middleware";
+import { appendMarkdownToDocument } from "@/lib/content-server";
 
 const UPDATEABLE_FIELDS = [
   "title",
@@ -80,6 +81,38 @@ documentsRoutes.patch("/:documentId", async (c) => {
 /** DELETE /api/documents/:documentId —— 永久删除 */
 documentsRoutes.delete("/:documentId", (c) => {
   deleteDocument(getDb(), c.req.param("documentId"));
+  return c.json({ ok: true });
+});
+
+/** 单次追加的 Markdown 上限（防一次把回答灌爆库；前端按钮也只传一轮回答） */
+const APPEND_MAX_CHARS = 20_000;
+
+/**
+ * POST /api/documents/:documentId/append —— 追加 Markdown 到文档末尾。
+ * AI 面板的「插入到当前文档」：回答是 Markdown，而库里正文是 BlockNote JSON，
+ * 转换放服务端（@blocknote/server-util），客户端只发原文。
+ */
+documentsRoutes.post("/:documentId/append", async (c) => {
+  const user = c.get("user");
+  const documentId = c.req.param("documentId");
+
+  const parsed = await readJson<{ markdown?: string }>(c);
+  if (!parsed.ok) return c.json({ error: "请求体不是合法 JSON" }, 400);
+  const markdown = parsed.data.markdown;
+  if (typeof markdown !== "string" || !markdown.trim()) {
+    return c.json({ error: "markdown 必填" }, 400);
+  }
+  if (markdown.length > APPEND_MAX_CHARS) {
+    return c.json({ error: `内容超过 ${APPEND_MAX_CHARS} 字符上限` }, 413);
+  }
+
+  const db = getDb();
+  const doc = getDocumentById(db, documentId, user.id);
+  if (!doc) return c.json({ error: "文档不存在或无权访问" }, 404);
+  if (doc.isArchived) return c.json({ error: "文档已归档，先恢复再插入" }, 400);
+
+  const content = await appendMarkdownToDocument(doc.content, markdown, { maxChars: APPEND_MAX_CHARS });
+  updateDocument(db, documentId, { content });
   return c.json({ ok: true });
 });
 

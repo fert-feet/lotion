@@ -3,8 +3,9 @@
 // 单个回合（turn）渲染：用户气泡 + **按事件顺序**的时间线（叙述/工具卡/副作用卡/待办/提问/警告）
 // + 引用 chips + 回合 footer（耗时 / token / 失败重试）。
 // 旧实现把工具卡固定堆在叙述上方，文本→工具→文本的交错顺序会丢；现在按 turn.parts 顺序渲染。
-import { memo, useEffect, useState } from "react";
-import { AlertTriangle, Check, Loader2, RefreshCw } from "@/components/icons";
+import { memo, useCallback, useEffect, useState } from "react";
+import { toast } from "sonner";
+import { AlertTriangle, Check, Copy, FileText, Loader2, PenLine, Plus, RefreshCw } from "@/components/icons";
 import { MarkdownText } from "@/components/markdown/MarkdownText";
 import { truncateMentionTitle } from "@/lib/mention";
 import { cn } from "@/lib/utils";
@@ -30,6 +31,14 @@ interface TurnProps {
     customText?: string,
   ) => void;
   onRetry: (turn: Turn) => void;
+  /** 编辑重发：把该轮用户输入回填到输入框 */
+  onEditUser: (turn: Turn) => void;
+  /** 把该轮回答追加到当前文档（没有打开文档时按钮不显示） */
+  onInsertToDocument: (turn: Turn) => void;
+  /** 把该轮回答另存为一篇新笔记 */
+  onSaveAsNote: (turn: Turn) => void;
+  /** 当前是否打开了文档（决定是否显示「插入本文档」） */
+  canInsertToDocument: boolean;
 }
 
 /** 用户消息里的 [@标题](id) 提及 → 胶囊 */
@@ -245,7 +254,99 @@ function NoticeCard({ level, message, onRetry }: { level: "warning" | "error"; m
   );
 }
 
-function TurnViewInner({ turn, onOpenDocument, onConfirmDelete, onCancelDelete, onConfirmMove, onCancelMove, onAnswerQuestion, onRetry }: TurnProps) {
+/** 回合级操作条（复制 / 重新生成 / 编辑重发 / 插入本文档 / 另存为笔记） */
+function TurnActions({
+  turn,
+  canInsertToDocument,
+  onRetry,
+  onEditUser,
+  onInsertToDocument,
+  onSaveAsNote,
+}: {
+  turn: Turn;
+  canInsertToDocument: boolean;
+  onRetry: (turn: Turn) => void;
+  onEditUser: (turn: Turn) => void;
+  onInsertToDocument: (turn: Turn) => void;
+  onSaveAsNote: (turn: Turn) => void;
+}) {
+  const hasText = turn.text.trim().length > 0;
+  const copy = useCallback(async () => {
+    if (!hasText) return;
+    try {
+      await navigator.clipboard.writeText(turn.text);
+      toast.success("已复制回答");
+    } catch {
+      toast.error("复制失败，请手动选择文本");
+    }
+  }, [hasText, turn.text]);
+
+  const actionClass =
+    "cursor-pointer rounded-md px-1.5 py-0.5 transition-colors hover:bg-shell-row-hover hover:text-shell-label-secondary";
+
+  return (
+    <span className="flex flex-wrap items-center gap-1" data-turn-actions>
+      {hasText && (
+        <button type="button" onClick={copy} className={actionClass} title="复制回答">
+          <span className="inline-flex items-center gap-1">
+            <Copy className="h-3 w-3" />
+            复制
+          </span>
+        </button>
+      )}
+      <button
+        type="button"
+        onClick={() => onRetry(turn)}
+        className={actionClass}
+        title="用同样的输入重新生成一轮"
+      >
+        <span className="inline-flex items-center gap-1">
+          <RefreshCw className="h-3 w-3" />
+          重新生成
+        </span>
+      </button>
+      <button
+        type="button"
+        onClick={() => onEditUser(turn)}
+        className={actionClass}
+        title="把这条输入放回输入框再改一改"
+      >
+        <span className="inline-flex items-center gap-1">
+          <PenLine className="h-3 w-3" />
+          编辑重发
+        </span>
+      </button>
+      {hasText && canInsertToDocument && (
+        <button
+          type="button"
+          onClick={() => onInsertToDocument(turn)}
+          className={actionClass}
+          title="把回答追加到当前打开的文档末尾"
+        >
+          <span className="inline-flex items-center gap-1">
+            <FileText className="h-3 w-3" />
+            插入本文档
+          </span>
+        </button>
+      )}
+      {hasText && (
+        <button
+          type="button"
+          onClick={() => onSaveAsNote(turn)}
+          className={actionClass}
+          title="把回答另存为一篇新笔记"
+        >
+          <span className="inline-flex items-center gap-1">
+            <Plus className="h-3 w-3" />
+            另存为笔记
+          </span>
+        </button>
+      )}
+    </span>
+  );
+}
+
+function TurnViewInner({ turn, onOpenDocument, onConfirmDelete, onCancelDelete, onConfirmMove, onCancelMove, onAnswerQuestion, onRetry, onEditUser, onInsertToDocument, onSaveAsNote, canInsertToDocument }: TurnProps) {
   const running = turn.status === "running";
   const lastPartIndex = turn.parts.length - 1;
   const trailingText = turn.parts[lastPartIndex]?.kind === "text";
@@ -341,9 +442,9 @@ function TurnViewInner({ turn, onOpenDocument, onConfirmDelete, onCancelDelete, 
           </div>
         )}
 
-        {/* 回合 footer：耗时 / token（对齐 DSH TurnTail）；失败回合由上方错误卡承载 */}
+        {/* 回合 footer：耗时 / token（对齐 DSH TurnTail）+ 回合级操作；失败回合由上方错误卡承载 */}
         {turn.status === "done" && (
-          <div className="flex items-center gap-1 pt-0.5 text-[11px] leading-[16px] text-shell-label-caption">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 pt-0.5 text-[11px] leading-[16px] text-shell-label-caption">
             {turn.durationMs !== null && <span>耗时 {formatDuration(turn.durationMs)}</span>}
             {turn.tokens !== null && (
               <>
@@ -353,6 +454,14 @@ function TurnViewInner({ turn, onOpenDocument, onConfirmDelete, onCancelDelete, 
                 </span>
               </>
             )}
+            <TurnActions
+              turn={turn}
+              canInsertToDocument={canInsertToDocument}
+              onRetry={onRetry}
+              onEditUser={onEditUser}
+              onInsertToDocument={onInsertToDocument}
+              onSaveAsNote={onSaveAsNote}
+            />
           </div>
         )}
       </div>

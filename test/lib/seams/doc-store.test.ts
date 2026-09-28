@@ -29,6 +29,7 @@ function fakeStore(overrides: Partial<DocStore> = {}): DocStore {
     listOverview: vi.fn(async () => []),
     create: vi.fn(async () => "new-id"),
     update: noop,
+    appendMarkdown: noop,
     archive: noop,
     restore: noop,
     move: noop,

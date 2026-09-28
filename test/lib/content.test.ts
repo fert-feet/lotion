@@ -3,7 +3,7 @@
 // 提取标题、坏数据容错。
 import { describe, expect, it } from "vitest";
 import { extractMarkdownTitle, isBlockNoteJson, normalizeChecklistBlocks, toEditorBlocks } from "@/lib/content";
-import { toBlocks, toMarkdown } from "@/lib/content-server";
+import { appendMarkdownToDocument, toBlocks, toMarkdown } from "@/lib/content-server";
 
 // 存量样本：BlockNote blocks JSON（heading + paragraph + 列表）
 const OLD_JSON = JSON.stringify([
@@ -162,5 +162,43 @@ describe("toBlocks 对遗留坏数据归一化", () => {
     const blocks = await toBlocks(legacy);
     expect(blocks[0].type).toBe("checkListItem");
     expect((blocks[0].props as { checked: boolean }).checked).toBe(false);
+  });
+});
+
+describe("appendMarkdownToDocument（AI 回答插入文档）", () => {
+  it("空文档：追加内容成为正文（规范化为 BlockNote JSON）", async () => {
+    const out = await appendMarkdownToDocument(null, "# 标题\n\n正文");
+    const blocks = JSON.parse(out) as Array<{ type: string }>;
+    expect(Array.isArray(blocks)).toBe(true);
+    expect(blocks.length).toBeGreaterThan(0);
+    expect(out).toContain("标题");
+  });
+
+  it("Markdown 存量文档：原文与追加内容都在（追加不覆盖）", async () => {
+    const out = await appendMarkdownToDocument("原有一段话", "追加的一句");
+    expect(out).toContain("原有一段话");
+    expect(out).toContain("追加的一句");
+    expect(out.trim().startsWith("[")).toBe(true); // 结果是 JSON
+  });
+
+  it("BlockNote JSON 文档：追加后仍是合法 JSON 且块数增加", async () => {
+    const base = JSON.stringify([
+      { id: "b1", type: "paragraph", props: {}, content: [{ type: "text", text: "第一段", styles: {} }], children: [] },
+    ]);
+    const out = await appendMarkdownToDocument(base, "第二段");
+    const blocks = JSON.parse(out) as Array<{ id?: string }>;
+    expect(blocks.length).toBe(2);
+    expect(blocks[0].id).toBe("b1"); // 原有块 ID 保留（无损）
+    expect(out).toContain("第二段");
+  });
+
+  it("空/空白追加不破坏原文", async () => {
+    const base = JSON.stringify([{ id: "b1", type: "paragraph", props: {}, content: [], children: [] }]);
+    expect(await appendMarkdownToDocument(base, "   ")).toBe(base);
+  });
+
+  it("超长内容按上限截断，不把库灌爆", async () => {
+    const out = await appendMarkdownToDocument(null, "字".repeat(100), { maxChars: 10 });
+    expect(out.length).toBeLessThan(2000);
   });
 });

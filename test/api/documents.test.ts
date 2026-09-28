@@ -182,4 +182,50 @@ describe("documents API", () => {
     });
     expect(toArchived.status).toBe(400);
   });
+  it("POST append 把 Markdown 追加到文档末尾（转成 BlockNote JSON）", async () => {
+    const { cookie } = await authCookie();
+    const doc = await (await call("/api/documents", "POST", cookie, { title: "目标" })).json();
+    await call(`/api/documents/${doc.id}`, "PATCH", cookie, { content: "原有内容" });
+
+    const res = await call(`/api/documents/${doc.id}/append`, "POST", cookie, {
+      markdown: "## 追加标题\n\n- 条目一",
+    });
+    expect(res.status).toBe(200);
+
+    const row = state.db!
+      .prepare("SELECT content FROM documents WHERE id = ?")
+      .get(doc.id) as { content: string };
+    const blocks = JSON.parse(row.content) as Array<{ type: string; content?: unknown }>;
+    expect(Array.isArray(blocks)).toBe(true);
+    expect(blocks.length).toBeGreaterThan(1);
+    // 原文与追加内容都在（追加不覆盖）
+    expect(row.content).toContain("原有内容");
+    expect(row.content).toContain("追加标题");
+  });
+
+  it("POST append 参数与权限校验（空内容 400 / 超长 413 / 他人文档 404 / 未登录 401）", async () => {
+    const { cookie } = await authCookie();
+    const doc = await (await call("/api/documents", "POST", cookie, { title: "目标" })).json();
+
+    expect((await call(`/api/documents/${doc.id}/append`, "POST", cookie, { markdown: "  " })).status).toBe(400);
+    expect(
+      (await call(`/api/documents/${doc.id}/append`, "POST", cookie, { markdown: "x".repeat(20_001) })).status,
+    ).toBe(413);
+    expect((await call(`/api/documents/${doc.id}/append`, "POST", cookie, {})).status).toBe(400);
+    expect((await call(`/api/documents/${doc.id}/append`, "POST")).status).toBe(401);
+
+    const other = await authCookie("append-other@x.com");
+    expect(
+      (await call(`/api/documents/${doc.id}/append`, "POST", other.cookie, { markdown: "hi" })).status,
+    ).toBe(404);
+  });
+
+  it("POST append 到已归档文档返回 400（先恢复再插入）", async () => {
+    const { cookie } = await authCookie();
+    const doc = await (await call("/api/documents", "POST", cookie, { title: "归档的" })).json();
+    await call(`/api/documents/${doc.id}/archive`, "PATCH", cookie);
+
+    const res = await call(`/api/documents/${doc.id}/append`, "POST", cookie, { markdown: "hi" });
+    expect(res.status).toBe(400);
+  });
 });

@@ -3,7 +3,7 @@
 // 1) 键盘意图 —— Shift+Enter 必须换行而不是发送（回归点：多行草稿此前不可用）；
 // 2) 序列化 —— 软换行 <br> 与浏览器回车产生的块级包裹要还原成 \n，不能把多行粘成一行。
 import { describe, it, expect } from "vitest";
-import { resolveMentionKey, serializeMentionEditor } from "@/src/shell/mention-input-logic";
+import { parseMentionText, resolveMentionKey, serializeMentionEditor } from "@/src/shell/mention-input-logic";
 
 const base = { shiftKey: false, isComposing: false, mentionOpen: false, itemCount: 0 };
 
@@ -80,5 +80,50 @@ describe("serializeMentionEditor", () => {
   it("空编辑器返回空串", () => {
     expect(serializeMentionEditor(editor(""))).toBe("");
     expect(serializeMentionEditor(null)).toBe("");
+  });
+});
+
+describe("parseMentionText：编辑重发时的回填", () => {
+  it("把 [@标题](id) 拆成文本与提及分段", () => {
+    expect(parseMentionText("看下 [@会议记录](doc-1) 再总结")).toEqual([
+      { kind: "text", value: "看下 " },
+      { kind: "mention", title: "会议记录", id: "doc-1" },
+      { kind: "text", value: " 再总结" },
+    ]);
+  });
+
+  it("多个提及按顺序保留", () => {
+    const segments = parseMentionText("[@A](aaa111)[@B](bbb222)");
+    expect(segments).toEqual([
+      { kind: "mention", title: "A", id: "aaa111" },
+      { kind: "mention", title: "B", id: "bbb222" },
+    ]);
+  });
+
+  it("普通文本原样返回单段", () => {
+    expect(parseMentionText("只是普通问题")).toEqual([{ kind: "text", value: "只是普通问题" }]);
+    expect(parseMentionText("")).toEqual([]);
+  });
+
+  it("id 太短/格式不符时不误判为提及（与序列化正则一致）", () => {
+    expect(parseMentionText("[@A](a1)")).toEqual([{ kind: "text", value: "[@A](a1)" }]);
+  });
+
+  it("与序列化互为逆运算（回填再提交不会变形）", () => {
+    const text = "帮我改 [@周会纪要](doc-9) 的结论";
+    const el = document.createElement("div");
+    el.innerHTML = "";
+    for (const segment of parseMentionText(text)) {
+      if (segment.kind === "text") {
+        el.appendChild(document.createTextNode(segment.value));
+      } else {
+        const chip = document.createElement("span");
+        chip.dataset.docId = segment.id;
+        chip.dataset.docTitle = segment.title;
+        chip.textContent = "@" + segment.title;
+        el.appendChild(chip);
+      }
+    }
+    expect(serializeMentionEditor(el)).toBe(text);
   });
 });

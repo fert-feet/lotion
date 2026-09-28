@@ -60,3 +60,22 @@ export async function toBlocks(content: string | null | undefined): Promise<Loti
   }
   return getServerEditor().tryParseMarkdownToBlocks(content);
 }
+
+/**
+ * 把一段 Markdown **追加**到文档末尾，返回新的 BlockNote JSON（规范存储格式）。
+ * 用途：AI 面板的「插入到当前文档」——回答是 Markdown，而库里的正文是
+ * BlockNote JSON，直接字符串拼接会得到坏 JSON。
+ * 空/坏内容不会破坏原文（追加失败时返回原内容）。
+ */
+export async function appendMarkdownToDocument(
+  existing: string | null | undefined,
+  markdown: string,
+  options?: { maxChars?: number },
+): Promise<string> {
+  const limit = options?.maxChars ?? 20_000;
+  const snippet = markdown.slice(0, limit);
+  const base = await toBlocks(existing);
+  const extra = await toBlocks(snippet);
+  if (extra.length === 0) return typeof existing === "string" ? existing : JSON.stringify(base);
+  return JSON.stringify([...base, ...extra]);
+}

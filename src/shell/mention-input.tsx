@@ -6,13 +6,15 @@ import type { SidebarDocument } from "@/lib/seams/doc-store";
 import { useDocStore } from "@/src/kernel/react";
 import { truncateMentionTitle } from "@/lib/mention";
 import { FileText } from "@/components/icons";
-import { resolveMentionKey, serializeMentionEditor } from "./mention-input-logic";
+import { parseMentionText, resolveMentionKey, serializeMentionEditor } from "./mention-input-logic";
 import { useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 
 export interface MentionInputHandle {
   /** 外部触发提交（发送按钮点击） */
   submit: () => void;
+  /** 回填内容（编辑重发：把历史消息放回输入框，胶囊还原为胶囊） */
+  setText: (text: string) => void;
 }
 
 interface MentionInputProps {
@@ -157,8 +159,37 @@ export default function MentionInput({
     editorRef.current?.focus();
   }, [onSubmit, onEmptyChange, serialize]);
 
-  // 暴露 submit 给外部（发送按钮）
-  useImperativeHandle(ref, () => ({ submit }), [submit]);
+  // 把 `[@标题](id)` 文本回填到 contentEditable（胶囊仍渲染为胶囊）
+  const setText = useCallback(
+    (text: string) => {
+      const el = editorRef.current;
+      if (!el) return;
+      el.innerHTML = "";
+      for (const segment of parseMentionText(text)) {
+        if (segment.kind === "text") {
+          el.appendChild(document.createTextNode(segment.value));
+          continue;
+        }
+        const chip = document.createElement("span");
+        chip.contentEditable = "false";
+        chip.dataset.docId = segment.id;
+        chip.dataset.docTitle = segment.title;
+        chip.title = segment.id;
+        chip.className = "mention-chip select-none";
+        const chipText = document.createElement("span");
+        chipText.textContent = "@" + truncateMentionTitle(segment.title);
+        chip.appendChild(chipText);
+        el.appendChild(chip);
+      }
+      setMentionOpen(false);
+      onEmptyChange?.(!el.textContent?.trim());
+      el.focus();
+    },
+    [onEmptyChange],
+  );
+
+  // 暴露 submit / setText 给外部（发送按钮 / 编辑重发）
+  useImperativeHandle(ref, () => ({ submit, setText }), [submit, setText]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {

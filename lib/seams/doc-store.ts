@@ -104,6 +104,8 @@ export interface DocStore {
   // ---- 文档写入 ----
   create(actor: Actor, title: string, parentDocument?: string | null): Promise<string>;
   update(actor: Actor, id: string, fields: DocumentUpdateFields): Promise<void>;
+  /** 追加一段 Markdown 到文档末尾（AI 回答插入文档用；服务端负责 Markdown→块转换） */
+  appendMarkdown(actor: Actor, id: string, markdown: string): Promise<void>;
   archive(actor: Actor, id: string): Promise<void>;
   restore(actor: Actor, id: string): Promise<void>;
   move(actor: Actor, id: string, parentDocument: string | null): Promise<void>;
@@ -132,6 +134,7 @@ const DOC_STORE_METHODS = [
   "listOverview",
   "create",
   "update",
+  "appendMarkdown",
   "archive",
   "restore",
   "move",

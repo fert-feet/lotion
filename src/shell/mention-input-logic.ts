@@ -75,3 +75,29 @@ export function serializeMentionEditor(root: HTMLElement | null): string {
   for (const child of Array.from(root.childNodes)) visit(child);
   return out;
 }
+
+/** 序列化文本里的分段：纯文本 / 文档提及 */
+export type MentionSegment =
+  | { kind: "text"; value: string }
+  | { kind: "mention"; id: string; title: string };
+
+const MENTION_SPLIT_RE = /\[@([^\]]+)\]\(([a-zA-Z0-9-]{3,64})\)/g;
+
+/**
+ * 解析 `[@标题](id)` 文本为分段（serialize 的逆运算）。
+ * 用途：把历史消息里的用户输入**回填**到输入框（编辑重发），胶囊必须还原成胶囊，
+ * 否则用户看到一串原始标记。
+ */
+export function parseMentionText(text: string): MentionSegment[] {
+  const segments: MentionSegment[] = [];
+  let last = 0;
+  MENTION_SPLIT_RE.lastIndex = 0;
+  for (const match of text.matchAll(MENTION_SPLIT_RE)) {
+    const index = match.index ?? 0;
+    if (index > last) segments.push({ kind: "text", value: text.slice(last, index) });
+    segments.push({ kind: "mention", title: match[1], id: match[2] });
+    last = index + match[0].length;
+  }
+  if (last < text.length) segments.push({ kind: "text", value: text.slice(last) });
+  return segments;
+}

@@ -7,6 +7,7 @@ import type Database from "better-sqlite3";
 import { z } from "zod";
 import type { PluginObject } from "@/lib/kernel";
 import { getDb } from "./sqlite";
+import { appendMarkdownToDocument } from "@/lib/content-server";
 import {
   archiveDocument,
   clearDocumentCoverImage,
@@ -76,6 +77,13 @@ export function createSqliteDocStore(db?: Database.Database): DocStore {
     },
     async update(_actor: Actor, id: string, fields: DocumentUpdateFields) {
       updateDocument(conn(), id, fields);
+    },
+    async appendMarkdown(actor: Actor, id: string, markdown: string) {
+      // 归属校验：无 RLS，必须显式带 userId
+      const doc = getDocumentById(conn(), id, actor.userId);
+      if (!doc) throw new Error("文档不存在或无权访问");
+      const content = await appendMarkdownToDocument(doc.content, markdown);
+      updateDocument(conn(), id, { content });
     },
     async archive(actor: Actor, id: string) {
       archiveDocument(conn(), actor.userId, id);

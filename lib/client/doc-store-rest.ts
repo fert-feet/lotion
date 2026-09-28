@@ -7,6 +7,7 @@
 // 因此这里的 actor 参数被有意忽略 —— 契约保留它，是为了两侧消费方写法一致。
 import type { PluginObject } from "@/lib/kernel";
 import {
+  appendMarkdown,
   archive,
   create,
   createChatSession,
@@ -83,6 +84,9 @@ export function createRestDocStore(): UiDocStore {
     },
     async update(_actor, id: string, fields: DocumentUpdateFields) {
       await update(id, fields);
+    },
+    async appendMarkdown(_actor, id: string, markdown: string) {
+      await appendMarkdown(id, markdown);
     },
     async archive(_actor, id: string) {
       await archive("", id);

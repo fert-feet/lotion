@@ -177,8 +177,20 @@ export async function update(
   docCache.delete(id); // 使缓存失效，下次 getById 重新拉取
 }
 
-export async function archive(_userId: string, id: string) {
-  await api(`/api/documents/${id}/archive`, { method: "PATCH" });
+/**
+ * 追加一段 Markdown 到文档末尾（AI 面板「插入到当前文档」）。
+ * 转换（Markdown → BlockNote 块）在服务端做，客户端只发原文。
+ */
+export async function appendMarkdown(id: string, markdown: string) {
+  await api(`/api/documents/${id}/append`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ markdown }),
+  });
+  docCache.delete(id); // 正文已变，缓存必须失效
+}
+
+export async function archive(_userId: string, id: string) {  await api(`/api/documents/${id}/archive`, { method: "PATCH" });
   docCache.delete(id);
 }
 

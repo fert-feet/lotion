@@ -426,6 +426,44 @@ const AiPanel = () => {
     void sendMessageRef.current(turn.userContent, sessionId);
   }, []);
 
+  // 编辑重发：把该轮用户输入回填到输入框（胶囊还原为胶囊），用户改完自己发
+  const handleEditUser = useCallback((turn: Turn) => {
+    mentionRef.current?.setText(turn.userContent);
+  }, []);
+
+  // 插入本文档：把该轮回答（Markdown）追加到当前打开文档的末尾
+  const handleInsertToDocument = useCallback((turn: Turn) => {
+    const documentId = params.documentId;
+    if (!documentId || !turn.text.trim()) return;
+    const promise = docStore.appendMarkdown(actor, documentId, turn.text).then(() => {
+      triggerDocument(documentId);
+    });
+    toast.promise(promise, {
+      loading: "正在插入到文档…",
+      success: "已插入到文档末尾",
+      error: "插入失败",
+    });
+  }, [docStore, actor, params.documentId, triggerDocument]);
+
+  // 另存为笔记：用回答的 Markdown 建一篇新笔记（编辑器会惰性转成块）
+  const handleSaveAsNote = useCallback((turn: Turn) => {
+    const text = turn.text.trim();
+    if (!text) return;
+    // 标题取第一行非空文本，去掉 Markdown 记号
+    const firstLine = text.split("\n").find((line) => line.trim()) ?? "AI 回答";
+    const title = firstLine.replace(/^#+\s*/, "").replace(/[*_`>\-\s]+/g, " ").trim().slice(0, 40) || "AI 回答";
+    const promise = docStore.create(actor, title).then(async (id) => {
+      await docStore.update(actor, id, { content: text });
+      triggerSidebar();
+      return id;
+    });
+    toast.promise(promise, {
+      loading: "正在另存为笔记…",
+      success: (id) => ({ message: `已创建「${title}」`, action: { label: "打开", onClick: () => navigate("/documents/" + id) } }),
+      error: "另存失败",
+    });
+  }, [docStore, actor, triggerSidebar, navigate]);
+
   // 点击胶囊/引用跳转前先确认文档存在，已删除的文档提示而不跳转（避免 not found 页）
   const openDocument = useCallback((id: string) => {
     docStore.getById(actor, id)
@@ -625,6 +663,10 @@ const AiPanel = () => {
               onCancelMove={handleCancelMove}
               onAnswerQuestion={handleQuestionAnswer}
               onRetry={handleRetry}
+              onEditUser={handleEditUser}
+              onInsertToDocument={handleInsertToDocument}
+              onSaveAsNote={handleSaveAsNote}
+              canInsertToDocument={!!params.documentId}
             />
           ))}
         </div>
