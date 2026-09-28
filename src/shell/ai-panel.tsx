@@ -69,10 +69,9 @@ const AiPanel = () => {
   const [turns, setTurns] = useState<Turn[]>([]);
   // 当前流式回合（reducer 就地改该对象，commit 触发渲染）
   const currentTurnRef = useRef<Turn | null>(null);
-  // 流式文本 rAF 节流
+  // 流式文本节流句柄（rAF 为主，定时器兜底）
   const textRaf = useRef<number | null>(null);
-  // 卸载守卫：rAF / fetch 回调可能在组件卸载后落地
-  const mountedRef = useRef(true);
+  const textTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // 流式请求控制：当前是否在生成、终止用 AbortController、待发送队列（含会话快照）
   const streamingRef = useRef(false);
@@ -98,30 +97,52 @@ const AiPanel = () => {
 
   const userId = user?.id;
 
-  /** 立即提交（工具/副作用事件） */
   // turns 的最新值（稳定回调里读取，避免闭包过期）
   const turnsRef = useRef<Turn[]>([]);
   turnsRef.current = turns;
 
+  /** 立即提交（工具/副作用事件）。
+   *
+   *  ⚠️ 两个必须记住的坑（都踩过）：
+   *  1) 不做"已卸载"门控：React 18 起对已卸载组件 setState 是安全空操作，而这道门控
+   *     一旦误判就会让整轮流式文本再也不渲染；
+   *  2) reducer 是**原地改** turn 对象的（热路径省分配），而 `<TurnView>` 是 memo 的 ——
+   *     只把数组换个引用、turn 引用不变，浅比较会判定"props 没变"直接跳过重渲染，
+   *     症状就是"服务端 2 秒答完，界面一直『正在思考』，刷新后才看到回答"。
+   *     所以这里把当前流式回合换成浅拷贝：历史回合保持原引用（继续跳过重渲染），
+   *     正在长的这一轮拿到新身份（正常重渲染）。 */
   const commit = useCallback(() => {
-    if (mountedRef.current) setTurns((prev) => [...prev]);
+    const current = currentTurnRef.current;
+    if (!current) {
+      setTurns((prev) => [...prev]);
+      return;
+    }
+    const next = { ...current };
+    currentTurnRef.current = next;
+    setTurns((prev) => prev.map((t) => (t === current ? next : t)));
   }, []);
 
-  /** 流式文本提交（每帧最多一次） */
+  /** 流式文本提交（每帧最多一次；**带定时器兜底**）。
+   *  后台标签页里 rAF 会被浏览器暂停，只挂 rAF 会让 textRaf 永远非 null，
+   *  之后所有文本提交都被节流吞掉（回到前台也补不回来）。 */
   const commitText = useCallback(() => {
-    if (textRaf.current !== null) return;
-    textRaf.current = requestAnimationFrame(() => {
+    if (textRaf.current !== null || textTimer.current !== null) return;
+    const flush = () => {
+      if (textRaf.current !== null) cancelAnimationFrame(textRaf.current);
+      if (textTimer.current !== null) clearTimeout(textTimer.current);
       textRaf.current = null;
+      textTimer.current = null;
       commit();
-    });
+    };
+    textRaf.current = requestAnimationFrame(flush);
+    textTimer.current = setTimeout(flush, 120);
   }, [commit]);
 
-  // 卸载收尾：取消飞行中的 rAF（原实现在已卸载组件上 setState）
+  // 卸载收尾：取消飞行中的 rAF / 定时器
   useEffect(() => {
-    mountedRef.current = true;
     return () => {
-      mountedRef.current = false;
       if (textRaf.current !== null) cancelAnimationFrame(textRaf.current);
+      if (textTimer.current !== null) clearTimeout(textTimer.current);
     };
   }, []);
 
@@ -140,7 +161,7 @@ const AiPanel = () => {
     const { item, rest } = takeNextForSession(queueRef.current, activeSessionRef.current);
     if (!item) return;
     queueRef.current = rest;
-    if (mountedRef.current) setQueueItems(rest);
+    setQueueItems(rest);
     setTimeout(() => { void sendMessageRef.current(item.content, item.sessionId); }, 60);
   }, []);
 
@@ -219,6 +240,21 @@ const AiPanel = () => {
     setHistoryLimit(HISTORY_PAGE);
   }, [activeSessionId]);
 
+  // 自愈：loading 已结束却还有 running 的回合（请求被新请求接管 / 异常路径漏收尾 /
+  // 标签页休眠导致回调丢失）→ 就地收尾，绝不留下"永远正在思考"
+  useEffect(() => {
+    if (loading) return;
+    setTurns((prev) => {
+      if (!prev.some((t) => t.status === "running")) return prev;
+      return prev.map((t) => {
+        if (t.status !== "running") return t;
+        const settled = { ...t };
+        finalizeTurn(settled, "done");
+        return settled;
+      });
+    });
+  }, [loading]);
+
   // ---- 滚动：粘底才跟随（原来无条件 scrollTo 底部，用户上翻读历史会被每帧打断）----
   const messagesRef = useRef<HTMLDivElement>(null);
   const stickToBottomRef = useRef(true);
@@ -227,7 +263,13 @@ const AiPanel = () => {
   const scrollToBottom = useCallback((smooth = false) => {
     const el = messagesRef.current;
     if (!el) return;
-    el.scrollTo({ top: el.scrollHeight, behavior: smooth ? "smooth" : "auto" });
+    // 防御：`Element.scrollTo` 在 jsdom / 老 WebView 里不存在，直接调用会抛错，
+    // 而被动 effect 里抛错会被错误边界接管 —— 整个 AI 面板消失（不能赌环境）
+    if (typeof el.scrollTo === "function") {
+      el.scrollTo({ top: el.scrollHeight, behavior: smooth ? "smooth" : "auto" });
+    } else {
+      el.scrollTop = el.scrollHeight;
+    }
     stickToBottomRef.current = true;
     setShowJumpToBottom(false);
   }, []);
@@ -252,7 +294,7 @@ const AiPanel = () => {
   const refreshSessions = useCallback(() => {
     if (!user) return;
     docStore.listChatSessions({ userId: user.id })
-      .then((list) => { if (mountedRef.current) setSessions(list); })
+      .then((list) => { setSessions(list); })
       .catch(() => {});
   }, [user, docStore]);
 
@@ -406,9 +448,11 @@ const AiPanel = () => {
         if (!owned() || !stillActive()) break;
       }
 
-      // 流自然结束但未收到 turn_end（旧服务端/异常）：补一个 done 态
+      // 流自然结束但未收到 turn_end（旧服务端/异常）：补一个 done 态。
+      // 这里**不再用 owned() 门控**：请求被新请求接管时 owned() 为假，
+      // 若不收尾，那一轮会永远停在"正在思考"（用户看到的就是这个）。
       const t = currentTurnRef.current;
-      if (t && owned() && t.status === "running") {
+      if (t && t.status === "running") {
         finalizeTurn(t, "done");
         commit();
       }
@@ -423,7 +467,7 @@ const AiPanel = () => {
           commit();
           toast.info("已停止生成");
         }
-      } else if (t && owned() && stillActive()) {
+      } else if (t) {
         // 原实现只弹 toast，回合会永远停在"正在思考"（status 仍是 running）
         finalizeTurn(
           t,
@@ -433,12 +477,13 @@ const AiPanel = () => {
             : "AI 请求失败，请稍后再试",
         );
         commit();
+        if (stillActive()) toast.error(t.errorMessage ?? "AI 请求失败，请稍后再试");
       }
     } finally {
       // 归属校验：请求已被会话切换接管（abortRef 被置 null）时不清理状态、不调度队列
       if (owned()) {
         streamingRef.current = false;
-        if (mountedRef.current) setLoading(false);
+        setLoading(false);
         abortRef.current = null;
       }
       if (!streamingRef.current) drainQueue();

@@ -25,7 +25,7 @@ const aiSchema = z.object({
 });
 type AiConfig = z.infer<typeof aiSchema>;
 
-const baseAi: AiConfig = { model: "deepseek-v4-flash", apiKey: "", temperature: 1 };
+const baseAi: AiConfig = { model: "deepseek-flash", apiKey: "", temperature: 1 };
 
 let dir: string;
 let filePath: string;
@@ -129,7 +129,7 @@ describe("lib/local/settings-file 两层合并", () => {
     const [info] = provider.describe();
     expect(info.namespace).toBe("ai");
     expect(info.value.apiKey).toBe("sk-l****0000");
-    expect(info.value.model).toBe("deepseek-v4-flash");
+    expect(info.value.model).toBe("deepseek-flash");
   });
 
   it("一个命名空间一个所有者：重复注册抛错", async () => {

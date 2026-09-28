@@ -113,7 +113,7 @@ describe("server/kernel 宿主装配", () => {
     const before = kernel.settings.ai.get();
 
     // 卸载 settings 提供方所在的整棵内核 → 无法再读；这里验证的是 section 的回退语义
-    expect(before.model).toBe("deepseek-v4-flash");
+    expect(before.model).toBe("deepseek-flash");
     await kernel.dispose();
   });
 });

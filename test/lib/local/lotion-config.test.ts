@@ -43,11 +43,11 @@ afterEach(() => {
 });
 
 describe("lib/local/lotion-config 组合层默认值", () => {
-  it("默认值锚定在 data/ 下，端口 3001，模型 deepseek-v4-flash", async () => {
+  it("默认值锚定在 data/ 下，端口 3001，模型 deepseek-flash", async () => {
     const defaults = lotionSettingsDefaults("/repo");
 
     expect(defaults).toEqual({
-      ai: { apiKey: "", model: "deepseek-v4-flash" },
+      ai: { apiKey: "", model: "deepseek-flash" },
       storage: { dbPath: path.join("/repo", "data", "lotion.db"), uploadDir: path.join("/repo", "data", "uploads") },
       server: { port: 3001 },
       logging: { level: "info" },
@@ -69,7 +69,7 @@ describe("lib/local/lotion-config 两层合并（端到端）", () => {
     await settleAll(ctx);
 
     // 1) 无服务：组合默认
-    expect(settings.ai.get().model).toBe("deepseek-v4-flash");
+    expect(settings.ai.get().model).toBe("deepseek-flash");
     expect(settings.server.get().port).toBe(3001);
 
     // 2) 挂载 settings：用户层覆盖

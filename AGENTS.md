@@ -13,7 +13,7 @@
 - **数据库**: 本地 SQLite（better-sqlite3，WAL 模式，单机自托管）
 - **Auth**: 自研极简（scrypt 哈希 + sessions 表 + HttpOnly cookie，无第三方库）
 - **编辑器**: **BlockNote 0.54**（`@blocknote/core` + `@blocknote/react`，默认 UI + 自有 DSH 对齐样式 `components/editor/blocknote.css`）：**BlockNote JSON 无损存储**（保留块 ID）；存量 Markdown / 旧 BlockNote JSON 惰性兼容；服务端 JSON↔Markdown 转换走 `@blocknote/server-util`（`lib/content-server.ts`，⚠️ 仅服务端导入）
-- **AI**: @ai-sdk/deepseek (deepseek-v4-flash)
+- **AI**: @ai-sdk/deepseek (deepseek-flash)
 - **状态管理**: Zustand
 - **样式**: Tailwind CSS 4 + 自研 UI 原语（`components/ui/`），视觉语言 = **Apple / macOS**（见下「设计系统」）
 - **包管理器**: pnpm（⚠️ 包是 ESM，`package.json` 的 `"type": "module"` 不可去掉）

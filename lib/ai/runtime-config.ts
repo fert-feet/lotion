@@ -9,7 +9,7 @@
 // 环境变量兜底是为了"内核未装配"的场景（单测、脚本）也能正常工作。
 import { createDeepSeek, deepSeek } from "@ai-sdk/deepseek";
 
-export const DEFAULT_AI_MODEL = "deepseek-v4-flash";
+export const DEFAULT_AI_MODEL = "deepseek-flash";
 
 export interface AiRuntimeConfig {
   /** 模型名（AI 对话与上下文压缩共用） */

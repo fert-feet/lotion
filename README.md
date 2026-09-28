@@ -99,8 +99,8 @@ pnpm install
 
 # 2. 配置环境变量 — 创建 .env.local
 DEEPSEEK_API_KEY=sk-xxxxxxxx
-# 可选：覆盖模型，默认 deepseek-v4-flash（AI 对话与上下文压缩共用）
-# AI_MODEL=deepseek-v4-flash
+# 可选：覆盖模型，默认 deepseek-flash（AI 对话与上下文压缩共用）
+# AI_MODEL=deepseek-flash
 # 说明：.env.local / .env 由服务端入口 server/load-env.ts 加载（tsx/node 不会自动读，
 #       启动日志会打印「已加载 env：…」；缺 key 时启动即打 ⚠️ 提示）。真实环境变量优先于文件。
 

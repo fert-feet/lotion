@@ -539,7 +539,7 @@ describe("runNoteAgent AI 运行期配置", () => {
     try {
       const { stream } = await runNoteAgent(db, "user-1", "你好", { ai: { model: "   ", apiKey: "" } });
       await readEvents(stream);
-      expect(mockConfig.capturedModel?.modelId).toBe("deepseek-v4-flash");
+      expect(mockConfig.capturedModel?.modelId).toBe("deepseek-flash");
     } finally {
       if (savedModel !== undefined) process.env.AI_MODEL = savedModel;
     }

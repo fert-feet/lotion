@@ -21,7 +21,7 @@ export const aiSettingsSchema = z.object({
   /** DeepSeek API Key；空字符串 = 未配置（AI 面板会明确提示） */
   apiKey: z.string().default(""),
   /** 模型名（AI 对话与上下文压缩共用） */
-  model: z.string().min(1).default("deepseek-v4-flash"),
+  model: z.string().min(1).default("deepseek-flash"),
 });
 export type AiSettings = z.infer<typeof aiSettingsSchema>;
 
@@ -64,7 +64,7 @@ export interface LotionSettings {
 /** 组合层默认值（唯一声明处；env 映射名与 README/docs 一致，有单测钉住） */
 export function lotionSettingsDefaults(cwd = process.cwd()) {
   return {
-    ai: { apiKey: "", model: "deepseek-v4-flash" } satisfies AiSettings,
+    ai: { apiKey: "", model: "deepseek-flash" } satisfies AiSettings,
     storage: {
       dbPath: path.join(cwd, "data", "lotion.db"),
       uploadDir: path.join(cwd, "data", "uploads"),
