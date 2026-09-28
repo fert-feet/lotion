@@ -23,6 +23,44 @@ import { getHostAiConfig, getHostKernelIfBooted, getHostTools } from "../kernel"
  * 请求幂等：靠 chat_messages(userId, requestId) 唯一约束（本地版 DDL 同款），
  * 重复 requestId 落库时触发 SQLITE_CONSTRAINT_UNIQUE → 409。
  */
+/** 附件上限：最多 3 个、单个 20k 字符（文本类：.md/.txt/.json/.csv 等） */
+export const ATTACHMENT_MAX_COUNT = 3;
+export const ATTACHMENT_MAX_CHARS = 20_000;
+
+export interface ChatAttachment {
+  name: string;
+  content: string;
+}
+
+/**
+ * 校验并规范化附件（纯函数，便于单测）：
+ * 非法项被丢弃而不是整条请求失败 —— 附件只是上下文，不该阻断对话。
+ */
+export function normalizeAttachments(input: unknown): ChatAttachment[] {
+  if (!Array.isArray(input)) return [];
+  const out: ChatAttachment[] = [];
+  for (const item of input) {
+    if (typeof item !== "object" || item === null) continue;
+    const name = (item as { name?: unknown }).name;
+    const content = (item as { content?: unknown }).content;
+    if (typeof name !== "string" || typeof content !== "string") continue;
+    const trimmedName = name.trim().slice(0, 120) || "附件";
+    if (!content.trim()) continue;
+    out.push({ name: trimmedName, content: content.slice(0, ATTACHMENT_MAX_CHARS) });
+    if (out.length >= ATTACHMENT_MAX_COUNT) break;
+  }
+  return out;
+}
+
+/** 把附件拼进本轮 prompt（只影响本次请求；库里仍存用户原话） */
+export function withAttachments(prompt: string, attachments: ChatAttachment[]): string {
+  if (attachments.length === 0) return prompt;
+  const blocks = attachments.map(
+    (a) => `### 附件：${a.name}\n${a.content}`,
+  );
+  return `${prompt}\n\n---\n以下是用户随消息提供的文件内容（供参考，可能不完整）：\n\n${blocks.join("\n\n")}`;
+}
+
 function isUniqueViolation(e: unknown): boolean {
   return (
     typeof e === "object" &&
@@ -43,9 +81,11 @@ aiChatRoutes.post("/", async (c) => {
     sessionId?: string;
     requestId?: string;
     documentId?: string;
+    attachments?: unknown;
   }>(c);
   if (!parsed.ok) return c.json({ error: "请求体不是合法 JSON" }, 400);
   const { prompt, sessionId, requestId, documentId } = parsed.data;
+  const attachments = normalizeAttachments(parsed.data.attachments);
   if (!prompt || !sessionId) return c.json({ error: "prompt 与 sessionId 必填" }, 400);
   logger.api.info("收到 AI 请求", { userId: user.id, promptLen: prompt.length, sessionId });
 
@@ -62,6 +102,13 @@ aiChatRoutes.post("/", async (c) => {
       role: "user",
       content: prompt,
       requestId: requestId || undefined,
+      // 附件只存清单（名称/字符数）：正文是当轮上下文，不落库，避免历史里反复灌入大文件
+      metadata:
+        attachments.length > 0
+          ? JSON.stringify({
+              attachments: attachments.map((a) => ({ name: a.name, size: a.content.length })),
+            })
+          : undefined,
     });
   } catch (e) {
     if (isUniqueViolation(e)) {
@@ -109,7 +156,10 @@ aiChatRoutes.post("/", async (c) => {
     }
   }
 
-  const { stream, done } = await runNoteAgent(db, user.id, prompt, {
+  // 附件拼进本轮 prompt（库里仍存原话；历史回放时用附件清单渲染 chip）
+  const effectivePrompt = withAttachments(prompt, attachments);
+
+  const { stream, done } = await runNoteAgent(db, user.id, effectivePrompt, {
     history,
     summary: session.summary || undefined,
     signal: c.req.raw.signal, // 前端 abort fetch 时中断 DeepSeek 生成

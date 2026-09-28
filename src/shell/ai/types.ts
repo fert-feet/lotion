@@ -111,6 +111,8 @@ export interface Turn {
   status: "running" | "done" | "error";
   /** status === "error" 时的原因 */
   errorMessage?: string;
+  /** 本轮随消息附上的文本附件（只存名称与字符数；正文当轮用完即弃） */
+  attachments: Array<{ name: string; size: number }>;
   /** 本轮被 AI 写过的文档（非空 = 可撤销）；刷新后由快照恢复 */
   changedDocuments: string[];
   /** 该轮对应的服务端请求 id（撤销接口的入参）；旧数据/未落库时为 null */
@@ -135,6 +137,7 @@ export function createTurn(userContent: string): Turn {
     todos: [],
     warnings: [],
     status: "running",
+    attachments: [],
     changedDocuments: [],
     requestId: null,
     durationMs: null,

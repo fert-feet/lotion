@@ -437,3 +437,26 @@ describe("pendingDeleteIds：刷新后的删除对账", () => {
     expect(pendingDeleteIds([])).toEqual([]);
   });
 });
+
+describe("rebuildTurns：用户消息的附件清单", () => {
+  it("从用户消息 metadata 恢复附件 chip（正文不落库）", () => {
+    const turns = rebuildTurns([
+      {
+        id: "u1",
+        role: "user",
+        content: "看看这个",
+        createdAt: "2024-01-01T00:00:00.000Z",
+        metadata: JSON.stringify({ attachments: [{ name: "周报.md", size: 1200 }] }),
+      },
+      { id: "a1", role: "assistant", content: "好的", createdAt: "2024-01-01T00:00:01.000Z" },
+    ]);
+    expect(turns[0].attachments).toEqual([{ name: "周报.md", size: 1200 }]);
+  });
+
+  it("metadata 缺失/损坏时不显示附件，也不抛异常", () => {
+    const [turn] = rebuildTurns([
+      { id: "u1", role: "user", content: "hi", createdAt: "x", metadata: "{坏" },
+    ]);
+    expect(turn.attachments).toEqual([]);
+  });
+});

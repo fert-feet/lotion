@@ -373,8 +373,22 @@ function TurnViewInner({ turn, onOpenDocument, onConfirmDelete, onCancelDelete, 
 
   return (
     <div className="flex flex-col gap-2.5">
-      {/* 用户气泡：DSH 22px 圆角专用色 */}
-      <div className="flex justify-end">
+      {/* 用户气泡：DSH 22px 圆角专用色（附件以 chip 呈现，正文不下发到界面） */}
+      <div className="flex flex-col items-end gap-1">
+        {turn.attachments.length > 0 && (
+          <div className="flex flex-wrap justify-end gap-1.5">
+            {turn.attachments.map((item, index) => (
+              <span
+                key={item.name + index}
+                title={`${item.name}（${item.size.toLocaleString()} 字）`}
+                className="inline-flex max-w-[200px] items-center gap-1 rounded-[7px] border-[0.5px] border-shell-border-l2 px-2 py-0.5 text-[11px] text-shell-label-tertiary"
+              >
+                <FileText className="h-3 w-3 flex-none" />
+                <span className="truncate">{item.name}</span>
+              </span>
+            ))}
+          </div>
+        )}
         <div className="max-w-[85%] whitespace-pre-wrap break-words rounded-[18px] bg-ai-muted px-3.5 py-2 text-[14px] leading-[1.5] text-shell-label-primary">
           {renderMentions(turn.userContent, onOpenDocument)}
         </div>

@@ -455,6 +455,18 @@ export const RefreshCw = ({ size = 16, className, ...rest }: IconProps) => (
   </svg>
 )
 
+/** Paperclip（手绘：回形针，附件） */
+export const Paperclip = ({ size = 16, className, ...rest }: IconProps) => (
+  <svg width={size} height={size} className={className} {...rest} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path
+      d="M11.8 6.2 6.9 11.1a2.1 2.1 0 0 1-3-3l5.6-5.6a3.2 3.2 0 0 1 4.5 4.5l-5.9 5.9a4.5 4.5 0 0 1-6.4-6.3L6.4 2.4"
+      stroke="currentColor"
+      strokeWidth="1.3"
+      strokeLinecap="round"
+    />
+  </svg>
+)
+
 /** File（手绘） */
 export const File = ({ size = 16, className, ...rest }: IconProps) => (
   <svg width={size} height={size} className={className} {...rest} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">

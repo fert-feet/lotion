@@ -7,7 +7,7 @@
 // 本组件只负责 I/O 与编排：请求生命周期、队列调度、滚动、确认/提问的回填。
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router";
-import { Bot, History, Loader2, Plus, Send, Sparkles, Square, X } from "@/components/icons";
+import { Bot, FileText, History, Loader2, Paperclip, Plus, Send, Sparkles, Square, X } from "@/components/icons";
 import { toast } from "sonner";
 import { useLayout } from "@/hooks/use-layout";
 import { useUser } from "@/hooks/use-user";
@@ -33,6 +33,12 @@ import {
 import { TurnView } from "./ai/turn";
 import { SessionMenu } from "./ai/session-menu";
 import { recentUserMessages, stepRecallIndex } from "./ai/session-utils";
+import {
+  ATTACHMENT_EXTENSIONS,
+  readAttachmentFile,
+  validateAttachments,
+  type ChatAttachment,
+} from "./ai/attachments";
 
 /** 粘底判定阈值：距底小于该值就算"跟到底部" */
 const STICK_THRESHOLD_PX = 80;
@@ -68,6 +74,9 @@ const AiPanel = () => {
   const queueRef = useRef<QueuedMessage[]>([]);
   const [queueItems, setQueueItems] = useState<QueuedMessage[]>([]);
   const [inputEmpty, setInputEmpty] = useState(true);
+  // 待发送附件（文本类）：随下一条消息发出
+  const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(false);
   const mentionRef = useRef<MentionInputHandle>(null);
   // 当前激活会话 ref：abort 分支区分"用户手动停止"与"切换会话导致的中止"
@@ -104,7 +113,9 @@ const AiPanel = () => {
   }, []);
 
   // ---- 发送（先声明 ref，供队列调度与稳定回调引用最新闭包）----
-  const sendMessageRef = useRef<(content: string, sessionId: string) => Promise<void>>(async () => {});
+  const sendMessageRef = useRef<
+    (content: string, sessionId: string, attachments?: ChatAttachment[]) => Promise<void>
+  >(async () => {});
 
   /** 队列调度：只取**当前激活会话**的待发消息（切会话绝不把旧会话的消息发出去） */
   const drainQueue = useCallback(() => {
@@ -269,7 +280,7 @@ const AiPanel = () => {
 
   // 真正发起请求：首次发送与队列调度共用（不检查 loading，由 streamingRef 保证不并发）。
   // sessionId 为发起时快照：队列中的消息即使期间切换会话，仍发到入队时的会话。
-  const sendMessage = async (content: string, sessionId: string) => {
+  const sendMessage = async (content: string, sessionId: string, pendingAttachments: ChatAttachment[] = []) => {
     if (!content || !sessionId) return;
     // 归属防御：只允许为当前激活会话发请求（队列取件已按会话过滤，这里是兜底）
     if (activeSessionRef.current !== sessionId) return;
@@ -281,6 +292,8 @@ const AiPanel = () => {
     // 新建 turn 并挂为当前流式回合
     const turn = createTurn(content);
     turn.requestId = requestId;
+    turn.attachments = pendingAttachments.map((a) => ({ name: a.name, size: a.content.length }));
+    setAttachments([]);
     currentTurnRef.current = turn;
     setTurns((prev) => [...prev, turn]);
     setLoading(true);
@@ -302,6 +315,7 @@ const AiPanel = () => {
           sessionId,
           requestId, // 服务端幂等，防重复提交
           documentId: params.documentId, // 当前文档上下文（服务端注入 system）
+          attachments: turn.attachments, // 本轮附件（服务端拼进 prompt，不落库）
         }),
         signal: controller.signal, // 终止按钮 abort 此请求
       });
@@ -403,6 +417,20 @@ const AiPanel = () => {
   };
   sendMessageRef.current = sendMessage;
 
+  // 附件：选文件 → 读文本 → 校验（超限/非文本逐条提示）→ 进待发送清单
+  const handlePickFiles = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    const list = Array.from(files);
+    const read = await Promise.all(
+      list.map((file) => readAttachmentFile(file).catch(() => null)),
+    );
+    const valid = read.filter((item): item is { name: string; content: string } => item !== null);
+    const { accepted, rejected } = validateAttachments(valid, attachments.length);
+    if (accepted.length > 0) setAttachments((prev) => [...prev, ...accepted]);
+    for (const item of rejected) toast.warning(`「${item.name}」：${item.reason}`);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
   // 输入框发送入口：流式进行中则入队排队（记录会话快照），结束后自动发送
   const handleSend = (content: string) => {
     if (!content || !activeSessionId) return;
@@ -415,7 +443,7 @@ const AiPanel = () => {
       return;
     }
 
-    void sendMessageRef.current(content, activeSessionId);
+    void sendMessageRef.current(content, activeSessionId, attachments);
   };
 
   // 输入框为空时按 ↑：召回本会话最近发过的消息（最新的在前，可连续往回走）
@@ -733,6 +761,30 @@ const AiPanel = () => {
             </div>
           </div>
         )}
+        {attachments.length > 0 && (
+          <div className="mb-2 flex flex-wrap gap-1.5">
+            {attachments.map((item, index) => (
+              <span
+                key={item.name + index}
+                className="inline-flex max-w-[220px] items-center gap-1.5 rounded-[7px] border-[0.5px] border-shell-border-l2 bg-shell-row-hover px-2 py-1 text-xs text-shell-label-secondary"
+              >
+                <FileText className="h-3 w-3 flex-none" />
+                <span className="truncate">{item.name}</span>
+                <span className="flex-none text-[10px] text-shell-label-caption">
+                  {item.content.length.toLocaleString()} 字
+                </span>
+                <button
+                  type="button"
+                  title="移除附件"
+                  onClick={() => setAttachments((prev) => prev.filter((_, i) => i !== index))}
+                  className="flex-none cursor-pointer rounded-sm p-0.5 hover:text-shell-label-primary"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
         {/* 输入卡：Apple 的填充式输入区（14px 圆角 + 发丝描边 + 柔和阴影） */}
         <div className="rounded-[14px] border-[0.5px] border-shell-border-l2 bg-card shadow-[var(--shadow-sm)] transition-shadow focus-within:shadow-[var(--shadow-md)]">
           <MentionInput
@@ -746,6 +798,23 @@ const AiPanel = () => {
           />
           <div className="flex items-center justify-between gap-3 px-2 pb-1.5 pt-0.5">
             <div className="flex min-w-0 items-center gap-2 text-[11px] leading-[16px] text-shell-label-tertiary">
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                accept={ATTACHMENT_EXTENSIONS.join(",")}
+                className="hidden"
+                onChange={(e) => void handlePickFiles(e.target.files)}
+              />
+              <button
+                type="button"
+                title="附加文本文件作为上下文"
+                aria-label="附加文本文件"
+                onClick={() => fileInputRef.current?.click()}
+                className="flex h-5 w-5 flex-none cursor-pointer items-center justify-center rounded-[5px] transition-colors hover:bg-shell-row-hover hover:text-shell-label-secondary"
+              >
+                <Paperclip className="h-3 w-3" />
+              </button>
               {loading ? (
                 <>
                   <Loader2 className="h-3 w-3 animate-spin" />

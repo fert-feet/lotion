@@ -136,6 +136,23 @@ export function applyTurnEvent(turn: Turn, event: SseEvent): TurnEffect[] {
   return effects;
 }
 
+/** 用户消息 metadata 里的附件清单（只恢复名称/大小，正文不落库） */
+export function parseUserAttachments(metadata: string | null | undefined): Array<{ name: string; size: number }> {
+  if (!metadata) return [];
+  try {
+    const parsed = JSON.parse(metadata) as { attachments?: unknown };
+    if (!Array.isArray(parsed.attachments)) return [];
+    return parsed.attachments
+      .filter((item): item is { name: string; size?: number } => typeof item === "object" && item !== null)
+      .map((item) => ({
+        name: typeof item.name === "string" ? item.name : "附件",
+        size: typeof item.size === "number" ? item.size : 0,
+      }));
+  } catch {
+    return [];
+  }
+}
+
 /** 同文档同类型的未解决确认卡是否已存在 */
 function hasPendingConfirm(
   notes: NoteEvent[],
@@ -174,6 +191,7 @@ export function rebuildTurns(messages: ChatMessage[]): Turn[] {
       // 历史回合没有实时耗时：null 而不是 0（曾经渲染成"耗时 0ms"）
       current.status = "done";
       current.durationMs = null;
+      current.attachments = parseUserAttachments(m.metadata ?? null);
       turns.push(current);
     } else if (current) {
       const snapshot = parseTurnSnapshot(m.metadata ?? null);

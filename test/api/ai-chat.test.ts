@@ -249,6 +249,57 @@ describe("POST /api/ai/chat", () => {
     expect(agentArgs.currentDocument).toBeUndefined();
   });
 
+  it("附件拼进本轮 prompt（库里仍存用户原话），清单落进 user 消息 metadata", async () => {
+    const { cookie, sessionId } = await seedAuth();
+    const res = await postChat(
+      {
+        prompt: "看看这份文件",
+        sessionId,
+        requestId: "r-attach",
+        attachments: [{ name: "周报.md", content: "# 本周\n完成了 A" }],
+      },
+      cookie,
+    );
+    await res.text();
+
+    const promptArg = runNoteAgent.mock.calls[0][2] as string;
+    expect(promptArg).toContain("看看这份文件");
+    expect(promptArg).toContain("周报.md");
+    expect(promptArg).toContain("完成了 A");
+
+    const row = state.db!
+      .prepare("SELECT content, metadata FROM chat_messages WHERE requestId = ?")
+      .get("r-attach") as { content: string; metadata: string | null };
+    expect(row.content).toBe("看看这份文件"); // 原话落库，附件正文不落库
+    expect(JSON.parse(row.metadata!).attachments).toEqual([
+      { name: "周报.md", size: "# 本周\n完成了 A".length },
+    ]);
+  });
+
+  it("附件上限与非法项：超量只取前 3 个、非字符串项被忽略、无附件时不加提示段", async () => {
+    const { cookie, sessionId } = await seedAuth();
+    const many = Array.from({ length: 5 }, (_, i) => ({ name: `f${i}.md`, content: `内容${i}` }));
+    await (await postChat({ prompt: "p", sessionId, requestId: "r-attach-many", attachments: many }, cookie)).text();
+    const withMany = runNoteAgent.mock.calls[0][2] as string;
+    expect(withMany).toContain("内容0");
+    expect(withMany).toContain("内容2");
+    expect(withMany).not.toContain("内容3");
+
+    vi.clearAllMocks();
+    runNoteAgent.mockResolvedValue({
+      stream: mockStream(),
+      done: Promise.resolve({ text: "ok", usage: null, references: [] }),
+    });
+    await (
+      await postChat(
+        { prompt: "只有文字", sessionId, requestId: "r-attach-bad", attachments: [null, 42, { name: 1 }] },
+        cookie,
+      )
+    ).text();
+    const noAttach = runNoteAgent.mock.calls[0][2] as string;
+    expect(noAttach).toBe("只有文字");
+  });
+
   it("AI 的隐式改动落库到 ai_changes（撤销依赖它）", async () => {
     runNoteAgent.mockResolvedValue({
       stream: mockStream(),
