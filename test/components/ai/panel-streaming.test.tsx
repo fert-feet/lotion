@@ -45,18 +45,34 @@ function sseResponse(events: object[]) {
   );
 }
 
-/** 分派 API：登录 / 会话 / 历史 / AI 流式 */
-function mockApi(options: { streamDelayMs?: number } = {}) {
+/** 分派 API：登录 / 会话 / 历史 / AI 流式；calls 记录写操作（断言草稿确认走 REST） */
+function mockApi(options: { streamDelayMs?: number; draftNoteId?: string } = {}) {
+  const calls: Array<{ url: string; method: string; body: string }> = [];
+  (globalThis as { __apiCalls?: typeof calls }).__apiCalls = calls;
   vi.stubGlobal(
     "fetch",
     vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === "string" ? input : input.toString();
       const method = init?.method ?? "GET";
       if (url.includes("/api/me")) return json({ user: { id: "u1", email: "u@x.com", name: null } });
+      if (url.includes("/api/documents") && method !== "GET") {
+        calls.push({ url, method, body: String(init?.body ?? "") });
+        return json({ ok: true });
+      }
       if (url.includes("/api/ai/chat")) {
         const events = [
           { type: "turn_start", turn: 1, startedAt: new Date().toISOString() },
           { type: "text", text: REPLY },
+          ...(options.draftNoteId
+            ? [
+                {
+                  type: "note_created",
+                  noteId: options.draftNoteId,
+                  title: "AI 草稿",
+                  parentTitle: null,
+                },
+              ]
+            : []),
           { type: "turn_end", turn: 1, durationMs: 12, tokens: { input: 3, output: 9 } },
         ];
         if (!options.streamDelayMs) return sseResponse(events);
@@ -192,5 +208,65 @@ describe("AI 面板流式渲染", () => {
       await new Promise((r) => setTimeout(r, 60));
     });
     expect(container.textContent ?? "").toContain(REPLY);
+  });
+});
+
+describe("AI 草稿在对话栏内确认", () => {
+  it("note_created 卡片带『确认保存 / 丢弃』，点确认保存走 PATCH isDraft:false", async () => {
+    mockApi({ draftNoteId: "draft-1" });
+    await mountPanel();
+    await sendMessage("帮我写一篇笔记");
+
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 120));
+    });
+
+    const text = container.textContent ?? "";
+    expect(text, "草稿卡片没出现在对话里").toContain("已创建草稿「AI 草稿」");
+    expect(text).toContain("位置：根目录");
+
+    const buttons = Array.from(container.querySelectorAll("button"));
+    const saveButton = buttons.find((b) => b.textContent?.includes("确认保存"));
+    expect(saveButton, "缺少『确认保存』按钮（确认动作必须能在对话栏完成）").toBeTruthy();
+
+    await act(async () => {
+      saveButton!.click();
+    });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 60));
+    });
+
+    const calls = (globalThis as { __apiCalls?: Array<{ url: string; method: string; body: string }> })
+      .__apiCalls ?? [];
+    const patch = calls.find((c) => c.url.includes("/api/documents/draft-1"));
+    expect(patch?.method, "确认保存应通过 REST PATCH 落库").toBe("PATCH");
+    expect(patch?.body).toContain('"isDraft":false');
+    expect(container.textContent ?? "").toContain("已保存「AI 草稿」"); // 卡片转为终态行
+  });
+
+  it("点『丢弃』调用删除，并在对话里显示已丢弃", async () => {
+    mockApi({ draftNoteId: "draft-2" });
+    await mountPanel();
+    await sendMessage("帮我写一篇笔记");
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 120));
+    });
+
+    const discard = Array.from(container.querySelectorAll("button")).find((b) =>
+      b.textContent?.includes("丢弃"),
+    );
+    expect(discard).toBeTruthy();
+    await act(async () => {
+      discard!.click();
+    });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 60));
+    });
+
+    const calls = (globalThis as { __apiCalls?: Array<{ url: string; method: string }> }).__apiCalls ?? [];
+    expect(calls.some((c) => c.url.includes("/api/documents/draft-2") && c.method === "DELETE")).toBe(
+      true,
+    );
+    expect(container.textContent ?? "").toContain("已丢弃草稿「AI 草稿」");
   });
 });

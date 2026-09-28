@@ -22,9 +22,11 @@ import {
   createQueuedMessage,
   enqueue,
   finalizeTurn,
+  markDraftResolved,
   markNoteResolved,
   markQuestionAnswered,
   pendingDeleteIds,
+  pendingDraftIds,
   rebuildTurns,
   removeQueueAt,
   shouldDispatchQueued,
@@ -222,8 +224,29 @@ const AiPanel = () => {
             }
           }),
         )).filter((id): id is string => !!id);
-        if (!alive || gone.length === 0) return;
-        setTurns((prev) => gone.reduce((acc, noteId) => markNoteResolved(acc, "delete_confirm", noteId), prev));
+
+        // 对账（AI 草稿）：文档没了 = 已丢弃；isDraft=false = 已确认保存。
+        // 这样"确认"这件事在对话栏里就有终态，不必回文档里看横幅。
+        const draftStates = await Promise.all(
+          pendingDraftIds(rebuilt).map(async (noteId) => {
+            try {
+              const doc = await docStore.getById(actor, noteId);
+              if (doc === null) return { noteId, resolved: "discarded" as const };
+              if (doc.isDraft === false) return { noteId, resolved: "saved" as const };
+              return null;
+            } catch {
+              return null;
+            }
+          }),
+        );
+        const drafts = draftStates.filter((d): d is { noteId: string; resolved: "saved" | "discarded" } => !!d);
+
+        if (!alive || (gone.length === 0 && drafts.length === 0)) return;
+        setTurns((prev) => {
+          let next = gone.reduce((acc, noteId) => markNoteResolved(acc, "delete_confirm", noteId), prev);
+          for (const d of drafts) next = markDraftResolved(next, d.noteId, d.resolved);
+          return next;
+        });
       })
       .catch(() => {
         // 历史拉取失败不阻塞，保持空对话
@@ -418,9 +441,9 @@ const AiPanel = () => {
             triggerDocument(effect.noteId);
             triggerSidebar();
           } else if (effect.kind === "note_created") {
-            // 不再 800ms 后强制跳转（会打断正在阅读/输入的用户）：给一个可点的 toast，
-            // 卡片上的「打开」按钮也一直在
-            toast.success(`已创建「${effect.title || "无标题"}」`, {
+            // 不再 800ms 后强制跳转（会打断正在阅读/输入的用户）：给一个可点的 toast；
+            // 确认动作在对话卡片上完成（打开 / 丢弃 / 确认保存）
+            toast.success(`已生成草稿「${effect.title || "无标题"}」，在对话里确认保存或丢弃`, {
               action: { label: "打开", onClick: () => navigate("/documents/" + effect.noteId) },
             });
           }
@@ -670,6 +693,35 @@ const AiPanel = () => {
     toast.info("已取消删除");
   }, [markResolved]);
 
+  /** AI 草稿：确认保存（isDraft=false，进入正式笔记列表） */
+  const handleConfirmDraft = useCallback((noteId: string, title: string) => {
+    const promise = docStore.update(actor, noteId, { isDraft: false }).then(() => {
+      triggerSidebar();
+      setTurns((prev) => markDraftResolved(prev, noteId, "saved"));
+    });
+    toast.promise(promise, {
+      loading: `正在保存「${title}」…`,
+      success: `「${title}」已保存`,
+      error: "保存失败",
+    });
+    return promise.then(() => undefined, () => undefined);
+  }, [docStore, actor, triggerSidebar]);
+
+  /** AI 草稿：丢弃（删除；正在查看它时回到文档列表） */
+  const handleDiscardDraft = useCallback((noteId: string, title: string) => {
+    const promise = docStore.remove(actor, noteId).then(() => {
+      triggerSidebar();
+      if (params.documentId === noteId) navigate("/documents");
+      setTurns((prev) => markDraftResolved(prev, noteId, "discarded"));
+    });
+    toast.promise(promise, {
+      loading: `正在丢弃「${title}」…`,
+      success: `已丢弃草稿「${title}」`,
+      error: "丢弃失败",
+    });
+    return promise.then(() => undefined, () => undefined);
+  }, [docStore, actor, triggerSidebar, params.documentId, navigate]);
+
   const handleConfirmMove = useCallback((noteId: string, title: string, parentDocument: string | null) => {
     const promise = docStore.move(actor, noteId, parentDocument).then(() => {
       triggerSidebar();
@@ -806,7 +858,8 @@ const AiPanel = () => {
                 <p className="text-[13px] leading-5 text-shell-label-tertiary">
                   我可以帮你搜索、撰写、改写和整理笔记。
                   <br />
-                  改动会写进文档，「删除」这类破坏性操作会先问你确认。
+                  新建的笔记先以草稿出现在这里，你确认保存或丢弃；
+                  「删除」这类破坏性操作也会先问你。
                 </p>
               </div>
             </div>
@@ -821,6 +874,8 @@ const AiPanel = () => {
               onCancelDelete={handleCancelDelete}
               onConfirmMove={handleConfirmMove}
               onCancelMove={handleCancelMove}
+              onConfirmDraft={handleConfirmDraft}
+              onDiscardDraft={handleDiscardDraft}
               onAnswerQuestion={handleQuestionAnswer}
               onRetry={handleRetry}
               onStop={handleStop}

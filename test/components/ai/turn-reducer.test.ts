@@ -10,7 +10,9 @@ import {
   enqueue,
   finalizeTurn,
   markNoteResolved,
+  markDraftResolved,
   markQuestionAnswered,
+  pendingDraftIds,
   pendingDeleteIds,
   rebuildTurns,
   removeQueueAt,
@@ -81,10 +83,14 @@ describe("applyTurnEvent：工具卡", () => {
 });
 
 describe("applyTurnEvent：文档副作用", () => {
-  it("note_created → 卡片 + note_created 效果（跳转由组件决定，reducer 不碰路由）", () => {
+  it("note_created → 卡片（含创建位置）+ note_created 效果（跳转由组件决定，reducer 不碰路由）", () => {
     const turn = createTurn("q");
-    const effects = feed(turn, [{ type: "note_created", noteId: "n1", title: "草稿" }]);
-    expect(turn.notes).toEqual([{ kind: "created", noteId: "n1", title: "草稿" }]);
+    const effects = feed(turn, [
+      { type: "note_created", noteId: "n1", title: "草稿", parentTitle: "父文档" },
+    ]);
+    expect(turn.notes).toEqual([
+      { kind: "created", noteId: "n1", title: "草稿", parentTitle: "父文档" },
+    ]);
     expect(turn.parts).toEqual([{ kind: "note", index: 0 }]);
     expect(effects).toEqual([{ kind: "note_created", noteId: "n1", title: "草稿" }]);
   });
@@ -477,5 +483,54 @@ describe("shouldDispatchQueued：停止后不再自动续发", () => {
     expect(shouldDispatchQueued({ streaming: true, suppressed: false }, queue, "s1")).toBe(false);
     expect(shouldDispatchQueued({ streaming: false, suppressed: false }, queue, "s2")).toBe(false);
     expect(shouldDispatchQueued({ streaming: false, suppressed: false }, [], "s1")).toBe(false);
+  });
+});
+
+describe("AI 草稿的对话内确认", () => {
+  it("markDraftResolved 回填终态；没有匹配项时返回原数组", () => {
+    const turn = createTurn("q");
+    feed(turn, [{ type: "note_created", noteId: "n1", title: "草稿" }]);
+    const saved = markDraftResolved([turn], "n1", "saved");
+    expect((saved[0].notes[0] as { resolved?: string }).resolved).toBe("saved");
+    expect(markDraftResolved(saved, "n1", "discarded")).toBe(saved); // 已有终态不再改
+    expect(markDraftResolved(saved, "ghost", "saved")).toBe(saved);
+  });
+
+  it("pendingDraftIds 只收集未处理的草稿（刷新后据此对账文档事实）", () => {
+    const a = createTurn("a");
+    feed(a, [{ type: "note_created", noteId: "n1", title: "A" }]);
+    const b = createTurn("b");
+    feed(b, [{ type: "note_created", noteId: "n2", title: "B" }]);
+    const resolved = markDraftResolved([b], "n2", "discarded");
+    expect(pendingDraftIds([a, ...resolved])).toEqual(["n1"]);
+    expect(pendingDraftIds([])).toEqual([]);
+  });
+
+  it("快照恢复后仍带创建位置（刷新后卡片能显示『位置：…』）", () => {
+    const snapshot = {
+      version: 1,
+      durationMs: 5,
+      errorMessage: null,
+      changedDocuments: [],
+      requestId: null,
+      parts: [{ kind: "note", index: 0 }],
+      tools: [],
+      notes: [{ kind: "created", noteId: "n1", title: "草稿", parentTitle: "周会纪要" }],
+      references: [],
+      questions: [],
+      todos: [],
+      warnings: [],
+    };
+    const [turn] = rebuildTurns([
+      { id: "u", role: "user", content: "建一篇", createdAt: "x" },
+      {
+        id: "a",
+        role: "assistant",
+        content: "",
+        createdAt: "x",
+        metadata: JSON.stringify(snapshot),
+      },
+    ]);
+    expect(turn.notes[0]).toMatchObject({ kind: "created", parentTitle: "周会纪要" });
   });
 });

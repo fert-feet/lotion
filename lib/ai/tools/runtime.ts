@@ -30,7 +30,13 @@ export type ToolEvent =
       args?: unknown;
     }
   | { type: "tool_end"; tool: ToolName; seq: number; ok: boolean; summary: string; error?: string }
-  | { type: "note_created"; noteId: string; title: string }
+  | {
+      type: "note_created";
+      noteId: string;
+      title: string;
+      /** 创建在哪个父文档下（null = 根目录）——前端在对话卡片上显示"位置" */
+      parentTitle?: string | null;
+    }
   | { type: "note_modified"; noteId: string; title: string }
   | { type: "confirm_delete"; noteId: string; title: string }
   | { type: "confirm_move"; noteId: string; title: string; targetTitle: string | null; toRoot: boolean }

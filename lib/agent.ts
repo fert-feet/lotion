@@ -29,7 +29,7 @@ export type AgentStreamEvent =
   | { type: "text"; text: string }
   | { type: "tool_start"; tool: ToolName; seq: number; label: string; argsText: string }
   | { type: "tool_end"; tool: ToolName; seq: number; ok: boolean; summary: string; error?: string }
-  | { type: "note_created"; noteId: string; title: string }
+  | { type: "note_created"; noteId: string; title: string; parentTitle?: string | null }
   | { type: "note_modified"; noteId: string; title: string }
   | { type: "confirm_delete"; noteId: string; title: string }
   | {
@@ -305,8 +305,13 @@ export async function runNoteAgent(
         break;
       }
       case "note_created":
-        eventQueue.push({ type: "note_created", noteId: e.noteId, title: e.title });
-        snapshot.notes.push({ kind: "created", noteId: e.noteId, title: e.title });
+        eventQueue.push({
+          type: "note_created",
+          noteId: e.noteId,
+          title: e.title,
+          parentTitle: e.parentTitle ?? null,
+        });
+        snapshot.notes.push({ kind: "created", noteId: e.noteId, title: e.title, parentTitle: e.parentTitle ?? null });
         snapshot.parts.push({ kind: "note", index: snapshot.notes.length - 1 });
         break;
       case "note_modified":

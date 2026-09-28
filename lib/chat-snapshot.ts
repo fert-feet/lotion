@@ -23,7 +23,13 @@ export interface SnapshotToolCard {
 }
 
 export type SnapshotNote =
-  | { kind: "created"; noteId: string; title: string }
+  | {
+      kind: "created";
+      noteId: string;
+      title: string;
+      /** 创建在哪个父文档下（null/缺省 = 根目录） */
+      parentTitle?: string | null;
+    }
   | { kind: "modified"; noteId: string; title: string }
   | { kind: "delete_confirm"; noteId: string; title: string; resolved: boolean }
   | {
@@ -188,8 +194,10 @@ export function parseTurnSnapshot(value: unknown): TurnSnapshot | null {
     if (!isRecord(note)) continue;
     const noteId = asString(note.noteId);
     const title = asString(note.title);
-    if (note.kind === "created" || note.kind === "modified") {
-      snapshot.notes.push({ kind: note.kind, noteId, title });
+    if (note.kind === "created") {
+      snapshot.notes.push({ kind: "created", noteId, title, parentTitle: asStringOrNull(note.parentTitle) });
+    } else if (note.kind === "modified") {
+      snapshot.notes.push({ kind: "modified", noteId, title });
     } else if (note.kind === "delete_confirm") {
       snapshot.notes.push({ kind: "delete_confirm", noteId, title, resolved: note.resolved === true });
     } else if (note.kind === "move_confirm") {

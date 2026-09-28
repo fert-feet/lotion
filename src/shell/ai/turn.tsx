@@ -24,6 +24,9 @@ interface TurnProps {
   onCancelDelete: (noteId: string) => void;
   onConfirmMove: (noteId: string, title: string, parentDocument: string | null) => ConfirmResult;
   onCancelMove: (noteId: string) => void;
+  /** AI 草稿确认（对话栏内完成） */
+  onConfirmDraft: (noteId: string, title: string) => ConfirmResult;
+  onDiscardDraft: (noteId: string, title: string) => ConfirmResult;
   onAnswerQuestion: (
     turnId: string,
     index: number,
@@ -460,7 +463,7 @@ function TurnActions({
   );
 }
 
-function TurnViewInner({ turn, onOpenDocument, onConfirmDelete, onCancelDelete, onConfirmMove, onCancelMove, onAnswerQuestion, onRetry, onStop, onStopAndNewSession, onUndo, onPreviewChanges, onEditUser, onInsertToDocument, onSaveAsNote, canInsertToDocument }: TurnProps) {
+function TurnViewInner({ turn, onOpenDocument, onConfirmDelete, onCancelDelete, onConfirmMove, onCancelMove, onConfirmDraft, onDiscardDraft, onAnswerQuestion, onRetry, onStop, onStopAndNewSession, onUndo, onPreviewChanges, onEditUser, onInsertToDocument, onSaveAsNote, canInsertToDocument }: TurnProps) {
   const running = turn.status === "running";
   const lastPartIndex = turn.parts.length - 1;
   const trailingText = turn.parts[lastPartIndex]?.kind === "text";
@@ -518,6 +521,8 @@ function TurnViewInner({ turn, onOpenDocument, onConfirmDelete, onCancelDelete, 
                   onCancelDelete={onCancelDelete}
                   onConfirmMove={onConfirmMove}
                   onCancelMove={onCancelMove}
+                  onConfirmDraft={onConfirmDraft}
+                  onDiscardDraft={onDiscardDraft}
                 />
               );
             }

@@ -30,11 +30,13 @@ export function createCreateNoteTool(
         return `本次对话已经创建过笔记（ID: ${createdNoteId}）。请直接使用该 ID 调用 updateNote 修改内容，不要重复创建新笔记。`;
       }
 
+      let parentTitle: string | null = null;
       if (parentDocumentId) {
         const parent = getDocumentById(db, parentDocumentId, userId);
         if (!parent || parent.isArchived) {
           return `父笔记 ${parentDocumentId} 不存在、已归档或无权访问，无法在其下创建子笔记。`;
         }
+        parentTitle = parent.title;
       }
 
       logger.tools.info("[createNote] 创建笔记", { title, contentLen: content.length, parentDocumentId });
@@ -50,7 +52,7 @@ export function createCreateNoteTool(
 
       createdNoteId = docId;
       // 副作用通过 onEvent 上报：note_created 驱动前端跳转，reference 在流结束时汇总展示胶囊
-      onEvent({ type: "note_created", noteId: docId, title: finalTitle });
+      onEvent({ type: "note_created", noteId: docId, title: finalTitle, parentTitle });
       onEvent({ type: "reference", noteId: docId, title: finalTitle });
       logger.tools.info("[createNote] 已创建", { noteId: docId, title: finalTitle });
 

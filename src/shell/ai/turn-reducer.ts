@@ -65,7 +65,12 @@ export function applyTurnEvent(turn: Turn, event: SseEvent): TurnEffect[] {
       break;
     }
     case "note_created":
-      turn.notes.push({ kind: "created", noteId: event.noteId, title: event.title });
+      turn.notes.push({
+        kind: "created",
+        noteId: event.noteId,
+        title: event.title,
+        parentTitle: event.parentTitle ?? null,
+      });
       turn.parts.push({ kind: "note", index: turn.notes.length - 1 });
       effects.push({ kind: "note_created", noteId: event.noteId, title: event.title });
       break;
@@ -254,6 +259,41 @@ export function restoreTurn(turn: Turn, content: string, snapshot: TurnSnapshot)
     else parts.push({ kind: "text", text: rest });
   }
   turn.parts = parts;
+}
+
+/**
+ * 标记草稿已在对话里被处理（确认保存 / 丢弃）。
+ * 确认动作本身走 REST（isDraft=false / 删除），这里只回填卡片状态，
+ * 刷新后由 `pendingDraftIds` 对账（文档不在了 = 已丢弃，isDraft=false = 已保存）恢复。
+ */
+export function markDraftResolved(
+  turns: Turn[],
+  noteId: string,
+  resolved: "saved" | "discarded",
+): Turn[] {
+  let changed = false;
+  const next = turns.map((t) => {
+    if (!t.notes.some((n) => n.kind === "created" && n.noteId === noteId && !n.resolved)) return t;
+    changed = true;
+    return {
+      ...t,
+      notes: t.notes.map((n) =>
+        n.kind === "created" && n.noteId === noteId ? { ...n, resolved } : n,
+      ),
+    };
+  });
+  return changed ? next : turns;
+}
+
+/** 待确认的 AI 草稿（未在对话里处理过的）——刷新后拿文档事实对账 */
+export function pendingDraftIds(turns: Turn[]): string[] {
+  const ids = new Set<string>();
+  for (const turn of turns) {
+    for (const note of turn.notes) {
+      if (note.kind === "created" && !note.resolved) ids.add(note.noteId);
+    }
+  }
+  return [...ids];
 }
 
 /** 把某张确认卡标记为已解决（渲染为"已删除/已移动"的收尾行） */

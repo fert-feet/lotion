@@ -89,7 +89,10 @@ test/                       # Vitest 单测（lib/ / api/ / components/ 同构�
 - AI 面板在 `src/shell/ai-panel.tsx`（纯逻辑在 `src/shell/ai/turn-reducer.ts`，有单测），
   details 列常驻、流式渲染；⌘J 开合，窄屏由 shell 渲染成右侧浮层
 - AI 回合的三条持久化通道：assistant 消息正文（纯文本回放）、`chat_messages.metadata`
-  回合快照（工具卡/副作用卡/引用/待办/提问/耗时/requestId）、`ai_changes` 改动前快照（撤销）
+  回合快照（工具卡/副作用卡/引用/待办/提问/耗时/requestId/附件清单）、`ai_changes` 改动前快照（撤销）
+- **AI 草稿的确认在对话栏内完成**（`src/shell/ai/note-card.tsx` 的 created 卡片：
+  打开看看 / 丢弃 / 确认保存 + 创建位置）；文档页不再有 `DraftBanner`（已删除）。
+  刷新后的终态靠"文档事实对账"恢复：文档不在了 = 已丢弃，`isDraft=false` = 已保存
 - sidebar 宽度可拖拽（264-420px），可折叠为 56px rail
 - 运行时数据：`data/lotion.db`（可用 `LOTION_DB_PATH` 覆盖）、`data/uploads/`（可用 `UPLOAD_DIR` 覆盖），均 gitignore
 

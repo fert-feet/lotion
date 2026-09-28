@@ -11,7 +11,7 @@ export type SseEvent =
   | { type: "text"; text: string }
   | { type: "tool_start"; tool: string; seq: number; label: string; argsText: string }
   | { type: "tool_end"; tool: string; seq: number; ok: boolean; summary: string; error?: string }
-  | { type: "note_created"; noteId: string; title: string }
+  | { type: "note_created"; noteId: string; title: string; parentTitle?: string | null }
   | { type: "note_modified"; noteId: string; title: string }
   | { type: "confirm_delete"; noteId: string; title: string }
   | {
@@ -53,7 +53,15 @@ export interface ToolCardState {
 }
 
 export type NoteEvent =
-  | { kind: "created"; noteId: string; title: string }
+  | {
+      kind: "created";
+      noteId: string;
+      title: string;
+      /** 创建位置（父文档标题；null = 根目录） */
+      parentTitle?: string | null;
+      /** 用户在对话里确认过：saved = 确认保存，discarded = 丢弃 */
+      resolved?: "saved" | "discarded";
+    }
   | { kind: "modified"; noteId: string; title: string }
   | { kind: "delete_confirm"; noteId: string; title: string; resolved: boolean }
   | {

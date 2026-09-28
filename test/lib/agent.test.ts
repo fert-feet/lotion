@@ -336,6 +336,27 @@ describe("runNoteAgent 中断语义（用户点『停止』）", () => {
   });
 });
 
+describe("createNote 的创建位置随事件上报", () => {
+  it("根目录创建：parentTitle 为 null", async () => {
+    mockConfig.tool = "createNote";
+    const { stream } = await runNoteAgent(db, "user-1", "建一篇");
+    const events = await readEvents(stream);
+    const created = events.find((e) => e.type === "note_created");
+    expect(created).toMatchObject({ title: "测试笔记", parentTitle: null });
+  });
+
+  it("指定父文档时带上父标题（对话卡片据此显示『位置』）", async () => {
+    const { createCreateNoteTool } = await import("@/lib/ai/tools/create-note");
+    const events: Array<{ type: string; parentTitle?: string | null }> = [];
+    const parentId = mockConfig.noteId; // 种子文档「引用笔记」
+    const toolSet = createCreateNoteTool(db, "user-1", (e) => events.push(e as never)) as unknown as {
+      execute: (args: unknown) => Promise<unknown>;
+    };
+    await toolSet.execute({ title: "子笔记", content: "正文", parentDocumentId: parentId });
+    expect(events.find((e) => e.type === "note_created")?.parentTitle).toBe("引用笔记");
+  });
+});
+
 describe("runNoteAgent 结构化快照（落库后重建时间线用）", () => {
   it("工具与副作用按事件顺序进 parts，文本段只记字符数，耗时随结果一起给", async () => {
     mockConfig.tool = "createNote";
