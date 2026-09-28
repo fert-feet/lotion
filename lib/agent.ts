@@ -50,6 +50,35 @@ export interface AgentHistoryMessage {
   content: string;
 }
 
+/** 当前文档上下文（前端把用户正在看的文档带进来，省掉"再 @ 一次"） */
+export interface AgentCurrentDocument {
+  id: string;
+  title: string;
+}
+
+/**
+ * 组装系统提示词：基础提示 + 早期对话摘要 + 当前文档上下文。
+ * 抽成导出函数是为了能直接断言"当前文档确实进了 system"（而不是只测调用参数）。
+ */
+export function buildSystemPrompt(options?: {
+  summary?: string;
+  currentDocument?: AgentCurrentDocument;
+}): string {
+  let system = NOTE_ASSISTANT_PROMPT;
+  // 上下文压缩：早期对话以摘要形式注入（重写式摘要保留语义与文档 id 引用）
+  if (options?.summary) {
+    system += `\n\n以下是本会话早期对话的摘要（已压缩，细节以摘要为准）：\n${options.summary}`;
+  }
+  if (options?.currentDocument) {
+    const { id, title } = options.currentDocument;
+    system +=
+      `\n\n【当前文档】用户此刻正在查看「${title || "无标题"}」（id: ${id}）。` +
+      `用户说"这篇 / 当前文档 / 它 / 这里"时默认指这篇：需要内容时先 readNote 读取，` +
+      `不要只凭标题猜测；修改优先用 updateBlock 精确改块，避免整篇覆盖。`;
+  }
+  return system;
+}
+
 /** Agent 执行结果（route.ts 落库 assistant 消息用） */
 export interface AgentResult {
   text: string;
@@ -82,6 +111,8 @@ export async function runNoteAgent(
     history?: AgentHistoryMessage[];
     summary?: string;
     signal?: AbortSignal;
+    /** 用户当前正在查看的文档（进 system 提示，支持"这篇/它"这类指代） */
+    currentDocument?: AgentCurrentDocument;
     /** AI 运行期配置（来自 settings 配置层）；缺省时回退环境变量 */
     ai?: Partial<AiRuntimeConfig>;
     /**
@@ -204,6 +235,10 @@ export async function runNoteAgent(
     resolveDone(r);
   };
   const done = new Promise<AgentResult>((res) => { resolveDone = res; });
+  // 已推送的叙述文本累计：中止/异常路径下用它落库"已生成的部分"。
+  // 背景：AI SDK 在 abort 时走 onAbort、**不走 onFinish**，此前 fallback 一律 resolve
+  // 空字符串 —— 用户点"停止生成"后已生成的内容会丢（甚至落一条空 assistant 消息）。
+  let accumulatedText = "";
   // onFinish 的 usage（onFinish 与流 done 的先后不保证，用变量桥接）
   let finishUsage: { inputTokens: number; outputTokens: number } | null = null;
 
@@ -220,10 +255,8 @@ export async function runNoteAgent(
 
   const result = streamText({
     model: createAiModel(ai),
-    // 上下文压缩：早期对话以摘要形式注入 system（重写式摘要保留语义与文档 id 引用）
-    system: options?.summary
-      ? `${NOTE_ASSISTANT_PROMPT}\n\n以下是本会话早期对话的摘要（已压缩，细节以摘要为准）：\n${options.summary}`
-      : NOTE_ASSISTANT_PROMPT,
+    // 系统提示：基础提示 + 早期对话摘要 + 当前文档上下文
+    system: buildSystemPrompt({ summary: options?.summary, currentDocument: options?.currentDocument }),
     messages,
     // doom loop 检测（对齐 SiYuan）：相同工具+参数连续失败 3 次前端警告、5 次中止
     tools: buildToolSet(toolRegistry, {
@@ -274,6 +307,17 @@ export async function runNoteAgent(
       // 生成中途出错（如模型 API 异常）：推送 error 事件让前端明确提示，而非静默断流
       logger.agent.error("Agent 执行出错", { error: String(error) });
       eventQueue.push({ type: "error", message: error instanceof Error ? error.message : String(error) });
+    },
+    onAbort: () => {
+      // 用户停止 / 确认类工具中止生成：立刻用已累计文本收尾（onFinish 不会触发）
+      logger.agent.info("生成被中止，落库已生成的部分内容", { textLen: accumulatedText.length });
+      resolveDoneSafe({
+        text: accumulatedText,
+        usage: finishUsage,
+        references: [...references],
+        durationMs: Date.now() - startedAt,
+        toolCount,
+      });
     },
     onFinish: ({ finishReason, usage, text, steps }) => {
       finishUsage = usage
@@ -359,9 +403,9 @@ export async function runNoteAgent(
     cancel() {
       // 外部取消（前端 abort / 客户端断开）时回收定时器，避免泄漏
       cleanupRef?.();
-      // 兜底 resolve：取消后 done 不悬挂（真实删除由前端确认后执行，此处无需补文本）
+      // 兜底 resolve：取消后 done 不悬挂，并保留已生成的部分内容
       resolveDoneSafe({
-        text: "",
+        text: accumulatedText,
         usage: finishUsage,
         references: [...references],
         durationMs: Date.now() - startedAt,
@@ -389,10 +433,17 @@ export async function runNoteAgent(
         if ((e as { message?: string })?.message === "STREAM_TIMEOUT") {
           logger.agent.warn("流读取超时，强制关闭");
         }
-        // 超时前尽力推送残留事件
+        // 超时/读取异常：尽力推送残留事件，并用已累计文本兜底 resolve（不落空消息）
         flushFinalEvents(controller);
         controller.close();
         cleanupRef?.();
+        resolveDoneSafe({
+          text: accumulatedText,
+          usage: finishUsage,
+          references: [...references],
+          durationMs: Date.now() - startedAt,
+          toolCount,
+        });
         return;
       } finally {
         if (timeoutId) clearTimeout(timeoutId);
@@ -403,9 +454,10 @@ export async function runNoteAgent(
         flushFinalEvents(controller);
         controller.close();
         cleanupRef?.();
-        // 兜底 resolve（onFinish 通常已触发，此处防 SDK 顺序差异导致 done 悬挂）
+        // 兜底 resolve（onFinish 通常已触发，此处防 SDK 顺序差异导致 done 悬挂；
+        // 用累计文本而不是空串，避免"onFinish 晚于流关闭"时把回答写成空消息）
         resolveDoneSafe({
-          text: "",
+          text: accumulatedText,
           usage: finishUsage,
           references: [...references],
           durationMs: Date.now() - startedAt,
@@ -414,6 +466,7 @@ export async function runNoteAgent(
         return;
       }
 
+      accumulatedText += value ?? "";
       controller.enqueue(sseEvent({ type: "text", text: value ?? "" }));
     },
   });

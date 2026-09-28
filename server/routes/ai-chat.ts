@@ -6,6 +6,7 @@ import { getDb } from "@/lib/local/sqlite";
 import { runNoteAgent, type AgentHistoryMessage } from "@/lib/agent";
 import {
   getChatSession,
+  getDocumentById,
   listChatHistory,
   insertChatMessage,
   setChatSessionTitle,
@@ -36,9 +37,14 @@ aiChatRoutes.use("*", requireAuth);
 aiChatRoutes.post("/", async (c) => {
   const user = c.get("user");
 
-  const parsed = await readJson<{ prompt?: string; sessionId?: string; requestId?: string }>(c);
+  const parsed = await readJson<{
+    prompt?: string;
+    sessionId?: string;
+    requestId?: string;
+    documentId?: string;
+  }>(c);
   if (!parsed.ok) return c.json({ error: "请求体不是合法 JSON" }, 400);
-  const { prompt, sessionId, requestId } = parsed.data;
+  const { prompt, sessionId, requestId, documentId } = parsed.data;
   if (!prompt || !sessionId) return c.json({ error: "prompt 与 sessionId 必填" }, 400);
   logger.api.info("收到 AI 请求", { userId: user.id, promptLen: prompt.length, sessionId });
 
@@ -90,11 +96,24 @@ aiChatRoutes.post("/", async (c) => {
   // 每次请求都解析：改模型/key 后**无需重启**即可生效。
   const ai = getHostAiConfig();
 
+  // 当前文档上下文：显式按 userId 校验归属（无 RLS 兜底），拿不到就静默降级为无上下文，
+  // 绝不让别的用户的文档标题/id 进 system 提示
+  let currentDocument: { id: string; title: string } | undefined;
+  if (documentId) {
+    try {
+      const doc = getDocumentById(db, documentId, user.id);
+      if (doc) currentDocument = { id: doc.id, title: doc.title };
+    } catch (e) {
+      logger.api.warn("当前文档上下文读取失败，忽略", { error: String(e) });
+    }
+  }
+
   const { stream, done } = await runNoteAgent(db, user.id, prompt, {
     history,
     summary: session.summary || undefined,
     signal: c.req.raw.signal, // 前端 abort fetch 时中断 DeepSeek 生成
     ai,
+    currentDocument,
     // 工具注册表来自内核：插件注册的工具自动对模型可见；未装配内核时回退内置注册表
     tools: getHostKernelIfBooted() ? getHostTools() : undefined,
     context: getHostKernelIfBooted()?.ctx,

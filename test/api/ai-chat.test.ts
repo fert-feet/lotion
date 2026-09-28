@@ -203,4 +203,49 @@ describe("POST /api/ai/chat", () => {
     const agentArgs = runNoteAgent.mock.calls[0][3] as { summary?: string };
     expect(agentArgs.summary).toBe("早期摘要");
   });
+
+  it("带 documentId 时按归属查出当前文档并传给 agent（用户不必再 @ 一次）", async () => {
+    const { cookie, sessionId, userId } = await seedAuth();
+    const { createDocument, updateDocument } = await import("@/lib/local/db");
+    const docId = createDocument(state.db!, userId, "周会纪要");
+    updateDocument(state.db!, docId, { content: "正文" });
+
+    const res = await postChat({ prompt: "总结这篇", sessionId, requestId: "r-doc", documentId: docId }, cookie);
+    await res.text();
+
+    const agentArgs = runNoteAgent.mock.calls[0][3] as {
+      currentDocument?: { id: string; title: string };
+    };
+    expect(agentArgs.currentDocument).toEqual({ id: docId, title: "周会纪要" });
+  });
+
+  it("documentId 不属于当前用户时静默降级（不把别人的文档带进上下文）", async () => {
+    const { cookie, sessionId } = await seedAuth();
+    const { createUser } = await import("@/lib/local/auth");
+    const { createDocument } = await import("@/lib/local/db");
+    const other = createUser(state.db!, "other@x.com", "password123");
+    const otherDoc = createDocument(state.db!, other.id, "别人的笔记");
+
+    const res = await postChat(
+      { prompt: "总结这篇", sessionId, requestId: "r-doc-other", documentId: otherDoc },
+      cookie,
+    );
+    expect(res.status).toBe(200);
+    await res.text();
+
+    const agentArgs = runNoteAgent.mock.calls[0][3] as { currentDocument?: unknown };
+    expect(agentArgs.currentDocument).toBeUndefined();
+  });
+
+  it("documentId 指向不存在的文档时也照常生成（不 4xx）", async () => {
+    const { cookie, sessionId } = await seedAuth();
+    const res = await postChat(
+      { prompt: "hi", sessionId, requestId: "r-doc-missing", documentId: "ghost" },
+      cookie,
+    );
+    expect(res.status).toBe(200);
+    await res.text();
+    const agentArgs = runNoteAgent.mock.calls[0][3] as { currentDocument?: unknown };
+    expect(agentArgs.currentDocument).toBeUndefined();
+  });
 });

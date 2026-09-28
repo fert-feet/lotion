@@ -12,6 +12,8 @@ const { mockConfig } = vi.hoisted(() => ({
     noteId: "doc-123" as string, // beforeEach 按真实种子数据覆盖
     emitStepFinish: false,
     emitError: false,
+    /** 模拟"中止/读取异常"：吐出首个 chunk 后让流报错，且**不触发 onFinish** */
+    streamError: false,
     capturedMessages: [] as Array<{ role: string; content: string }>,
     capturedSystem: "" as string,
     capturedModel: null as { modelId?: string; config?: { apiKey?: string } } | null,
@@ -38,6 +40,8 @@ vi.mock("ai", async (importOriginal) => {
       mockConfig.capturedSystem = options.system ?? "";
       // 捕获 abortSignal：断言 deleteNote 中止行为
       mockConfig.abortSignal = options.abortSignal ?? null;
+      /** 本次流是否已收尾（pull 可能被多次调用） */
+      let settled = false;
       return {
         textStream: new ReadableStream<string>({
           async start(controller) {
@@ -73,14 +77,23 @@ vi.mock("ai", async (importOriginal) => {
               options.onError?.({ error: new Error("mock boom") });
             }
             controller.enqueue("正在处理...");
-            // 模拟流结束 → agent 的 done promise 依赖 onFinish resolve
-            options.onFinish?.({
-              finishReason: "stop",
-              usage: { inputTokens: 1, outputTokens: 2 },
-              text: "mock text",
-              steps: [],
-            });
-            controller.close();
+            // 正常路径：立刻触发 onFinish 并关流（与真实 SDK 的 finish 回调等价）；
+            // streamError 路径不在这里收尾——等消费者先读到 chunk，再由 pull 让流报错，
+            // 以此模拟"已经吐出部分文本后中止、且不走 onFinish"。
+            if (!mockConfig.streamError) {
+              options.onFinish?.({
+                finishReason: "stop",
+                usage: { inputTokens: 1, outputTokens: 2 },
+                text: "mock text",
+                steps: [],
+              });
+              controller.close();
+            }
+          },
+          pull(controller) {
+            if (settled) return;
+            settled = true;
+            if (mockConfig.streamError) controller.error(new Error("mock stream broken"));
           },
         }),
       };
@@ -140,6 +153,7 @@ beforeEach(() => {
   mockConfig.noteId = docId;
   mockConfig.emitStepFinish = false;
   mockConfig.emitError = false;
+  mockConfig.streamError = false;
   mockConfig.capturedMessages = [];
   mockConfig.abortSignal = null;
 });
@@ -215,6 +229,54 @@ describe("runNoteAgent SSE 事件注入", () => {
       inputTokens: expect.any(Number),
       outputTokens: expect.any(Number),
     });
+  });
+
+  it("流被中止/读取出错且没有 onFinish 时，done 仍 resolve 出**已生成的部分**（不是空串）", async () => {
+    mockConfig.streamError = true;
+    const { stream, done } = await runNoteAgent(db, "user-1", "写一半就停");
+    await readEvents(stream); // 消费掉 SSE 流
+    const result = await done;
+    expect(
+      result.text,
+      "停止生成后内容丢失：fallback 必须用累计文本而不是空串",
+    ).toBe("正在处理...");
+    expect(typeof result.durationMs).toBe("number");
+  });
+});
+
+describe("buildSystemPrompt：当前文档上下文", () => {
+  it("没有当前文档时只给基础提示", async () => {
+    const { buildSystemPrompt } = await import("@/lib/agent");
+    const prompt = buildSystemPrompt();
+    expect(prompt).not.toContain("【当前文档】");
+  });
+
+  it("带当前文档时把标题与 id 写进提示（支持『这篇/它』这类指代）", async () => {
+    const { buildSystemPrompt } = await import("@/lib/agent");
+    const prompt = buildSystemPrompt({ currentDocument: { id: "doc-9", title: "周会纪要" } });
+    expect(prompt).toContain("【当前文档】");
+    expect(prompt).toContain("周会纪要");
+    expect(prompt).toContain("doc-9");
+  });
+
+  it("摘要与当前文档可同时注入，顺序稳定（摘要先于当前文档）", async () => {
+    const { buildSystemPrompt } = await import("@/lib/agent");
+    const prompt = buildSystemPrompt({
+      summary: "早前聊过发布流程",
+      currentDocument: { id: "doc-9", title: "周会纪要" },
+    });
+    expect(prompt.indexOf("早前聊过发布流程")).toBeGreaterThan(-1);
+    expect(prompt.indexOf("早前聊过发布流程")).toBeLessThan(prompt.indexOf("【当前文档】"));
+  });
+});
+
+describe("runNoteAgent 注入当前文档", () => {
+  it("currentDocument 进 system 提示（route 已在归属校验后传入）", async () => {
+    await runNoteAgent(db, "user-1", "总结这篇", {
+      currentDocument: { id: mockConfig.noteId, title: "引用笔记" },
+    });
+    expect(mockConfig.capturedSystem).toContain("引用笔记");
+    expect(mockConfig.capturedSystem).toContain(mockConfig.noteId);
   });
 });
 
