@@ -24,6 +24,7 @@ import "@blocknote/react/style.css";
 import { useTheme } from "next-themes";
 import { isBlockNoteJson, toEditorBlocks } from "@/lib/content";
 import { createLotionSchema } from "@/lib/blocknote-schema";
+import { createEditorSyncState, reduceEditorSync, type EditorSyncEvent } from "./editor-sync";
 import { useDocStore } from "@/src/kernel/react";
 import OutlinePanel from "@/components/editor/outline-panel";
 import LotionSuggestionMenu from "@/components/editor/lotion-suggestion-menu";
@@ -167,34 +168,63 @@ const Editor = ({ onChange, initialContent, editable = true }: EditorProps) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // AI 修改文档 / 切换文档：initialContent 变化且用户未在编辑时事务性应用。
-  // 用户焦点在编辑器内时跳过（用户优先，与自研编辑器阶段语义一致）。
-  const lastApplied = useRef<string | undefined>(initialContent);
-  useEffect(() => {
-    if (!initialContent || lastApplied.current === initialContent) return;
-    lastApplied.current = initialContent;
-    if (editor.isFocused()) return;
-    let alive = true;
-    void (async () => {
-      const blocks = (isBlockNoteJson(initialContent)
-        ? (JSON.parse(initialContent) as PartialBlock[])
-        : await editor.tryParseMarkdownToBlocks(initialContent)) as EditorPartialBlocks;
-      if (!alive) return;
+  // AI 修改文档 / 切换文档：外部内容变化时应用（用户优先，但**绝不丢弃**）。
+  // 旧实现的坑：焦点在编辑器里时直接 return，却已经把 lastApplied 推进，
+  // 这次更新被永久吞掉 —— 用户看到卡片写着"已更新"，正文纹丝不动。
+  const [syncState, setSyncState] = useState(() => createEditorSyncState(initialContent ?? null));
+  const syncRef = useRef(syncState);
+  syncRef.current = syncState;
+
+  /** 把外部内容事务性写进编辑器（不重建编辑器实例） */
+  const applyExternal = useCallback(
+    async (content: string) => {
+      const blocks = (isBlockNoteJson(content)
+        ? (JSON.parse(content) as PartialBlock[])
+        : await editor.tryParseMarkdownToBlocks(content)) as EditorPartialBlocks;
       editor.transact(() => {
         editor.replaceBlocks(editor.document, blocks);
       });
-    })();
-    return () => {
-      alive = false;
+    },
+    [editor],
+  );
+
+  /** 消费状态机结果：apply 非空就写进编辑器 */
+  const dispatchSync = useCallback(
+    (event: EditorSyncEvent) => {
+      const { state, apply } = reduceEditorSync(syncRef.current, event);
+      syncRef.current = state;
+      setSyncState(state);
+      if (apply !== null) void applyExternal(apply);
+    },
+    [applyExternal],
+  );
+
+  // 外部内容变化（AI 写库 → 文档页 fresh 拉取 → initialContent 变化；切换文档同理）
+  useEffect(() => {
+    if (!initialContent) return;
+    dispatchSync({ type: "external", content: initialContent, focused: editor.isFocused() });
+  }, [initialContent, editor, dispatchSync]);
+
+  // 失焦补应用：焦点内的更新挂起，用户松手（未继续编辑）后自动落地
+  useEffect(() => {
+    const onFocusOut = () => {
+      // 等一帧：点击编辑器内部元素（工具栏/菜单）也会触发 focusout
+      window.setTimeout(() => {
+        if (!editor.isFocused()) dispatchSync({ type: "blur" });
+      }, 0);
     };
-  }, [initialContent, editor]);
+    document.addEventListener("focusout", onFocusOut);
+    return () => document.removeEventListener("focusout", onFocusOut);
+  }, [editor, dispatchSync]);
 
   const onEditorChange = useCallback(
     (e: typeof editor) => {
+      // 挂起期间用户继续编辑 → 不再自动覆盖（保留提示，由用户点"载入"）
+      if (syncRef.current.pending) dispatchSync({ type: "user-edit" });
       // 规范存储格式为 BlockNote JSON（无损，保留块 ID）
       onChange(JSON.stringify(e.document));
     },
-    [onChange],
+    [onChange, dispatchSync],
   );
 
   return (
@@ -226,6 +256,29 @@ const Editor = ({ onChange, initialContent, editable = true }: EditorProps) => {
       />
       {/* 右侧页面大纲（对标 Notion Outline；编辑态显示） */}
       {editable && <OutlinePanel editor={editor} />}
+      {/* AI 更新与本地编辑冲突时的提示：绝不静默覆盖，也不静默丢弃 */}
+      {syncState.pending && (
+        <div
+          role="status"
+          className="material-popover absolute right-6 top-2 z-30 flex items-center gap-2 rounded-[10px] border-[0.5px] border-shell-border-l2 px-3 py-1.5 text-xs text-shell-label-primary shadow-[var(--shadow-md)]"
+        >
+          <span>文档已被 AI 更新，你正在编辑</span>
+          <button
+            type="button"
+            onClick={() => dispatchSync({ type: "apply-pending" })}
+            className="cursor-pointer rounded-md bg-primary px-2 py-0.5 text-[11px] font-medium text-primary-foreground transition-opacity hover:opacity-90"
+          >
+            载入更新
+          </button>
+          <button
+            type="button"
+            onClick={() => dispatchSync({ type: "dismiss-pending" })}
+            className="cursor-pointer rounded-md px-2 py-0.5 text-[11px] font-medium text-shell-label-secondary transition-colors hover:bg-shell-row-hover"
+          >
+            忽略
+          </button>
+        </div>
+      )}
     </BlockNoteView>
   );
 };
