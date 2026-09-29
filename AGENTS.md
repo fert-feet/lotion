@@ -2,9 +2,13 @@
 
 基于 Vite + React 的类 Notion 笔记应用，Hono 提供 REST API，集成 DeepSeek AI 笔记助手。
 
-> ⚠️ 本分支（feature/local-db）是**永久独立的本地单机版**：SQLite 本地数据库 + 自研 Auth + REST API，
+> ⚠️ 本分支（`feature/vite-hono`）是**永久独立的本地单机版**：SQLite 本地数据库 + 自研 Auth + REST API，
 > **永不合并回 main**（main 是 Supabase 网络数据库版）。两线各自演进，
 > 详见 [docs/本地数据库版.md](docs/本地数据库版.md)。
+>
+> 沿革（2026-09 核实）：本地版这条线内部是**线性演进**，不是并行分叉——
+> `main` → `feature/local-db` → `feature/vite-hono`。`feature/local-db` 的提交全部是
+> `feature/vite-hono` 的祖先，该分支已删除（内容零损失）；仓库现只保留 `main` 与 `feature/vite-hono`。
 
 ## 项目
 
@@ -120,7 +124,7 @@ test/                       # Vitest 单测（lib/ / api/ / components/ 同构�
 - 测试文件放 `test/` 目录，与被测模块同构（`test/lib/`、`test/api/`）；SQLite 层用 `:memory:` 真实 SQL（不连外部服务），REST 路由用 `createApp()` + `app.request()`（无需监听端口）+ mock getDb，AI SDK / logger 用 `vi.mock` + fake 桩
 - **禁止启动开发服务器**：不要执行 `pnpm dev` 或 `npm run dev`。用户自行管理服务进程。验证编译用静态检查（`pnpm typecheck` + `pnpm lint` + `pnpm build`）即可
 - 提交消息格式：`feature: <中文描述>` 或 `fix: <中文描述>`，每次变更必须提交
-- **本分支永远独立**：不要合并 main，不要 cherry-pick main 的 Supabase 相关提交
+- **本分支永远独立**：`feature/vite-hono` 不要合并 main，不要 cherry-pick main 的 Supabase 相关提交（仓库现只保留 `main` 与 `feature/vite-hono` 两条分支）
 - 组件默认是客户端组件（SPA，无 RSC）；只有 `server/` 与 `lib/local/`、`lib/content-server.ts` 是服务端代码
 - **客户端 / 服务端边界**：`src/`、`components/`、`hooks/` 禁止值导入 `@/lib/local/*`、`@/lib/content-server`、`@/lib/agent`、`better-sqlite3`（type-only 导入允许）——由 `test/boundary.test.ts` 静态守卫（替代 Next 的 `server-only` 包）
 - Zustand store 模式：`isOpen / onOpen / onClose / toggle`
