@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router";
 import { toast } from "sonner";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Spinner } from "@/components/ui/spinner";
 import { Search, Trash, Undo } from "@/components/icons";
 import { Input } from "@/components/ui/input";
@@ -20,15 +20,15 @@ const TrashBox = () => {
     const [documents, setDocuments] = useState<SidebarDocument[] | undefined>(undefined);
     const [search, setSearch] = useState("");
 
-    const loadTrash = () => {
+    const loadTrash = useCallback(() => {
         if (user) {
             docStore.listTrash({ userId: user.id })
                 .then(setDocuments)
                 .catch(() => setDocuments([])); // 失败显示空列表，避免无限 Spinner
         }
-    };
+    }, [user, docStore]);
 
-    useEffect(() => { loadTrash(); }, [user]);
+    useEffect(() => { loadTrash(); }, [loadTrash]);
 
     const filterDocuments = documents?.filter((document) => {
         return document.title.toLowerCase().includes(search.toLowerCase());
