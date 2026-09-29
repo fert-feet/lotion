@@ -5,6 +5,8 @@
 </p>
 
 > `feature/vite-hono` 是仓库唯一分支兼默认分支，即本地单机版：SQLite 本地数据库 + 自研 Auth + REST API。前身 Supabase 网络数据库版（Next.js）已归档为 tag `archive/supabase-main`，仅作只读历史基线。详见 [docs/本地数据库版.md](docs/本地数据库版.md)。
+>
+> 架构是**插件化**的（内核 + 7 条接缝 + 内置插件）：内核用 `@deepseek-ai/cordis`，全仓库只有 `lib/kernel/cordis.ts` 一处 import 它。见 [docs/插件化架构.md](docs/插件化架构.md)。
 
 全栈 AI 笔记应用：**Vite 8 + React 19** 前端 SPA（react-router 7），**Hono 4** 单进程提供 REST API 与静态资源，**SQLite 本地数据库**存储，**BlockNote 0.54** 负责富文本编辑，**DeepSeek Agent**（19 个工具）帮你搜索、创建、修改和整理笔记。界面遵循 **Apple / macOS 视觉语言**：系统色板、半透明材质、SF 字体栈与克制的圆角阴影，明暗双主题完整适配。
 
@@ -136,43 +138,54 @@ pnpm dev
 ```
 src/
 ├── main.tsx                      # 客户端入口
-├── app.tsx                       # 全局 Provider（Theme / Toaster / Modal / User）
+├── app.tsx                       # 全局 Provider（Theme / Toaster / Modal / User）+ KernelProvider
 ├── router.tsx                    # 路由表（导出 routes 供测试复用）
+├── kernel/                       # 客户端内核：client.ts 装配 / react.tsx（useDocStore / useSlot / useActor）
+├── dynamic/                      # 动态插件客户端半边（宿主关闭时空操作）
 ├── pages/                        # marketing / login / register / documents / document / preview / 404 / error
 ├── shell/                        # 认证区外壳
 │   ├── main-layout.tsx           # 会话守卫 + AppShell
 │   ├── app-shell.tsx             # DSH 风格三栏 shell（sidebar|center|details + 拖拽手柄）
+│   ├── ui-plugins.tsx            # 内置 UI 插件清单（AI 面板由插槽贡献）
 │   ├── sidebar/                  # 侧边栏：header 搜索胶囊 / 文档树 / footer / rail
-│   ├── ai-panel.tsx + ai/        # AI 面板（details 列常驻，SSE 流式渲染）
-│   ├── turn-reducer.ts       # 事件→turn / 历史重建 / 队列（纯逻辑，单测覆盖）
-│   ├── session-menu.tsx      # 历史会话（搜索 / 重命名 / 只看本文档）
-│   └── attachments.ts        # 文本附件读取与校验
+│   ├── ai-panel.tsx              # AI 面板（details 插槽常驻，SSE 流式渲染）
+│   ├── ai/                       # turn-reducer（事件→turn，纯逻辑，单测覆盖）/ note-card / session-menu
+│   │                             #   / tool-card / attachments（文本附件读取与校验）
 │   ├── editor.tsx                # BlockNote 入口（schema / 斜杠菜单 / @提及 / 图片上传）
-│   └── title.tsx / cover.tsx / navbar.tsx / publish.tsx / draft-banner.tsx / trash-box.tsx
+│   └── title.tsx / cover.tsx / navbar.tsx / publish.tsx / trash-box.tsx
 ├── marketing/                    # 着陆页组件
 └── styles/                       # globals.css（Tailwind 4 设计 token）+ fonts.css
 server/
-├── index.ts                      # 入口：静态托管 + SPA 回退 + serve
-├── app.ts                        # 装配 /api/*（可测试，不监听端口）
+├── index.ts                      # 入口：loadEnvFiles → bootHostKernel（装配审计）→ serve
+├── kernel.ts                     # 宿主内核装配（组合根）
+├── composition.ts                # 宿主组合清单（稳定 id + 用户层 patch）
+├── load-env.ts                   # .env.local / .env 加载（真实环境变量优先）
+├── app.ts                        # 从 httpRoutes 注册表装配 /api/*（可测试，不监听端口）
 ├── middleware.ts                 # requireAuth（会话 cookie 校验）
-└── routes/                       # auth / me / documents(+archive|move|restore) / chat / ai-chat(SSE)
-│                                 #   / upload + uploads / public-documents
+└── routes/                       # 路由插件清单 index.ts + auth / me / documents(+archive|move|restore)
+│                                 #   / chat/sessions / ai-chat(SSE) / ai-undo / upload + uploads / public-documents
 components/
 ├── editor/                       # blocknote.css / lotion-suggestion-menu.tsx / outline-panel.tsx
 ├── markdown/                     # AI 回复的流式 Markdown 渲染
 ├── ui/ + icons/ + modals/ + upload/ + search-command.tsx
-hooks/                            # use-layout / use-page-width / use-user / use-refresh / ...
+hooks/                            # use-layout / use-user / use-refresh / ...
 lib/
-├── db.ts                         # 客户端数据访问入口（全部 fetch REST）
+├── kernel/                       # ⚠️ 环境无关纯 TS：cordis.ts（唯一适配层）/ cordis-loader.ts
+├── seams/                        # 7 条接缝契约：doc-store / settings / http-routes / ui-slots / tools / remote / dynamic
+├── client/                       # ⚠️ 浏览器专用：doc-store-rest（docStore 的 REST 实现）/ remote-rest
+├── dynamic/                      # ⚠️ 服务端专用：node:vm 沙箱 + plugin_* 自指工具（默认关闭）
+├── db.ts                         # 客户端数据访问入口（全部 fetch REST；UI 层走 docStore 接缝）
 ├── local/                        # ⚠️ 服务端专用：sqlite / migrations / db / auth / request-user / uploads
+│                                 #   + doc-store-sqlite / settings-file / lotion-config
 ├── content.ts                    # 客户端安全的内容适配（isBlockNoteJson / toEditorBlocks）
 ├── content-server.ts             # ⚠️ 服务端专用：JSON ↔ Markdown（@blocknote/server-util）
 ├── blocknote-schema.ts           # 自定义 schema（callout / mention），客户端服务端共享
 ├── agent.ts                      # Agent 核心：streamText + doom loop + 回合快照 + 改动前快照（撤销）
-├── ai/tools/                     # 19 个 Agent Tool（+ blocks-util.ts 块 JSON 展平/取文本）
+├── ai/tools/                     # 19 个 Agent Tool + registry.ts（注册表/守卫）+ blocks-util.ts
+├── ai/runtime-config.ts          # 每次请求解析模型/Key（走配置层）
 ├── chat-snapshot.ts              # 回合快照类型与宽容解析（客户端/服务端共享）
 ├── tool-meta.ts                  # 工具标签/图标单一真相源（客户端也导入）
-├── ai-prompts.ts / compress.ts   # 系统提示词 / 上下文压缩
+├── ai-prompts.ts / compress.ts / logger.ts
 └── layout/columns.ts             # 三栏让步链纯函数（常量 + computeColumns）
 test/                             # Vitest 单测（与 lib/、server/ 同构，607 个用例）
 ```

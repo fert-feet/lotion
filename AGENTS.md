@@ -11,6 +11,8 @@
 > `main` → `feature/local-db` → `feature/vite-hono`。`feature/local-db` 的提交全部是
 > `feature/vite-hono` 的祖先，该分支已删除（内容零损失）；`main` 已归档删除，
 > 仓库现只有 `feature/vite-hono` 一条分支。
+>
+> 架构已重构为**插件化应用**（内核 + 接缝 + 内置插件），详见 [docs/插件化架构.md](docs/插件化架构.md)——**改动前先读它**。
 
 ## 项目
 
@@ -40,53 +42,97 @@ pnpm test:watch   # Vitest 监听模式
 
 ## 架构
 
+Lotion 是**插件化应用**：核心只提供内核与接缝，功能以插件挂载。内核是**真实
+`@deepseek-ai/cordis@4.0.2`**（不是自研），且**全仓库只有 `lib/kernel/cordis.ts` 一处 import 它**——
+要在 npm 依赖与 vendor 源码之间切换，只动那一个文件。完整设计（7 条接缝、写插件指南、
+动态通道的安全姿态）见 [docs/插件化架构.md](docs/插件化架构.md)。
+
 ```
-浏览器（React SPA）
-   │  fetch /api/*（同源 cookie 鉴权）
-   ▼
+浏览器（React SPA）                                  Node 进程（Hono）
+┌────────────────────────────┐                    ┌────────────────────────────┐
+│ client kernel（src/kernel）│                    │ host kernel（server/kernel）│
+│  docStore → REST provider  │◄──── /api/* ──────►│  docStore → SQLite provider │
+│  uiSlots（插槽注册表）      │  同源 cookie 鉴权   │  settings / tools / httpRoutes│
+└────────────────────────────┘                    └────────────────────────────┘
+        └──────── 共用同一个 lib/kernel + 共享契约（lib/seams/） ────────┘
+```
+
+```
 Hono（server/，Node 进程）
    ├── requireAuth 中间件（会话 cookie → c.get("user")）
-   ├── 26 个 REST 端点（server/routes/，路由即插件；含 /api/documents/:id/append、/api/ai/undo）
+   ├── 26 个 REST 端点（= 9 个路由插件，清单见 server/routes/index.ts；另 +1 个 opt-in 动态插件路由）
+   │     例如 /api/documents/:id/append、/api/ai/undo
    ├── 直接调用 lib/local/db.ts（原生 SQLite，无 HTTP 中转）
    └── 静态资源 dist/ + public/ + SPA 回退
 ```
 
+**7 条接缝**（`lib/seams/`：契约 + 服务 key + 装配期形状校验；实现分端提供）
+
+| 服务 key | 宿主提供方 | 浏览器提供方 |
+|---|---|---|
+| `docStore` | `lib/local/doc-store-sqlite.ts` | `lib/client/doc-store-rest.ts` |
+| `settings` | `lib/local/settings-file.ts` | — |
+| `httpRoutes` | `server/composition.ts` | — |
+| `tools` | `server/composition.ts` | — |
+| `uiSlots` | — | `src/kernel/client.ts` |
+| `remote` | —（宿主侧即 REST 路由） | `lib/client/remote-rest.ts` |
+| `dynamicPlugins` | `lib/dynamic/runner.ts`（**默认 disabled**） | `src/dynamic/client-runner.ts` |
+
 ```
 src/
 ├── main.tsx                # 客户端入口（样式 → App）
-├── app.tsx                 # 全局 Provider（Theme / Toaster / Modal / User）
+├── app.tsx                 # 全局 Provider（Theme / Toaster / Modal / User）+ KernelProvider
 ├── router.tsx              # 路由表（导出 routes 供测试用 createMemoryRouter 复用）
+├── kernel/                 # 客户端内核装配：client.ts（bootClientKernel）+ react.tsx（useDocStore/useSlot/useActor）
+├── dynamic/                # 动态插件客户端半边（宿主关闭时为空操作）
 ├── pages/                  # 页面：marketing / login / register / documents / document / preview / 404 / error
 ├── shell/                  # 认证区外壳：app-shell / main-layout(守卫) / sidebar / ai-panel / editor / ...
+│   └── ui-plugins.tsx       # 内置 UI 插件清单（AI 面板由插槽贡献，AppShell 只渲染 slot）
 ├── marketing/              # 着陆页组件
 └── styles/                 # globals.css（Tailwind 4 + 设计 token）+ fonts.css（@fontsource）
 server/
-├── index.ts                # 入口：createApp + 静态托管 + SPA 回退 + serve
-├── app.ts                  # 装配 /api/*（可测试，不监听端口）
+├── index.ts                # 入口：loadEnvFiles → bootHostKernel（打印装配审计）→ createApp + 静态托管 + serve
+├── kernel.ts               # 宿主内核装配（组合根）
+├── composition.ts          # 宿主组合清单（稳定 id + 用户层 patch；dynamic-plugins 默认 disabled）
+├── load-env.ts             # .env.local / .env 加载（真实环境变量优先）
+├── app.ts                  # 从 httpRoutes 注册表装配 /api/*（可测试，不监听端口）
 ├── http.ts                 # AppEnv 类型 / readJson / 统一错误响应
 ├── middleware.ts           # requireAuth（会话校验）
-└── routes/                 # auth / me / documents / chat / ai-chat(SSE) / ai-undo / upload / public-documents
+└── routes/                 # 路由插件清单 index.ts + auth / me / documents / chat / ai-chat(SSE) / ai-undo / upload / public-documents
 lib/
-├── db.ts                   # 客户端数据访问入口：全部走 fetch REST（⚠️ 仅浏览器）
+├── kernel/                 # ⚠️ 环境无关纯 TS（禁 node: / React / 服务端模块，由 boundary.test.ts 守卫）
+│   ├── cordis.ts            # 唯一 import "@deepseek-ai/cordis" 处：适配层（FiberState 重建/settle/audit）
+│   ├── cordis-loader.ts     # 装配层（稳定 id / patch 整块替换 / 单条失败不掀桌 / 逆序卸载）
+│   └── index.ts             # 出口
+├── seams/                  # 7 条接缝的契约（doc-store / settings / http-routes / ui-slots / tools / remote / dynamic）
+├── client/                 # ⚠️ 浏览器专用：doc-store-rest（docStore 的 REST 实现）+ remote-rest（RPC 白名单）
+├── dynamic/                # ⚠️ 服务端专用：node:vm 沙箱 + 生命周期 + plugin_* 自指工具（默认关闭）
+├── db.ts                   # 客户端数据访问入口：全部走 fetch REST（⚠️ 仅浏览器；UI 层禁止直接 import，走 docStore 接缝）
 ├── local/                  # ⚠️ 服务端专用（禁止客户端导入）
 │   ├── sqlite.ts            # 连接单例(WAL) + 启动迁移执行器 + UUID/时间戳工具
 │   ├── migrations.ts        # SQLite DDL（users/sessions/documents/chat_sessions/chat_messages/ai_changes）
-│   ├── db.ts                # 本地 SQL 实现（与 lib/db.ts 函数一一对应，显式 userId 过滤）
+│   ├── db.ts                # 本地 SQL 实现（docStore 宿主实现的数据源，显式 userId 过滤）
+│   ├── doc-store-sqlite.ts  # docStore 的宿主提供方（包 lib/local/db.ts）
+│   ├── settings-file.ts     # settings 提供方（用户层 data/settings.json + 组合默认 + env 三层）
+│   ├── lotion-config.ts     # Lotion 四个配置命名空间（ai / storage / server / logging）
 │   ├── auth.ts              # scrypt 哈希 + 会话管理 + cookie 工具
 │   ├── request-user.ts      # 从请求 cookie 解析会话用户（中间件调用）
 │   └── uploads.ts           # 上传目录解析（UPLOAD_DIR）
 ├── agent.ts                # Agent 核心：streamText + doom loop 检测 + SSE 事件流包装 + 回合快照/改动前快照
 ├── chat-snapshot.ts        # 回合快照类型 + 宽容解析（客户端/服务端共享，⚠️ 环境无关）
 ├── tool-meta.ts            # 工具标签/图标单一真相源（客户端 AI 面板也导入）
-├── ai/tools/               # 19 个 Tool（search/list/read/create/update/rename/move/icon/publish/archive/restore/trash/delete/askUser/todoWrite/docInfo/docOutline/docBlocks/updateBlock）+ blocks-util.ts
+├── ai/tools/               # 19 个 Tool（search/list/read/create/update/rename/move/icon/publish/archive/restore/trash/delete/askUser/todoWrite/docInfo/docOutline/docBlocks/updateBlock）+ registry.ts（注册表/守卫）+ blocks-util.ts
+├── ai/runtime-config.ts    # 每次请求解析模型/Key（走配置层，不读模块顶层 env）
 ├── ai-prompts.ts           # AI 系统提示词（领域概念/使用模式/规范/安全）
+├── blocknote-schema.ts     # 自定义 schema（callout / mention），客户端服务端共享
 ├── content.ts              # 文档内容适配层·客户端安全部分（isBlockNoteJson/toEditorBlocks/标题提取）
 ├── content-server.ts       # ⚠️ 服务端专用（禁止客户端导入）：toMarkdown / toBlocks
 ├── compress.ts             # 上下文压缩（滑动窗口 100 条 + 模型重写式摘要）
+├── logger.ts               # 结构化日志（LOG_LEVEL 走配置层）
 └── layout/columns.ts       # 三栏让步链纯函数
 hooks/                      # Zustand stores + use-user（含 refreshUser）
 components/                 # shadcn/ui + Toolbar + SearchCommand + Upload + editor/
-test/                       # Vitest 单测（lib/ / api/ / components/ 同构）
+test/                       # Vitest 单测（lib/ / api/ / components/ / seams/ 同构）
 ```
 
 - 数据库 6 张表：users / sessions / documents / chat_sessions / chat_messages / ai_changes
@@ -127,10 +173,25 @@ test/                       # Vitest 单测（lib/ / api/ / components/ 同构�
 - **禁止启动开发服务器**：不要执行 `pnpm dev` 或 `npm run dev`。用户自行管理服务进程。验证编译用静态检查（`pnpm typecheck` + `pnpm lint` + `pnpm build`）即可
 - 提交消息格式：`feature: <中文描述>` / `fix: <中文描述>` / `docs: <中文描述>`（纯文档改动）；其余按需用 `refactor:` / `style:` / `perf:` / `test:` / `chore:`。每次变更必须提交
 - **本分支永远独立**：`feature/vite-hono` 是仓库唯一分支兼默认分支；不要合入、也不要 cherry-pick 已归档的 `archive/supabase-main`（Supabase 网络数据库版）相关提交
-- 组件默认是客户端组件（SPA，无 RSC）；只有 `server/` 与 `lib/local/`、`lib/content-server.ts` 是服务端代码
-- **客户端 / 服务端边界**：`src/`、`components/`、`hooks/` 禁止值导入 `@/lib/local/*`、`@/lib/content-server`、`@/lib/agent`、`better-sqlite3`（type-only 导入允许）——由 `test/boundary.test.ts` 静态守卫（替代 Next 的 `server-only` 包）
+- 组件默认是客户端组件（SPA，无 RSC）；服务端专用代码 = `server/`、`lib/local/`、`lib/dynamic/`、`lib/seams/` 的 `http-routes|tools|dynamic`、`lib/content-server.ts`、`lib/agent.ts`、`lib/compress.ts`、`lib/ai/**`
+- **客户端 / 服务端边界**（由 `test/boundary.test.ts` 静态守卫，替代 Next 的 `server-only` 包）：
+  `src/`、`components/`、`hooks/`、`lib/client/` 禁止**值导入**服务端模块
+  （`@/lib/local/*`、`@/lib/content-server`、`@/lib/agent`、`@/lib/compress`、`@/lib/ai/*`、
+  `@/lib/dynamic/*`、`@/lib/seams/{http-routes,tools,dynamic}`、`better-sqlite3`、
+  `@blocknote/server-util`、`node:*`）；type-only 导入允许
+- **UI 层禁止直接 import `@/lib/db`**：一律走内核 `docStore` 接缝（`useDocStore()` / `useActor()`），
+  不在组件里直接写 SQL 或 fetch —— 由 `test/boundary.test.ts` 守卫
+- **内核必须环境无关**：`lib/kernel/` 禁止 `node:*`、React、服务端模块（两个进程共用同一份）
+- **插件化约定**：新增能力 = 写本体 +（要贡献接口才）在 `lib/seams/` 加契约
+  + 在 `server/composition.ts`（宿主）或 `src/shell/ui-plugins.tsx`（UI）加**一行带稳定 id 的清单**
+  + 补单测。路由走 `server/routes/index.ts`，AI 工具走 `registerTool(ctx, requireTools(ctx), {...})`，
+  UI 走 `requireUiSlots(ctx).register({ id, slot, kind: "single" | "list", component })`
+- **每个注册都要有 disposer**（工具/监听器/服务/effect 都要可逆）；⚠️ Cordis 的 `ctx.effect` 是
+  “立即执行并返回 disposer”，只在卸载时执行请写 `ctx.effect(() => () => cleanup())`
+- **装配是异步的**：`ctx.plugin()` 只启动加载（state=LOADING），必须 `await settle(fiber)` /
+  `await settleAll(ctx)`；`FiberState` 是 `export const enum`（运行时被擦除，由适配层重建）。
+  语义差异全部钉在 `test/lib/kernel/cordis-spike.test.ts`
 - Zustand store 模式：`isOpen / onOpen / onClose / toggle`
-- 数据库操作统一通过 `lib/db.ts` 导出函数，不在组件中直接写 SQL/查询
 - 图片上传到本地磁盘 `data/uploads/`（**后期换图床**：改 `server/routes/upload.ts`，`{ url }` 契约不变）
 - AI 改动的边界：只有**隐式写入**（updateNote/updateBlock/renameNote/setNoteIcon/publishNote/
   archiveNote/restoreNote）进 `ai_changes` 可撤销；用户显式确认过的删除/移动不进（确认框本身
@@ -146,3 +207,8 @@ test/                       # Vitest 单测（lib/ / api/ / components/ 同构�
 - 公网部署时 SQLite → 远程 libsql + 公开面重新评估（`server/routes/public-documents.ts`）
 
 ## Notes
+
+- 验证一次改动：`pnpm typecheck && pnpm lint && pnpm test && pnpm build`（**不要**起 dev server）
+- 改测试规模时记得同步文档里的用例数——README、`docs/本地数据库版.md`、`docs/插件化架构.md`
+  都写了数字，历史上这三处曾长期互相打架（584 / 461 / 282）。改动后直接跑 `pnpm test` 看汇总行
+- 插件化重构的完整设计、Cordis 五处语义差异、动态通道的安全姿态：见 [docs/插件化架构.md](docs/插件化架构.md)
