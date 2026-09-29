@@ -174,7 +174,7 @@ lib/
 ├── tool-meta.ts                  # 工具标签/图标单一真相源（客户端也导入）
 ├── ai-prompts.ts / compress.ts   # 系统提示词 / 上下文压缩
 └── layout/columns.ts             # 三栏让步链纯函数（常量 + computeColumns）
-test/                             # Vitest 单测（与 lib/、server/ 同构，584 个用例）
+test/                             # Vitest 单测（与 lib/、server/ 同构，607 个用例）
 ```
 
 ## 数据模型（SQLite 6 张表）
@@ -208,7 +208,7 @@ pnpm build        # vite 构建客户端到 dist/
 pnpm start        # 运行 Hono（托管 dist/ + API，单机自托管）
 pnpm typecheck    # tsc --noEmit
 pnpm lint         # ESLint
-pnpm test         # Vitest 单测（584 个用例，内存 SQLite + Hono app.request）
+pnpm test         # Vitest 单测（607 个用例，内存 SQLite + Hono app.request）
 pnpm test:watch   # Vitest 监听模式
 ```
 

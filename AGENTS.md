@@ -46,7 +46,7 @@ pnpm test:watch   # Vitest 监听模式
    ▼
 Hono（server/，Node 进程）
    ├── requireAuth 中间件（会话 cookie → c.get("user")）
-   ├── 25 个 REST 端点（server/routes/，路由即插件；含 /api/documents/:id/append、/api/ai/undo）
+   ├── 26 个 REST 端点（server/routes/，路由即插件；含 /api/documents/:id/append、/api/ai/undo）
    ├── 直接调用 lib/local/db.ts（原生 SQLite，无 HTTP 中转）
    └── 静态资源 dist/ + public/ + SPA 回退
 ```
@@ -125,7 +125,7 @@ test/                       # Vitest 单测（lib/ / api/ / components/ 同构�
 - **后台代码（lib/、server/）每次修改必须补或更新单测**：新增/修改行为要有对应用例，回归修复要有防复发用例，提交前 `pnpm test` 必须全绿
 - 测试文件放 `test/` 目录，与被测模块同构（`test/lib/`、`test/api/`）；SQLite 层用 `:memory:` 真实 SQL（不连外部服务），REST 路由用 `createApp()` + `app.request()`（无需监听端口）+ mock getDb，AI SDK / logger 用 `vi.mock` + fake 桩
 - **禁止启动开发服务器**：不要执行 `pnpm dev` 或 `npm run dev`。用户自行管理服务进程。验证编译用静态检查（`pnpm typecheck` + `pnpm lint` + `pnpm build`）即可
-- 提交消息格式：`feature: <中文描述>` 或 `fix: <中文描述>`，每次变更必须提交
+- 提交消息格式：`feature: <中文描述>` / `fix: <中文描述>` / `docs: <中文描述>`（纯文档改动）；其余按需用 `refactor:` / `style:` / `perf:` / `test:` / `chore:`。每次变更必须提交
 - **本分支永远独立**：`feature/vite-hono` 是仓库唯一分支兼默认分支；不要合入、也不要 cherry-pick 已归档的 `archive/supabase-main`（Supabase 网络数据库版）相关提交
 - 组件默认是客户端组件（SPA，无 RSC）；只有 `server/` 与 `lib/local/`、`lib/content-server.ts` 是服务端代码
 - **客户端 / 服务端边界**：`src/`、`components/`、`hooks/` 禁止值导入 `@/lib/local/*`、`@/lib/content-server`、`@/lib/agent`、`better-sqlite3`（type-only 导入允许）——由 `test/boundary.test.ts` 静态守卫（替代 Next 的 `server-only` 包）
