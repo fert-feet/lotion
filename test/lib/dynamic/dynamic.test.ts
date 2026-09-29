@@ -109,13 +109,25 @@ describe("lib/dynamic/sandbox 宿主半边求值", () => {
     expect(SANDBOX_GLOBALS).toContain("process");
   });
 
-  it("异步 body 逃出同步超时（如实记录：超时只约束同步部分）", async () => {
-    const result = await evaluateHostHalf(
-      'harness.define({ apply: async () => { await new Promise((r) => r(null)); } });',
-      { id: "dyn-8", timeoutMs: 1 },
+  it("超时只约束同步部分：顶层 await 永不 resolve → 求值保持 pending，不被 timeout 判失败", async () => {
+    // 语义：node:vm 的 timeout 只在**同步**执行期间计时；一旦进入 await 就交还控制权。
+    // 断言"保持 pending"（而不是"成功返回"）才是这个语义的准确表达 ——
+    // 旧写法用 timeoutMs:1 + expect(ok===true)，实际只赌"同步段没超过 1ms"，会偶发翻车。
+    const evaluation = evaluateHostHalf(
+      `harness.define({ apply(){} });
+       await new Promise(() => {});`,
+      { id: "dyn-8", timeoutMs: 50 },
     );
 
-    expect(result.ok).toBe(true); // 求值本身是同步回归的，await 之后不受 timeout 约束
+    const outcome = await Promise.race([
+      evaluation.then((result) => ({ state: "settled" as const, result })),
+      new Promise<{ state: "pending" }>((resolve) =>
+        setTimeout(() => resolve({ state: "pending" }), 200),
+      ),
+    ]);
+
+    // 若 timeout 也约束 async 部分，50ms 后这里会是 settled 且 ok=false
+    expect(outcome.state).toBe("pending");
   });
 
   it("同步死循环被超时打断", async () => {
