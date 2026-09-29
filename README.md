@@ -4,7 +4,7 @@
   <img src="./assets/readme/hero.svg?v=3" width="100%" alt="Lotion：全栈 AI 笔记应用——DSH 风格三栏布局、无限层级文档树、BlockNote 富文本编辑，DeepSeek Agent 通过 SSE 事件流实时管理笔记">
 </p>
 
-> 本分支（`feature/vite-hono`）是**永久独立的本地单机版**：SQLite 本地数据库 + 自研 Auth + REST API，**永不合并回 main**（main 是 Supabase 网络数据库版）。详见 [docs/本地数据库版.md](docs/本地数据库版.md)。
+> `feature/vite-hono` 是仓库唯一分支兼默认分支，即本地单机版：SQLite 本地数据库 + 自研 Auth + REST API。前身 Supabase 网络数据库版（Next.js）已归档为 tag `archive/supabase-main`，仅作只读历史基线。详见 [docs/本地数据库版.md](docs/本地数据库版.md)。
 
 全栈 AI 笔记应用：**Vite 8 + React 19** 前端 SPA（react-router 7），**Hono 4** 单进程提供 REST API 与静态资源，**SQLite 本地数据库**存储，**BlockNote 0.54** 负责富文本编辑，**DeepSeek Agent**（19 个工具）帮你搜索、创建、修改和整理笔记。界面遵循 **Apple / macOS 视觉语言**：系统色板、半透明材质、SF 字体栈与克制的圆角阴影，明暗双主题完整适配。
 
