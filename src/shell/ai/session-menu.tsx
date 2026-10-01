@@ -113,7 +113,7 @@ export function SessionMenu({
                   if (e.key === "Escape") setRenamingId(null);
                 }}
                 onBlur={() => commitRename(session.id)}
-                className="h-6 min-w-0 flex-1 rounded-[6px] border-[0.5px] border-shell-border-l2 bg-card px-2 text-xs text-shell-label-primary outline-none focus:border-shell-accent/50"
+                className="h-6 min-w-0 flex-1 rounded-sm border-[0.5px] border-shell-border-l2 bg-card px-2 text-xs text-shell-label-primary outline-none focus:border-shell-accent/50"
               />
             </div>
           );
@@ -122,7 +122,7 @@ export function SessionMenu({
           <div
             key={session.id}
             className={cn(
-              "group/session flex cursor-pointer items-center gap-2 rounded-[6px] px-2 py-1.5 text-[13px]",
+              "group/session flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-[13px]",
               active ? "bg-shell-row-active text-shell-label-primary" : "hover:bg-shell-row-hover",
             )}
             onClick={() => onSelect(session.id)}
@@ -132,7 +132,7 @@ export function SessionMenu({
             {session.documentId && (
               <FileText className="h-3 w-3 shrink-0 text-shell-label-caption" aria-label="已绑定文档" />
             )}
-            <span className="shrink-0 text-[10px] tabular-nums text-shell-label-caption">
+            <span className="shrink-0 text-[11px] tabular-nums text-shell-label-caption">
               {formatRelativeTime(session.updatedAt)}
             </span>
             {active && <Check className="h-3.5 w-3.5 shrink-0 text-shell-accent" />}

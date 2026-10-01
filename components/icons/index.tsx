@@ -259,6 +259,20 @@ export const ListChecks = ({ size = 14, className, ...rest }: IconProps) => (
   </svg>
 )
 
+/** Info（自研：圆环 + i，与其余 glyph 同为填充式描边风格） */
+export const Info = ({ size = 16, className, ...rest }: IconProps) => (
+  <svg width={size} height={size} className={className} {...rest} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path
+      fillRule="evenodd"
+      clipRule="evenodd"
+      d="M8 15C11.866 15 15 11.866 15 8C15 4.13401 11.866 1 8 1C4.13401 1 1 4.13401 1 8C1 11.866 4.13401 15 8 15ZM8 13.7C11.148 13.7 13.7 11.148 13.7 8C13.7 4.852 11.148 2.3 8 2.3C4.852 2.3 2.3 4.852 2.3 8C2.3 11.148 4.852 13.7 8 13.7Z"
+      fill="currentColor"
+    />
+    <path d="M8.75 4.5C8.75 4.91421 8.41421 5.25 8 5.25C7.58579 5.25 7.25 4.91421 7.25 4.5C7.25 4.08579 7.58579 3.75 8 3.75C8.41421 3.75 8.75 4.08579 8.75 4.5Z" fill="currentColor" />
+    <path d="M7.25 7.05H8.75V12.05H7.25V7.05Z" fill="currentColor" />
+  </svg>
+)
+
 /** Sparkles（取自 DSH IconSparkle16） */
 export const Sparkles = ({ size = 16, className, ...rest }: IconProps) => (
   <svg width={size} height={size} className={className} {...rest} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">

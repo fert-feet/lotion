@@ -22,6 +22,11 @@
   --color-ai: var(--ai);
   --color-ai-foreground: var(--ai-foreground);
   --color-ai-muted: var(--ai-muted);
+  /* Apple Intelligence 多色渐变的四个色标（AI 身份签名，见 .ai-orb） */
+  --color-ai-grad-1: var(--ai-grad-1);
+  --color-ai-grad-2: var(--ai-grad-2);
+  --color-ai-grad-3: var(--ai-grad-3);
+  --color-ai-grad-4: var(--ai-grad-4);
   --color-hl: var(--hl);
   --color-ink: var(--ink);
   --color-paper: var(--paper);
@@ -58,6 +63,12 @@
   --color-input: var(--input);
   --color-border: var(--border);
   --color-destructive: var(--destructive);
+  /* 状态语义色：补上 macOS 的 systemOrange / systemGreen
+     （此前组件里直接写 Tailwind 的 amber-500，那个颜色根本不在系统色板里） */
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
@@ -106,6 +117,10 @@
   --accent: rgba(120, 120, 128, 0.12);
   --accent-foreground: #1d1d1f;
   --destructive: #ff3b30; /* systemRed */
+  --warning: #ff9500; /* systemOrange */
+  --warning-foreground: #ffffff;
+  --success: #34c759; /* systemGreen */
+  --success-foreground: #ffffff;
   --border: rgba(60, 60, 67, 0.12); /* separator（非实心） */
   --input: rgba(60, 60, 67, 0.16);
   --ring: rgba(0, 122, 255, 0.45);
@@ -118,6 +133,11 @@
   --ai: #ffd60a; /* systemYellow */
   --ai-foreground: #1d1d1f;
   --ai-muted: rgba(255, 214, 10, 0.16);
+  /* Apple Intelligence 渐变四色标：粉 → 橙 → 紫 → 蓝（AI 身份签名） */
+  --ai-grad-1: #ff6482;
+  --ai-grad-2: #ff9f0a;
+  --ai-grad-3: #bf5af2;
+  --ai-grad-4: #0a84ff;
 
   /* ---- 三栏 shell（Light） ---- */
   --shell-sidebar: rgba(242, 242, 247, 0.9); /* 半透明材质，配合 backdrop-blur */
@@ -182,6 +202,10 @@
   --accent: rgba(120, 120, 128, 0.32);
   --accent-foreground: #ffffff;
   --destructive: #ff453a;
+  --warning: #ff9f0a; /* systemOrange (dark) */
+  --warning-foreground: #ffffff;
+  --success: #30d158; /* systemGreen (dark) */
+  --success-foreground: #ffffff;
   --border: rgba(84, 84, 88, 0.65);
   --input: rgba(120, 120, 128, 0.4);
   --ring: rgba(10, 132, 255, 0.6);
@@ -193,6 +217,11 @@
   --ai: #ffd60a;
   --ai-foreground: #1d1d1f;
   --ai-muted: rgba(255, 214, 10, 0.18);
+  /* 渐变在深色底上略微提亮，保持同样的辨识度 */
+  --ai-grad-1: #ff7a92;
+  --ai-grad-2: #ffa726;
+  --ai-grad-3: #c96ef5;
+  --ai-grad-4: #2f95ff;
 
   --shell-sidebar: rgba(44, 44, 46, 0.78);
   --shell-label-primary: #ffffff;
@@ -301,6 +330,24 @@ body,
   box-shadow: var(--shadow-sm);
 }
 
+/* 危险语义的卡片（永久删除确认）：与 .surface-card 同构，换成 systemRed 语汇。
+   必须在这里定义而不能在组件里覆盖 —— .surface-card 是无层级 CSS，
+   优先级高于 Tailwind 的 utilities 层，用 border-destructive/25 去覆盖不会生效。 */
+.surface-card-danger {
+  background: color-mix(in srgb, var(--destructive) 5%, var(--card));
+  border: 0.5px solid color-mix(in srgb, var(--destructive) 25%, transparent);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+/* 警告语义的卡片（doom loop 警告等）：同构，换成 systemOrange 语汇 */
+.surface-card-warning {
+  background: color-mix(in srgb, var(--warning) 6%, var(--card));
+  border: 0.5px solid color-mix(in srgb, var(--warning) 28%, transparent);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
 /* ---------------- 动效 ---------------- */
 
 /* 文档行入场淡入 */
@@ -308,30 +355,44 @@ body,
   from { opacity: 0; }
 }
 
-/* 工具卡片 running 流光扫过 */
-@keyframes tool-sweep {
-  0% { left: -300px; }
-  90%, 100% { left: 100%; }
+/* 工具卡片 running：柔和微光平移。
+   替换原先 300px 硬边色块"扫过"的写法——那个渐变的两个端点有可见边界，
+   看起来像进度条在跑，而不是 macOS 的呼吸感。 */
+@keyframes ai-sheen {
+  0% { background-position: 180% 0; }
+  100% { background-position: -80% 0; }
 }
 
-.tool-row-running::after {
+.ai-running-row::after {
   content: "";
   position: absolute;
-  inset-block: 0;
-  left: 0;
-  width: 300px;
-  background: linear-gradient(
+  inset: 0;
+  background-image: linear-gradient(
     90deg,
     transparent 0%,
-    color-mix(in srgb, var(--shell-bg-base) 60%, transparent) 55%,
+    color-mix(in srgb, var(--primary) 9%, transparent) 50%,
     transparent 100%
   );
-  animation: tool-sweep 2.6s ease-out infinite;
+  background-size: 55% 100%;
+  background-repeat: no-repeat;
+  animation: ai-sheen 2.2s var(--ds-ease-in-out) infinite;
   pointer-events: none;
 }
 
+/* AI 运行中的呼吸（渐变 orb：思考指示、工具活动点） */
+@keyframes ai-breathe {
+  0%, 100% { opacity: 0.82; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.08); }
+}
+
+.ai-breathe {
+  animation: ai-breathe 2.4s var(--ds-ease-in-out) infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  [class*="animate-"] {
+  [class*="animate-"],
+  .ai-breathe,
+  .ai-running-row::after {
     animation: none !important;
   }
 }
@@ -361,6 +422,22 @@ body,
 }
 
 /* ---------------- 签名元素 ---------------- */
+
+/* Apple Intelligence 渐变 orb：AI 的身份标识（头像 / 空状态 / 思考指示）。
+   四个径向色斑叠一层斜向渐变 → 柔和的彩色球体，而不是色轮式的硬边锥形渐变。 */
+.ai-orb {
+  color: #ffffff; /* orb 上的白色图标（渐变底不跟主题走，见 .ai-orb 的色标定义） */
+  line-height: 1;
+  background-image:
+    radial-gradient(120% 120% at 18% 12%, var(--ai-grad-1) 0%, transparent 58%),
+    radial-gradient(130% 130% at 88% 20%, var(--ai-grad-2) 0%, transparent 62%),
+    radial-gradient(140% 140% at 72% 92%, var(--ai-grad-3) 0%, transparent 62%),
+    radial-gradient(120% 120% at 18% 84%, var(--ai-grad-4) 0%, transparent 60%),
+    linear-gradient(135deg, var(--ai-grad-3), var(--ai-grad-4));
+  box-shadow:
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.4),
+    var(--shadow-sm);
+}
 
 /* 纸面质感（原网格纸）：Apple 语言下退化为几乎不可见的柔光，仅用于空状态等少量场景 */
 .graph-paper {
@@ -420,4 +497,15 @@ body,
 
 .mention-chip.cursor-pointer:hover {
   background: color-mix(in srgb, var(--primary) 22%, transparent);
+}
+
+/* 用户气泡（systemBlue 实底）内的提及胶囊：必须反色，
+   否则 .mention-chip 的"蓝底蓝字"落在蓝气泡上等于隐形。 */
+.mention-chip-on-accent {
+  background: rgba(255, 255, 255, 0.22);
+  color: #ffffff;
+}
+
+.mention-chip-on-accent.cursor-pointer:hover {
+  background: rgba(255, 255, 255, 0.34);
 }
