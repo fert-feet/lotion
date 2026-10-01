@@ -557,6 +557,18 @@ const AiPanel = () => {
     void sendMessageRef.current(content, activeSessionId, attachments);
   };
 
+  /** 「当前最新」的 handleSend —— 它捕获 activeSessionId 与 attachments，每帧重建。
+   *
+   *  ⚠️ 稳定回调（TurnView 是 memo 的，必须拿到稳定引用）一律经这里转发，**不要**把
+   *  handleSend 直接关进 `useCallback(…, [])`：空依赖会把**首次渲染**的闭包永久冻住，
+   *  而首帧 activeSessionId 还是 null，于是 handleSend 开头那句
+   *  `if (!content || !activeSessionId) return` 会静默返回。
+   *  症状：「回答提问后没反应」—— 卡片已被 markQuestionAnswered 改成「已回答」（看起来
+   *  像发生了什么），请求却根本没发出去，对话就停在那里。
+   *  与 sendMessageRef / stopAndNewSessionRef 同一套路。 */
+  const handleSendRef = useRef<(content: string) => void>(() => {});
+  handleSendRef.current = handleSend;
+
   // 输入框为空时按 ↑：召回本会话最近发过的消息（最新的在前，可连续往回走）
   const recallIndexRef = useRef(-1);
   const handleRecall = useCallback(() => {
@@ -762,10 +774,10 @@ const AiPanel = () => {
       if (customText?.trim()) parts.push(customText.trim());
       const answerText = parts.length > 0 ? parts.join("；") : "（未选择，跳过）";
       setTurns((prev) => markQuestionAnswered(prev, turnId, index, answerText));
-      handleSend(`【回答】${question.question}\n${answerText}`);
+      // 经 ref 取「最新」的 handleSend：直接依赖它会让本回调每帧换身份（击穿 TurnView 的
+      // memo），而空依赖又会让它永远停在首帧闭包（activeSessionId 为 null → 请求发不出去）
+      handleSendRef.current(`【回答】${question.question}\n${answerText}`);
     },
-    // handleSend 每次渲染都会重建，但只捕获 ref/state，语义稳定；这里刻意不依赖它
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   );
 
