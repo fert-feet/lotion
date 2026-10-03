@@ -158,3 +158,6 @@ next-env.d.ts
 # logs
 /logs/
 reasonix.toml
+
+# docs 下的原始截图目录（体积大，不入库；只提交文字正文）
+docs/**/*-images/
