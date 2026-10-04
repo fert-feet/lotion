@@ -24,7 +24,7 @@ export function createSetNoteIconTool(
         return `笔记 ${noteId} 不存在或无权操作。`;
       }
 
-      updateDocument(db, noteId, { icon: icon.trim() || null });
+      updateDocument(db, userId, noteId, { icon: icon.trim() || null });
 
       // 副作用：note_modified 驱动前端刷新，reference 流结束时汇总
       onEvent({ type: "note_modified", noteId, title: existing.title });

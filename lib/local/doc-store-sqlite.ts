@@ -74,18 +74,20 @@ export function createSqliteDocStore(db?: Database.Database): DocStore {
     },
 
     // ---- 文档写入 ----
+    // ⚠️ 无 RLS：每个写方法都必须把 actor.userId 透传到底层 SQL（WHERE ... AND userId = ?）。
+    // 曾经这里是 `_actor`（丢弃）→ update/remove/removeIcon/removeCoverImage 变成横向越权入口。
     async create(actor: Actor, title: string, parentDocument: string | null = null) {
       return createDocument(conn(), actor.userId, title, parentDocument);
     },
-    async update(_actor: Actor, id: string, fields: DocumentUpdateFields) {
-      updateDocument(conn(), id, fields);
+    async update(actor: Actor, id: string, fields: DocumentUpdateFields) {
+      updateDocument(conn(), actor.userId, id, fields);
     },
     async appendMarkdown(actor: Actor, id: string, markdown: string) {
       // 归属校验：无 RLS，必须显式带 userId
       const doc = getDocumentById(conn(), id, actor.userId);
       if (!doc) throw new Error("文档不存在或无权访问");
       const content = await appendMarkdownToDocument(doc.content, markdown);
-      updateDocument(conn(), id, { content });
+      updateDocument(conn(), actor.userId, id, { content });
     },
     async archive(actor: Actor, id: string) {
       archiveDocument(conn(), actor.userId, id);
@@ -96,14 +98,14 @@ export function createSqliteDocStore(db?: Database.Database): DocStore {
     async move(actor: Actor, id: string, parentDocument: string | null) {
       moveDocument(conn(), actor.userId, id, parentDocument);
     },
-    async remove(_actor: Actor, id: string) {
-      deleteDocument(conn(), id);
+    async remove(actor: Actor, id: string) {
+      deleteDocument(conn(), actor.userId, id);
     },
-    async removeIcon(_actor: Actor, id: string) {
-      clearDocumentIcon(conn(), id);
+    async removeIcon(actor: Actor, id: string) {
+      clearDocumentIcon(conn(), actor.userId, id);
     },
-    async removeCoverImage(_actor: Actor, id: string) {
-      clearDocumentCoverImage(conn(), id);
+    async removeCoverImage(actor: Actor, id: string) {
+      clearDocumentCoverImage(conn(), actor.userId, id);
     },
 
     // ---- AI 会话 ----

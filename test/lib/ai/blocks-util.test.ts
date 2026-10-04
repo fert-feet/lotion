@@ -68,7 +68,7 @@ describe("ensureDocBlocks", () => {
   it("BlockNote JSON 原样返回（不写回）", async () => {
     const content = JSON.stringify([{ id: "x", type: "paragraph", content: [{ text: "hi" }] }]);
     const id = createDocument(db, "u1", "笔记");
-    updateDocument(db, id, { content });
+    updateDocument(db, "u1", id, { content });
 
     const { blocks } = (await ensureDocBlocks(db, "u1", id))!;
     expect(blocks[0].id).toBe("x");
@@ -78,7 +78,7 @@ describe("ensureDocBlocks", () => {
 
   it("存量 Markdown 惰性转换并写回 JSON：块 ID 持久化（多次调用 ID 稳定）", async () => {
     const id = createDocument(db, "u1", "MD");
-    updateDocument(db, id, { content: "# 标题\n\n正文" });
+    updateDocument(db, "u1", id, { content: "# 标题\n\n正文" });
 
     const first = (await ensureDocBlocks(db, "u1", id))!;
     expect(first.blocks[0].id).toBeTruthy();

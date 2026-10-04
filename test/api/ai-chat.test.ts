@@ -209,7 +209,7 @@ describe("POST /api/ai/chat", () => {
     const { cookie, sessionId, userId } = await seedAuth();
     const { createDocument, updateDocument } = await import("@/lib/local/db");
     const docId = createDocument(state.db!, userId, "周会纪要");
-    updateDocument(state.db!, docId, { content: "正文" });
+    updateDocument(state.db!, userId, docId, { content: "正文" });
 
     const res = await postChat({ prompt: "总结这篇", sessionId, requestId: "r-doc", documentId: docId }, cookie);
     await res.text();

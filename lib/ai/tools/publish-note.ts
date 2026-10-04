@@ -30,7 +30,7 @@ export function createPublishNoteTool(
           : `笔记「${existing.title}」当前未发布。`;
       }
 
-      updateDocument(db, noteId, { isPublished: published });
+      updateDocument(db, userId, noteId, { isPublished: published });
 
       // 副作用：note_modified 驱动前端刷新，reference 流结束时汇总
       onEvent({ type: "note_modified", noteId, title: existing.title });

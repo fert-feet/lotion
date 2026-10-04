@@ -48,7 +48,7 @@ describe("POST /api/ai/undo", () => {
       "@/lib/local/db"
     );
     const docId = createDocument(state.db!, userId, "原标题");
-    updateDocument(state.db!, docId, { content: "原内容" });
+    updateDocument(state.db!, userId, docId, { content: "原内容" });
     const before = getDocumentById(state.db!, docId, userId)!;
 
     insertAiChange(state.db!, {
@@ -65,7 +65,7 @@ describe("POST /api/ai/undo", () => {
         isArchived: before.isArchived,
       }),
     });
-    updateDocument(state.db!, docId, { title: "AI 标题", content: "AI 内容", isPublished: true });
+    updateDocument(state.db!, userId, docId, { title: "AI 标题", content: "AI 内容", isPublished: true });
 
     const res = await call("/api/ai/undo", "POST", cookie, { requestId: "req-undo-1" });
     expect(res.status).toBe(200);
@@ -111,7 +111,7 @@ describe("POST /api/ai/undo", () => {
       documentId: docId,
       beforeState: JSON.stringify({ title: "B 的旧标题" }),
     });
-    updateDocument(state.db!, docId, { title: "被 AI 改过" });
+    updateDocument(state.db!, b.userId, docId, { title: "被 AI 改过" });
 
     const res = await call("/api/ai/undo", "POST", a.cookie, { requestId: "req-undo-b" });
     expect(await res.json()).toEqual({ ok: true, restored: [], skipped: 0 });
@@ -130,7 +130,7 @@ describe("POST /api/ai/undo", () => {
       "@/lib/local/db"
     );
     const docId = createDocument(state.db!, userId, "原标题");
-    updateDocument(state.db!, docId, { content: "改动前的正文" });
+    updateDocument(state.db!, userId, docId, { content: "改动前的正文" });
     const before = getDocumentById(state.db!, docId, userId)!;
     insertAiChange(state.db!, {
       userId,
@@ -147,7 +147,7 @@ describe("POST /api/ai/undo", () => {
       }),
     });
     // AI 改写
-    updateDocument(state.db!, docId, { title: "新标题", content: "改动后的正文" });
+    updateDocument(state.db!, userId, docId, { title: "新标题", content: "改动后的正文" });
 
     const res = await call("/api/ai/undo/req-preview/preview", "GET", cookie);
     expect(res.status).toBe(200);

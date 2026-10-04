@@ -73,11 +73,47 @@ describe("lib/local/db 文档操作", () => {
     expect(getDocumentById(db, id)).not.toBeNull();
   });
 
+  it("写路径归属过滤（第二层保险）：四个写函数传他人 userId 一律返回 false 且无副作用", () => {
+    // 回归：这些函数曾经没有 userId 形参、SQL 只有 WHERE id = ?，
+    // 于是任何能拿到文档 id 的调用方都能改/删他人文档（横向越权）。
+    const owner = seedUser(db, "owner@x.com");
+    const other = seedUser(db, "other@x.com");
+    const id = seedDoc(db, owner, "owner 的文档");
+    updateDocument(db, owner, id, { icon: "📝", coverImage: "/uploads/x.png" });
+
+    expect(updateDocument(db, other, id, { title: "篡改" })).toBe(false);
+    expect(updateDocument(db, other, id, { content: "篡改" })).toBe(false);
+    expect(clearDocumentIcon(db, other, id)).toBe(false);
+    expect(clearDocumentCoverImage(db, other, id)).toBe(false);
+    expect(deleteDocument(db, other, id)).toBe(false);
+
+    // 对方数据毫发无损
+    const intact = getDocumentById(db, id, owner)!;
+    expect(intact.title).toBe("owner 的文档");
+    expect(intact.icon).toBe("📝");
+    expect(intact.coverImage).toBe("/uploads/x.png");
+
+    // 归属正确时照常生效（阳性对照）
+    expect(updateDocument(db, owner, id, { title: "自己的" })).toBe(true);
+    expect(clearDocumentIcon(db, owner, id)).toBe(true);
+    expect(deleteDocument(db, owner, id)).toBe(true);
+    expect(getDocumentById(db, id, owner)).toBeNull();
+  });
+
+  it("写函数对不存在的 id 返回 false（调用方据此回 404）", () => {
+    const ghost = newId();
+    expect(updateDocument(db, userId, ghost, { title: "x" })).toBe(false);
+    expect(deleteDocument(db, userId, ghost)).toBe(false);
+    // 没有任何可更新字段时同样返回 false（不误报成功）
+    const id = seedDoc(db, userId, "空更新");
+    expect(updateDocument(db, userId, id, {})).toBe(false);
+  });
+
   it("updateDocument 更新字段并刷新 updatedAt", async () => {
     const id = seedDoc(db, userId, "t");
     const before = getDocumentById(db, id, userId)!;
     await new Promise((r) => setTimeout(r, 5));
-    updateDocument(db, id, { title: "新标题", isPublished: true });
+    updateDocument(db, userId, id, { title: "新标题", isPublished: true });
     const after = getDocumentById(db, id, userId)!;
     expect(after.title).toBe("新标题");
     expect(after.isPublished).toBe(true);
@@ -122,16 +158,16 @@ describe("lib/local/db 文档操作", () => {
   it("deleteDocument 删除行；子文档 FK 置 NULL", () => {
     const parent = seedDoc(db, userId, "p");
     const child = seedDoc(db, userId, "c", parent);
-    deleteDocument(db, parent);
+    deleteDocument(db, userId, parent);
     expect(getDocumentById(db, parent)).toBeNull();
     expect(getDocumentById(db, child, userId)!.parentDocument).toBeNull();
   });
 
   it("clearDocumentIcon / clearDocumentCoverImage 置 NULL", () => {
     const id = seedDoc(db, userId, "t");
-    updateDocument(db, id, { icon: "📝", coverImage: "/uploads/x.png" });
-    clearDocumentIcon(db, id);
-    clearDocumentCoverImage(db, id);
+    updateDocument(db, userId, id, { icon: "📝", coverImage: "/uploads/x.png" });
+    clearDocumentIcon(db, userId, id);
+    clearDocumentCoverImage(db, userId, id);
     const doc = getDocumentById(db, id, userId)!;
     expect(doc.icon).toBeNull();
     expect(doc.coverImage).toBeNull();
@@ -140,7 +176,7 @@ describe("lib/local/db 文档操作", () => {
   it("listSidebarAll 只含未归档且不含 content/coverImage；listTrash 只含已归档；listSearch 同侧边栏", () => {
     const a = seedDoc(db, userId, "a");
     const b = seedDoc(db, userId, "b");
-    updateDocument(db, a, { content: "body", coverImage: "img" });
+    updateDocument(db, userId, a, { content: "body", coverImage: "img" });
     archiveDocument(db, userId, b);
 
     const sidebar = listSidebarAll(db, userId);
@@ -168,7 +204,7 @@ describe("lib/local/db Agent 搜索与组织", () => {
   it("searchDocuments 标题与正文均可命中，只搜当前用户，按 updatedAt 倒序", () => {
     const a = seedDoc(db, userId, "React 学习笔记"); // 标题命中
     const b = seedDoc(db, userId, "无标题");
-    updateDocument(db, b, { content: "前端路线图 react 教程" }); // 正文命中，且更新 → 排前
+    updateDocument(db, userId, b, { content: "前端路线图 react 教程" }); // 正文命中，且更新 → 排前
     const other = seedUser(db, "e@x.com");
     seedDoc(db, other, "React 别人的"); // 跨用户，不应出现
 
@@ -374,7 +410,7 @@ describe("会话与文档绑定", () => {
   it("文档被删除后会话保留、绑定置空（ON DELETE SET NULL）", () => {
     const docId = createDocument(db, userId, "临时文档");
     const sessionId = createChatSession(db, userId, "新对话", docId);
-    deleteDocument(db, docId);
+    deleteDocument(db, userId, docId);
     expect(listChatSessions(db, userId).find((s) => s.id === sessionId)?.documentId ?? null).toBeNull();
   });
 });
@@ -390,7 +426,7 @@ describe("AI 改动快照与撤销", () => {
 
   it("记录→列出→撤销：文档恢复到改动前状态，且撤销幂等", () => {
     const docId = createDocument(db, userId, "原标题");
-    updateDocument(db, docId, { content: "原内容" });
+    updateDocument(db, userId, docId, { content: "原内容" });
     const before = getDocumentById(db, docId, userId)!;
 
     insertAiChange(db, {
@@ -409,7 +445,7 @@ describe("AI 改动快照与撤销", () => {
     });
 
     // AI 改写
-    updateDocument(db, docId, { title: "AI 改的标题", content: "AI 改的内容", isPublished: true });
+    updateDocument(db, userId, docId, { title: "AI 改的标题", content: "AI 改的内容", isPublished: true });
 
     expect(listAiChanges(db, userId, "req-1")).toHaveLength(1);
     const { restored, skipped } = undoAiChanges(db, userId, "req-1");
@@ -470,7 +506,7 @@ describe("AI 改动快照与撤销", () => {
       documentId: childId,
       beforeState: JSON.stringify({ title: "子", parentDocument: parentId }),
     });
-    deleteDocument(db, parentId); // ON DELETE SET NULL → 子文档 parent 变 null
+    deleteDocument(db, userId, parentId); // ON DELETE SET NULL → 子文档 parent 变 null
 
     undoAiChanges(db, userId, "req-parent");
     expect(getDocumentById(db, childId, userId)!.parentDocument).toBeNull();

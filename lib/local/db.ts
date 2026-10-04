@@ -226,7 +226,7 @@ export function undoAiChanges(
     if (typeof state.isPublished === "boolean") fields.isPublished = state.isPublished;
     if (typeof state.isArchived === "boolean") fields.isArchived = state.isArchived;
 
-    updateDocument(db, row.documentId, fields as never);
+    updateDocument(db, userId, row.documentId, fields as never);
     restored.push(row.documentId);
     undoneIds.push(row.id);
   }
@@ -594,13 +594,21 @@ export function createDocument(
   return id;
 }
 
-/** 更新文档字段（显式刷 updatedAt；本地版无 PG 触发器） */
-export function updateDocument(  db: Database.Database,
+/**
+ * 更新文档字段（显式刷 updatedAt；本地版无 PG 触发器）。
+ *
+ * ⚠️ `userId` 是**归属过滤**，不是可选项：WHERE 永远带 `AND userId = ?`（与 setDocumentArchived 同型）。
+ * 无 RLS 兜底，写路径一旦漏掉归属条件就是横向越权（任何登录用户可改他人文档）。
+ * @returns 是否命中一行（false = 文档不存在或不属于该 userId，调用方据此回 404）
+ */
+export function updateDocument(
+  db: Database.Database,
+  userId: string,
   id: string,
   fields: Partial<
     Pick<Document, "title" | "content" | "coverImage" | "icon" | "isPublished" | "isDraft">
   >,
-): void {
+): boolean {
   const sets: string[] = [];
   const params: unknown[] = [];
   for (const [k, v] of Object.entries(fields)) {
@@ -608,10 +616,13 @@ export function updateDocument(  db: Database.Database,
     // SQLite INTEGER 列不能绑定 JS boolean，显式转 0/1
     params.push(typeof v === "boolean" ? (v ? 1 : 0) : v);
   }
-  if (sets.length === 0) return;
+  if (sets.length === 0) return false;
   sets.push(`"updatedAt" = ?`);
-  params.push(isoNow(), id);
-  db.prepare(`UPDATE documents SET ${sets.join(", ")} WHERE id = ?`).run(...params);
+  params.push(isoNow(), id, userId);
+  const res = db
+    .prepare(`UPDATE documents SET ${sets.join(", ")} WHERE id = ? AND userId = ?`)
+    .run(...params);
+  return res.changes > 0;
 }
 
 /**
@@ -666,9 +677,17 @@ export function restoreDocument(db: Database.Database, userId: string, id: strin
   tx();
 }
 
-/** 永久删除文档（子文档经 FK ON DELETE SET NULL 摘除父引用） */
-export function deleteDocument(db: Database.Database, id: string): void {
-  db.prepare(`DELETE FROM documents WHERE id = ?`).run(id);
+/**
+ * 永久删除文档（子文档经 FK ON DELETE SET NULL 摘除父引用）。
+ *
+ * ⚠️ `userId` 是**归属过滤**，不是可选项（同 updateDocument）。
+ * @returns 是否命中一行（false = 文档不存在或不属于该 userId，调用方据此回 404）
+ */
+export function deleteDocument(db: Database.Database, userId: string, id: string): boolean {
+  const res = db
+    .prepare(`DELETE FROM documents WHERE id = ? AND userId = ?`)
+    .run(id, userId);
+  return res.changes > 0;
 }
 
 /** 单笔记归档/恢复（AI archiveNote 工具用：与 PG 版一致，只影响单条，不递归子树） */
@@ -679,11 +698,21 @@ export function setDocumentArchived(db: Database.Database, userId: string, id: s
   return res.changes > 0;
 }
 
-/** 移除图标 / 封面（置 NULL 并刷新 updatedAt） */
-export function clearDocumentIcon(db: Database.Database, id: string): void {
-  db.prepare(`UPDATE documents SET icon = NULL, updatedAt = ? WHERE id = ?`).run(isoNow(), id);
+/** 移除图标 / 封面（置 NULL 并刷新 updatedAt）。⚠️ `userId` 归属过滤，同 updateDocument */
+export function clearDocumentIcon(db: Database.Database, userId: string, id: string): boolean {
+  const res = db
+    .prepare(`UPDATE documents SET icon = NULL, updatedAt = ? WHERE id = ? AND userId = ?`)
+    .run(isoNow(), id, userId);
+  return res.changes > 0;
 }
 
-export function clearDocumentCoverImage(db: Database.Database, id: string): void {
-  db.prepare(`UPDATE documents SET coverImage = NULL, updatedAt = ? WHERE id = ?`).run(isoNow(), id);
+export function clearDocumentCoverImage(
+  db: Database.Database,
+  userId: string,
+  id: string,
+): boolean {
+  const res = db
+    .prepare(`UPDATE documents SET coverImage = NULL, updatedAt = ? WHERE id = ? AND userId = ?`)
+    .run(isoNow(), id, userId);
+  return res.changes > 0;
 }

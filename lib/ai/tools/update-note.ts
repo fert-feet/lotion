@@ -31,7 +31,7 @@ export function createUpdateNoteTool(
       const blocks = await toBlocks(content);
       const fields: Record<string, string> = { content: JSON.stringify(blocks) };
       if (extractedTitle) fields.title = extractedTitle;
-      updateDocument(db, noteId, fields);
+      updateDocument(db, userId, noteId, fields);
 
       // 副作用通过 onEvent 上报：note_modified 驱动前端刷新，reference 流结束时汇总
       onEvent({ type: "note_modified", noteId, title: extractedTitle || existing.title || "笔记" });

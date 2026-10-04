@@ -150,7 +150,7 @@ beforeEach(() => {
     "INSERT INTO users (id, email, passwordHash, createdAt, updatedAt) VALUES (?,?,?,?,?)",
   ).run("user-1", "user-1@x.com", "hash", isoNow(), isoNow());
   const docId = createDocument(db, "user-1", "引用笔记");
-  updateDocument(db, docId, { content: "笔记内容" });
+  updateDocument(db, "user-1", docId, { content: "笔记内容" });
 
   mockConfig.tool = "none";
   mockConfig.noteId = docId;

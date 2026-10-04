@@ -99,6 +99,6 @@ export async function ensureDocBlocks(
   }
   // 存量 Markdown：转换并写回，块 ID 从此稳定
   const blocks = (await toBlocks(doc.content)) as AnyBlock[];
-  updateDocument(db, noteId, { content: JSON.stringify(blocks) });
+  updateDocument(db, userId, noteId, { content: JSON.stringify(blocks) });
   return { blocks, title: doc.title };
 }

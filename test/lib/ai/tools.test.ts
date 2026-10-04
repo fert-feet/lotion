@@ -46,7 +46,7 @@ function collectEvents() {
 /** 种子文档（默认归属 u1），返回 id */
 function seedDoc(title: string, content: string, userId = "u1"): string {
   const id = createDocument(db, userId, title);
-  if (content) updateDocument(db, id, { content });
+  if (content) updateDocument(db, userId, id, { content });
   return id;
 }
 
@@ -514,7 +514,7 @@ describe("publishNote 工具", () => {
 
   it("重复设置同一状态时提示已处于该状态（不重复落库）", async () => {
     const id = seedDoc("待发布", "");
-    updateDocument(db, id, { isPublished: true }); // 预置为已发布
+    updateDocument(db, "u1", id, { isPublished: true }); // 预置为已发布
     const t = createPublishNoteTool(db, "u1");
     const result = await t.execute({ noteId: id, published: true } as never, {} as never);
     expect(result).toContain("已处于发布状态");
@@ -543,7 +543,7 @@ describe("setNoteIcon 工具", () => {
 
   it("空字符串清除图标", async () => {
     const id = seedDoc("清图标", "");
-    updateDocument(db, id, { icon: "📚" });
+    updateDocument(db, "u1", id, { icon: "📚" });
     const t = createSetNoteIconTool(db, "u1");
     const result = await t.execute({ noteId: id, icon: "  " } as never, {} as never);
 

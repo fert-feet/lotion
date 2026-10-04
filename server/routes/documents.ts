@@ -65,6 +65,7 @@ documentsRoutes.get("/:documentId", (c) => {
 
 /** PATCH /api/documents/:documentId —— 更新（字段白名单） */
 documentsRoutes.patch("/:documentId", async (c) => {
+  const user = c.get("user");
   const parsed = await readJson<Record<string, unknown>>(c);
   if (!parsed.ok) return c.json({ error: "请求体不是合法 JSON" }, 400);
 
@@ -74,13 +75,28 @@ documentsRoutes.patch("/:documentId", async (c) => {
     if (key in parsed.data) fields[key] = parsed.data[key];
   }
 
-  updateDocument(getDb(), c.req.param("documentId"), fields as never);
+  const db = getDb();
+  const documentId = c.req.param("documentId");
+  // 归属校验：非本人一律 404（与 GET /:documentId 同型，不泄露文档是否存在）
+  if (!getDocumentById(db, documentId, user.id)) {
+    return c.json({ error: "Not found" }, 404);
+  }
+  // 第二层保险：updateDocument 的 SQL 同样带 userId 过滤
+  updateDocument(db, user.id, documentId, fields as never);
   return c.json({ ok: true });
 });
 
 /** DELETE /api/documents/:documentId —— 永久删除 */
 documentsRoutes.delete("/:documentId", (c) => {
-  deleteDocument(getDb(), c.req.param("documentId"));
+  const user = c.get("user");
+  const db = getDb();
+  const documentId = c.req.param("documentId");
+  // 归属校验：非本人一律 404（与 GET /:documentId 同型，不泄露文档是否存在）
+  if (!getDocumentById(db, documentId, user.id)) {
+    return c.json({ error: "Not found" }, 404);
+  }
+  // 第二层保险：deleteDocument 的 SQL 同样带 userId 过滤
+  deleteDocument(db, user.id, documentId);
   return c.json({ ok: true });
 });
 
@@ -112,7 +128,7 @@ documentsRoutes.post("/:documentId/append", async (c) => {
   if (doc.isArchived) return c.json({ error: "文档已归档，先恢复再插入" }, 400);
 
   const content = await appendMarkdownToDocument(doc.content, markdown, { maxChars: APPEND_MAX_CHARS });
-  updateDocument(db, documentId, { content });
+  updateDocument(db, user.id, documentId, { content });
   return c.json({ ok: true });
 });
 

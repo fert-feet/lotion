@@ -1,6 +1,12 @@
 // plugin_* 工具：把动态插件通道暴露给模型（**仅在启用时才注册**）。
 //
-// 工具语义（对齐 DSH packages/extensions/tool-cordis 的五个动作）：
+// 工具语义（⚠️ **不**对齐 DSH 出厂实现）：DSH 出厂的 dsh-tool-cordis 只注册
+// cordis_inspect_list / cordis_inspect_query 两个**只读**工具，其 README 明确
+// "Shipped model tools cannot create or update dynamic definitions"；
+// cordis_define / cordis_run / cordis_stop / cordis_undefine 在 DSH 里**没有**
+// 任何包注册它们，仅作为历史卡片名留在 UI i18n 里。
+// 也就是说本文件的五个动作比参照实现更宽 —— 这是有意的产品选择（默认关 + 人工 approve
+// 兜底），而非"与 DSH 对齐"，不要照 DSH 的文档去理解这里的权限面。
 //   plugin_inspect  只读：列出当前定义与状态（模型先看再动手）
 //   plugin_define   只登记代码，**不运行**（让模型能分两步走：先交代码，再单独运行）
 //   plugin_run      在 node:vm 里求值宿主半边并挂载

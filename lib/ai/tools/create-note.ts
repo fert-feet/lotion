@@ -48,7 +48,7 @@ export function createCreateNoteTool(
 
       // 本地库插入草稿（isDraft=true 与 PG 版语义一致；content 为 BlockNote JSON）
       const docId = createDocument(db, userId, finalTitle, parentDocumentId ?? null);
-      updateDocument(db, docId, { content: JSON.stringify(blocks), isDraft: true });
+      updateDocument(db, userId, docId, { content: JSON.stringify(blocks), isDraft: true });
 
       createdNoteId = docId;
       // 副作用通过 onEvent 上报：note_created 驱动前端跳转，reference 在流结束时汇总展示胶囊

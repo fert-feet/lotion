@@ -77,7 +77,7 @@ export function createUpdateBlockTool(
       // 行内块 → inline content 数组；codeBlock → 纯字符串
       target.content =
         target.type === "codeBlock" ? newText : [{ type: "text", text: newText, styles: {} }];
-      updateDocument(db, noteId, { content: JSON.stringify(blocks) });
+      updateDocument(db, userId, noteId, { content: JSON.stringify(blocks) });
 
       // 副作用：note_modified 驱动前端刷新，reference 流结束时汇总
       onEvent({ type: "note_modified", noteId, title });

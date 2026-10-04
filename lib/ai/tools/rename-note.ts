@@ -23,7 +23,7 @@ export function createRenameNoteTool(
       if (!existing) {
         return `笔记 ${noteId} 不存在或无权重命名。`;
       }
-      updateDocument(db, noteId, { title });
+      updateDocument(db, userId, noteId, { title });
 
       // 副作用通过 onEvent 上报：note_modified 驱动前端刷新，reference 流结束时汇总
       onEvent({ type: "note_modified", noteId, title });

@@ -28,7 +28,7 @@ describe("GET /api/public/documents/:documentId", () => {
     const { createDocument, updateDocument } = await import("@/lib/local/db");
     const user = createUser(state.db!, "a@x.com", "password123");
     const id = createDocument(state.db!, user.id, "公开笔记");
-    updateDocument(state.db!, id, { content: "正文", isPublished: true });
+    updateDocument(state.db!, user.id, id, { content: "正文", isPublished: true });
 
     const res = await app.request(`/api/public/documents/${id}`);
     expect(res.status).toBe(200);

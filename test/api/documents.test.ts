@@ -229,3 +229,61 @@ describe("documents API", () => {
     expect(res.status).toBe(400);
   });
 });
+
+// 回归：PATCH / DELETE /:documentId 曾经既不读 c.get("user") 也不做归属校验，
+// 底层 SQL 也只有 WHERE id = ? —— 任何登录用户拿到文档 id 就能改/删他人文档。
+describe("documents API —— 归属隔离（PATCH/DELETE 横向越权回归）", () => {
+  /** 造一个 owner 的文档，返回 id 与 owner 凭据 */
+  async function seedOwnedDoc(title = "属于 owner") {
+    const owner = await authCookie("owner@x.com");
+    const doc = await (await call("/api/documents", "POST", owner.cookie, { title })).json();
+    return { owner, docId: doc.id as string };
+  }
+
+  it("PATCH 他人文档返回 404，且不改动对方数据", async () => {
+    const { owner, docId } = await seedOwnedDoc();
+    const attacker = await authCookie("attacker@x.com");
+
+    const res = await call(`/api/documents/${docId}`, "PATCH", attacker.cookie, {
+      title: "被篡改",
+      content: "被篡改",
+    });
+    expect(res.status).toBe(404);
+
+    const { getDocumentById } = await import("@/lib/local/db");
+    expect(getDocumentById(state.db!, docId, owner.userId)!.title).toBe("属于 owner");
+  });
+
+  it("DELETE 他人文档返回 404，且文档仍然存在", async () => {
+    const { owner, docId } = await seedOwnedDoc();
+    const attacker = await authCookie("attacker@x.com");
+
+    expect((await call(`/api/documents/${docId}`, "DELETE", attacker.cookie)).status).toBe(404);
+
+    const { getDocumentById } = await import("@/lib/local/db");
+    expect(getDocumentById(state.db!, docId, owner.userId)).not.toBeNull();
+  });
+
+  it("PATCH/DELETE 不存在的 id 一律 404（不再无条件 ok）", async () => {
+    const { cookie } = await authCookie();
+    expect((await call("/api/documents/does-not-exist", "PATCH", cookie, { title: "x" })).status).toBe(404);
+    expect((await call("/api/documents/does-not-exist", "DELETE", cookie)).status).toBe(404);
+  });
+
+  it("未登录 PATCH/DELETE 仍是 401（鉴权先于归属）", async () => {
+    const { docId } = await seedOwnedDoc();
+    expect((await call(`/api/documents/${docId}`, "PATCH", undefined, { title: "x" })).status).toBe(401);
+    expect((await call(`/api/documents/${docId}`, "DELETE")).status).toBe(401);
+  });
+
+  it("本人 PATCH/DELETE 照常生效（阳性对照）", async () => {
+    const { owner, docId } = await seedOwnedDoc();
+
+    expect((await call(`/api/documents/${docId}`, "PATCH", owner.cookie, { title: "改过了" })).status).toBe(200);
+    const { getDocumentById } = await import("@/lib/local/db");
+    expect(getDocumentById(state.db!, docId, owner.userId)!.title).toBe("改过了");
+
+    expect((await call(`/api/documents/${docId}`, "DELETE", owner.cookie)).status).toBe(200);
+    expect(getDocumentById(state.db!, docId, owner.userId)).toBeNull();
+  });
+});
