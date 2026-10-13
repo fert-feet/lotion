@@ -848,66 +848,72 @@ const AiPanel = () => {
         </div>
       </div>
 
-      {/* turn 时间线：唯一滚动区 + 底部渐变 fade */}
-      <div
-        ref={messagesRef}
-        onScroll={onMessagesScroll}
-        role="log"
-        aria-live="polite"
-        aria-relevant="additions text"
-        aria-label="与文档助手的对话"
-        className="relative min-h-0 flex-1 overflow-y-auto"
-      >
-        <div className="flex min-h-full flex-col gap-4 px-3.5 py-4">
-          {hasMoreHistory && turns.length > 0 && (
-            <button
-              type="button"
-              onClick={() => setHistoryLimit((n) => n + HISTORY_PAGE)}
-              className="mx-auto cursor-pointer rounded-md border-[0.5px] border-shell-border-l2 px-2.5 py-1 text-[12px] text-shell-label-secondary transition-colors hover:bg-shell-row-hover hover:text-shell-label-primary"
-            >
-              加载更早的消息
-            </button>
-          )}
-          {turns.length === 0 && !loading && (
-            <div className="flex flex-1 flex-col items-center justify-center gap-4 px-3 pb-16 text-center">
-              <AiOrb size={56} icon={<Sparkles className="h-6 w-6" />} />
-              <div className="space-y-1.5">
-                <p className="text-[22px] font-semibold leading-7 tracking-[-0.02em] text-shell-label-primary">
-                  你好，我是你的文档助手
-                </p>
-                <p className="text-[13px] leading-5 text-shell-label-tertiary">
-                  搜索、撰写、改写、整理笔记都可以交给我。
-                </p>
-                <p className="text-[12px] leading-4 text-shell-label-caption">
-                  新建的笔记先以草稿出现在这里，删除这类操作也会先问你。
-                </p>
+      {/* turn 时间线：唯一滚动区。
+          ⚠️ 外层这个 relative 包裹层是给底部浮层（渐隐 / 回到底部）当包含块的：
+          absolute 元素若处在**滚动容器内部**，包含块锚定在滚动内容的原点上、并随内容
+          一起滚走，而不是钉在可视窗口底部 —— 旧结构正是如此，于是浮层飘到对话中间，
+          把草稿卡的第二行糊成一片白。浮层必须在滚动容器之外。 */}
+      <div className="relative min-h-0 flex-1">
+        <div
+          ref={messagesRef}
+          onScroll={onMessagesScroll}
+          role="log"
+          aria-live="polite"
+          aria-relevant="additions text"
+          aria-label="与文档助手的对话"
+          className="h-full min-h-0 overflow-y-auto"
+        >
+          <div className="flex min-h-full flex-col gap-4 px-3.5 py-4">
+            {hasMoreHistory && turns.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setHistoryLimit((n) => n + HISTORY_PAGE)}
+                className="mx-auto cursor-pointer rounded-md border-[0.5px] border-shell-border-l2 px-2.5 py-1 text-[12px] text-shell-label-secondary transition-colors hover:bg-shell-row-hover hover:text-shell-label-primary"
+              >
+                加载更早的消息
+              </button>
+            )}
+            {turns.length === 0 && !loading && (
+              <div className="flex flex-1 flex-col items-center justify-center gap-4 px-3 pb-16 text-center">
+                <AiOrb size={56} icon={<Sparkles className="h-6 w-6" />} />
+                <div className="space-y-1.5">
+                  <p className="text-[22px] font-semibold leading-7 tracking-[-0.02em] text-shell-label-primary">
+                    你好，我是你的文档助手
+                  </p>
+                  <p className="text-[13px] leading-5 text-shell-label-tertiary">
+                    搜索、撰写、改写、整理笔记都可以交给我。
+                  </p>
+                  <p className="text-[12px] leading-4 text-shell-label-caption">
+                    新建的笔记先以草稿出现在这里，删除这类操作也会先问你。
+                  </p>
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {turns.map((turn) => (
-            <TurnView
-              key={turn.id}
-              turn={turn}
-              onOpenDocument={openDocument}
-              onConfirmDelete={handleConfirmDelete}
-              onCancelDelete={handleCancelDelete}
-              onConfirmMove={handleConfirmMove}
-              onCancelMove={handleCancelMove}
-              onConfirmDraft={handleConfirmDraft}
-              onDiscardDraft={handleDiscardDraft}
-              onAnswerQuestion={handleQuestionAnswer}
-              onRetry={handleRetry}
-              onStop={handleStop}
-              onStopAndNewSession={handleStopAndNewSession}
-              onUndo={handleUndo}
-              onPreviewChanges={handlePreviewChanges}
-              onEditUser={handleEditUser}
-              onInsertToDocument={handleInsertToDocument}
-              onSaveAsNote={handleSaveAsNote}
-              canInsertToDocument={!!params.documentId}
-            />
-          ))}
+            {turns.map((turn) => (
+              <TurnView
+                key={turn.id}
+                turn={turn}
+                onOpenDocument={openDocument}
+                onConfirmDelete={handleConfirmDelete}
+                onCancelDelete={handleCancelDelete}
+                onConfirmMove={handleConfirmMove}
+                onCancelMove={handleCancelMove}
+                onConfirmDraft={handleConfirmDraft}
+                onDiscardDraft={handleDiscardDraft}
+                onAnswerQuestion={handleQuestionAnswer}
+                onRetry={handleRetry}
+                onStop={handleStop}
+                onStopAndNewSession={handleStopAndNewSession}
+                onUndo={handleUndo}
+                onPreviewChanges={handlePreviewChanges}
+                onEditUser={handleEditUser}
+                onInsertToDocument={handleInsertToDocument}
+                onSaveAsNote={handleSaveAsNote}
+                canInsertToDocument={!!params.documentId}
+              />
+            ))}
+          </div>
         </div>
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-9 bg-gradient-to-t from-shell-bg-base to-transparent" />
         {showJumpToBottom && (

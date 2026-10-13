@@ -135,6 +135,39 @@ describe("三栏外壳的滚动结构", () => {
     }
   });
 
+  it("AI 面板的底部浮层不在滚动容器内部（absolute 在里面会随内容滚走）", async () => {
+    const shell = await mountShell();
+    const [, , detailsSlot] = [...shell.children] as HTMLElement[];
+    const scroller = detailsSlot.querySelector<HTMLElement>('[role="log"]');
+    expect(scroller, "未找到 AI 面板的对话滚动区").not.toBeNull();
+
+    // 常驻的底部渐隐浮层
+    const fade = detailsSlot.querySelector<HTMLElement>(".pointer-events-none.absolute");
+    expect(fade, "未找到底部渐隐浮层").not.toBeNull();
+    expect(
+      scroller!.contains(fade!),
+      "渐隐浮层落在滚动容器内部：absolute 的包含块成了滚动容器，会锚定滚动内容原点、随内容滚走",
+    ).toBe(false);
+
+    // 「回到底部」只在"不贴底"时才出现。jsdom 没有布局引擎（滚动尺寸恒为 0），
+    // 故手工撑开滚动尺寸再派发 scroll，把按钮逼出来。
+    Object.defineProperty(scroller!, "scrollHeight", { value: 2000, configurable: true });
+    Object.defineProperty(scroller!, "clientHeight", { value: 400, configurable: true });
+    scroller!.scrollTop = 0;
+    await act(async () => {
+      scroller!.dispatchEvent(new Event("scroll"));
+    });
+
+    const jump = [...detailsSlot.querySelectorAll("button")].find((b) =>
+      b.textContent?.includes("回到底部"),
+    );
+    expect(jump, "不贴底时应出现「回到底部」").toBeTruthy();
+    expect(
+      scroller!.contains(jump!),
+      "「回到底部」落在滚动容器内部：会随内容滚走、飘到对话中间（真实事故：叠在草稿卡上）",
+    ).toBe(false);
+  });
+
   it("中心列是 flex 容器，正文区能吸收剩余高度", async () => {
     const shell = await mountShell();
     const [, centerSlot] = [...shell.children] as HTMLElement[];
