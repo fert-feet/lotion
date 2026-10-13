@@ -44,9 +44,20 @@
   line-height: 1.5;
 }
 
-/* 块 hover / 选中：浅色圆角高亮（Notion 语义） */
-.lotion-editor .bn-editor .bn-block-outer:hover > .bn-block > .bn-block-content,
-.lotion-editor .bn-editor .bn-block-outer:focus-within > .bn-block > .bn-block-content {
+/* 块 hover / 选中：浅色圆角高亮（Notion 语义）。
+   ⚠️ 必须排除「自带底色」的块（代码块的深色代码面、Callout 的填充卡）：
+   `background` 是简写，会**整体替换**块自身的 background-color，而本规则特异性 (0,8,0)
+   远高于 BlockNote 的 `.bn-block-content[data-content-type=codeBlock]` (0,2,0)。
+   不排除的话，编辑代码块时 #161616 会变成 rgba(0,0,0,.045)——透出页面白底 →
+   「编辑时变亮、静止时又变暗」。守卫见 test/components/editor/code-block-surface.test.ts */
+.lotion-editor .bn-editor
+  .bn-block-outer:hover
+  > .bn-block
+  > .bn-block-content:not([data-content-type="codeBlock"]):not([data-content-type="callout"]),
+.lotion-editor .bn-editor
+  .bn-block-outer:focus-within
+  > .bn-block
+  > .bn-block-content:not([data-content-type="codeBlock"]):not([data-content-type="callout"]) {
   background: var(--shell-row-hover);
   border-radius: 6px;
 }
