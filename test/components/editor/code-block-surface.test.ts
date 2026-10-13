@@ -11,8 +11,10 @@
 //   ③ 透明黑透出页面白底 → 代码块变成浅灰，而 shiki 令牌色仍是 github-dark 那套。
 // 表现就是"编辑时变亮、静止时又变暗"。
 //
-// 保住的契约：带自有底色的块（codeBlock / callout）只由自己的规则决定背景，
-// 行高亮不得覆盖它们。检查方式是读 CSS 源码做选择器断言（同 test/components/ai/design-tokens.test.ts）。
+// 保住的契约：① 带自有底色的块（codeBlock / callout）只由自己的规则决定背景，行高亮不得覆盖；
+// ② 代码块 `> pre` 顶部必须留出语言选择器的净空——BlockNote 的 `padding:24px` 正是在做这件事，
+// 我们为了紧凑压到 14px，结果悬停/编辑时选择器的「Java」直接压在代码首行上（m00912 报障）。
+// 检查方式是读 CSS 源码做选择器/声明断言（同 test/components/ai/design-tokens.test.ts）。
 import { describe, it, expect } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
@@ -75,7 +77,32 @@ function hoverHighlightRules(css: string): Rule[] {
   );
 }
 
-describe("编辑器：自带底色的块不被行高亮覆盖", () => {
+/**
+ * 语言选择器占用的净空：BlockNote 把 `> div > select` 绝对定位在 top:8px，
+ * 字号 .8em（13px 代码下约 10px，行盒约 13px）→ 底边约 21px。
+ * 代码块 `> pre` 的顶部内边距小于它，选择器就会压在代码首行上。
+ */
+const SELECTOR_LANE_PX = 8 + 13;
+
+/** 代码块 `> pre` 规则的 padding-top（px） */
+function codeBlockPrePaddingTop(css: string): number | null {
+  const rule = parseRules(css).find(
+    (item) => CODE_BLOCK_ATTR.test(withoutNot(item.selector)) && />\s*pre\b/.test(item.selector),
+  );
+  if (!rule) return null;
+
+  const px = (value: string | undefined) =>
+    value && value.endsWith("px") ? Number.parseFloat(value) : null;
+
+  const top = /padding-top\s*:\s*([^;]+)/.exec(rule.body);
+  if (top) return px(top[1].trim());
+
+  const shorthand = /padding\s*:\s*([^;]+)/.exec(rule.body);
+  // 1 / 2 / 3 / 4 值简写里的第一个值都是 top
+  return shorthand ? px(shorthand[1].trim().split(/\s+/)[0]) : null;
+}
+
+describe("编辑器代码块：深色代码面与语言选择器净空", () => {
   it("检测器自身有效：认得出该拦的、也不误伤已排除的写法", () => {
     const bad = `.lotion-editor .bn-editor .bn-block-content[data-content-type="codeBlock"] { background: var(--shell-row-hover); }`;
     expect(codeBlockSurfaceClobbers(bad), "给代码块容器设背景应当被拦下").toHaveLength(1);
@@ -92,6 +119,21 @@ describe("编辑器：自带底色的块不被行高亮覆盖", () => {
     expect(hoverRule, "行高亮规则应当被识别出来").toBeDefined();
     expect(hoverRule.selector, "取到的应当是规则的选择器").toContain(".bn-block-content");
     expect(CARVE_OUT.test(hoverRule.selector), "未排除代码块的行高亮应判定为缺 carve-out").toBe(false);
+
+    // 顶部内边距解析：2 值简写的第一个、3 值简写的第一个都是 top
+    const pre = `.x[data-content-type="codeBlock"] > pre { padding: 14px 16px; }`;
+    expect(codeBlockPrePaddingTop(pre)).toBe(14);
+    expect(codeBlockPrePaddingTop(pre.replace("14px 16px", "24px 16px 14px"))).toBe(24);
+  });
+
+  it("代码块首行不与语言选择器重叠（> pre 顶部留出选择器净空）", () => {
+    const paddingTop = codeBlockPrePaddingTop(fs.readFileSync(CSS_PATH, "utf8"));
+    expect(paddingTop, "找不到代码块 `> pre` 的 padding-top").not.toBeNull();
+    expect(
+      paddingTop ?? 0,
+      `代码块 > pre 的顶部内边距 ${paddingTop}px 小于语言选择器所需净空 ${SELECTOR_LANE_PX}px：` +
+        "BlockNote 把选择器绝对定位在 top:8px（行盒约 13px），压到 14px 会让「Java」压在代码首行上",
+    ).toBeGreaterThanOrEqual(SELECTOR_LANE_PX);
   });
 
   it("项目 CSS 不给代码块容器设背景（深色代码面归 BlockNote）", () => {

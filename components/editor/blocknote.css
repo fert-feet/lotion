@@ -421,7 +421,12 @@
   box-shadow: var(--shadow-sm);
 }
 .lotion-editor .bn-editor .bn-block-content[data-content-type="codeBlock"] > pre {
-  padding: 14px 16px;
+  /* ⚠️ 顶部内边距是给「语言选择器」留的净空，不能为了紧凑往下压：
+     BlockNote 把 `> div > select` 绝对定位在 top:8px / left:18px，字号 .8em（13px 下约 10px、
+     行盒约 13px）→ 底边约在 21px 处；官方给 > pre 的 padding 是 24px，正是为它预留。
+     曾压到 14px（左右同样 16px），结果悬停/编辑时选择器的「Java」直接压在代码首行上。
+     左右与底边仍取 Apple 的紧凑值，只把顶部还原成官方净空。 */
+  padding: 24px 16px 14px;
   font-family: var(--font-mono);
   font-size: 13px;
   line-height: 1.55;
