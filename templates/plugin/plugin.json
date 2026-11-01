@@ -1,0 +1,27 @@
+{
+  "id": "hello-plugin",
+  "name": "Hello 插件（模板）",
+  "version": "1.0.0",
+  "description": "最小可安装插件：一个宿主工具 + 侧边栏按钮。",
+  "author": "you",
+  "capabilities": [
+    "tools",
+    "ui"
+  ],
+  "config": [
+    {
+      "key": "name",
+      "label": "称呼",
+      "type": "string",
+      "default": "世界",
+      "placeholder": "世界"
+    }
+  ],
+  "enabled": false,
+  "approved": false,
+  "configValues": {
+    "name": "世界"
+  },
+  "host": "harness.define({\n  name: \"hello-plugin\",\n  inject: [\"tools\"],\n  apply(ctx, config) {\n    const who = config?.name ?? \"世界\";\n    ctx.get(\"tools\").register({\n      name: \"hello_plugin\",\n      label: \"Hello 插件\",\n      icon: \"👋\",\n      description: \"返回一句问候（模板插件）\",\n      create: () => ({\n        description: \"打招呼\",\n        inputSchema: {},\n        execute: async () => `你好，${who}！`,\n      }),\n    });\n  },\n});",
+  "client": "harness.define({\n  name: \"hello-plugin-ui\",\n  apply(ctx) {\n    ctx.get(\"uiSlots\").register({\n      id: \"hello-plugin-button\",\n      slot: \"sidebar.footer.action\",\n      kind: \"list\",\n      order: 20,\n      component: harness.createElement(\n        \"button\",\n        {\n          type: \"button\",\n          title: \"Hello 插件\",\n          \"aria-label\": \"Hello 插件\",\n          className: \"flex h-7 w-7 items-center justify-center rounded-full text-shell-label-secondary hover:bg-shell-row-hover\",\n          onClick: () => window.alert(\"Hello from plugin\"),\n        },\n        \"👋\",\n      ),\n    });\n  },\n});"
+}

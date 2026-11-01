@@ -1,0 +1,15 @@
+{
+  "id": "word-count",
+  "name": "字数统计",
+  "version": "1.0.0",
+  "description": "给 AI 增加一个统计字数的工具，演示只贡献宿主 tools 的插件。",
+  "author": "lotion",
+  "capabilities": [
+    "tools"
+  ],
+  "config": [],
+  "enabled": false,
+  "approved": true,
+  "configValues": {},
+  "host": "harness.define({\n  name: \"word-count\",\n  inject: [\"tools\"],\n  apply: (ctx) => {\n    ctx.get(\"tools\").register({\n      name: \"count_words\",\n      label: \"字数统计\",\n      icon: \"🔢\",\n      description: \"统计一段文本的字数（示例插件）\",\n      create: () => ({\n        description: \"统计字数\",\n        inputSchema: {},\n        execute: async () => \"示例插件已运行：共 42 字\",\n      }),\n    });\n  },\n});"
+}

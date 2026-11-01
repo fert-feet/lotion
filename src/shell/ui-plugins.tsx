@@ -13,6 +13,8 @@ import { LazyAiPanel } from "./lazy-panels";
 
 /** 插槽名约定（区域.子区域） */
 export const SLOT_DETAILS_PANEL = "details.panel";
+/** 侧边栏底部动作（list 槽；第三方客户端插件的演示挂载点） */
+export const SLOT_SIDEBAR_FOOTER_ACTION = "sidebar.footer.action";
 
 /** 内置 UI 插件清单（disabled 里的 id 不参与装配，用于服务端下发的启停配置） */
 export function shellUiPlugins(options: { disabled?: readonly string[] } = {}): PluginEntry[] {

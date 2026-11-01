@@ -32,6 +32,7 @@ describe("lib/seams/remote 白名单边界", () => {
     expect(checkRemoteCall({ namespace: "documents", method: "list" })).toBeNull();
     expect(checkRemoteCall({ namespace: "chat", method: "sessions" })).toBeNull();
     expect(checkRemoteCall({ namespace: "dynamic", method: "plugins" })).toBeNull();
+    expect(checkRemoteCall({ namespace: "plugins", method: "clientHalves" })).toBeNull();
   });
 
   it("越界 namespace / 方法被拒绝，并列出允许项", async () => {
@@ -46,7 +47,7 @@ describe("lib/seams/remote 白名单边界", () => {
     expect(Object.isFrozen(REMOTE_NAMESPACES)).toBe(false); // 数组本体可变，但没有注册 API
     expect(REMOTE_METHODS.documents).toEqual(["list", "get"]);
     // 唯一"新增能力"的方式是改这张表 + 加宿主路由（代码级变更）
-    expect(Object.keys(REMOTE_METHODS).sort()).toEqual(["chat", "documents", "dynamic"]);
+    expect(Object.keys(REMOTE_METHODS).sort()).toEqual(["chat", "documents", "dynamic", "plugins"]);
   });
 
   it("provideRemote 会套上白名单（实现方无法绕过）", async () => {
@@ -84,11 +85,13 @@ describe("lib/seams/remote 白名单边界", () => {
     await remote.call({ namespace: "documents", method: "list" });
     await remote.call({ namespace: "documents", method: "get", args: { id: "d1" } });
     await remote.call({ namespace: "dynamic", method: "plugins" });
+    await remote.call({ namespace: "plugins", method: "clientHalves" });
 
     expect(calls).toEqual([
       "/api/documents?scope=sidebar",
       "/api/documents/d1",
       "/api/dynamic/plugins",
+      "/api/plugins/client-halves",
     ]);
 
     const failing = createRestRemote(
@@ -242,11 +245,11 @@ describe("动态插件客户端半边的下发与运行", () => {
     initDatabase(db);
     state.db = db;
     _resetHostKernelForTest();
-    const kernel = await bootHostKernel({ db, settingsPath });
+    const kernel = await bootHostKernel({ db, settingsPath, pluginsDir: path.join(dir, "plugins") });
 
     const user = createUser(db, "dyn@example.com", "password123");
     const token = createSession(db, user.id);
-    const app = createApp(kernel.httpRoutes);
+    const app = createApp(kernel.httpRoutes, { kernel: kernel.ctx });
 
     // 未登录：401
     expect((await app.request("/api/dynamic/plugins")).status).toBe(401);

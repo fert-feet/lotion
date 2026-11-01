@@ -58,6 +58,13 @@ pluginsRoutes.get("/client-config", (c) =>
   withAdmin(c, async (admin) => c.json(await admin.clientConfig())),
 );
 
+/** 已批准的客户端半边：登录用户都能取（不下发 host 代码） */
+pluginsRoutes.get("/client-halves", (c) => {
+  const user = userFromRequest(c.req.raw);
+  if (!user) return c.json({ error: "Unauthorized" }, 401);
+  return withAdmin(c, async (admin) => c.json(await admin.clientHalves()));
+});
+
 /** 列表：内置 + 已安装 + 动态 */
 pluginsRoutes.get("/", (c) => {
   const denied = ownerGuard(c);

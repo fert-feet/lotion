@@ -1,10 +1,16 @@
 // /api/plugins 单测：owner 门禁、列表/启停/配置、client-config 公开性。
 import { describe, it, expect, beforeEach, vi } from "vitest";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import type Database from "better-sqlite3";
 import { createRootContext } from "@/lib/kernel";
 import { SESSION_COOKIE, createSession, createUser } from "@/lib/local/auth";
 import { createPluginManager } from "@/lib/local/plugin-manager";
 import { createDynamicRunner } from "@/lib/dynamic/runner";
+import { createFilePluginPackageStore } from "@/lib/local/plugin-package";
+import { createFilePluginMarket } from "@/lib/local/plugin-market";
+import type { InstalledPluginRuntime } from "@/lib/local/plugin-runtime";
 import type { DynamicPersistence, DynamicRecord } from "@/lib/seams/dynamic";
 import type { PluginInfo } from "@/lib/seams/plugins";
 import { createApiTestApp } from "../mocks/api-app";
@@ -169,6 +175,98 @@ describe("动态插件端点与 /api/me", () => {
     expect((await res.json()).approved).toBe(true);
     expect(runner.get("dyn-1")?.state).toBe("approved");
     expect(records.get("dyn-1")?.state).toBe("approved");
+  });
+
+  it("市场安装 → 审批 → 启用 → 客户端半边下发", async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lotion-installed-api-"));
+    try {
+      const publicDir = path.join(dir, "public");
+      const marketDir = path.join(publicDir, "plugin-market");
+      fs.mkdirSync(marketDir, { recursive: true });
+      const clientCode =
+        "harness.define({ apply: (ctx) => { ctx.get('uiSlots').register({ id: 'quote', slot: 'sidebar.footer.action', kind: 'list', component: harness.createElement('b', null, '✨') }); } });";
+      fs.writeFileSync(
+        path.join(marketDir, "registry.json"),
+        JSON.stringify({
+          entries: [
+            {
+              id: "daily-quote",
+              name: "今日一句",
+              version: "1.0.0",
+              description: "示例",
+              bundle: "/plugin-market/daily-quote.json",
+            },
+          ],
+        }),
+        "utf-8",
+      );
+      fs.writeFileSync(
+        path.join(marketDir, "daily-quote.json"),
+        JSON.stringify({
+          id: "daily-quote",
+          name: "今日一句",
+          version: "1.0.0",
+          capabilities: ["ui"],
+          client: clientCode,
+        }),
+        "utf-8",
+      );
+
+      const store = createFilePluginPackageStore(path.join(dir, "installed"));
+      const runtime: InstalledPluginRuntime = {
+        mount: async () => ({ ok: true }),
+        unmount: async () => {},
+        startAll: async () => {},
+        runningIds: () => [],
+        error: () => undefined,
+        dispose: async () => {},
+      };
+      const manager = createPluginManager({
+        ctx: createRootContext(),
+        settings: createMemoryPluginsSettings(),
+        getPackages: () => store,
+        getRuntime: () => runtime,
+        market: createFilePluginMarket({ publicDir }),
+      });
+      const { app: installedApp } = await createApiTestApp([], { pluginAdmin: manager });
+      const auth = { cookie: `${SESSION_COOKIE}=${ownerToken}` };
+
+      const install = await installedApp.request("/api/plugins/install", {
+        method: "POST",
+        headers: { "content-type": "application/json", ...auth },
+        body: JSON.stringify({ id: "daily-quote" }),
+      });
+      expect(install.status).toBe(200);
+      expect(await install.json()).toMatchObject({
+        id: "daily-quote",
+        source: "installed",
+        enabled: false,
+        approved: false,
+      });
+
+      expect(
+        (await installedApp.request("/api/plugins/daily-quote/approve", { method: "POST", headers: auth })).status,
+      ).toBe(200);
+
+      const enable = await installedApp.request("/api/plugins/daily-quote", {
+        method: "PATCH",
+        headers: { "content-type": "application/json", ...auth },
+        body: JSON.stringify({ enabled: true }),
+      });
+      expect(enable.status).toBe(200);
+      expect((await enable.json()).enabled).toBe(true);
+
+      const halves = await installedApp.request("/api/plugins/client-halves", { headers: auth });
+      expect(halves.status).toBe(200);
+      const payload = (await halves.json()) as Array<{ id: string; client: string }>;
+      expect(payload).toHaveLength(1);
+      expect(payload[0].id).toBe("daily-quote");
+      expect(payload[0].client).toContain("harness.define");
+
+      expect((await installedApp.request("/api/plugins/client-halves")).status).toBe(401);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   it("/api/me 返回 isOwner：最早注册的用户为 true", async () => {

@@ -13,6 +13,7 @@ import type {
   ClientPluginConfig,
   MarketEntry,
   PluginAdminService,
+  PluginClientHalf,
   PluginInfo,
   PluginSourceCode,
   PluginStatus,
@@ -20,6 +21,13 @@ import type {
 import type { SettingsSection } from "@/lib/seams/settings";
 import type { PluginsSettings } from "./lotion-config";
 import { PLUGIN_CATALOG, type PluginCatalogEntry } from "./plugin-catalog";
+import {
+  validatePluginManifest,
+  type InstalledPluginManifest,
+  type PluginPackageStore,
+} from "./plugin-package";
+import type { InstalledPluginRuntime } from "./plugin-runtime";
+import type { PluginMarket } from "./plugin-market";
 
 /** 管理操作的可分类错误（路由层据此映射 HTTP 状态码） */
 export class PluginAdminError extends Error {
@@ -41,6 +49,12 @@ export interface CreatePluginManagerOptions {
   getLoadReport?: () => LoadReport | undefined;
   /** 动态 runner 访问器（默认从 ctx 取；测试可注入） */
   getDynamic?: () => DynamicRunner | undefined;
+  /** 已安装插件包存储访问器（默认从 ctx 取） */
+  getPackages?: () => PluginPackageStore | undefined;
+  /** 已安装插件运行时访问器（默认从 ctx 取） */
+  getRuntime?: () => InstalledPluginRuntime | undefined;
+  /** 本地市场（测试可注入临时目录） */
+  market?: PluginMarket;
   /** 内置插件目录（测试可缩小） */
   catalog?: readonly PluginCatalogEntry[];
 }
@@ -48,6 +62,16 @@ export interface CreatePluginManagerOptions {
 export function createPluginManager(options: CreatePluginManagerOptions): PluginAdminService {
   const catalog = options.catalog ?? PLUGIN_CATALOG;
   const dynamic = options.getDynamic ?? (() => findDynamic(options.ctx));
+  const packages = () => options.getPackages?.();
+  const installedRuntime = () => options.getRuntime?.();
+
+  const requirePackages = (): PluginPackageStore => {
+    const store = packages();
+    if (!store) {
+      throw new PluginAdminError("UNSUPPORTED", "已安装插件存储未装配");
+    }
+    return store;
+  };
 
   const patchOf = (id: string): { disabled?: boolean; config?: unknown } =>
     options.settings.get()[id] ?? {};
@@ -102,8 +126,42 @@ export function createPluginManager(options: CreatePluginManagerOptions): Plugin
     };
   };
 
-  const dynamicStatus = (record: DynamicRecord): PluginStatus => {
-    switch (record.state) {
+  const installedInfo = (manifest: InstalledPluginManifest): PluginInfo => {
+    const hasHost = typeof manifest.host === "string" && manifest.host.length > 0;
+    const hasClient = typeof manifest.client === "string" && manifest.client.length > 0;
+    const runtime = installedRuntime();
+    const running = runtime?.runningIds().includes(manifest.id) ?? false;
+    const runtimeError = runtime?.error(manifest.id);
+
+    let status: PluginStatus;
+    if (!manifest.enabled) status = "disabled";
+    else if (runtime && hasHost) status = running ? "active" : runtimeError ? "error" : "pending";
+    else if (hasClient && !manifest.approved) status = "stopped";
+    else status = "active";
+
+    return {
+      id: manifest.id,
+      title: manifest.name,
+      description: manifest.description ?? "已安装的第三方插件",
+      scope: hasHost ? "host" : "ui",
+      source: "installed",
+      version: manifest.version,
+      enabled: manifest.enabled,
+      approved: !hasClient || manifest.approved,
+      core: false,
+      // httpRoutes 贡献受注册表限制；启停/配置都需要重启才能完全生效
+      restartRequired: manifest.capabilities.includes("httpRoutes"),
+      status,
+      ...(runtimeError ? { error: runtimeError } : {}),
+      config: manifest.configValues,
+      configFields: manifest.config,
+      capabilities: manifest.capabilities,
+    };
+  };
+
+  const installedList = (): InstalledPluginManifest[] => packages()?.list() ?? [];
+
+  const dynamicStatus = (record: DynamicRecord): PluginStatus => {    switch (record.state) {
       case "running":
         return "active";
       case "error":
@@ -146,9 +204,10 @@ export function createPluginManager(options: CreatePluginManagerOptions): Plugin
 
   const list = async (): Promise<PluginInfo[]> => {
     const statics = catalog.map(staticInfo);
+    const installed = installedList().map(installedInfo);
     const runner = dynamic();
     const dynamics = runner ? runner.list().map(dynamicInfo) : [];
-    return [...statics, ...dynamics];
+    return [...statics, ...installed, ...dynamics];
   };
 
   const findInfo = async (id: string): Promise<PluginInfo> => {
@@ -184,6 +243,27 @@ export function createPluginManager(options: CreatePluginManagerOptions): Plugin
       await writePatch(id, { disabled: !enabled });
       return staticInfo(entry);
     }
+    const manifest = packages()?.get(id);
+    if (manifest) {
+      const runtime = installedRuntime();
+      const needsRestart = manifest.capabilities.includes("httpRoutes");
+      if (manifest.host && !needsRestart) {
+        if (enabled) {
+          if (!runtime) {
+            throw new PluginAdminError("UNSUPPORTED", "已安装插件运行时未装配");
+          }
+          const result = await runtime.mount(id);
+          if (!result.ok) {
+            throw new PluginAdminError("CONFLICT", result.error ?? "插件挂载失败");
+          }
+        } else {
+          await runtime?.unmount(id);
+        }
+      }
+      const next = { ...manifest, enabled };
+      requirePackages().save(next);
+      return installedInfo(next);
+    }
     const runner = dynamic();
     // 没有动态通道时，非目录 id 只能视为未知（避免把"拼错 id"误报成"通道没开"）
     if (!runner || !runner.get(id)) {
@@ -196,18 +276,30 @@ export function createPluginManager(options: CreatePluginManagerOptions): Plugin
 
   const setConfig = async (id: string, config: Record<string, unknown>): Promise<PluginInfo> => {
     const entry = catalog.find((item) => item.id === id);
-    if (!entry) {
-      const runner = dynamic();
-      if (runner?.get(id)) {
-        throw new PluginAdminError("UNSUPPORTED", "动态插件暂不支持持久化配置");
-      }
-      throw new PluginAdminError("NOT_FOUND", `未知插件「${id}」`);
+    if (entry) {
+      await writePatch(id, { config });
+      return staticInfo(entry);
     }
-    await writePatch(id, { config });
-    return staticInfo(entry);
+    const manifest = packages()?.get(id);
+    if (manifest) {
+      const next = { ...manifest, configValues: { ...manifest.configValues, ...config } };
+      requirePackages().save(next);
+      return installedInfo(next);
+    }
+    const runner = dynamic();
+    if (runner?.get(id)) {
+      throw new PluginAdminError("UNSUPPORTED", "动态插件暂不支持持久化配置");
+    }
+    throw new PluginAdminError("NOT_FOUND", `未知插件「${id}」`);
   };
 
   const approve = async (id: string): Promise<PluginInfo> => {
+    const manifest = packages()?.get(id);
+    if (manifest) {
+      const next = { ...manifest, approved: true };
+      requirePackages().save(next);
+      return installedInfo(next);
+    }
     const runner = requireRunner();
     if (!runner.get(id)) throw new PluginAdminError("NOT_FOUND", `未知动态插件「${id}」`);
     runner.approve(id);
@@ -215,6 +307,7 @@ export function createPluginManager(options: CreatePluginManagerOptions): Plugin
   };
 
   const run = async (id: string): Promise<PluginInfo> => {
+    if (packages()?.get(id)) return setEnabled(id, true);
     const runner = requireRunner();
     if (!runner.get(id)) throw new PluginAdminError("NOT_FOUND", `未知动态插件「${id}」`);
     await runner.run(id);
@@ -222,6 +315,7 @@ export function createPluginManager(options: CreatePluginManagerOptions): Plugin
   };
 
   const stop = async (id: string): Promise<PluginInfo> => {
+    if (packages()?.get(id)) return setEnabled(id, false);
     const runner = requireRunner();
     if (!runner.get(id)) throw new PluginAdminError("NOT_FOUND", `未知动态插件「${id}」`);
     await runner.stop(id);
@@ -233,12 +327,25 @@ export function createPluginManager(options: CreatePluginManagerOptions): Plugin
     if (entry) {
       throw new PluginAdminError("UNSUPPORTED", `内置插件「${entry.title}」不能卸载（可禁用）`);
     }
+    const manifest = packages()?.get(id);
+    if (manifest) {
+      await installedRuntime()?.unmount(id);
+      requirePackages().remove(id);
+      return;
+    }
     const runner = requireRunner();
     if (!runner.get(id)) throw new PluginAdminError("NOT_FOUND", `未知动态插件「${id}」`);
     await runner.undefine(id);
   };
 
   const source = async (id: string): Promise<PluginSourceCode> => {
+    const manifest = packages()?.get(id);
+    if (manifest) {
+      return {
+        ...(manifest.host ? { host: manifest.host } : {}),
+        ...(manifest.client ? { client: manifest.client } : {}),
+      };
+    }
     const runner = dynamic();
     const record = runner?.get(id);
     if (!record) {
@@ -256,10 +363,60 @@ export function createPluginManager(options: CreatePluginManagerOptions): Plugin
       .map((entry) => entry.id),
   });
 
-  // M3 会替换这两个实现（本地市场目录 + 包安装）
-  const market = async (): Promise<MarketEntry[]> => [];
-  const install = async (_id: string): Promise<PluginInfo> => {
-    throw new PluginAdminError("UNSUPPORTED", "插件市场安装尚未启用");
+  const market = async (): Promise<MarketEntry[]> => {
+    const source = options.market;
+    if (!source) return [];
+    return await source.list();
+  };
+
+  const install = async (id: string): Promise<PluginInfo> => {
+    const source = options.market;
+    if (!source) {
+      throw new PluginAdminError("UNSUPPORTED", "插件市场未装配");
+    }
+    const entry = (await source.list()).find((item) => item.id === id);
+    if (!entry) throw new PluginAdminError("NOT_FOUND", `市场里没有「${id}」`);
+    const store = requirePackages();
+    if (store.get(id)) {
+      throw new PluginAdminError("CONFLICT", `「${entry.name}」已安装，请先卸载`);
+    }
+
+    const raw = await source.bundle(entry.bundle);
+    const manifest = validatePluginManifest(raw);
+    if (manifest.id !== entry.id) {
+      throw new PluginAdminError("CONFLICT", `bundle 的 id「${manifest.id}」与市场条目「${entry.id}」不一致`);
+    }
+
+    // 安装 ≠ 启用 ≠ 批准：先落盘为停用；有客户端半边的还需人工批准
+    const next: InstalledPluginManifest = {
+      ...manifest,
+      enabled: false,
+      approved: manifest.client ? false : true,
+    };
+    store.save(next);
+    return installedInfo(next);
+  };
+
+  const clientHalves = async (): Promise<PluginClientHalf[]> => {
+    const installed: PluginClientHalf[] = installedList()
+      .filter((manifest) => manifest.enabled && manifest.approved && typeof manifest.client === "string")
+      .map((manifest) => ({
+        id: manifest.id,
+        title: manifest.name,
+        description: manifest.description ?? null,
+        client: manifest.client as string,
+      }));
+
+    const dynamics: PluginClientHalf[] = (dynamic()?.list() ?? [])
+      .filter((record) => record.state === "approved" && typeof record.definition.client === "string")
+      .map((record) => ({
+        id: record.definition.id,
+        title: record.definition.title,
+        description: record.definition.description ?? null,
+        client: record.definition.client as string,
+      }));
+
+    return [...installed, ...dynamics];
   };
 
   return {
@@ -274,5 +431,6 @@ export function createPluginManager(options: CreatePluginManagerOptions): Plugin
     market,
     install,
     clientConfig,
+    clientHalves,
   };
 }

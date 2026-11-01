@@ -14,7 +14,7 @@ import { Context, provideService, readService } from "@/lib/kernel";
  * 允许的 namespace 枚举（改这里 = 改契约，需同时加宿主路由）。
  * 与 DSH 一样刻意保持很短：只放**动态/插件代码真正需要**的只读入口。
  */
-export const REMOTE_NAMESPACES = ["documents", "chat", "dynamic"] as const;
+export const REMOTE_NAMESPACES = ["documents", "chat", "dynamic", "plugins"] as const;
 export type RemoteNamespace = (typeof REMOTE_NAMESPACES)[number];
 
 /** 每个 namespace 允许的方法（再收一层：即使 namespace 对，方法也要在白名单里） */
@@ -22,6 +22,7 @@ export const REMOTE_METHODS: Record<RemoteNamespace, readonly string[]> = {
   documents: ["list", "get"],
   chat: ["sessions"],
   dynamic: ["plugins"],
+  plugins: ["clientHalves"],
 };
 
 /** 调用请求（白名单校验的输入形状） */

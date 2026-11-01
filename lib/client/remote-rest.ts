@@ -17,6 +17,7 @@ const ENDPOINTS: Record<string, { path: string; query?: (args: unknown) => strin
   },
   "chat.sessions": { path: "/api/chat/sessions" },
   "dynamic.plugins": { path: "/api/dynamic/plugins" },
+  "plugins.clientHalves": { path: "/api/plugins/client-halves" },
 };
 
 /**

@@ -4,9 +4,10 @@
 // 28px 圆形图标按钮，hover 底色 shell-row-hover；rail 形态下 36px 竖排。
 import { ListChecks, Settings, Trash } from "@/components/icons";
 import { useNavigate } from "react-router";
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useUser } from "@/hooks/use-user";
+import { useSlotList } from "@/src/kernel/react";
 import useSettings from "@/hooks/use-setting";
 import { Avatar } from "@/components/ui/avatar";
 import {
@@ -17,6 +18,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { SLOT_SIDEBAR_FOOTER_ACTION } from "../ui-plugins";
 import TrashBox from "../trash-box";
 
 interface SidebarFooterProps {
@@ -29,6 +31,8 @@ export function SidebarFooter({ rail, onBatchMode }: SidebarFooterProps) {
   const navigate = useNavigate();
   const settingsOnOpen = useSettings((s) => s.onOpen);
   const [trashOpen, setTrashOpen] = useState(false);
+  // 第三方客户端插件贡献的底部动作（list 槽；无贡献时为空数组）
+  const footerActions = useSlotList(SLOT_SIDEBAR_FOOTER_ACTION);
 
   const handleSignOut = async () => {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -81,6 +85,10 @@ export function SidebarFooter({ rail, onBatchMode }: SidebarFooterProps) {
       >
         <ListChecks className={rail ? "h-[18px] w-[18px]" : "h-4 w-4"} />
       </button>
+
+      {footerActions.map((action, index) => (
+        <Fragment key={index}>{action}</Fragment>
+      ))}
 
       <div className={cn(rail ? "mt-auto" : "ml-auto")} />
 

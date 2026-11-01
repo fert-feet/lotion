@@ -7,11 +7,12 @@ import useSettings from "@/hooks/use-setting";
 import { useUser } from "@/hooks/use-user";
 import { cn } from "@/lib/utils";
 import { ModeToggle } from "@/components/lightButton";
+import { PluginMarket } from "@/components/settings/plugin-market";
 import { PluginSettings } from "@/components/settings/plugin-settings";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 
-type Tab = "appearance" | "plugins";
+type Tab = "appearance" | "plugins" | "market";
 
 function TabButton({
   active,
@@ -44,9 +45,9 @@ const SettingsModal = () => {
   const { isOwner } = useUser();
   const [tab, setTab] = useState<Tab>("appearance");
 
-  // 非 owner 永远看不到插件页；权限变化时退回外观
+  // 非 owner 永远看不到插件相关页；权限变化时退回外观
   useEffect(() => {
-    if (!isOwner && tab === "plugins") setTab("appearance");
+    if (!isOwner && tab !== "appearance") setTab("appearance");
   }, [isOwner, tab]);
 
   return (
@@ -67,6 +68,11 @@ const SettingsModal = () => {
             {isOwner ? (
               <TabButton active={tab === "plugins"} onClick={() => setTab("plugins")}>
                 插件
+              </TabButton>
+            ) : null}
+            {isOwner ? (
+              <TabButton active={tab === "market"} onClick={() => setTab("market")}>
+                市场
               </TabButton>
             ) : null}
           </nav>
@@ -90,8 +96,10 @@ const SettingsModal = () => {
                   <ModeToggle />
                 </div>
               </div>
-            ) : (
+            ) : tab === "plugins" ? (
               <PluginSettings />
+            ) : (
+              <PluginMarket />
             )}
           </div>
         </div>

@@ -119,6 +119,7 @@ function makeAdmin(initial: PluginInfo[]) {
     market: vi.fn(async () => []),
     install: vi.fn(async (id: string) => find(id)),
     clientConfig: vi.fn(async () => ({ disabledUi: [] })),
+    clientHalves: vi.fn(async () => []),
   } satisfies PluginAdminService;
   return admin;
 }

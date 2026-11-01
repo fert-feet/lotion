@@ -28,6 +28,9 @@ import {
 } from "@/lib/local/lotion-config";
 import { createPluginManager } from "@/lib/local/plugin-manager";
 import { createFileDynamicPersistence } from "@/lib/local/dynamic-store";
+import { findInstalledStore } from "@/lib/local/plugin-package";
+import { findInstalledRuntime } from "@/lib/local/plugin-runtime";
+import { createDefaultPluginMarket } from "@/lib/local/plugin-market";
 import { providePluginAdmin } from "@/lib/seams/plugins";
 import { findDynamic } from "@/lib/seams/dynamic";
 
@@ -126,6 +129,10 @@ export function hostComposition(options: HostCompositionOptions = {}): PluginEnt
             ctx,
             settings,
             getDynamic: () => findDynamic(ctx),
+            // 已安装包/运行时由 server/kernel.ts 在装配后提供（这里延迟取）
+            getPackages: () => findInstalledStore(ctx),
+            getRuntime: () => findInstalledRuntime(ctx),
+            market: createDefaultPluginMarket(),
           });
           providePluginAdmin(ctx, manager);
         },

@@ -8,6 +8,7 @@
 // ⚠️ 必须如实知道的局限（DSH 自己的注释也点明了）：
 // **形参遮蔽只挡裸标识符**。`globalThis.fetch`、`window.setInterval`、`eval`、动态 import
 // 依然可达 —— 客户端半边因此属于"需人工审批后才运行"的信任级别（见 DynamicState.awaiting-approval）。
+import { createElement, Fragment } from "react";
 import type { Context } from "@/lib/kernel";
 import { findRemote } from "@/lib/seams/remote";
 import { findUiSlots, UI_SLOTS_SERVICE } from "@/lib/seams/ui-slots";
@@ -91,6 +92,9 @@ export function evaluateClientHalf(code: string, options: ClientSandboxOptions):
 
   let defined: ClientSandboxSuccess["plugin"] | null = null;
   const harness = {
+    // 客户端半边没有打包器，贡献 UI 需要 React 元素构造器
+    createElement,
+    Fragment,
     define(input: unknown) {
       if (typeof input !== "object" || input === null || typeof (input as { apply?: unknown }).apply !== "function") {
         throw new Error("harness.define 需要 { name?, apply(ctx) }，其中 apply 必须是函数");

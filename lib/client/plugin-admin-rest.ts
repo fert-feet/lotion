@@ -8,6 +8,7 @@ import {
   type ClientPluginConfig,
   type MarketEntry,
   type PluginAdminService,
+  type PluginClientHalf,
   type PluginInfo,
   type PluginSourceCode,
 } from "@/lib/seams/plugins";
@@ -97,6 +98,9 @@ export function createRestPluginAdmin(fetchImpl: FetchImpl = fetch): PluginAdmin
     },
     clientConfig() {
       return request<ClientPluginConfig>(fetchImpl, "/api/plugins/client-config");
+    },
+    clientHalves() {
+      return request<PluginClientHalf[]>(fetchImpl, "/api/plugins/client-halves");
     },
   };
 }

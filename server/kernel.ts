@@ -9,6 +9,7 @@
 //   2. 配置从 settings 读，不再散落 process.env（env 仍是最高优先级来源）。
 //   3. 依赖可注入（db / settingsPath）：测试不碰真实 data/lotion.db。
 import type Database from "better-sqlite3";
+import path from "node:path";
 import {
   Context,
   applyPatches,
@@ -37,6 +38,15 @@ import { requireDocStore, type DocStore } from "@/lib/seams/doc-store";
 import { TOOLS_SERVICE } from "@/lib/seams/tools";
 import type { HostToolRegistry } from "@/lib/ai/tools/registry";
 import { findSettings } from "@/lib/seams/settings";
+import {
+  createFilePluginPackageStore,
+  provideInstalledStore,
+} from "@/lib/local/plugin-package";
+import {
+  createInstalledPluginRuntime,
+  provideInstalledRuntime,
+} from "@/lib/local/plugin-runtime";
+import { resolvePluginsDir } from "@/lib/local/dynamic-store";
 
 export interface HostKernel {
   /** 根上下文（路由/工具从这里取服务） */
@@ -120,6 +130,15 @@ export async function bootHostKernel(options: BootHostKernelOptions = {}): Promi
   );
   const loadRest = await loadPlugins(ctx, patchedEntries);
 
+  // 已安装的第三方插件：在 createApp 之前挂载宿主半边，
+  // 这样它们贡献的 httpRoutes 才会进入注册表（之后启停路由类插件需重启）。
+  const installedRoot = options.pluginsDir ? path.resolve(options.pluginsDir) : resolvePluginsDir();
+  const installedStore = createFilePluginPackageStore(path.join(installedRoot, "installed"));
+  const installedRuntime = createInstalledPluginRuntime({ ctx, store: installedStore });
+  await installedRuntime.startAll();
+  provideInstalledStore(ctx, installedStore);
+  provideInstalledRuntime(ctx, installedRuntime);
+
   // 合并两份报告：settings 条目的 fiber 也要能被统一卸载/审计
   const load: LoadReport = {
     mounted: [...loadSettings.mounted, ...loadRest.mounted],
@@ -153,6 +172,8 @@ export async function bootHostKernel(options: BootHostKernelOptions = {}): Promi
     auditText,
     startupText: `${formatLoadReport(load)}\n${auditText}`,
     async dispose() {
+      // 先卸已安装插件的宿主半边，再卸整棵内核
+      await installedRuntime.dispose();
       // 卸载本内核挂载的全部条目（Cordis 的根 fiber 常驻，不需要也不能整体 dispose）
       await load.dispose();
       current = null;

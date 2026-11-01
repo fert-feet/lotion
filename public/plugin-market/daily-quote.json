@@ -1,0 +1,15 @@
+{
+  "id": "daily-quote",
+  "name": "今日一句",
+  "version": "1.0.0",
+  "description": "在侧边栏底部加一个 ✨ 按钮，点开随机一句；演示客户端半边 + UI 插槽。",
+  "author": "lotion",
+  "capabilities": [
+    "ui"
+  ],
+  "config": [],
+  "enabled": false,
+  "approved": false,
+  "configValues": {},
+  "client": "harness.define({\n  name: \"daily-quote\",\n  apply: (ctx) => {\n    const ui = ctx.get(\"uiSlots\");\n    const quotes = [\"把今天写下来，明天就有迹可循。\", \"慢一点，也是在前进。\", \"笔记是第二大脑的抽屉。\"];\n    ui.register({\n      id: \"daily-quote\",\n      slot: \"sidebar.footer.action\",\n      kind: \"list\",\n      order: 10,\n      component: harness.createElement(\n        \"button\",\n        {\n          type: \"button\",\n          title: \"今日一句\",\n          \"aria-label\": \"今日一句\",\n          className: \"flex h-7 w-7 items-center justify-center rounded-full text-shell-label-secondary hover:bg-shell-row-hover\",\n          onClick: () => {\n            const index = Math.floor(Math.random() * quotes.length);\n            window.alert(quotes[index]);\n          },\n        },\n        \"✨\",\n      ),\n    });\n  },\n});"
+}

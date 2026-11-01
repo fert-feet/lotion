@@ -74,6 +74,14 @@ export interface ClientPluginConfig {
   disabledUi: string[];
 }
 
+/** 下发给浏览器的客户端半边（已批准；不发 host 代码） */
+export interface PluginClientHalf {
+  id: string;
+  title: string;
+  description?: string | null;
+  client: string;
+}
+
 export interface PluginAdminService {
   list(): Promise<PluginInfo[]>;
   setEnabled(id: string, enabled: boolean): Promise<PluginInfo>;
@@ -89,6 +97,8 @@ export interface PluginAdminService {
   market(): Promise<MarketEntry[]>;
   install(id: string): Promise<PluginInfo>;
   clientConfig(): Promise<ClientPluginConfig>;
+  /** 已批准、可下发给浏览器的客户端半边（已安装 + AI 动态） */
+  clientHalves(): Promise<PluginClientHalf[]>;
 }
 
 export const PLUGIN_ADMIN_SERVICE = "pluginAdmin";
@@ -105,6 +115,7 @@ const REQUIRED_METHODS = [
   "market",
   "install",
   "clientConfig",
+  "clientHalves",
 ] as const;
 
 /** 装配实现（形状校验在装配期一次性完成，避免运行到一半才发现缺方法） */

@@ -32,12 +32,23 @@ export interface ClientHalfRunReport {
 export async function fetchClientHalves(ctx: Context): Promise<ClientHalfDefinition[]> {
   const remote = findRemote(ctx);
   if (!remote) return [];
-  try {
-    const list = await remote.call<ClientHalfDefinition[]>({ namespace: "dynamic", method: "plugins" });
-    return Array.isArray(list) ? list : [];
-  } catch {
-    return [];
+
+  // 两个来源：AI 动态插件（需宿主启用通道）+ 已安装的第三方插件（registry 常驻）
+  const [dynamicHalves, installedHalves] = await Promise.all([
+    remote
+      .call<ClientHalfDefinition[]>({ namespace: "dynamic", method: "plugins" })
+      .catch(() => [] as ClientHalfDefinition[]),
+    remote
+      .call<ClientHalfDefinition[]>({ namespace: "plugins", method: "clientHalves" })
+      .catch(() => [] as ClientHalfDefinition[]),
+  ]);
+
+  // 同 id 去重（已安装优先），避免同一段 UI 注册两次
+  const byId = new Map<string, ClientHalfDefinition>();
+  for (const half of [...(Array.isArray(installedHalves) ? installedHalves : []), ...(Array.isArray(dynamicHalves) ? dynamicHalves : [])]) {
+    if (typeof half?.id === "string" && typeof half.client === "string") byId.set(half.id, half);
   }
+  return [...byId.values()];
 }
 
 /**
