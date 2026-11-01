@@ -159,7 +159,7 @@ test/                       # Vitest 单测（lib/ / api/ / components/ / seams/
 | 文本 | `foreground` / `muted-foreground` / `shell-label-secondary` / `shell-label-tertiary` | 对应 macOS 的 label / secondaryLabel / tertiaryLabel |
 | 主色 | `primary`（systemBlue `#007AFF` / 暗色 `#0A84FF`） | 交互与选中；AI 品牌黄 `ai` 只用于 AI 元素与荧光笔高亮 `hl` |
 | 圆角 | `rounded-[6px]` 控件 / `[10px]` 卡片 / `[14px]` 面板 / `[16px]` 弹窗 | 连续圆角，不用胶囊按钮 |
-| 阴影 | `shadow-[var(--shadow-sm|md|lg)]` | 多层柔和投影，禁止重投影 |
+| 阴影 | `shadow-[var(--shadow-sm)]` / `shadow-[var(--shadow-md)]` / `shadow-[var(--shadow-lg)]` | 多层柔和投影，禁止重投影 |
 | 材质 | `.material-sidebar` / `.material-toolbar` / `.material-popover` | backdrop-blur + 饱和，用于侧边栏/顶栏/浮层 |
 | 动效 | `ease-[var(--ds-ease-out)]`、150–200ms | Apple 减速曲线；`active:scale-[0.97]` 给按压反馈 |
 
