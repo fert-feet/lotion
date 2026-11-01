@@ -17,7 +17,7 @@
 // 它们的能力与本机 shell 同级信任，属于 opt-in 开发通道，不是安全边界。
 import { Context } from "@/lib/kernel";
 import { requireDynamic, type DynamicRunner } from "@/lib/seams/dynamic";
-import type { ToolDefinition } from "@/lib/seams/tools";
+import { registerTool, type ToolDefinition, type ToolRegistry } from "@/lib/seams/tools";
 import type { AnyTool } from "@/lib/ai/tools/registry";
 
 /** 从工具工厂上下文里取 runner（未启用时给出可操作的错误） */
@@ -136,8 +136,10 @@ export function dynamicPluginTools(): Array<ToolDefinition<AnyTool>> {
 }
 
 /** 把 plugin_* 工具注册进工具注册表（由 dynamic-plugins 组合条目在启用时调用） */
-export function registerDynamicPluginTools(registry: {
-  register: (definition: ToolDefinition<AnyTool>) => void;
-}): void {
-  for (const definition of dynamicPluginTools()) registry.register(definition);
+export function registerDynamicPluginTools(
+  ctx: Context,
+  registry: ToolRegistry<AnyTool>,
+): void {
+  // 挂到 dynamic-plugins 的 fiber 上：热停用通道时五个工具一起下线
+  for (const definition of dynamicPluginTools()) registerTool(ctx, registry, definition);
 }

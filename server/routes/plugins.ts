@@ -44,7 +44,7 @@ async function withAdmin(
   c: Context<AppEnv>,
   fn: (admin: PluginAdminService) => Promise<Response>,
 ): Promise<Response> {
-  const kernel = c.get("kernel");
+  const kernel = c.env.kernel;
   if (!kernel) return c.json({ error: "插件服务未装配（缺少内核上下文）", code: "NO_KERNEL" }, 503);
   try {
     return await fn(requirePluginAdmin(kernel));

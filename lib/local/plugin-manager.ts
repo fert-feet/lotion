@@ -27,6 +27,7 @@ import {
   type PluginPackageStore,
 } from "./plugin-package";
 import type { InstalledPluginRuntime } from "./plugin-runtime";
+import type { StaticPluginController } from "./static-plugin-controller";
 import type { PluginMarket } from "./plugin-market";
 
 /** 管理操作的可分类错误（路由层据此映射 HTTP 状态码） */
@@ -53,6 +54,8 @@ export interface CreatePluginManagerOptions {
   getPackages?: () => PluginPackageStore | undefined;
   /** 已安装插件运行时访问器（默认从 ctx 取） */
   getRuntime?: () => InstalledPluginRuntime | undefined;
+  /** 静态插件热挂载控制器（默认从 ctx 取；测试可注入） */
+  getStaticController?: () => StaticPluginController | undefined;
   /** 本地市场（测试可注入临时目录） */
   market?: PluginMarket;
   /** 内置插件目录（测试可缩小） */
@@ -64,6 +67,7 @@ export function createPluginManager(options: CreatePluginManagerOptions): Plugin
   const dynamic = options.getDynamic ?? (() => findDynamic(options.ctx));
   const packages = () => options.getPackages?.();
   const installedRuntime = () => options.getRuntime?.();
+  const staticController = () => options.getStaticController?.();
 
   const requirePackages = (): PluginPackageStore => {
     const store = packages();
@@ -94,6 +98,15 @@ export function createPluginManager(options: CreatePluginManagerOptions): Plugin
     if (!enabled) return { status: "disabled" };
     // UI 插件不在宿主装配报告里：启用即视为 active（刷新后生效）
     if (entry.scope === "ui") return { status: "active" };
+
+    // 有热挂载控制器时以它为准（启停/配置重挂后的实时状态）
+    const controller = staticController();
+    if (controller) {
+      const error = controller.error(entry.id);
+      if (error) return { status: "error", error };
+      return { status: controller.running(entry.id) ? "active" : "pending" };
+    }
+
     const report = options.getLoadReport?.();
     if (!report) return { status: "active" };
     const failed = report.failed.find((item) => item.id === entry.id);
@@ -116,8 +129,8 @@ export function createPluginManager(options: CreatePluginManagerOptions): Plugin
       enabled,
       approved: true,
       core: entry.core,
-      // 静态插件的启停/配置都要重新装配才会生效
-      restartRequired: true,
+      // UI 插件要刷新页面；宿主插件有热挂载控制器时无需重启
+      restartRequired: entry.scope === "ui" || !staticController(),
       status,
       ...(error ? { error } : {}),
       config: configOf(entry.id),
@@ -150,7 +163,7 @@ export function createPluginManager(options: CreatePluginManagerOptions): Plugin
       approved: !hasClient || manifest.approved,
       core: false,
       // httpRoutes 贡献受注册表限制；启停/配置都需要重启才能完全生效
-      restartRequired: manifest.capabilities.includes("httpRoutes"),
+      restartRequired: false,
       status,
       ...(runtimeError ? { error: runtimeError } : {}),
       config: manifest.configValues,
@@ -241,13 +254,23 @@ export function createPluginManager(options: CreatePluginManagerOptions): Plugin
         throw new PluginAdminError("CORE_PLUGIN", `「${entry.title}」是核心插件，不能禁用`);
       }
       await writePatch(id, { disabled: !enabled });
+      const controller = staticController();
+      if (controller && entry.scope === "host") {
+        if (enabled) {
+          const result = await controller.enable(id, patchOf(id).config);
+          if (!result.ok) {
+            throw new PluginAdminError("CONFLICT", result.error ?? "插件启用失败");
+          }
+        } else {
+          await controller.disable(id);
+        }
+      }
       return staticInfo(entry);
     }
     const manifest = packages()?.get(id);
     if (manifest) {
       const runtime = installedRuntime();
-      const needsRestart = manifest.capabilities.includes("httpRoutes");
-      if (manifest.host && !needsRestart) {
+      if (manifest.host) {
         if (enabled) {
           if (!runtime) {
             throw new PluginAdminError("UNSUPPORTED", "已安装插件运行时未装配");
@@ -277,13 +300,32 @@ export function createPluginManager(options: CreatePluginManagerOptions): Plugin
   const setConfig = async (id: string, config: Record<string, unknown>): Promise<PluginInfo> => {
     const entry = catalog.find((item) => item.id === id);
     if (entry) {
+      if (entry.core) {
+        throw new PluginAdminError("UNSUPPORTED", "核心插件配置请走 settings 配置层");
+      }
       await writePatch(id, { config });
+      const controller = staticController();
+      if (controller && entry.scope === "host" && isEnabled(entry)) {
+        await controller.disable(id);
+        const result = await controller.enable(id, config);
+        if (!result.ok) {
+          throw new PluginAdminError("CONFLICT", result.error ?? "插件重新加载失败");
+        }
+      }
       return staticInfo(entry);
     }
     const manifest = packages()?.get(id);
     if (manifest) {
       const next = { ...manifest, configValues: { ...manifest.configValues, ...config } };
       requirePackages().save(next);
+      const runtime = installedRuntime();
+      if (manifest.host && manifest.enabled && runtime) {
+        await runtime.unmount(id);
+        const result = await runtime.mount(id);
+        if (!result.ok) {
+          throw new PluginAdminError("CONFLICT", result.error ?? "插件重新加载失败");
+        }
+      }
       return installedInfo(next);
     }
     const runner = dynamic();

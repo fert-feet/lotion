@@ -29,6 +29,8 @@ export interface HttpRouteRegistry<SubApp> {
    * @throws 路径重复注册时抛错（一个路径一个所有者，避免两个插件抢同一段 API）
    */
   route(path: string, app: SubApp): void;
+  /** 注销路径（插件卸载用；不存在时静默） */
+  unregister(path: string): void;
   /** 已注册条目（装配审计/挂载用） */
   entries(): ReadonlyArray<HttpRouteEntry<SubApp>>;
 }
@@ -54,14 +56,40 @@ export function createHttpRouteRegistry<SubApp>(
       }
       registered.push({ path: normalized, app, owner: resolveOwner() });
     },
+    unregister(path: string) {
+      const normalized = normalizePath(path);
+      const index = registered.findIndex((entry) => entry.path === normalized);
+      if (index >= 0) registered.splice(index, 1);
+    },
     entries: () => [...registered],
   };
 }
 
+/**
+ * 插件友好的注册入口：注册 + 配对注销（挂到调用方 fiber 的 effect 上）。
+ * 动态分发读取的是注册表本身，因此注销后路由立即 404（无需重建 Hono app）。
+ */
+export function registerRoute<SubApp>(
+  ctx: Context,
+  registry: HttpRouteRegistry<SubApp>,
+  path: string,
+  app: SubApp,
+): void {
+  // Cordis 的 effect：回调立即执行、返回值作为 disposer
+  ctx.effect(() => {
+    registry.route(path, app);
+    return () => registry.unregister(path);
+  });
+}
+
 /** 装配注册表 */
 export function provideHttpRoutes<SubApp>(ctx: Context, registry: HttpRouteRegistry<SubApp>): void {
-  if (typeof registry?.route !== "function" || typeof registry?.entries !== "function") {
-    throw new Error("httpRoutes 实现不完整：需要 route() 与 entries()");
+  if (
+    typeof registry?.route !== "function" ||
+    typeof registry?.unregister !== "function" ||
+    typeof registry?.entries !== "function"
+  ) {
+    throw new Error("httpRoutes 实现不完整：需要 route() / unregister() / entries()");
   }
   provideService(ctx, HTTP_ROUTES_SERVICE, registry);
 }

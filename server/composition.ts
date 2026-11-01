@@ -13,7 +13,7 @@ import type { Context, PluginEntry, PluginPatch } from "@/lib/kernel";
 import { provideTools, requireTools } from "@/lib/seams/tools";
 import { Hono } from "hono";
 import { provideDynamic } from "@/lib/seams/dynamic";
-import { requireHttpRoutes } from "@/lib/seams/http-routes";
+import { registerRoute, requireHttpRoutes } from "@/lib/seams/http-routes";
 import { requireAuth } from "./middleware";
 import type { AppEnv, } from "./http";
 import { createDynamicRunner } from "@/lib/dynamic/runner";
@@ -30,6 +30,7 @@ import { createPluginManager } from "@/lib/local/plugin-manager";
 import { createFileDynamicPersistence } from "@/lib/local/dynamic-store";
 import { findInstalledStore } from "@/lib/local/plugin-package";
 import { findInstalledRuntime } from "@/lib/local/plugin-runtime";
+import { findStaticPluginController } from "@/lib/local/static-plugin-controller";
 import { createDefaultPluginMarket } from "@/lib/local/plugin-market";
 import { providePluginAdmin } from "@/lib/seams/plugins";
 import { findDynamic } from "@/lib/seams/dynamic";
@@ -89,7 +90,7 @@ export function hostComposition(options: HostCompositionOptions = {}): PluginEnt
           });
           provideDynamic(ctx, runner);
           // 自指工具：模型借此查/写/跑/停自己的插件
-          registerDynamicPluginTools(requireTools(ctx));
+          registerDynamicPluginTools(ctx, requireTools(ctx));
 
           // 客户端半边的下发通道：只回**已批准**的客户端半边，**绝不下发 host 代码**
           const dynamicRoutes = new Hono<AppEnv>();
@@ -107,7 +108,7 @@ export function hostComposition(options: HostCompositionOptions = {}): PluginEnt
                 })),
             ),
           );
-          requireHttpRoutes(ctx).route("/dynamic", dynamicRoutes);
+          registerRoute(ctx, requireHttpRoutes(ctx), "/dynamic", dynamicRoutes);
         },
       },
     },
@@ -132,6 +133,7 @@ export function hostComposition(options: HostCompositionOptions = {}): PluginEnt
             // 已安装包/运行时由 server/kernel.ts 在装配后提供（这里延迟取）
             getPackages: () => findInstalledStore(ctx),
             getRuntime: () => findInstalledRuntime(ctx),
+            getStaticController: () => findStaticPluginController(ctx),
             market: createDefaultPluginMarket(),
           });
           providePluginAdmin(ctx, manager);

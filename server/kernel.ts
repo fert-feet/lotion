@@ -47,6 +47,10 @@ import {
   provideInstalledRuntime,
 } from "@/lib/local/plugin-runtime";
 import { resolvePluginsDir } from "@/lib/local/dynamic-store";
+import {
+  createStaticPluginController,
+  provideStaticPluginController,
+} from "@/lib/local/static-plugin-controller";
 
 export interface HostKernel {
   /** 根上下文（路由/工具从这里取服务） */
@@ -129,6 +133,14 @@ export async function bootHostKernel(options: BootHostKernelOptions = {}): Promi
     toPluginPatches(settings.plugins.get()),
   );
   const loadRest = await loadPlugins(ctx, patchedEntries);
+
+  // 静态插件热切换：共享 loader 的 fiber 表；路由分发是实时查表，因此启停立即生效
+  const staticController = createStaticPluginController({
+    ctx,
+    entries: patchedEntries,
+    fibers: loadRest.fibers,
+  });
+  provideStaticPluginController(ctx, staticController);
 
   // 已安装的第三方插件：在 createApp 之前挂载宿主半边，
   // 这样它们贡献的 httpRoutes 才会进入注册表（之后启停路由类插件需重启）。

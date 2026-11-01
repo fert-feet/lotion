@@ -233,6 +233,8 @@ export function PluginSettings() {
             ? `「${next.title}」已${enabled ? "启用" : "停用"}，刷新页面后生效。`
             : `「${next.title}」已${enabled ? "启用" : "停用"}，重启服务后生效。`,
         );
+      } else {
+        setNotice(`「${next.title}」已${enabled ? "启用" : "停用"}（即时生效）。`);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "操作失败");
@@ -358,7 +360,11 @@ export function PluginSettings() {
           if (!configTarget) return;
           const next = await admin.setConfig(configTarget.id, config);
           replace(next);
-          setNotice(`「${next.title}」配置已保存，重启服务后生效。`);
+          setNotice(
+            next.restartRequired
+              ? `「${next.title}」配置已保存，重启服务后生效。`
+              : `「${next.title}」配置已保存并重新加载。`,
+          );
         }}
       />
 

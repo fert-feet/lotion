@@ -3,12 +3,14 @@ import type { Context } from "hono";
 import type { Context as KernelContext } from "@/lib/kernel";
 import type { LocalUser } from "@/lib/local/auth";
 
-/** 注入到 Hono Context 的类型：requireAuth 写 user；createApp 注入内核 ctx（插件路由用） */
+/** 注入到 Hono Context 的类型：Bindings 放内核上下文；Variables 放 requireAuth 的用户 */
 export type AppEnv = {
+  Bindings: {
+    /** 宿主内核上下文（createApp 的分发器通过 env 传给子应用） */
+    kernel?: KernelContext;
+  };
   Variables: {
     user: LocalUser;
-    /** 宿主内核上下文（createApp 的 options.kernel；测试 / 仅路由场景可为空） */
-    kernel?: KernelContext;
   };
 };
 

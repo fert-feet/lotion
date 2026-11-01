@@ -4,7 +4,7 @@
 // 停用一段 API：在 data/settings.json 的 plugins 里按 id 禁用（走装配 patch）。
 import type { Hono } from "hono";
 import type { Context, PluginEntry } from "@/lib/kernel";
-import { requireHttpRoutes, type HttpRouteRegistry } from "@/lib/seams/http-routes";
+import { registerRoute, requireHttpRoutes, type HttpRouteRegistry } from "@/lib/seams/http-routes";
 import type { AppEnv } from "../http";
 import { aiChatRoutes } from "./ai-chat";
 import { aiUndoRoutes } from "./ai-undo";
@@ -28,7 +28,7 @@ function routePlugin(name: string, path: string, app: ApiSubApp): PluginEntry {
       name: `route/${name}`,
       inject: ["httpRoutes"],
       apply(ctx: Context) {
-        requireHttpRoutes<ApiSubApp>(ctx).route(path, app);
+        registerRoute(ctx, requireHttpRoutes<ApiSubApp>(ctx), path, app);
       },
     },
   };

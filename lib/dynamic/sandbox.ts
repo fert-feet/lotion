@@ -83,6 +83,29 @@ export type HostSandboxResult = HostSandboxSuccess | HostSandboxFailure;
  * 否则模型写的插件卸载后会留下孤儿工具。
  */
 function scopedServiceView(real: Context, key: string, service: unknown): unknown {
+  if (key === "httpRoutes") {
+    const registry = service as {
+      route?: (path: string, app: unknown) => void;
+      unregister?: (path: string) => void;
+      [k: string]: unknown;
+    };
+    if (typeof registry?.route !== "function" || typeof registry?.unregister !== "function") {
+      return service;
+    }
+    return new Proxy(registry, {
+      get(target, prop, receiver) {
+        if (prop === "route") {
+          return (path: string, app: unknown) => {
+            target.route?.(path, app);
+            // 路由注册也是可逆副作用：插件卸载时注销路径
+            real.effect(() => () => target.unregister?.(path));
+          };
+        }
+        return Reflect.get(target, prop, receiver);
+      },
+    });
+  }
+
   if (key !== "tools") return service;
   const registry = service as {
     register?: (definition: unknown) => void;

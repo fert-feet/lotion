@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { createRootContext } from "@/lib/kernel";
 import type { DynamicRecord, DynamicRunner } from "@/lib/seams/dynamic";
 import { createPluginManager, PluginAdminError } from "@/lib/local/plugin-manager";
+import type { StaticPluginController } from "@/lib/local/static-plugin-controller";
 import { createMemoryPluginsSettings } from "../../mocks/plugin-settings";
 
 function createFakeRunner() {
@@ -58,12 +59,39 @@ function createFakeRunner() {
   return { runner, records };
 }
 
-function createManager(options: { dynamic?: DynamicRunner } = {}) {
+function createFakeController() {
+  const running = new Set<string>();
+  const errors = new Map<string, string>();
+  const calls = {
+    enable: [] as Array<{ id: string; config?: unknown }>,
+    disable: [] as string[],
+  };
+  const controller: StaticPluginController & { calls: typeof calls } = {
+    calls,
+    async enable(id, config) {
+      calls.enable.push({ id, config });
+      running.add(id);
+      return { ok: true };
+    },
+    async disable(id) {
+      calls.disable.push(id);
+      running.delete(id);
+    },
+    running: (id) => running.has(id),
+    error: (id) => errors.get(id),
+  };
+  return controller;
+}
+
+function createManager(
+  options: { dynamic?: DynamicRunner; controller?: StaticPluginController } = {},
+) {
   const settings = createMemoryPluginsSettings();
   const manager = createPluginManager({
     ctx: createRootContext(),
     settings,
     ...(options.dynamic ? { getDynamic: () => options.dynamic } : {}),
+    ...(options.controller ? { getStaticController: () => options.controller } : {}),
   });
   return { manager, settings };
 }
@@ -114,6 +142,35 @@ describe("插件管理器（静态）", () => {
     const { manager } = createManager();
     await expect(manager.setEnabled("ghost", true)).rejects.toBeInstanceOf(PluginAdminError);
     await expect(manager.remove("route-auth")).rejects.toMatchObject({ code: "UNSUPPORTED" });
+  });
+
+  it("有热挂载控制器时启停立即生效，宿主插件不再要求重启", async () => {
+    const controller = createFakeController();
+    const { manager } = createManager({ controller });
+
+    const enabled = await manager.setEnabled("dynamic-plugins", true);
+    expect(controller.calls.enable).toEqual([{ id: "dynamic-plugins", config: undefined }]);
+    expect(enabled).toMatchObject({ enabled: true, status: "active", restartRequired: false });
+
+    const ui = (await manager.list()).find((item) => item.id === "ui-ai-panel");
+    expect(ui?.restartRequired).toBe(true); // UI 插件仍要刷新页面
+  });
+
+  it("改静态插件配置会热重挂并传入新 config", async () => {
+    const controller = createFakeController();
+    const { manager } = createManager({ controller });
+
+    const info = await manager.setConfig("route-auth", { label: "登录" });
+    expect(controller.calls.disable).toContain("route-auth");
+    expect(controller.calls.enable).toContainEqual({ id: "route-auth", config: { label: "登录" } });
+    expect(info.config).toEqual({ label: "登录" });
+  });
+
+  it("核心插件配置不允许从插件页改", async () => {
+    const { manager } = createManager();
+    await expect(manager.setConfig("tools-registry", { x: 1 })).rejects.toMatchObject({
+      code: "UNSUPPORTED",
+    });
   });
 });
 
