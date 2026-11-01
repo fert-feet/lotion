@@ -14,8 +14,9 @@ import { LazyAiPanel } from "./lazy-panels";
 /** 插槽名约定（区域.子区域） */
 export const SLOT_DETAILS_PANEL = "details.panel";
 
-/** 内置 UI 插件清单 */
-export function shellUiPlugins(): PluginEntry[] {
+/** 内置 UI 插件清单（disabled 里的 id 不参与装配，用于服务端下发的启停配置） */
+export function shellUiPlugins(options: { disabled?: readonly string[] } = {}): PluginEntry[] {
+  const disabled = new Set(options.disabled ?? []);
   return [
     {
       id: "ui-ai-panel",
@@ -32,5 +33,5 @@ export function shellUiPlugins(): PluginEntry[] {
         },
       },
     },
-  ];
+  ].filter((entry) => !disabled.has(entry.id));
 }

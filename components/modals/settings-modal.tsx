@@ -1,29 +1,103 @@
-import useSettings from "../../hooks/use-setting";
-import { ModeToggle } from "../lightButton";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog";
-import { Label } from "../ui/label";
+"use client";
+
+// 设置弹窗：左侧标签（外观 / 插件），右侧内容。
+// 插件页只对 owner 可见 —— 插件装配影响整个 Node 进程，普通用户只能使用、不能改。
+import { useEffect, useState } from "react";
+import useSettings from "@/hooks/use-setting";
+import { useUser } from "@/hooks/use-user";
+import { cn } from "@/lib/utils";
+import { ModeToggle } from "@/components/lightButton";
+import { PluginSettings } from "@/components/settings/plugin-settings";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+
+type Tab = "appearance" | "plugins";
+
+function TabButton({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      aria-current={active ? "page" : undefined}
+      onClick={onClick}
+      className={cn(
+        "w-full rounded-[6px] px-2 py-1.5 text-left text-[13px] transition-colors duration-150",
+        active
+          ? "bg-card font-medium text-shell-label-primary shadow-[var(--shadow-sm)]"
+          : "text-shell-label-secondary hover:bg-shell-row-hover",
+      )}
+    >
+      {children}
+    </button>
+  );
+}
 
 const SettingsModal = () => {
-    const settings = useSettings();
+  const settings = useSettings();
+  const { isOwner } = useUser();
+  const [tab, setTab] = useState<Tab>("appearance");
 
-    return (
-        <Dialog open={settings.isOpen} onOpenChange={settings.onClose}>
-            <DialogContent>
-                <DialogHeader className="border-b-[0.5px] border-shell-border pb-3">
-                    <DialogTitle>设置</DialogTitle>
-                </DialogHeader>
-                <div className="flex items-center justify-between pt-1">
-                    <div className="flex flex-col gap-y-0.5">
-                        <Label>外观</Label>
-                        <span className="text-[12px] text-muted-foreground">
-                            选择 Lotion 的显示主题
-                        </span>
-                    </div>
-                    <ModeToggle />
+  // 非 owner 永远看不到插件页；权限变化时退回外观
+  useEffect(() => {
+    if (!isOwner && tab === "plugins") setTab("appearance");
+  }, [isOwner, tab]);
+
+  return (
+    <Dialog open={settings.isOpen} onOpenChange={settings.onClose}>
+      <DialogContent className="max-w-[680px] overflow-hidden p-0">
+        <DialogHeader className="sr-only">
+          <DialogTitle>设置</DialogTitle>
+        </DialogHeader>
+
+        <div className="flex min-h-[420px]">
+          <nav className="flex w-[148px] shrink-0 flex-col gap-0.5 border-r-[0.5px] border-shell-border bg-secondary/40 p-2.5">
+            <p className="px-2 pb-1.5 pt-1 text-[11px] font-semibold uppercase tracking-[0.04em] text-shell-label-tertiary">
+              设置
+            </p>
+            <TabButton active={tab === "appearance"} onClick={() => setTab("appearance")}>
+              外观
+            </TabButton>
+            {isOwner ? (
+              <TabButton active={tab === "plugins"} onClick={() => setTab("plugins")}>
+                插件
+              </TabButton>
+            ) : null}
+          </nav>
+
+          <div className="min-w-0 flex-1 p-5">
+            {tab === "appearance" ? (
+              <div className="flex flex-col gap-4">
+                <div>
+                  <h2 className="text-[15px] font-semibold tracking-[-0.01em] text-shell-label-primary">
+                    外观
+                  </h2>
+                  <p className="mt-0.5 text-[12px] leading-[17px] text-shell-label-tertiary">
+                    选择 Lotion 的显示主题。
+                  </p>
                 </div>
-            </DialogContent>
-        </Dialog>
-    );
+                <div className="flex items-center justify-between rounded-[10px] border-[0.5px] border-shell-border px-3 py-2.5">
+                  <div className="flex flex-col gap-y-0.5">
+                    <Label>主题</Label>
+                    <span className="text-[12px] text-muted-foreground">跟随系统或手动选择明暗</span>
+                  </div>
+                  <ModeToggle />
+                </div>
+              </div>
+            ) : (
+              <PluginSettings />
+            )}
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
 };
 
 export default SettingsModal;

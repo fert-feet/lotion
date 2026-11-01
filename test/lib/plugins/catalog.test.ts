@@ -37,4 +37,10 @@ describe("插件目录", () => {
     expect(PLUGIN_CATALOG.find((entry) => entry.id === "ui-ai-panel")?.scope).toBe("ui");
     expect(PLUGIN_CATALOG.filter((entry) => entry.scope === "ui")).toHaveLength(1);
   });
+
+  it("shellUiPlugins 按服务端下发的 disabled 列表过滤", () => {
+    expect(shellUiPlugins()).toHaveLength(1);
+    expect(shellUiPlugins({ disabled: ["ui-ai-panel"] })).toHaveLength(0);
+    expect(shellUiPlugins({ disabled: ["ghost"] })).toHaveLength(1);
+  });
 });
