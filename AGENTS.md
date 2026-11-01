@@ -44,8 +44,9 @@ pnpm test:watch   # Vitest 监听模式
 
 Lotion 是**插件化应用**：核心只提供内核与接缝，功能以插件挂载。内核是**真实
 `@deepseek-ai/cordis@4.0.2`**（不是自研），且**全仓库只有 `lib/kernel/cordis.ts` 一处 import 它**——
-要在 npm 依赖与 vendor 源码之间切换，只动那一个文件。完整设计（7 条接缝、写插件指南、
-动态通道的安全姿态）见 [docs/插件化架构.md](docs/插件化架构.md)。
+要在 npm 依赖与 vendor 源码之间切换，只动那一个文件。完整设计（8 条接缝、写插件指南、
+动态通道的安全姿态）见 [docs/插件化架构.md](docs/插件化架构.md)，第三方插件格式见
+[docs/插件开发.md](docs/插件开发.md)。
 
 ```
 浏览器（React SPA）                                  Node 进程（Hono）
@@ -60,13 +61,13 @@ Lotion 是**插件化应用**：核心只提供内核与接缝，功能以插件
 ```
 Hono（server/，Node 进程）
    ├── requireAuth 中间件（会话 cookie → c.get("user")）
-   ├── 26 个 REST 端点（= 9 个路由插件，清单见 server/routes/index.ts；另 +1 个 opt-in 动态插件路由）
+   ├── 37 个 REST 端点（= 10 个路由插件，清单见 server/routes/index.ts；另 +1 个 opt-in 动态插件路由）
    │     例如 /api/documents/:id/append、/api/ai/undo
    ├── 直接调用 lib/local/db.ts（原生 SQLite，无 HTTP 中转）
    └── 静态资源 dist/ + public/ + SPA 回退
 ```
 
-**7 条接缝**（`lib/seams/`：契约 + 服务 key + 装配期形状校验；实现分端提供）
+**8 条接缝**（`lib/seams/`：契约 + 服务 key + 装配期形状校验；实现分端提供）
 
 | 服务 key | 宿主提供方 | 浏览器提供方 |
 |---|---|---|
@@ -77,13 +78,14 @@ Hono（server/，Node 进程）
 | `uiSlots` | — | `src/kernel/client.ts` |
 | `remote` | —（宿主侧即 REST 路由） | `lib/client/remote-rest.ts` |
 | `dynamicPlugins` | `lib/dynamic/runner.ts`（**默认 disabled**） | `src/dynamic/client-runner.ts` |
+| `pluginAdmin` | `lib/local/plugin-manager.ts` | `lib/client/plugin-admin-rest.ts` |
 
 ```
 src/
-├── main.tsx                # 客户端入口（样式 → App）
+├── main.tsx                # 客户端入口（先读 disabled UI 插件 → 内核装配 → App）
 ├── app.tsx                 # 全局 Provider（Theme / Toaster / Modal / User）+ KernelProvider
 ├── router.tsx              # 路由表（导出 routes 供测试用 createMemoryRouter 复用）
-├── kernel/                 # 客户端内核装配：client.ts（bootClientKernel）+ react.tsx（useDocStore/useSlot/useActor）
+├── kernel/                 # 客户端内核装配：client.ts（bootClientKernel）+ react.tsx（useDocStore/useSlot/usePluginAdmin）
 ├── dynamic/                # 动态插件客户端半边（宿主关闭时为空操作）
 ├── pages/                  # 页面：marketing / login / register / documents / document / preview / 404 / error
 ├── shell/                  # 认证区外壳：app-shell / main-layout(守卫) / sidebar / ai-panel / editor / ...
@@ -95,17 +97,17 @@ server/
 ├── kernel.ts               # 宿主内核装配（组合根）
 ├── composition.ts          # 宿主组合清单（稳定 id + 用户层 patch；dynamic-plugins 默认 disabled）
 ├── load-env.ts             # .env.local / .env 加载（真实环境变量优先）
-├── app.ts                  # 从 httpRoutes 注册表装配 /api/*（可测试，不监听端口）
-├── http.ts                 # AppEnv 类型 / readJson / 统一错误响应
+├── app.ts                  # 实时分发：按请求查 httpRoutes 注册表装配 /api/*（可测试，不监听端口）
+├── http.ts                 # AppEnv（Bindings.kernel / Variables.user）/ readJson / 统一错误响应
 ├── middleware.ts           # requireAuth（会话校验）
-└── routes/                 # 路由插件清单 index.ts + auth / me / documents / chat / ai-chat(SSE) / ai-undo / upload / public-documents
+└── routes/                 # 路由插件清单 index.ts + auth / me / documents / chat / ai-chat(SSE) / ai-undo / upload / plugins / public-documents
 lib/
 ├── kernel/                 # ⚠️ 环境无关纯 TS（禁 node: / React / 服务端模块，由 boundary.test.ts 守卫）
 │   ├── cordis.ts            # 唯一 import "@deepseek-ai/cordis" 处：适配层（FiberState 重建/settle/audit）
 │   ├── cordis-loader.ts     # 装配层（稳定 id / patch 整块替换 / 单条失败不掀桌 / 逆序卸载）
 │   └── index.ts             # 出口
-├── seams/                  # 7 条接缝的契约（doc-store / settings / http-routes / ui-slots / tools / remote / dynamic）
-├── client/                 # ⚠️ 浏览器专用：doc-store-rest（docStore 的 REST 实现）+ remote-rest（RPC 白名单）
+├── seams/                  # 8 条接缝的契约（doc-store / settings / http-routes / ui-slots / tools / remote / dynamic / plugins）
+├── client/                 # ⚠️ 浏览器专用：doc-store-rest + remote-rest + plugin-admin-rest + plugin-boot
 ├── dynamic/                # ⚠️ 服务端专用：node:vm 沙箱 + 生命周期 + plugin_* 自指工具（默认关闭）
 ├── db.ts                   # 客户端数据访问入口：全部走 fetch REST（⚠️ 仅浏览器；UI 层禁止直接 import，走 docStore 接缝）
 ├── local/                  # ⚠️ 服务端专用（禁止客户端导入）
@@ -117,7 +119,15 @@ lib/
 │   ├── lotion-config.ts     # Lotion 四个配置命名空间（ai / storage / server / logging）
 │   ├── auth.ts              # scrypt 哈希 + 会话管理 + cookie 工具
 │   ├── request-user.ts      # 从请求 cookie 解析会话用户（中间件调用）
-│   └── uploads.ts           # 上传目录解析（UPLOAD_DIR）
+│   ├── uploads.ts           # 上传目录解析（UPLOAD_DIR）
+│   ├── owner.ts             # 插件管理员：最早注册的用户
+│   ├── plugin-catalog.ts    # 内置插件元数据（标题/描述/core/能力）
+│   ├── plugin-manager.ts    # pluginAdmin 宿主实现（列表/启停/配置/审批/市场）
+│   ├── plugin-package.ts    # 已安装包 manifest + data/plugins/installed 存储
+│   ├── plugin-runtime.ts    # 已安装插件宿主半边挂载/卸载
+│   ├── plugin-market.ts     # public/plugin-market 本地市场读取
+│   ├── dynamic-store.ts     # 动态定义持久化 data/plugins/dynamic
+│   └── static-plugin-controller.ts  # 静态插件热挂载（M4）
 ├── agent.ts                # Agent 核心：streamText + doom loop 检测 + SSE 事件流包装 + 回合快照/改动前快照
 ├── chat-snapshot.ts        # 回合快照类型 + 宽容解析（客户端/服务端共享，⚠️ 环境无关）
 ├── tool-meta.ts            # 工具标签/图标单一真相源（客户端 AI 面板也导入）
@@ -130,8 +140,11 @@ lib/
 ├── compress.ts             # 上下文压缩（滑动窗口 100 条 + 模型重写式摘要）
 ├── logger.ts               # 结构化日志（LOG_LEVEL 走配置层）
 └── layout/columns.ts       # 三栏让步链纯函数
-hooks/                      # Zustand stores + use-user（含 refreshUser）
+hooks/                      # Zustand stores + use-user（含 refreshUser / isOwner）
 components/                 # shadcn/ui + Toolbar + SearchCommand + Upload + editor/
+│   └── settings/            # 设置弹窗里的插件页 / 配置弹窗 / 源码预览 / 市场
+public/plugin-market/       # 本地市场 registry + 示例 bundle（word-count / daily-quote）
+templates/plugin/           # 第三方插件最小模板（复制到 data/plugins/installed）
 test/                       # Vitest 单测（lib/ / api/ / components/ / seams/ 同构）
 ```
 
@@ -147,7 +160,11 @@ test/                       # Vitest 单测（lib/ / api/ / components/ / seams/
   打开看看 / 丢弃 / 确认保存 + 创建位置）；文档页不再有 `DraftBanner`（已删除）。
   刷新后的终态靠"文档事实对账"恢复：文档不在了 = 已丢弃，`isDraft=false` = 已保存
 - sidebar 宽度可拖拽（264-420px），可折叠为 56px rail
-- 运行时数据：`data/lotion.db`（可用 `LOTION_DB_PATH` 覆盖）、`data/uploads/`（可用 `UPLOAD_DIR` 覆盖），均 gitignore
+- 运行时数据：`data/lotion.db`（可用 `LOTION_DB_PATH` 覆盖）、`data/uploads/`（可用 `UPLOAD_DIR` 覆盖）、
+  `data/plugins/`（已安装 + AI 动态定义，可用 `LOTION_PLUGINS_DIR` 覆盖），均 gitignore
+- 插件管理：`pluginAdmin` 接缝 + `data/settings.json` 的 `plugins` patch；只有**最早注册的用户**（owner）
+  能改装配；静态插件启停走 `static-plugin-controller`（实时），UI 插件需刷新；已安装包/市场见
+  `docs/插件开发.md`
 
 ## 设计系统（Apple / macOS 语言）
 
@@ -186,6 +203,9 @@ test/                       # Vitest 单测（lib/ / api/ / components/ / seams/
   + 在 `server/composition.ts`（宿主）或 `src/shell/ui-plugins.tsx`（UI）加**一行带稳定 id 的清单**
   + 补单测。路由走 `server/routes/index.ts`，AI 工具走 `registerTool(ctx, requireTools(ctx), {...})`，
   UI 走 `requireUiSlots(ctx).register({ id, slot, kind: "single" | "list", component })`
+- **插件管理**：管理写操作走 `pluginAdmin` 接缝（`usePluginAdmin()`），不要在组件里直接 fetch；
+  新增路由贡献用 `registerRoute`（`ctx.effect` 配对注销），否则热切换会留下孤儿路由；
+  owner = **最早注册的用户**，插件管理 API 全部 owner-only（`client-config` 除外）
 - **每个注册都要有 disposer**（工具/监听器/服务/effect 都要可逆）；⚠️ Cordis 的 `ctx.effect` 是
   “立即执行并返回 disposer”，只在卸载时执行请写 `ctx.effect(() => () => cleanup())`
 - **装配是异步的**：`ctx.plugin()` 只启动加载（state=LOADING），必须 `await settle(fiber)` /

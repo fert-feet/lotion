@@ -6,7 +6,7 @@
 
 > `feature/vite-hono` 是仓库唯一分支兼默认分支，即本地单机版：SQLite 本地数据库 + 自研 Auth + REST API。前身 Supabase 网络数据库版（Next.js）已归档为 tag `archive/supabase-main`，仅作只读历史基线。详见 [docs/本地数据库版.md](docs/本地数据库版.md)。
 >
-> 架构是**插件化**的（内核 + 7 条接缝 + 内置插件）：内核用 `@deepseek-ai/cordis`，全仓库只有 `lib/kernel/cordis.ts` 一处 import 它。见 [docs/插件化架构.md](docs/插件化架构.md)。
+> 架构是**插件化**的（内核 + 8 条接缝 + 内置插件）：内核用 `@deepseek-ai/cordis`，全仓库只有 `lib/kernel/cordis.ts` 一处 import 它。见 [docs/插件化架构.md](docs/插件化架构.md)，第三方插件格式见 [docs/插件开发.md](docs/插件开发.md)。
 
 全栈 AI 笔记应用：**Vite 8 + React 19** 前端 SPA（react-router 7），**Hono 4** 单进程提供 REST API 与静态资源，**SQLite 本地数据库**存储，**BlockNote 0.54** 负责富文本编辑，**DeepSeek Agent**（19 个工具）帮你搜索、创建、修改和整理笔记。界面遵循 **Apple / macOS 视觉语言**：系统色板、半透明材质、SF 字体栈与克制的圆角阴影，明暗双主题完整适配。
 
@@ -48,6 +48,21 @@
 - **会话绑定文档** — 新建会话自动绑定当前文档，历史列表可切换「全部会话 / 只看本文档」
 - **建完即跳转查看，确认在对话里** — AI 新建笔记后自动切到该文档让用户查看内容（无需先保存），
   对话卡片同时给出「打开看看 / 丢弃 / 确认保存」与**创建位置**；文档页不再有确认横幅（`DraftBanner` 已移除）
+
+**插件系统**
+
+- **设置 → 插件** — 内置能力也按插件装配：核心 / 内置 / 已安装 / AI 动态分组，开关、状态、配置、
+  源码预览；只有最早注册的用户（owner）能改装配
+- **实时启停** — 路由注册表可逆 + 请求级实时分发：启停静态/已安装插件的 tools 与 httpRoutes 立即生效；
+  UI 插件（AI 面板）需刷新页面
+- **第三方插件包** — `data/plugins/installed/<id>/plugin.json`（manifest + host/client 代码），
+  设置页可配置、审批、卸载；格式与 API 见 [docs/插件开发.md](docs/插件开发.md)，模板在 `templates/plugin/`
+- **本地市场** — `public/plugin-market/registry.json` 发现/安装示例插件（word-count / daily-quote）；
+  安装 ≠ 启用 ≠ 批准，客户端半边必须人工审批
+- **AI 动态插件** — 模型用 `plugin_*` 工具现场定义；定义持久化到 `data/plugins/dynamic/`，
+  重启后仍在但运行状态不自动恢复；客户端半边在设置页审批后下发
+- **安全姿态（如实）** — `node:vm` / 浏览器 `new Function` **不是安全边界**，插件与 Lotion 进程同信任级别；
+  默认关闭动态通道，安装不自动启用，客户端半边必须人工批准
 
 ## 它如何工作
 
@@ -160,23 +175,25 @@ server/
 ├── kernel.ts                     # 宿主内核装配（组合根）
 ├── composition.ts                # 宿主组合清单（稳定 id + 用户层 patch）
 ├── load-env.ts                   # .env.local / .env 加载（真实环境变量优先）
-├── app.ts                        # 从 httpRoutes 注册表装配 /api/*（可测试，不监听端口）
+├── app.ts                        # 实时分发：按请求查 httpRoutes 注册表装配 /api/*（可测试）
 ├── middleware.ts                 # requireAuth（会话 cookie 校验）
 └── routes/                       # 路由插件清单 index.ts + auth / me / documents(+archive|move|restore)
-│                                 #   / chat/sessions / ai-chat(SSE) / ai-undo / upload + uploads / public-documents
+│                                 #   / chat/sessions / ai-chat(SSE) / ai-undo / upload + uploads / plugins / public-documents
 components/
+├── settings/                     # 设置弹窗插件页 / 配置弹窗 / 源码预览 / 市场
 ├── editor/                       # blocknote.css / lotion-suggestion-menu.tsx / outline-panel.tsx
 ├── markdown/                     # AI 回复的流式 Markdown 渲染
 ├── ui/ + icons/ + modals/ + upload/ + search-command.tsx
 hooks/                            # use-layout / use-user / use-refresh / ...
 lib/
 ├── kernel/                       # ⚠️ 环境无关纯 TS：cordis.ts（唯一适配层）/ cordis-loader.ts
-├── seams/                        # 7 条接缝契约：doc-store / settings / http-routes / ui-slots / tools / remote / dynamic
-├── client/                       # ⚠️ 浏览器专用：doc-store-rest（docStore 的 REST 实现）/ remote-rest
+├── seams/                        # 8 条接缝契约：doc-store / settings / http-routes / ui-slots / tools / remote / dynamic / plugins
+├── client/                       # ⚠️ 浏览器专用：doc-store-rest / remote-rest / plugin-admin-rest / plugin-boot
 ├── dynamic/                      # ⚠️ 服务端专用：node:vm 沙箱 + plugin_* 自指工具（默认关闭）
 ├── db.ts                         # 客户端数据访问入口（全部 fetch REST；UI 层走 docStore 接缝）
 ├── local/                        # ⚠️ 服务端专用：sqlite / migrations / db / auth / request-user / uploads
-│                                 #   + doc-store-sqlite / settings-file / lotion-config
+│                                 #   + plugin-catalog / plugin-manager / plugin-package / plugin-runtime
+│                                 #   + plugin-market / dynamic-store / static-plugin-controller
 ├── content.ts                    # 客户端安全的内容适配（isBlockNoteJson / toEditorBlocks）
 ├── content-server.ts             # ⚠️ 服务端专用：JSON ↔ Markdown（@blocknote/server-util）
 ├── blocknote-schema.ts           # 自定义 schema（callout / mention），客户端服务端共享
@@ -187,7 +204,10 @@ lib/
 ├── tool-meta.ts                  # 工具标签/图标单一真相源（客户端也导入）
 ├── ai-prompts.ts / compress.ts / logger.ts
 └── layout/columns.ts             # 三栏让步链纯函数（常量 + computeColumns）
-test/                             # Vitest 单测（与 lib/、server/ 同构，626 个用例）
+public/plugin-market/             # 本地市场 registry + 示例 bundle
+templates/plugin/                 # 第三方插件最小模板
+docs/                             # 插件化架构 / 本地数据库版 / 插件开发
+test/                             # Vitest 单测（与 lib/、server/ 同构，691 个用例）
 ```
 
 ## 数据模型（SQLite 6 张表）
@@ -221,7 +241,7 @@ pnpm build        # vite 构建客户端到 dist/
 pnpm start        # 运行 Hono（托管 dist/ + API，单机自托管）
 pnpm typecheck    # tsc --noEmit
 pnpm lint         # ESLint
-pnpm test         # Vitest 单测（626 个用例，内存 SQLite + Hono app.request）
+pnpm test         # Vitest 单测（691 个用例，内存 SQLite + Hono app.request）
 pnpm test:watch   # Vitest 监听模式
 ```
 
