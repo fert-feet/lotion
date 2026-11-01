@@ -8,6 +8,7 @@
 // 注意：**组合清单是静态层**（改动需重启）；用户 patch 走 settings，属于可热读的配置层
 // （对齐 DSH 的实测结论：桌面端只有配置层热生效）。
 import type Database from "better-sqlite3";
+import path from "node:path";
 import type { Context, PluginEntry, PluginPatch } from "@/lib/kernel";
 import { provideTools, requireTools } from "@/lib/seams/tools";
 import { Hono } from "hono";
@@ -26,6 +27,7 @@ import {
   requireLotionSettings,
 } from "@/lib/local/lotion-config";
 import { createPluginManager } from "@/lib/local/plugin-manager";
+import { createFileDynamicPersistence } from "@/lib/local/dynamic-store";
 import { providePluginAdmin } from "@/lib/seams/plugins";
 import { findDynamic } from "@/lib/seams/dynamic";
 
@@ -34,6 +36,8 @@ export interface HostCompositionOptions {
   settingsPath?: string;
   /** docStore 的 SQLite 连接（测试注入 :memory:） */
   db?: Database.Database;
+  /** 插件数据根目录（测试注入临时目录；省略用 data/plugins） */
+  pluginsDir?: string;
 }
 
 /** 共享的工具注册表（宿主内单例；插件可往它里面加工具） */
@@ -75,6 +79,10 @@ export function hostComposition(options: HostCompositionOptions = {}): PluginEnt
             // 白名单：动态插件只能注入这些服务（"能碰什么"显式化）
             allowedServices: ["tools"],
             onLog: (level, message) => console[level](message),
+            // 定义/审批状态落盘：重启后还在；运行状态不自动恢复（runner 归为 stopped）
+            persistence: options.pluginsDir
+              ? createFileDynamicPersistence(path.join(options.pluginsDir, "dynamic"))
+              : createFileDynamicPersistence(),
           });
           provideDynamic(ctx, runner);
           // 自指工具：模型借此查/写/跑/停自己的插件

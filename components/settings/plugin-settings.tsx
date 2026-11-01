@@ -5,13 +5,24 @@
 // 数据全部经 plugins 接缝（REST /api/plugins），组件不直接写 fetch。
 // 静态插件的改动要重启（宿主）或刷新（UI）才生效，界面必须如实标出来。
 import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
-import type { PluginInfo } from "@/lib/seams/plugins";
+import type { PluginInfo, PluginSourceCode } from "@/lib/seams/plugins";
 import { usePluginAdmin } from "@/src/kernel/react";
 import { PluginConfigDialog } from "./plugin-config-dialog";
+import { PluginSourceDialog } from "./plugin-source-dialog";
 
 function statusLabel(plugin: PluginInfo): { text: string; className: string } {
   switch (plugin.status) {
@@ -48,11 +59,17 @@ function PluginRow({
   busy,
   onToggle,
   onConfigure,
+  onApprove,
+  onSource,
+  onDelete,
 }: {
   plugin: PluginInfo;
   busy: boolean;
   onToggle: (enabled: boolean) => void;
   onConfigure: () => void;
+  onApprove: () => void;
+  onSource: () => void;
+  onDelete: () => void;
 }) {
   const status = statusLabel(plugin);
   const restartText = plugin.restartRequired
@@ -69,12 +86,38 @@ function PluginRow({
           {plugin.core ? <Badge>核心</Badge> : null}
           {plugin.source === "installed" ? <Badge tone="blue">已安装</Badge> : null}
           {plugin.source === "dynamic" ? <Badge tone="blue">AI 生成</Badge> : null}
+          {plugin.source === "dynamic" &&
+          plugin.approved &&
+          plugin.capabilities.includes("uiSlots") ? (
+            <Badge tone="blue">客户端已批准</Badge>
+          ) : null}
           {restartText ? <Badge tone="amber">{restartText}</Badge> : null}
           <span className={cn("text-[11px] font-medium", status.className)}>{status.text}</span>
         </div>
         <p className="mt-0.5 text-[12px] leading-[17px] text-shell-label-tertiary">{plugin.description}</p>
         {plugin.error ? (
           <p className="mt-1 text-[11px] leading-4 text-destructive">{plugin.error}</p>
+        ) : null}
+        {plugin.source === "dynamic" ? (
+          <div className="mt-1.5 flex flex-wrap items-center gap-1">
+            {!plugin.approved ? (
+              <Button variant="outline" size="sm" onClick={onApprove} disabled={busy}>
+                批准客户端半边
+              </Button>
+            ) : null}
+            <Button variant="ghost" size="sm" onClick={onSource} disabled={busy}>
+              查看代码
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onDelete}
+              disabled={busy}
+              className="text-destructive hover:text-destructive"
+            >
+              删除
+            </Button>
+          </div>
         ) : null}
       </div>
 
@@ -102,6 +145,9 @@ function Section({
   busyId,
   onToggle,
   onConfigure,
+  onApprove,
+  onSource,
+  onDelete,
 }: {
   title: string;
   description?: string;
@@ -109,6 +155,9 @@ function Section({
   busyId: string | null;
   onToggle: (plugin: PluginInfo, enabled: boolean) => void;
   onConfigure: (plugin: PluginInfo) => void;
+  onApprove: (plugin: PluginInfo) => void;
+  onSource: (plugin: PluginInfo) => void;
+  onDelete: (plugin: PluginInfo) => void;
 }) {
   if (plugins.length === 0) return null;
   return (
@@ -127,6 +176,9 @@ function Section({
             busy={busyId === plugin.id}
             onToggle={(enabled) => onToggle(plugin, enabled)}
             onConfigure={() => onConfigure(plugin)}
+            onApprove={() => onApprove(plugin)}
+            onSource={() => onSource(plugin)}
+            onDelete={() => onDelete(plugin)}
           />
         ))}
       </div>
@@ -142,6 +194,9 @@ export function PluginSettings() {
   const [notice, setNotice] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [configTarget, setConfigTarget] = useState<PluginInfo | null>(null);
+  const [sourceTarget, setSourceTarget] = useState<PluginInfo | null>(null);
+  const [sourceCode, setSourceCode] = useState<PluginSourceCode | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<PluginInfo | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -170,7 +225,9 @@ export function PluginSettings() {
     try {
       const next = await admin.setEnabled(plugin.id, enabled);
       replace(next);
-      if (next.restartRequired) {
+      if (next.source === "dynamic") {
+        setNotice(`「${next.title}」已${enabled ? "运行" : "停止"}。`);
+      } else if (next.restartRequired) {
         setNotice(
           next.scope === "ui"
             ? `「${next.title}」已${enabled ? "启用" : "停用"}，刷新页面后生效。`
@@ -182,6 +239,58 @@ export function PluginSettings() {
     } finally {
       setBusyId(null);
     }
+  };
+
+  const approve = async (plugin: PluginInfo) => {
+    setBusyId(plugin.id);
+    setError(null);
+    try {
+      const next = await admin.approve(plugin.id);
+      replace(next);
+      setNotice(`「${next.title}」的客户端半边已批准，刷新页面后生效。`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "批准失败");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const preview = async (plugin: PluginInfo) => {
+    setBusyId(plugin.id);
+    setError(null);
+    try {
+      const code = await admin.source(plugin.id);
+      setSourceTarget(plugin);
+      setSourceCode(code);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "读取源码失败");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const removePlugin = async (plugin: PluginInfo) => {
+    setBusyId(plugin.id);
+    setError(null);
+    try {
+      await admin.remove(plugin.id);
+      setPlugins((prev) => prev.filter((item) => item.id !== plugin.id));
+      setDeleteTarget(null);
+      setNotice(`「${plugin.title}」已删除。`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "删除失败");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const handlers = {
+    busyId,
+    onToggle: (plugin: PluginInfo, enabled: boolean) => void toggle(plugin, enabled),
+    onConfigure: (plugin: PluginInfo) => setConfigTarget(plugin),
+    onApprove: (plugin: PluginInfo) => void approve(plugin),
+    onSource: (plugin: PluginInfo) => void preview(plugin),
+    onDelete: (plugin: PluginInfo) => setDeleteTarget(plugin),
   };
 
   const grouped = useMemo(
@@ -226,10 +335,10 @@ export function PluginSettings() {
           </div>
         ) : (
           <>
-            <Section title="核心" description="禁用会导致应用不可用，因此固定开启。" plugins={grouped.core} busyId={busyId} onToggle={(plugin, enabled) => void toggle(plugin, enabled)} onConfigure={setConfigTarget} />
-            <Section title="内置插件" description="路由、动态通道与 UI 面板。" plugins={grouped.builtin} busyId={busyId} onToggle={(plugin, enabled) => void toggle(plugin, enabled)} onConfigure={setConfigTarget} />
-            <Section title="已安装" description="从市场安装的第三方插件。" plugins={grouped.installed} busyId={busyId} onToggle={(plugin, enabled) => void toggle(plugin, enabled)} onConfigure={setConfigTarget} />
-            <Section title="AI 动态插件" description="模型在运行时定义；客户端半边需要人工批准。" plugins={grouped.dynamic} busyId={busyId} onToggle={(plugin, enabled) => void toggle(plugin, enabled)} onConfigure={setConfigTarget} />
+            <Section title="核心" description="禁用会导致应用不可用，因此固定开启。" plugins={grouped.core} {...handlers} />
+            <Section title="内置插件" description="路由、动态通道与 UI 面板。" plugins={grouped.builtin} {...handlers} />
+            <Section title="已安装" description="从市场安装的第三方插件。" plugins={grouped.installed} {...handlers} />
+            <Section title="AI 动态插件" description="模型在运行时定义；客户端半边需要人工批准。" plugins={grouped.dynamic} {...handlers} />
             {plugins.length === 0 && !loading ? (
               <p className="rounded-[10px] border-[0.5px] border-dashed border-shell-border px-3 py-6 text-center text-[12px] text-shell-label-tertiary">
                 没有可管理的插件。
@@ -252,6 +361,44 @@ export function PluginSettings() {
           setNotice(`「${next.title}」配置已保存，重启服务后生效。`);
         }}
       />
+
+      <PluginSourceDialog
+        plugin={sourceTarget}
+        source={sourceCode}
+        open={sourceTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setSourceTarget(null);
+            setSourceCode(null);
+          }
+        }}
+      />
+
+      <AlertDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>删除动态插件？</AlertDialogTitle>
+            <AlertDialogDescription>
+              「{deleteTarget?.title}」的定义与代码会从 data/plugins/dynamic 移除；运行中的实例会先停止。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (deleteTarget) void removePlugin(deleteTarget);
+              }}
+            >
+              删除
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

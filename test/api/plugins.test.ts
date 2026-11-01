@@ -4,6 +4,8 @@ import type Database from "better-sqlite3";
 import { createRootContext } from "@/lib/kernel";
 import { SESSION_COOKIE, createSession, createUser } from "@/lib/local/auth";
 import { createPluginManager } from "@/lib/local/plugin-manager";
+import { createDynamicRunner } from "@/lib/dynamic/runner";
+import type { DynamicPersistence, DynamicRecord } from "@/lib/seams/dynamic";
 import type { PluginInfo } from "@/lib/seams/plugins";
 import { createApiTestApp } from "../mocks/api-app";
 import { createMemoryPluginsSettings } from "../mocks/plugin-settings";
@@ -119,6 +121,54 @@ describe("动态插件端点与 /api/me", () => {
     });
     expect(res.status).toBe(400);
     expect((await res.json()).code).toBe("UNSUPPORTED");
+  });
+
+  it("approve 端到端：动态定义进入列表，批准后状态落盘", async () => {
+    const records = new Map<string, DynamicRecord>();
+    const persistence: DynamicPersistence = {
+      load: () => [...records.values()],
+      save: (record) => {
+        records.set(record.definition.id, {
+          definition: record.definition,
+          state: record.state,
+          ...(record.note ? { note: record.note } : {}),
+        });
+      },
+      remove: (id) => {
+        records.delete(id);
+      },
+    };
+    const runner = createDynamicRunner({ ctx: createRootContext(), persistence });
+    runner.define({
+      title: "客户端插件",
+      client: "harness.define({ name: 'demo-client', apply() {} })",
+    });
+
+    const manager = createPluginManager({
+      ctx: createRootContext(),
+      settings: createMemoryPluginsSettings(),
+      getDynamic: () => runner,
+    });
+    const { app: dynamicApp } = await createApiTestApp([], { pluginAdmin: manager });
+
+    const listRes = await dynamicApp.request("/api/plugins", {
+      headers: cookieOf(ownerToken),
+    });
+    const list = (await listRes.json()) as { plugins: PluginInfo[] };
+    expect(list.plugins.find((item) => item.id === "dyn-1")).toMatchObject({
+      source: "dynamic",
+      approved: false,
+      status: "stopped",
+    });
+
+    const res = await dynamicApp.request("/api/plugins/dyn-1/approve", {
+      method: "POST",
+      headers: cookieOf(ownerToken),
+    });
+    expect(res.status).toBe(200);
+    expect((await res.json()).approved).toBe(true);
+    expect(runner.get("dyn-1")?.state).toBe("approved");
+    expect(records.get("dyn-1")?.state).toBe("approved");
   });
 
   it("/api/me 返回 isOwner：最早注册的用户为 true", async () => {

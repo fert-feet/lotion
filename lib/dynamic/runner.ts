@@ -1,15 +1,21 @@
 // 动态插件 runner（宿主侧）：定义注册表 + 挂载/卸载 + 审批状态机。
 //
 // 生命周期（对齐 DSH packages/extensions/cordis-host-runner 的可观测面）：
-//   define → 只登记不可变定义（不运行、不落盘）
+//   define → 只登记不可变定义（不运行；可选持久化）
 //   run    → 在 node:vm 里求值宿主半边 → 挂到内部 group fiber 下 → ACTIVE
 //   stop   → 卸载并**等待静默**（工具/监听器/服务/定时器全部回收）
-//   undefine → 停止（若在运行）+ 删除定义
+//   undefine → 停止（若在运行）+ 删除定义（含持久化文件）
 //
 // 所有临时插件都是内部 `dynamic` group 的子 fiber：宿主 runner 卸载时一并回收，
 // 不留孤儿监听器（这是"可逆副作用"落到动态能力上的要求）。
 import { Context, Fiber, FiberState, fiberError, settle } from "@/lib/kernel";
-import type { DynamicDefinition, DynamicRecord, DynamicRunner, DynamicState } from "@/lib/seams/dynamic";
+import type {
+  DynamicDefinition,
+  DynamicPersistence,
+  DynamicRecord,
+  DynamicRunner,
+  DynamicState,
+} from "@/lib/seams/dynamic";
 import { evaluateHostHalf } from "./sandbox";
 
 export interface CreateDynamicRunnerOptions {
@@ -23,12 +29,30 @@ export interface CreateDynamicRunnerOptions {
   allowedServices?: readonly string[];
   /** 是否允许客户端半边（默认 true；审批后才会运行） */
   allowClientHalf?: boolean;
+  /** 定义/审批状态持久化端口（省略 = 纯内存） */
+  persistence?: DynamicPersistence;
 }
 
 export function createDynamicRunner(options: CreateDynamicRunnerOptions): DynamicRunner {
   const records = new Map<string, DynamicRecord>();
   const fibers = new Map<string, Fiber>();
+  const persistence = options.persistence;
   let counter = 0;
+
+  // 恢复定义：审批状态保留；**运行中的不自动恢复**（重启后 stopped）
+  for (const item of persistence?.load() ?? []) {
+    const id = item.definition.id;
+    const match = /^dyn-(\d+)$/.exec(id);
+    if (match) counter = Math.max(counter, Number(match[1]));
+    const state: DynamicState = item.state === "running" ? "stopped" : item.state;
+    const record: DynamicRecord = {
+      definition: item.definition,
+      state,
+      ...(item.note ? { note: item.note } : {}),
+    };
+    records.set(id, record);
+    if (state !== item.state) persistence?.save(record);
+  }
 
   const require = (id: string): DynamicRecord => {
     const record = records.get(id);
@@ -40,6 +64,7 @@ export function createDynamicRunner(options: CreateDynamicRunnerOptions): Dynami
     const record = require(id);
     record.state = state;
     record.note = note;
+    persistence?.save(record);
     return record;
   };
 
@@ -60,6 +85,7 @@ export function createDynamicRunner(options: CreateDynamicRunnerOptions): Dynami
       };
       const record: DynamicRecord = { definition, state: "defined" };
       records.set(id, record);
+      persistence?.save(record);
       return record;
     },
 
@@ -135,6 +161,7 @@ export function createDynamicRunner(options: CreateDynamicRunnerOptions): Dynami
       if (!record) return undefined;
       if (fibers.has(id)) await runner.stop(id);
       records.delete(id);
+      persistence?.remove(id);
       return { ...record, state: "stopped" };
     },
 

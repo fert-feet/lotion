@@ -287,7 +287,7 @@ describe("动态插件通道的 opt-in 开关（组合清单 + 用户层 patch�
     init(db);
     _resetHostKernelForTest();
 
-    const kernel = await bootHostKernel({ db, settingsPath });
+    const kernel = await bootHostKernel({ db, settingsPath, pluginsDir: path.join(dir, "plugins") });
     expect(kernel.load.skipped).not.toContain("dynamic-plugins");
 
     const tools = getHostTools();

@@ -43,6 +43,22 @@ const routeAuth = plugin({
   title: "认证路由",
   configFields: [{ key: "label", label: "标签", type: "string", default: "登录" }],
 });
+const dynamicPlugin = plugin({
+  id: "dyn-1",
+  title: "日报生成器",
+  description: "AI 在运行时定义的临时插件",
+  source: "dynamic",
+  scope: "ui",
+  enabled: false,
+  approved: false,
+  status: "stopped",
+  restartRequired: false,
+  capabilities: ["tools", "uiSlots"],
+});
+
+function findButton(label: string, scope: ParentNode = document): HTMLButtonElement | undefined {
+  return [...scope.querySelectorAll("button")].find((button) => button.textContent === label);
+}
 
 function makeKernel(admin: PluginAdminService): ClientKernel {
   const ctx = createRootContext();
@@ -68,23 +84,40 @@ function makeKernel(admin: PluginAdminService): ClientKernel {
 
 function makeAdmin(initial: PluginInfo[]) {
   let items = [...initial];
+  const find = (id: string) => items.find((item) => item.id === id)!;
   const admin = {
     list: vi.fn(async () => items),
     setEnabled: vi.fn(async (id: string, enabled: boolean) => {
-      items = items.map((item) => (item.id === id ? { ...item, enabled } : item));
-      return items.find((item) => item.id === id)!;
+      items = items.map((item) =>
+        item.id === id ? { ...item, enabled, status: enabled ? "active" : "stopped" } : item,
+      );
+      return find(id);
     }),
     setConfig: vi.fn(async (id: string, config: Record<string, unknown>) => {
       items = items.map((item) => (item.id === id ? { ...item, config } : item));
-      return items.find((item) => item.id === id)!;
+      return find(id);
     }),
-    approve: vi.fn(async () => corePlugin),
-    run: vi.fn(async () => corePlugin),
-    stop: vi.fn(async () => corePlugin),
-    remove: vi.fn(async () => undefined),
-    source: vi.fn(async () => ({})),
+    approve: vi.fn(async (id: string) => {
+      items = items.map((item) => (item.id === id ? { ...item, approved: true } : item));
+      return find(id);
+    }),
+    run: vi.fn(async (id: string) => {
+      items = items.map((item) => (item.id === id ? { ...item, enabled: true } : item));
+      return find(id);
+    }),
+    stop: vi.fn(async (id: string) => {
+      items = items.map((item) => (item.id === id ? { ...item, enabled: false } : item));
+      return find(id);
+    }),
+    remove: vi.fn(async (id: string) => {
+      items = items.filter((item) => item.id !== id);
+    }),
+    source: vi.fn(async () => ({
+      host: "harness.define({ name: 'demo-host', apply() {} })",
+      client: "harness.define({ name: 'demo-client', apply() {} })",
+    })),
     market: vi.fn(async () => []),
-    install: vi.fn(async () => corePlugin),
+    install: vi.fn(async (id: string) => find(id)),
     clientConfig: vi.fn(async () => ({ disabledUi: [] })),
   } satisfies PluginAdminService;
   return admin;
@@ -166,5 +199,57 @@ describe("PluginSettings", () => {
     });
 
     expect(admin.setConfig).toHaveBeenCalledWith("route-auth", { label: "登录" });
+  });
+
+  it("动态插件：批准客户端半边并提示刷新", async () => {
+    const admin = makeAdmin([dynamicPlugin]);
+    await mount(admin);
+
+    expect(container.textContent).toContain("AI 生成");
+    const approve = findButton("批准客户端半边", container);
+    await act(async () => {
+      approve?.click();
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    });
+
+    expect(admin.approve).toHaveBeenCalledWith("dyn-1");
+    expect(container.textContent).toContain("已批准");
+  });
+
+  it("动态插件：源码预览展示 host / client 两半", async () => {
+    const admin = makeAdmin([dynamicPlugin]);
+    await mount(admin);
+
+    await act(async () => {
+      findButton("查看代码", container)?.click();
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    });
+
+    expect(admin.source).toHaveBeenCalledWith("dyn-1");
+    expect(document.body.textContent).toContain("demo-host");
+    expect(document.body.textContent).toContain("demo-client");
+  });
+
+  it("动态插件：删除需二次确认，确认后从列表移除", async () => {
+    const admin = makeAdmin([dynamicPlugin]);
+    await mount(admin);
+
+    // 第一次点击打开确认框
+    await act(async () => {
+      findButton("删除", container)?.click();
+    });
+    expect(document.body.textContent).toContain("删除动态插件？");
+
+    // 确认框里的「删除」是最后一个同名按钮
+    const deletes = [...document.querySelectorAll("button")].filter(
+      (button) => button.textContent === "删除",
+    );
+    await act(async () => {
+      deletes.at(-1)?.click();
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    });
+
+    expect(admin.remove).toHaveBeenCalledWith("dyn-1");
+    expect(container.querySelector('[aria-label="日报生成器 启用状态"]')).toBeNull();
   });
 });

@@ -62,6 +62,8 @@ export interface BootHostKernelOptions {
   db?: Database.Database;
   /** 注入用户层配置文件路径（测试传临时文件）；省略时用 resolveSettingsPath() */
   settingsPath?: string;
+  /** 插件数据根目录（测试传临时目录）；省略用 data/plugins */
+  pluginsDir?: string;
 }
 
 let current: HostKernel | null = null;
@@ -93,7 +95,11 @@ export async function bootHostKernel(options: BootHostKernelOptions = {}): Promi
   ];
 
   // 第 1 阶段：先挂 settings 提供方（配置层是所有后续装配的输入）
-  const composition = hostComposition({ settingsPath: options.settingsPath, db: options.db });
+  const composition = hostComposition({
+    settingsPath: options.settingsPath,
+    db: options.db,
+    pluginsDir: options.pluginsDir,
+  });
   const settingsEntries = composition.filter((entry) => entry.id === "settings-file");
   const restEntries = [
     ...composition.filter((entry) => entry.id !== "settings-file"),

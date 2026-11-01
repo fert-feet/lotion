@@ -2,7 +2,8 @@
 //
 // 定位（照搬 DSH packages/extensions 的产品决策）：
 //   * **默认关闭**：不是安全机制，而是"减少攻击面"的默认姿态
-//   * 临时插件只存在于**进程内存**：不落盘、不自动恢复；想在下次启动也在，就走正常插件开发流程
+//   * 启用后定义持久化到 data/plugins/dynamic：重启仍在；**运行状态不自动恢复**
+//     （重启后是 stopped，需用户重新 run）——避免未经确认的代码在启动时自动执行
 //   * 沙箱只收窄 **API 面**（引导模型走服务、别碰 Node 内置），**不是安全边界**：
 //     暴露的服务（docStore/tools…）能触达真实运行时，与本机 shell 同级信任
 //
@@ -14,7 +15,7 @@ import { Context, provideService, readService } from "@/lib/kernel";
 
 /** 动态包的定义（两半可以是同一段代码的不同入口） */
 export interface DynamicDefinition {
-  /** 进程内唯一 id（`dyn-1`、`dyn-2` …；交给模型的稳定句柄） */
+  /** 稳定 id（`dyn-1`、`dyn-2` …；持久化后跨重启保持） */
   id: string;
   /** 人类可读标题（卡片显示） */
   title: string;
@@ -48,7 +49,7 @@ export interface DynamicRecord {
 }
 
 export interface DynamicRunner {
-  /** 登记一个不可变定义（只登记，不运行、不落盘） */
+  /** 登记一个不可变定义（只登记，不运行；可选持久化到 store） */
   define(input: { title: string; description?: string; host?: string; client?: string }): DynamicRecord;
   /** 运行宿主半边（必要时先 define） */
   run(id: string): Promise<DynamicRecord>;
@@ -62,6 +63,16 @@ export interface DynamicRunner {
   approve(id: string): DynamicRecord;
   /** 启动审计/诊断用：当前运行的 id */
   runningIds(): string[];
+}
+
+/**
+ * 动态定义的持久化端口（宿主实现；默认关闭通道时不会创建）。
+ * 只持久化定义与审批状态，**不持久化运行中的 fiber**：重启后一律 stopped。
+ */
+export interface DynamicPersistence {
+  load(): Array<Pick<DynamicRecord, "definition" | "state" | "note">>;
+  save(record: Pick<DynamicRecord, "definition" | "state" | "note">): void;
+  remove(id: string): void;
 }
 
 export const DYNAMIC_SERVICE = "dynamicPlugins";
