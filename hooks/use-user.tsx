@@ -8,6 +8,8 @@ import type { LocalUser } from "@/lib/local/auth";
 type UserState = {
   user: LocalUser | null;
   loading: boolean;
+  /** 是否插件管理员（最早注册的用户）；由 /api/me 返回 */
+  isOwner: boolean;
 };
 
 type UserContextValue = UserState & {
@@ -18,17 +20,18 @@ type UserContextValue = UserState & {
 const UserContext = createContext<UserContextValue>({
   user: null,
   loading: true,
+  isOwner: false,
   refreshUser: async () => {},
 });
 
-async function fetchMe(): Promise<LocalUser | null> {
+async function fetchMe(): Promise<{ user: LocalUser | null; isOwner: boolean }> {
   try {
     const res = await fetch("/api/me", { cache: "no-store" });
-    if (!res.ok) return null;
+    if (!res.ok) return { user: null, isOwner: false };
     const data = await res.json();
-    return (data.user as LocalUser) ?? null;
+    return { user: (data.user as LocalUser) ?? null, isOwner: data.isOwner === true };
   } catch {
-    return null;
+    return { user: null, isOwner: false };
   }
 }
 
@@ -49,18 +52,19 @@ export function UserProvider({
   const [state, setState] = useState<UserState>({
     user: initialUser,
     loading: initialUser ? false : true,
+    isOwner: false,
   });
 
   const refreshUser = useCallback(async () => {
-    const user = await fetchMe();
-    setState({ user, loading: false });
+    const next = await fetchMe();
+    setState({ ...next, loading: false });
   }, []);
 
   useEffect(() => {
     // initialUser 变化时同步 state（如登录后重新注入，null → User；
     // 否则 state 停留在旧值导致侧边栏空白直到刷新）
     if (initialUser) {
-      setState({ user: initialUser, loading: false });
+      setState({ user: initialUser, loading: false, isOwner: false });
       return;
     }
     // 兜底：cookie 与页面状态可能不一致，客户端再恢复一次。全应用仅此一个 /api/me 请求。

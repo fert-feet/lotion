@@ -21,6 +21,13 @@ import { createHostToolRegistry, type HostToolRegistry } from "@/lib/ai/tools/re
 import { registerBuiltinTools } from "@/lib/ai/tools";
 import { sqliteDocStorePlugin } from "@/lib/local/doc-store-sqlite";
 import { settingsFilePlugin } from "@/lib/local/settings-file";
+import {
+  LOTION_SETTINGS_SERVICE,
+  requireLotionSettings,
+} from "@/lib/local/lotion-config";
+import { createPluginManager } from "@/lib/local/plugin-manager";
+import { providePluginAdmin } from "@/lib/seams/plugins";
+import { findDynamic } from "@/lib/seams/dynamic";
 
 export interface HostCompositionOptions {
   /** settings 提供方的用户层文件路径（测试注入） */
@@ -97,6 +104,24 @@ export function hostComposition(options: HostCompositionOptions = {}): PluginEnt
       id: "doc-store-sqlite",
       plugin: sqliteDocStorePlugin,
       config: { db: options.db },
+    },
+    {
+      // 插件管理：列表/启停/配置/动态插件审批。依赖的是**已安装的配置句柄**
+      // （server/kernel.ts 在 installLotionSettings 之后 provideLotionSettings）。
+      id: "plugin-manager",
+      plugin: {
+        name: "plugin-manager",
+        inject: [LOTION_SETTINGS_SERVICE],
+        apply: (ctx: Context) => {
+          const settings = requireLotionSettings(ctx).plugins;
+          const manager = createPluginManager({
+            ctx,
+            settings,
+            getDynamic: () => findDynamic(ctx),
+          });
+          providePluginAdmin(ctx, manager);
+        },
+      },
     },
   ];
 }

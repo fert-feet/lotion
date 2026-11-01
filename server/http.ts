@@ -1,11 +1,14 @@
 // Hono 公共工具：JSON 解析与统一错误响应。
 import type { Context } from "hono";
+import type { Context as KernelContext } from "@/lib/kernel";
 import type { LocalUser } from "@/lib/local/auth";
 
-/** 注入到 Hono Context 的类型：requireAuth 中间件写入的当前用户 */
+/** 注入到 Hono Context 的类型：requireAuth 写 user；createApp 注入内核 ctx（插件路由用） */
 export type AppEnv = {
   Variables: {
     user: LocalUser;
+    /** 宿主内核上下文（createApp 的 options.kernel；测试 / 仅路由场景可为空） */
+    kernel?: KernelContext;
   };
 };
 

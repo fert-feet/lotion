@@ -3,15 +3,30 @@
 // 路由**不再静态挂载**：全部来自 httpRoutes 注册表（每个路由插件挂载时注册自己的子应用），
 // 本模块只做两件固定的事：把注册表接上 Hono、以及兜底（JSON 404 / JSON 500）。
 import { Hono } from "hono";
+import type { Context as KernelContext } from "@/lib/kernel";
 import type { AppEnv } from "./http";
 import type { ApiRouteRegistry } from "./routes";
+
+export interface CreateAppOptions {
+  /** 宿主内核上下文：插件管理路由等需要从服务注册表取能力 */
+  kernel?: KernelContext;
+}
 
 /**
  * 用注册表装配 /api/*；返回的 app 可直接 `app.request(path, init)` 测试。
  * @param routes - httpRoutes 注册表（生产来自宿主内核；测试用 createApiTestApp 构造）
+ * @param options.kernel - 注入到 Hono Variables 的内核上下文
  */
-export function createApp(routes: ApiRouteRegistry) {
+export function createApp(routes: ApiRouteRegistry, options: CreateAppOptions = {}) {
   const api = new Hono<AppEnv>();
+  const kernel = options.kernel;
+
+  if (kernel) {
+    api.use("*", async (c, next) => {
+      c.set("kernel", kernel);
+      await next();
+    });
+  }
 
   for (const entry of routes.entries()) {
     api.route(entry.path, entry.app);

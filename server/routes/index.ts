@@ -12,6 +12,7 @@ import { authRoutes } from "./auth";
 import { chatRoutes } from "./chat";
 import { documentsRoutes } from "./documents";
 import { meRoutes } from "./me";
+import { pluginsRoutes } from "./plugins";
 import { publicDocumentsRoutes } from "./public-documents";
 import { uploadRoutes, uploadsRoutes } from "./upload";
 
@@ -44,6 +45,7 @@ export function apiRoutePlugins(): PluginEntry[] {
     routePlugin("ai-undo", "/ai/undo", aiUndoRoutes),
     routePlugin("upload", "/upload", uploadRoutes),
     routePlugin("uploads", "/uploads", uploadsRoutes),
+    routePlugin("plugins", "/plugins", pluginsRoutes),
     routePlugin("public-documents", "/public/documents", publicDocumentsRoutes),
   ];
 }

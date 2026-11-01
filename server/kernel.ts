@@ -25,7 +25,11 @@ import {
   type PluginEntry,
 } from "@/lib/kernel";
 import { logger } from "@/lib/logger";
-import { installLotionSettings, type LotionSettings } from "@/lib/local/lotion-config";
+import {
+  installLotionSettings,
+  provideLotionSettings,
+  type LotionSettings,
+} from "@/lib/local/lotion-config";
 import { createHttpRouteRegistry, provideHttpRoutes } from "@/lib/seams/http-routes";
 import { hostComposition, toPluginPatches } from "./composition";
 import { apiRoutePlugins, type ApiRouteRegistry } from "./routes";
@@ -99,6 +103,8 @@ export async function bootHostKernel(options: BootHostKernelOptions = {}): Promi
 
   // 第 2 阶段：读用户层 patch（data/settings.json 的 `plugins` 命名空间），再装其余条目
   const settings = installLotionSettings(ctx);
+  // 插件管理器等后续条目需要同一份配置句柄（不能重复 register）。
+  provideLotionSettings(ctx, settings);
   // ⚠️ Cordis 的 inject 门控在下一个微任务才激活：不 settle 就读不到配置层，
   // 用户层 patch（data/settings.json 的 plugins）会被**静默忽略**。
   await settleAll(ctx);

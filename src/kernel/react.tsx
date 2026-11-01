@@ -10,6 +10,7 @@ import { createContext, useContext, useMemo, useSyncExternalStore, type ReactNod
 import { readService, type Context as KernelContext } from "@/lib/kernel";
 import { requireUiSlots, type UiSlots } from "@/lib/seams/ui-slots";
 import { requireUiDocStore, type Actor, type UiDocStore } from "@/lib/seams/doc-store";
+import { requirePluginAdmin, type PluginAdminService } from "@/lib/seams/plugins";
 import { useUser } from "@/hooks/use-user";
 import { bootClientKernel, getClientKernel, type ClientKernel, type BootClientKernelOptions } from "./client";
 
@@ -79,6 +80,11 @@ export function useActor(): Actor {
 /** 取 docStore（UI 子集） */
 export function useDocStore(): UiDocStore {
   return requireUiDocStore(useKernelContext());
+}
+
+/** 取插件管理服务（设置弹窗的插件页用） */
+export function usePluginAdmin(): PluginAdminService {
+  return requirePluginAdmin(useKernelContext());
 }
 
 /** 取 UI 插槽注册表 */

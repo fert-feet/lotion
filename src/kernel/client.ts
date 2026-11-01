@@ -20,6 +20,7 @@ import {
 } from "@/lib/kernel";
 import { restDocStorePlugin } from "@/lib/client/doc-store-rest";
 import { remotePlugin } from "@/lib/client/remote-rest";
+import { pluginAdminPlugin } from "@/lib/client/plugin-admin-rest";
 import { dynamicClientPlugin } from "@/src/dynamic/client-runner";
 import { createUiSlots, provideUiSlots, type UiSlots } from "@/lib/seams/ui-slots";
 
@@ -60,6 +61,8 @@ export function bootClientKernel(options: BootClientKernelOptions = {}): ClientK
     { id: "doc-store-rest", plugin: restDocStorePlugin },
     // remote：客户端→宿主能力的**白名单边界**（枚举式，无动态注册路径）
     { id: "remote", plugin: remotePlugin },
+    // 插件管理：设置弹窗的列表/启停/配置/审批走这里（REST /api/plugins）
+    { id: "plugin-admin", plugin: pluginAdminPlugin },
     // 动态插件客户端半边：宿主没启用通道时是空操作（端点 404 → 什么都不做）
     { id: "dynamic-client", plugin: dynamicClientPlugin },
     ...(options.extraPlugins ?? []),

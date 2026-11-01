@@ -13,7 +13,7 @@
 //   LOG_LEVEL                    → logging.level
 import path from "node:path";
 import { z } from "zod";
-import type { Context } from "@/lib/kernel";
+import { provideService, readService, type Context } from "@/lib/kernel";
 import { installSettingsSection, type SettingsSection } from "@/lib/seams/settings";
 
 /** AI 助手配置（apiKey 是 secret：describe() 输出与日志一律脱敏） */
@@ -59,6 +59,25 @@ export interface LotionSettings {
   storage: SettingsSection<StorageSettings>;
   server: SettingsSection<ServerSettings>;
   logging: SettingsSection<LoggingSettings>;
+}
+
+/** `LotionSettings` 的服务 key（插件管理器等需要同一份句柄，不能重复 register） */
+export const LOTION_SETTINGS_SERVICE = "lotionSettings";
+
+/** 把已安装的配置句柄挂到内核（server/kernel.ts 在 installLotionSettings 之后调用） */
+export function provideLotionSettings(ctx: Context, settings: LotionSettings): void {
+  provideService(ctx, LOTION_SETTINGS_SERVICE, settings);
+}
+
+/** 读配置句柄；未装配抛错（插件管理器属于必须依赖） */
+export function requireLotionSettings(ctx: Context): LotionSettings {
+  const settings = readService<LotionSettings>(ctx, LOTION_SETTINGS_SERVICE);
+  if (!settings) {
+    throw new Error(
+      "lotionSettings 未装配：请确认 server/kernel.ts 在装配后调用了 provideLotionSettings()",
+    );
+  }
+  return settings;
 }
 
 /** 组合层默认值（唯一声明处；env 映射名与 README/docs 一致，有单测钉住） */

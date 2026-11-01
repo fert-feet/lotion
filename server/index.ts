@@ -22,7 +22,7 @@ const distDir = path.join(process.cwd(), "dist");
 const indexPath = path.join(distDir, "index.html");
 const hasBuild = fs.existsSync(indexPath);
 
-const app = createApp(kernel.httpRoutes);
+const app = createApp(kernel.httpRoutes, { kernel: kernel.ctx });
 
 if (hasBuild) {
   // 静态资源：Vite 产物（含 assets/）与 public/（logo 等）

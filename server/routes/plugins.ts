@@ -1,0 +1,147 @@
+// 插件管理路由（/api/plugins）。
+//
+// 权限：除 `GET /client-config`（启动期 UI 插件过滤，公开且只回 id）外，全部 owner-only。
+// 为什么不在路由层挂 requireAuth 中间件：公开端点与受保护端点共用一个子应用，
+// 逐 handler 做 owner 判定更显式，也避免 Hono 中间件注册顺序的坑。
+import { Hono, type Context } from "hono";
+import { getDb } from "@/lib/local/sqlite";
+import { isOwner } from "@/lib/local/owner";
+import { userFromRequest } from "@/lib/local/request-user";
+import { requirePluginAdmin, type PluginAdminService } from "@/lib/seams/plugins";
+import { PluginAdminError } from "@/lib/local/plugin-manager";
+import { readJson, type AppEnv } from "../http";
+
+export const pluginsRoutes = new Hono<AppEnv>();
+
+const CORE_OR_CONFLICT = 409;
+
+/** 未登录 401 / 非 owner 403；通过返回 null */
+function ownerGuard(c: Context<AppEnv>): Response | null {
+  const user = userFromRequest(c.req.raw);
+  if (!user) return c.json({ error: "Unauthorized" }, 401);
+  if (!isOwner(getDb(), user.id)) {
+    return c.json({ error: "仅最早注册的用户可以管理插件", code: "NOT_OWNER" }, 403);
+  }
+  return null;
+}
+
+function errorResponse(c: Context<AppEnv>, error: unknown): Response {
+  if (error instanceof PluginAdminError) {
+    const status =
+      error.code === "NOT_FOUND"
+        ? 404
+        : error.code === "CORE_PLUGIN" || error.code === "CONFLICT"
+          ? CORE_OR_CONFLICT
+          : 400;
+    return c.json({ error: error.message, code: error.code }, status);
+  }
+  console.error("[plugins] 未捕获异常:", error);
+  return c.json({ error: "Internal Server Error" }, 500);
+}
+
+/** 取内核里的插件管理服务并统一映射错误 */
+async function withAdmin(
+  c: Context<AppEnv>,
+  fn: (admin: PluginAdminService) => Promise<Response>,
+): Promise<Response> {
+  const kernel = c.get("kernel");
+  if (!kernel) return c.json({ error: "插件服务未装配（缺少内核上下文）", code: "NO_KERNEL" }, 503);
+  try {
+    return await fn(requirePluginAdmin(kernel));
+  } catch (error) {
+    return errorResponse(c, error);
+  }
+}
+
+/** 启动期客户端配置：公开（未登录也要能渲染页面），只返回 disabled 的 UI 插件 id */
+pluginsRoutes.get("/client-config", (c) =>
+  withAdmin(c, async (admin) => c.json(await admin.clientConfig())),
+);
+
+/** 列表：内置 + 已安装 + 动态 */
+pluginsRoutes.get("/", (c) => {
+  const denied = ownerGuard(c);
+  if (denied) return denied;
+  return withAdmin(c, async (admin) => c.json({ plugins: await admin.list() }));
+});
+
+/** 启停 / 改配置 */
+pluginsRoutes.patch("/:id", async (c) => {
+  const denied = ownerGuard(c);
+  if (denied) return denied;
+  const id = c.req.param("id");
+  const parsed = await readJson<{ enabled?: unknown; config?: unknown }>(c);
+  if (!parsed.ok) return c.json({ error: "请求体不是合法 JSON" }, 400);
+  const body = parsed.data;
+  if (typeof body !== "object" || body === null) return c.json({ error: "请求体必须是对象" }, 400);
+  if (body.enabled === undefined && body.config === undefined) {
+    return c.json({ error: "需要 enabled 或 config 字段" }, 400);
+  }
+  return withAdmin(c, async (admin) => {
+    let info;
+    if (body.enabled !== undefined) {
+      if (typeof body.enabled !== "boolean") {
+        return c.json({ error: "enabled 必须是布尔值" }, 400);
+      }
+      info = await admin.setEnabled(id, body.enabled);
+    }
+    if (body.config !== undefined) {
+      if (
+        typeof body.config !== "object" ||
+        body.config === null ||
+        Array.isArray(body.config)
+      ) {
+        return c.json({ error: "config 必须是对象" }, 400);
+      }
+      info = await admin.setConfig(id, body.config as Record<string, unknown>);
+    }
+    return c.json(info);
+  });
+});
+
+/** 批准客户端半边 / 运行 / 停止 */
+for (const action of ["approve", "run", "stop"] as const) {
+  pluginsRoutes.post(`/:id/${action}`, (c) => {
+    const denied = ownerGuard(c);
+    if (denied) return denied;
+    const id = c.req.param("id");
+    return withAdmin(c, async (admin) => c.json(await admin[action](id)));
+  });
+}
+
+/** 卸载 / 删除动态定义 */
+pluginsRoutes.delete("/:id", async (c) => {
+  const denied = ownerGuard(c);
+  if (denied) return denied;
+  const id = c.req.param("id");
+  return withAdmin(c, async (admin) => {
+    await admin.remove(id);
+    return c.body(null, 204);
+  });
+});
+
+/** 源码预览 */
+pluginsRoutes.get("/:id/source", (c) => {
+  const denied = ownerGuard(c);
+  if (denied) return denied;
+  const id = c.req.param("id");
+  return withAdmin(c, async (admin) => c.json(await admin.source(id)));
+});
+
+/** 市场目录 + 安装 */
+pluginsRoutes.get("/market", (c) => {
+  const denied = ownerGuard(c);
+  if (denied) return denied;
+  return withAdmin(c, async (admin) => c.json({ entries: await admin.market() }));
+});
+
+pluginsRoutes.post("/install", async (c) => {
+  const denied = ownerGuard(c);
+  if (denied) return denied;
+  const parsed = await readJson<{ id?: unknown }>(c);
+  if (!parsed.ok || typeof parsed.data?.id !== "string" || parsed.data.id.trim() === "") {
+    return c.json({ error: "需要字符串字段 id" }, 400);
+  }
+  const id = parsed.data.id.trim();
+  return withAdmin(c, async (admin) => c.json(await admin.install(id)));
+});

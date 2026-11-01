@@ -7,14 +7,24 @@
 import { createRootContext, type Context } from "@/lib/kernel";
 import { loadPlugins } from "@/lib/kernel";
 import { createHttpRouteRegistry, provideHttpRoutes } from "@/lib/seams/http-routes";
+import { providePluginAdmin, type PluginAdminService } from "@/lib/seams/plugins";
 import { createApp } from "@/server/app";
 import { apiRoutePlugins, type ApiSubApp } from "@/server/routes";
+
+export interface CreateApiTestAppOptions {
+  /** 插件管理服务（插件路由测试注入；省略时 /api/plugins 返回 503） */
+  pluginAdmin?: PluginAdminService;
+}
 
 /**
  * 构造 `app.request(path, init)` 可直接调用的测试应用。
  * @param extraPlugins - 追加的插件条目（测试要验证"插件注册路由"时用）
+ * @param options.pluginAdmin - 注入真实的插件管理器（用临时目录/内存配置）
  */
-export async function createApiTestApp(extraPlugins: Parameters<typeof loadPlugins>[1] = []) {
+export async function createApiTestApp(
+  extraPlugins: Parameters<typeof loadPlugins>[1] = [],
+  options: CreateApiTestAppOptions = {},
+) {
   const ctx = createRootContext();
   const routes = createHttpRouteRegistry<ApiSubApp>(() => ctx.fiber.name);
   const registryPlugin = {
@@ -22,8 +32,21 @@ export async function createApiTestApp(extraPlugins: Parameters<typeof loadPlugi
     plugin: { name: "http-routes", apply: (c: Context) => provideHttpRoutes(c, routes) },
   };
 
-  await loadPlugins(ctx, [registryPlugin, ...apiRoutePlugins(), ...extraPlugins]);
+  const pluginAdmin = options.pluginAdmin;
+  const adminPlugin = pluginAdmin
+    ? [
+        {
+          id: "test-plugin-admin",
+          plugin: {
+            name: "test-plugin-admin",
+            apply: (c: Context) => providePluginAdmin(c, pluginAdmin),
+          },
+        },
+      ]
+    : [];
 
-  const app = createApp(routes);
+  await loadPlugins(ctx, [registryPlugin, ...adminPlugin, ...apiRoutePlugins(), ...extraPlugins]);
+
+  const app = createApp(routes, { kernel: ctx });
   return { app, ctx, routes };
 }

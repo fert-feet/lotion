@@ -1,0 +1,278 @@
+// 插件管理器的宿主实现（Service Provider）。
+//
+// 职责：
+//   1. 把"组合清单（代码）"与"用户层 patch（data/settings.json）"合并成可管理的视图；
+//   2. 写回启停/配置（静态插件改动重启/刷新生效）；
+//   3. 把动态插件（AI 运行时写的）委托给 dynamicPlugins runner；
+//   4. 给启动期客户端下发 disabled UI 插件 id。
+//
+// ⚠️ 服务端专用（读写配置文件、持有内核 ctx）。
+import type { Context, LoadReport } from "@/lib/kernel";
+import { findDynamic, type DynamicRecord, type DynamicRunner } from "@/lib/seams/dynamic";
+import type {
+  ClientPluginConfig,
+  MarketEntry,
+  PluginAdminService,
+  PluginInfo,
+  PluginSourceCode,
+  PluginStatus,
+} from "@/lib/seams/plugins";
+import type { SettingsSection } from "@/lib/seams/settings";
+import type { PluginsSettings } from "./lotion-config";
+import { PLUGIN_CATALOG, type PluginCatalogEntry } from "./plugin-catalog";
+
+/** 管理操作的可分类错误（路由层据此映射 HTTP 状态码） */
+export class PluginAdminError extends Error {
+  constructor(
+    public readonly code: "NOT_FOUND" | "CORE_PLUGIN" | "UNSUPPORTED" | "CONFLICT",
+    message: string,
+  ) {
+    super(message);
+    this.name = "PluginAdminError";
+  }
+}
+
+export interface CreatePluginManagerOptions {
+  /** 内核上下文（动态插件等运行时能力从这里取） */
+  ctx: Context;
+  /** `plugins` 配置命名空间的读写句柄（用户层 patch） */
+  settings: SettingsSection<PluginsSettings>;
+  /** 静态插件的装配报告（可选：测试/早期装配阶段没有） */
+  getLoadReport?: () => LoadReport | undefined;
+  /** 动态 runner 访问器（默认从 ctx 取；测试可注入） */
+  getDynamic?: () => DynamicRunner | undefined;
+  /** 内置插件目录（测试可缩小） */
+  catalog?: readonly PluginCatalogEntry[];
+}
+
+export function createPluginManager(options: CreatePluginManagerOptions): PluginAdminService {
+  const catalog = options.catalog ?? PLUGIN_CATALOG;
+  const dynamic = options.getDynamic ?? (() => findDynamic(options.ctx));
+
+  const patchOf = (id: string): { disabled?: boolean; config?: unknown } =>
+    options.settings.get()[id] ?? {};
+
+  const isEnabled = (entry: PluginCatalogEntry): boolean => {
+    if (entry.core) return true;
+    const disabled = patchOf(entry.id).disabled;
+    if (typeof disabled === "boolean") return !disabled;
+    return entry.defaultEnabled !== false;
+  };
+
+  const configOf = (id: string): Record<string, unknown> => {
+    const config = patchOf(id).config;
+    return typeof config === "object" && config !== null && !Array.isArray(config)
+      ? (config as Record<string, unknown>)
+      : {};
+  };
+
+  const statusOf = (entry: PluginCatalogEntry, enabled: boolean): { status: PluginStatus; error?: string } => {
+    if (!enabled) return { status: "disabled" };
+    // UI 插件不在宿主装配报告里：启用即视为 active（刷新后生效）
+    if (entry.scope === "ui") return { status: "active" };
+    const report = options.getLoadReport?.();
+    if (!report) return { status: "active" };
+    const failed = report.failed.find((item) => item.id === entry.id);
+    if (failed) return { status: "error", error: failed.error };
+    if (report.mounted.some((item) => item.id === entry.id)) return { status: "active" };
+    if (report.skipped.includes(entry.id)) return { status: "disabled" };
+    return { status: "pending" };
+  };
+
+  const staticInfo = (entry: PluginCatalogEntry): PluginInfo => {
+    const enabled = isEnabled(entry);
+    const { status, error } = statusOf(entry, enabled);
+    return {
+      id: entry.id,
+      title: entry.title,
+      description: entry.description,
+      scope: entry.scope,
+      source: "builtin",
+      version: entry.version,
+      enabled,
+      approved: true,
+      core: entry.core,
+      // 静态插件的启停/配置都要重新装配才会生效
+      restartRequired: true,
+      status,
+      ...(error ? { error } : {}),
+      config: configOf(entry.id),
+      configFields: entry.configFields ?? [],
+      capabilities: entry.capabilities,
+    };
+  };
+
+  const dynamicStatus = (record: DynamicRecord): PluginStatus => {
+    switch (record.state) {
+      case "running":
+        return "active";
+      case "error":
+        return "error";
+      case "defined":
+      case "stopped":
+      case "approved":
+      case "awaiting-approval":
+        return "stopped";
+      default:
+        return "pending";
+    }
+  };
+
+  const dynamicInfo = (record: DynamicRecord): PluginInfo => {
+    const hasHost = typeof record.definition.host === "string" && record.definition.host.length > 0;
+    const hasClient = typeof record.definition.client === "string" && record.definition.client.length > 0;
+    const status = dynamicStatus(record);
+    return {
+      id: record.definition.id,
+      title: record.definition.title,
+      description: record.definition.description ?? "AI 在运行时定义的临时插件",
+      scope: hasHost ? "host" : "ui",
+      source: "dynamic",
+      version: "0.0.0-dynamic",
+      enabled: status === "active",
+      // 没有客户端半边时无需审批
+      approved: !hasClient || record.state === "approved",
+      core: false,
+      restartRequired: false,
+      status,
+      ...(status === "error" && record.note ? { error: record.note } : {}),
+      config: {},
+      configFields: [],
+      capabilities: [hasHost ? "tools" : null, hasClient ? "uiSlots" : null].filter(
+        (item): item is string => item !== null,
+      ),
+    };
+  };
+
+  const list = async (): Promise<PluginInfo[]> => {
+    const statics = catalog.map(staticInfo);
+    const runner = dynamic();
+    const dynamics = runner ? runner.list().map(dynamicInfo) : [];
+    return [...statics, ...dynamics];
+  };
+
+  const findInfo = async (id: string): Promise<PluginInfo> => {
+    const all = await list();
+    const found = all.find((item) => item.id === id);
+    if (!found) throw new PluginAdminError("NOT_FOUND", `未知插件「${id}」`);
+    return found;
+  };
+
+  const requireRunner = (): DynamicRunner => {
+    const runner = dynamic();
+    if (!runner) {
+      throw new PluginAdminError(
+        "UNSUPPORTED",
+        "动态插件通道未启用：先在设置里启用「AI 动态插件通道」并重启（data/settings.json 的 plugins.dynamic-plugins）",
+      );
+    }
+    return runner;
+  };
+
+  const writePatch = async (id: string, patch: { disabled?: boolean; config?: unknown }) => {
+    const current = options.settings.get();
+    const next = { ...current, [id]: { ...(current[id] ?? {}), ...patch } };
+    await options.settings.set(next);
+  };
+
+  const setEnabled = async (id: string, enabled: boolean): Promise<PluginInfo> => {
+    const entry = catalog.find((item) => item.id === id);
+    if (entry) {
+      if (entry.core && !enabled) {
+        throw new PluginAdminError("CORE_PLUGIN", `「${entry.title}」是核心插件，不能禁用`);
+      }
+      await writePatch(id, { disabled: !enabled });
+      return staticInfo(entry);
+    }
+    const runner = dynamic();
+    // 没有动态通道时，非目录 id 只能视为未知（避免把"拼错 id"误报成"通道没开"）
+    if (!runner || !runner.get(id)) {
+      throw new PluginAdminError("NOT_FOUND", `未知插件「${id}」`);
+    }
+    if (enabled) await runner.run(id);
+    else await runner.stop(id);
+    return findInfo(id);
+  };
+
+  const setConfig = async (id: string, config: Record<string, unknown>): Promise<PluginInfo> => {
+    const entry = catalog.find((item) => item.id === id);
+    if (!entry) {
+      const runner = dynamic();
+      if (runner?.get(id)) {
+        throw new PluginAdminError("UNSUPPORTED", "动态插件暂不支持持久化配置");
+      }
+      throw new PluginAdminError("NOT_FOUND", `未知插件「${id}」`);
+    }
+    await writePatch(id, { config });
+    return staticInfo(entry);
+  };
+
+  const approve = async (id: string): Promise<PluginInfo> => {
+    const runner = requireRunner();
+    if (!runner.get(id)) throw new PluginAdminError("NOT_FOUND", `未知动态插件「${id}」`);
+    runner.approve(id);
+    return findInfo(id);
+  };
+
+  const run = async (id: string): Promise<PluginInfo> => {
+    const runner = requireRunner();
+    if (!runner.get(id)) throw new PluginAdminError("NOT_FOUND", `未知动态插件「${id}」`);
+    await runner.run(id);
+    return findInfo(id);
+  };
+
+  const stop = async (id: string): Promise<PluginInfo> => {
+    const runner = requireRunner();
+    if (!runner.get(id)) throw new PluginAdminError("NOT_FOUND", `未知动态插件「${id}」`);
+    await runner.stop(id);
+    return findInfo(id);
+  };
+
+  const remove = async (id: string): Promise<void> => {
+    const entry = catalog.find((item) => item.id === id);
+    if (entry) {
+      throw new PluginAdminError("UNSUPPORTED", `内置插件「${entry.title}」不能卸载（可禁用）`);
+    }
+    const runner = requireRunner();
+    if (!runner.get(id)) throw new PluginAdminError("NOT_FOUND", `未知动态插件「${id}」`);
+    await runner.undefine(id);
+  };
+
+  const source = async (id: string): Promise<PluginSourceCode> => {
+    const runner = dynamic();
+    const record = runner?.get(id);
+    if (!record) {
+      throw new PluginAdminError("NOT_FOUND", `插件「${id}」没有可预览的源码`);
+    }
+    return {
+      ...(record.definition.host ? { host: record.definition.host } : {}),
+      ...(record.definition.client ? { client: record.definition.client } : {}),
+    };
+  };
+
+  const clientConfig = async (): Promise<ClientPluginConfig> => ({
+    disabledUi: catalog
+      .filter((entry) => entry.scope === "ui" && !isEnabled(entry))
+      .map((entry) => entry.id),
+  });
+
+  // M3 会替换这两个实现（本地市场目录 + 包安装）
+  const market = async (): Promise<MarketEntry[]> => [];
+  const install = async (_id: string): Promise<PluginInfo> => {
+    throw new PluginAdminError("UNSUPPORTED", "插件市场安装尚未启用");
+  };
+
+  return {
+    list,
+    setEnabled,
+    setConfig,
+    approve,
+    run,
+    stop,
+    remove,
+    source,
+    market,
+    install,
+    clientConfig,
+  };
+}
