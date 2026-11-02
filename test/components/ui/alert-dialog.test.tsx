@@ -57,6 +57,39 @@ describe("Slot（asChild 语义）", () => {
     expect(btn!.textContent).toBe("取消");
     expect(btn!.className).toContain("y");
   });
+
+  it("子元素自带 className 时与槽位 className 相加，而不是整串覆盖", () => {
+    act(() => {
+      root.render(
+        <Slot className="absolute right-3.5 top-3.5" onClick={() => {}}>
+          <span className="h-3.5 w-3.5">×</span>
+        </Slot>,
+      );
+    });
+    const el = container.querySelector("span")!;
+    // 事故背景：关闭按钮写成 <DialogClose className="absolute right-3.5 …"><X className="h-3.5 w-3.5" /></DialogClose>，
+    // 子元素的 className 覆盖掉了槽位的绝对定位 → X 掉进文档流、挤在弹窗左上角被圆角切掉。
+    expect(el.className).toContain("absolute");
+    expect(el.className).toContain("right-3.5");
+    expect(el.className).toContain("h-3.5");
+  });
+
+  it("槽位与子元素都挂了同一个事件时依次触发，不吞掉任何一方", () => {
+    const calls: string[] = [];
+    act(() => {
+      root.render(
+        <Slot onClick={() => calls.push("slot")}>
+          <button type="button" onClick={() => calls.push("child")}>
+            点我
+          </button>
+        </Slot>,
+      );
+    });
+    act(() => {
+      container.querySelector("button")!.click();
+    });
+    expect(calls).toEqual(["child", "slot"]);
+  });
 });
 
 describe("AlertDialog 按钮", () => {

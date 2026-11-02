@@ -227,7 +227,7 @@ lib/
 public/plugin-market/             # 本地市场 registry + 示例 bundle
 templates/plugin/                 # 第三方插件最小模板
 docs/                             # 插件化架构 / 本地数据库版 / 插件开发
-test/                             # Vitest 单测（与 lib/、server/ 同构，723 个用例）
+test/                             # Vitest 单测（与 lib/、server/ 同构，726 个用例）
 ```
 
 ## 数据模型（SQLite 6 张表）
@@ -261,7 +261,7 @@ pnpm build        # vite 构建客户端到 dist/
 pnpm start        # 运行 Hono（托管 dist/ + API，单机自托管）
 pnpm typecheck    # tsc --noEmit
 pnpm lint         # ESLint
-pnpm test         # Vitest 单测（723 个用例，内存 SQLite + Hono app.request）
+pnpm test         # Vitest 单测（726 个用例，内存 SQLite + Hono app.request）
 pnpm test:watch   # Vitest 监听模式
 ```
 

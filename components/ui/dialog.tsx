@@ -56,8 +56,14 @@ function DialogContent({ className, children, showCloseButton = true, ...props }
         {...props}
       >
         {showCloseButton && (
-          <DialogClose className="absolute right-3.5 top-3.5 flex size-6 cursor-pointer items-center justify-center rounded-full bg-secondary text-shell-label-secondary transition-colors hover:bg-[color-mix(in_srgb,var(--secondary)_75%,var(--foreground))] hover:text-shell-label-primary">
-            <X className="h-3.5 w-3.5" />
+          // 关闭按钮必须是真的 <button>：之前用 asChild 把 onClick/type 合并进 <X/> 这个 <svg>，
+          // 结果是「长得像按钮的图标」——不可聚焦、无 aria、还会因 className 被覆盖而贴到左上角。
+          <DialogClose
+            asChild={false}
+            aria-label="关闭"
+            className="absolute right-3.5 top-3.5 flex size-6 cursor-pointer items-center justify-center rounded-full bg-secondary text-shell-label-secondary transition-colors hover:bg-[color-mix(in_srgb,var(--secondary)_75%,var(--foreground))] hover:text-shell-label-primary"
+          >
+            <X className="h-3.5 w-3.5" aria-hidden="true" />
           </DialogClose>
         )}
         {children}

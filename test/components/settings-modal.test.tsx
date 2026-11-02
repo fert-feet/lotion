@@ -119,4 +119,34 @@ describe("SettingsModal", () => {
     expect(admin.list).toHaveBeenCalled();
     expect(document.body.textContent).toContain("AI 助手面板");
   });
+
+  it("关闭按钮是真按钮、锚在右上角，导航里没有「设置」小标题", async () => {
+    const admin = createPluginAdminStub({ list: vi.fn(async () => []) });
+
+    await act(async () => {
+      root.render(
+        <ThemeProvider attribute="class" defaultTheme="light">
+          <KernelProvider kernel={kernelWith(admin)}>
+            <UserProvider initialUser={null}>
+              <SettingsModal />
+            </UserProvider>
+          </KernelProvider>
+        </ThemeProvider>,
+      );
+    });
+
+    // 事故背景：关闭按钮曾用 asChild 把 onClick/type 合并进 <X/>（一个 <svg>），
+    // 于是既不是 <button>（不可聚焦、无 aria-label），className 又被子元素覆盖 → 贴在左上角被圆角切掉。
+    const close = document.querySelector<HTMLButtonElement>('button[aria-label="关闭"]');
+    expect(close, "关闭按钮必须是带 aria-label 的真 <button>").not.toBeNull();
+    expect(close!.tagName).toBe("BUTTON");
+    expect(close!.className).toContain("absolute");
+    expect(close!.className).toContain("right-3.5");
+    expect(close!.className).toContain("top-3.5");
+    expect(close!.querySelector("svg")).not.toBeNull();
+
+    // 「设置」只是弹窗标题（sr-only），导航里不再有那个看着像选项的 11px 小标题
+    const nav = document.querySelector('nav[aria-label="设置导航"]')!;
+    expect(nav.textContent).toBe("外观插件");
+  });
 });

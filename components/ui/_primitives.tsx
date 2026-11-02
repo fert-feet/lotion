@@ -6,6 +6,7 @@
 // 供 dropdown-menu / popover 复用，不依赖任何第三方弹层库。
 import { cloneElement, isValidElement, useEffect, useRef, useState } from "react";
 import type { ReactElement, ReactNode } from "react";
+import { cn } from "@/lib/utils";
 
 /** asChild 语义：把 props 合并到唯一子元素（不包裹额外节点）。
  *  兜底：asChild 但子节点不是元素（例如直接写文本 "Cancel"）时渲染原生 button。
@@ -20,7 +21,31 @@ export function Slot({ children, ...props }: { children?: ReactNode } & Record<s
     );
   }
   const childProps = (children.props as Record<string, unknown>) ?? {};
-  return cloneElement(children as ReactElement, { ...props, ...childProps });
+  const merged: Record<string, unknown> = { ...props, ...childProps };
+
+  // className 要**相加**，不能让子元素整串覆盖：子元素自带 className 时（例如
+  // `<DialogClose className="absolute right-3.5 top-3.5 …"><X className="h-3.5 w-3.5" /></DialogClose>`），
+  // 覆盖会丢掉槽位的绝对定位，关闭按钮就变成文档流里的第一个元素（表现为「X 挤在弹窗左上角、被圆角切掉」）。
+  const slotClass = props.className as string | undefined;
+  const childClass = childProps.className as string | undefined;
+  if (slotClass !== undefined || childClass !== undefined) {
+    merged.className = cn(slotClass, childClass) || undefined;
+  }
+
+  // 事件回调同理：两边都挂了就依次调用（先子后槽），否则任一方都会被覆盖掉。
+  for (const key of Object.keys(props)) {
+    if (!/^on[A-Z]/.test(key)) continue;
+    const slotHandler = props[key];
+    const childHandler = childProps[key];
+    if (typeof slotHandler === "function" && typeof childHandler === "function") {
+      merged[key] = (...args: unknown[]) => {
+        (childHandler as (...a: unknown[]) => void)(...args);
+        (slotHandler as (...a: unknown[]) => void)(...args);
+      };
+    }
+  }
+
+  return cloneElement(children as ReactElement, merged);
 }
 
 export interface FloatingProps {
