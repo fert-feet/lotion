@@ -3,8 +3,9 @@
 // 侧边栏头部 —— macOS 语言：
 // 13px 半粗小标题 + 填充式搜索框（放大镜内置、无边框）+ 24px 图标按钮。
 // expanded 由父级控制（rail 的搜索按钮点击后展开侧边栏并强制展开搜索框）。
+// 插件市场入口就在这里（与 AI 助手 / 新建同一组 toolbar 图标），不再单占一整行。
 import { useEffect, useRef } from "react";
-import { Plus, Search, Sparkles, X } from "@/components/icons";
+import { Plus, Search, Sparkles, Store, X } from "@/components/icons";
 import { useLayout } from "@/hooks/use-layout";
 import { cn } from "@/lib/utils";
 
@@ -15,13 +16,26 @@ interface SidebarHeaderProps {
   onExpandedChange: (open: boolean) => void;
   onCreate: () => void;
   label: string;
+  /** 打开插件市场（/market）；放在顶部图标组里 */
+  onOpenMarket: () => void;
+  /** 当前是否停在 /market（选中态高亮） */
+  marketActive?: boolean;
 }
 
 /** 图标按钮：24px 圆形，hover 出现填充底（Apple 的 toolbar button） */
 const iconBtn =
   "flex h-6 w-6 flex-none cursor-pointer items-center justify-center rounded-[6px] bg-transparent p-0 text-shell-label-secondary transition-colors duration-150 hover:bg-shell-row-hover hover:text-shell-label-primary";
 
-export function SidebarHeader({ query, onQueryChange, expanded, onExpandedChange, onCreate, label }: SidebarHeaderProps) {
+export function SidebarHeader({
+  query,
+  onQueryChange,
+  expanded,
+  onExpandedChange,
+  onCreate,
+  label,
+  onOpenMarket,
+  marketActive = false,
+}: SidebarHeaderProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const detailsOpen = useLayout((s) => s.details > 0);
   const toggleDetails = useLayout((s) => s.toggleDetails);
@@ -47,7 +61,7 @@ export function SidebarHeader({ query, onQueryChange, expanded, onExpandedChange
   };
 
   return (
-    <div className="mb-2 flex h-7 shrink-0 items-center justify-end gap-1 px-0.5">
+    <div data-sidebar-header className="mb-2 flex h-7 shrink-0 items-center justify-end gap-1 px-0.5">
       {/* 标题：搜索展开时折叠让位 */}
       <span
         className={cn(
@@ -111,8 +125,21 @@ export function SidebarHeader({ query, onQueryChange, expanded, onExpandedChange
         </div>
       </div>
 
-      {/* 操作按钮：AI 助手 + 新建；搜索展开时让位隐藏 */}
+      {/* 操作按钮：插件市场 + AI 助手 + 新建；搜索展开时让位隐藏 */}
       <div className={cn("flex flex-none items-center gap-0.5 transition-all duration-200 ease-[var(--ds-ease-in-out)]", expanded && "max-w-0 translate-x-1 opacity-0")}>
+        <button
+          type="button"
+          aria-label="插件市场"
+          title="插件市场"
+          aria-current={marketActive ? "page" : undefined}
+          onClick={onOpenMarket}
+          className={cn(
+            iconBtn,
+            marketActive && "bg-shell-row-active text-shell-label-primary hover:text-shell-label-primary",
+          )}
+        >
+          <Store className="h-3.5 w-3.5" />
+        </button>
         <button
           type="button"
           aria-label="AI 助手"

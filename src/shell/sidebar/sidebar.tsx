@@ -163,21 +163,9 @@ export function Sidebar({ wide, onExpand }: SidebarProps) {
         onExpandedChange={setSearchExpanded}
         onCreate={onCreate}
         label="文档"
+        onOpenMarket={() => navigate("/market")}
+        marketActive={marketActive}
       />
-
-      <button
-        type="button"
-        onClick={() => navigate("/market")}
-        className={cn(
-          "mx-0.5 mb-1 flex h-7 shrink-0 items-center gap-2 rounded-[6px] px-2 text-[13px] transition-colors duration-150",
-          marketActive
-            ? "bg-shell-row-active font-medium text-shell-label-primary"
-            : "text-shell-label-secondary hover:bg-shell-row-hover hover:text-shell-label-primary",
-        )}
-      >
-        <Store className="h-4 w-4" />
-        <span>插件市场</span>
-      </button>
 
       {/* 列表区：唯一滚动区域；底部渐变 fade 贴住可见底边 */}
       <div className="relative min-h-0 flex-1 overflow-hidden">
