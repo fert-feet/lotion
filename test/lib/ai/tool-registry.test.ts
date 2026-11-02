@@ -14,7 +14,12 @@ import {
   runToolGuards,
   TOOLS_SERVICE,
 } from "@/lib/seams/tools";
-import { buildToolSet, createHostToolRegistry, type AnyTool } from "@/lib/ai/tools/registry";
+import {
+  buildToolSet,
+  createHostToolRegistry,
+  normalizeToolSchema,
+  type AnyTool,
+} from "@/lib/ai/tools/registry";
 import { createDefaultToolRegistry, type ToolEvent } from "@/lib/ai/tools";
 import { createHostTools } from "@/server/composition";
 
@@ -126,6 +131,47 @@ describe("lib/ai/tools/registry 组装与守卫流水线", () => {
     expect(events.map((e) => e.type)).toEqual(["tool_start", "tool_end"]);
     expect(events[0]).toMatchObject({ type: "tool_start", tool: "demo", seq: 1 });
     expect(events[1]).toMatchObject({ type: "tool_end", ok: true, summary: "摘要：结果文本" });
+  });
+
+  it("JSON Schema 字面量在组装期被包成 AI SDK 认识的 schema（回归：schema is not a function）", () => {
+    const registry = createHostToolRegistry();
+    registry.register({
+      name: "literal",
+      label: "字面量 schema",
+      icon: "🧾",
+      description: "插件作者常这么写",
+      create: () => fakeTool("x"), // fakeTool 的 inputSchema 就是 {}
+    });
+
+    const toolSet = buildToolSet(registry, { db, userId: "u1" });
+    const schema = (toolSet as unknown as Record<string, AnyTool>).literal.inputSchema as Record<
+      string,
+      unknown
+    >;
+
+    // jsonSchema() 的产物：带 validate 键 + 可读回原始 JSON Schema
+    // （AI SDK v7 的 asSchema 遇到普通对象会当函数调用 → 整轮对话崩，见 normalizeToolSchema 注释）
+    expect(typeof schema).toBe("object");
+    expect("validate" in schema).toBe(true);
+    expect(schema.jsonSchema).toEqual({});
+  });
+
+  it("normalizeToolSchema：字面量包一层、已包装/Standard Schema 原样、缺失补空对象", () => {
+    const literal = normalizeToolSchema({ type: "object", additionalProperties: true }) as {
+      jsonSchema: unknown;
+    };
+    expect(literal.jsonSchema).toEqual({ type: "object", additionalProperties: true });
+
+    const zodLike = { "~standard": { version: 1, vendor: "zod" } };
+    expect(normalizeToolSchema(zodLike)).toBe(zodLike);
+
+    const already = normalizeToolSchema({}) as object;
+    expect(normalizeToolSchema(already)).toBe(already);
+
+    expect((normalizeToolSchema(undefined) as { jsonSchema: unknown }).jsonSchema).toEqual({
+      type: "object",
+      properties: {},
+    });
   });
 
   it("守卫拒绝：不执行工具本体，直接返回拒绝理由并上报 tool_end(ok=false)", async () => {

@@ -4,6 +4,7 @@
 // 元数据（label/icon/summary）随定义走，因此新增工具不再需要改 agent 或组装代码。
 // 每次组装都会：跑守卫（拒绝即短路）→ 发 tool_start/tool_end 事件 → 记日志 → doom loop 统计。
 import type Database from "better-sqlite3";
+import { jsonSchema } from "ai";
 import type { ToolSet } from "ai";
 import { logger } from "@/lib/logger";
 import {
@@ -76,14 +77,40 @@ export function buildToolSet(registry: HostToolRegistry, options: BuildToolSetOp
 
   for (const definition of definitions) {
     const tool = definition.create({ ...hostContext, db });
-    wrapped[definition.name] = withToolEvents(definition, tool, {
-      nextSeq: () => ++seq,
-      onEvent,
-      doom,
-    });
+    wrapped[definition.name] = withToolEvents(
+      definition,
+      { ...tool, inputSchema: normalizeToolSchema(tool.inputSchema) },
+      {
+        nextSeq: () => ++seq,
+        onEvent,
+        doom,
+      },
+    );
   }
 
   return wrapped as unknown as ToolSet;
+}
+
+/**
+ * 把工具的 inputSchema 收口成 AI SDK 认识的形状。
+ *
+ * ⚠️ 事故背景（2026-11-02）：`plugin_*` 五个工具与插件模板/市场示例都直接写
+ * **JSON Schema 字面量**（`inputSchema: {}`、`{ type: "object", additionalProperties: true }`）。
+ * AI SDK v7 的 `asSchema()` 只认三种东西：Standard Schema（zod 等）、`jsonSchema()` 包装、
+ * 或**函数**；普通对象会被当成函数调用 → `TypeError: schema is not a function`。
+ * 更糟的是它发生在组装工具集时，**与模型是否调用该工具无关**：只要注册表里有这么一个工具，
+ * 整轮对话就立刻失败（前端表现为一条「schema is not a function」的错误卡）。
+ * 所以在这里统一包一层，而不是要求每个插件作者都记得写 `jsonSchema()`。
+ */
+export function normalizeToolSchema(schema: unknown): unknown {
+  const empty = { type: "object" as const, properties: {} };
+  if (schema === null || schema === undefined) return jsonSchema(empty);
+  if (typeof schema === "function") return schema; // AI SDK 也接受「返回 schema 的函数」
+  if (typeof schema !== "object") return jsonSchema(empty);
+  const record = schema as Record<string, unknown>;
+  // zod / Standard Schema，或已经用 jsonSchema() 包过（它的产物带 validate 键）
+  if ("~standard" in record || "validate" in record) return schema;
+  return jsonSchema(record as never);
 }
 
 interface WrapOptions {
