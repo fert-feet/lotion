@@ -1,10 +1,9 @@
 "use client";
 
 // 设置弹窗：左侧标签（外观 / 插件），右侧内容。
-// 插件页只对 owner 可见 —— 插件装配影响整个 Node 进程，普通用户只能使用、不能改。
-import { useEffect, useState } from "react";
+// 所有登录用户权限一致，插件页不再按 owner 隐藏。
+import { useState } from "react";
 import useSettings from "@/hooks/use-setting";
-import { useUser } from "@/hooks/use-user";
 import { cn } from "@/lib/utils";
 import { ModeToggle } from "@/components/lightButton";
 import { PluginSettings } from "@/components/settings/plugin-settings";
@@ -41,13 +40,7 @@ function TabButton({
 
 const SettingsModal = () => {
   const settings = useSettings();
-  const { isOwner } = useUser();
   const [tab, setTab] = useState<Tab>("appearance");
-
-  // 非 owner 永远看不到插件页；权限变化时退回外观
-  useEffect(() => {
-    if (!isOwner && tab === "plugins") setTab("appearance");
-  }, [isOwner, tab]);
 
   return (
     <Dialog open={settings.isOpen} onOpenChange={settings.onClose}>
@@ -67,11 +60,9 @@ const SettingsModal = () => {
             <TabButton active={tab === "appearance"} onClick={() => setTab("appearance")}>
               外观
             </TabButton>
-            {isOwner ? (
-              <TabButton active={tab === "plugins"} onClick={() => setTab("plugins")}>
-                插件
-              </TabButton>
-            ) : null}
+            <TabButton active={tab === "plugins"} onClick={() => setTab("plugins")}>
+              插件
+            </TabButton>
           </nav>
 
           <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden p-5 pr-12">

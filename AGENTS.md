@@ -120,7 +120,7 @@ lib/
 │   ├── auth.ts              # scrypt 哈希 + 会话管理 + cookie 工具
 │   ├── request-user.ts      # 从请求 cookie 解析会话用户（中间件调用）
 │   ├── uploads.ts           # 上传目录解析（UPLOAD_DIR）
-│   ├── owner.ts             # 插件管理员：最早注册的用户
+│   ├── owner.ts             # 最早注册用户标记（isOwner，仅展示，不参与插件权限）
 │   ├── plugin-catalog.ts    # 内置插件元数据（标题/描述/core/能力）
 │   ├── plugin-manager.ts    # pluginAdmin 宿主实现（列表/启停/配置/审批/市场）
 │   ├── plugin-package.ts    # 已安装包 manifest + data/plugins/installed 存储
@@ -163,9 +163,9 @@ test/                       # Vitest 单测（lib/ / api/ / components/ / seams/
 - 运行时数据：`data/lotion.db`（可用 `LOTION_DB_PATH` 覆盖）、`data/uploads/`（可用 `UPLOAD_DIR` 覆盖）、
   `data/plugins/`（已安装 + AI 动态定义，可用 `LOTION_PLUGINS_DIR` 覆盖）、
   `data/plugin-market/`（发布包 / stats）与 `data/plugin-market.json`（本机市场 registry），均 gitignore
-- 插件管理：`pluginAdmin` 接缝 + `data/settings.json` 的 `plugins` patch；只有**最早注册的用户**（owner）
-  能改装配；侧边栏 `/market` 所有登录用户可浏览，安装/评分/市场源等管理操作 owner-only；
-  静态插件启停走 `static-plugin-controller`（实时），UI 插件需刷新。市场支持
+- 插件管理：`pluginAdmin` 接缝 + `data/settings.json` 的 `plugins` patch；**所有登录账号权限一致**
+  （设置页插件、侧边栏 `/market`、安装/评分/市场源等均可操作）；静态插件启停走
+  `static-plugin-controller`（实时），UI 插件需刷新。市场支持
   本地/远端 registry（`market.registryUrl` / `LOTION_MARKET_URL`）、搜索/分类/排序、上传/发布/导出、
   版本更新、评分评论下载量、sha256 + 可选 Ed25519 验签；见 `docs/插件开发.md`
 
@@ -208,8 +208,7 @@ test/                       # Vitest 单测（lib/ / api/ / components/ / seams/
   UI 走 `requireUiSlots(ctx).register({ id, slot, kind: "single" | "list", component })`
 - **插件管理**：管理写操作走 `pluginAdmin` 接缝（`usePluginAdmin()`），不要在组件里直接 fetch；
   新增路由贡献用 `registerRoute`（`ctx.effect` 配对注销），否则热切换会留下孤儿路由；
-  owner = **最早注册的用户**，插件管理写操作 owner-only；`GET /api/plugins/market` 登录可浏览
-  （`client-config` / `market` 读接口除外）
+  插件权限对所有登录账号一致（`isOwner` 仅展示，不再参与鉴权）
 - **每个注册都要有 disposer**（工具/监听器/服务/effect 都要可逆）；⚠️ Cordis 的 `ctx.effect` 是
   “立即执行并返回 disposer”，只在卸载时执行请写 `ctx.effect(() => () => cleanup())`
 - **装配是异步的**：`ctx.plugin()` 只启动加载（state=LOADING），必须 `await settle(fiber)` /

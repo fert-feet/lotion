@@ -1,11 +1,10 @@
 // 插件管理路由（/api/plugins）。
 //
-// 权限：除 `GET /client-config`（启动期 UI 插件过滤，公开且只回 id）外，全部 owner-only。
+// 权限：**所有登录用户权限一致**，可浏览/安装/更新/评分/上传/发布/审批/启停/卸载/配置市场源。
+// 唯一公开端点是 `GET /client-config`（启动期 UI 插件过滤，只回 disabled id）。
 // 为什么不在路由层挂 requireAuth 中间件：公开端点与受保护端点共用一个子应用，
-// 逐 handler 做 owner 判定更显式，也避免 Hono 中间件注册顺序的坑。
+// 逐 handler 做登录判定更显式，也避免 Hono 中间件注册顺序的坑。
 import { Hono, type Context } from "hono";
-import { getDb } from "@/lib/local/sqlite";
-import { isOwner } from "@/lib/local/owner";
 import { userFromRequest } from "@/lib/local/request-user";
 import { requirePluginAdmin, type PluginAdminService } from "@/lib/seams/plugins";
 import { PluginAdminError } from "@/lib/local/plugin-manager";
@@ -15,13 +14,10 @@ export const pluginsRoutes = new Hono<AppEnv>();
 
 const CORE_OR_CONFLICT = 409;
 
-/** 未登录 401 / 非 owner 403；通过返回 null */
-function ownerGuard(c: Context<AppEnv>): Response | null {
+/** 未登录 401；通过返回 null */
+function authGuard(c: Context<AppEnv>): Response | null {
   const user = userFromRequest(c.req.raw);
   if (!user) return c.json({ error: "Unauthorized" }, 401);
-  if (!isOwner(getDb(), user.id)) {
-    return c.json({ error: "仅最早注册的用户可以管理插件", code: "NOT_OWNER" }, 403);
-  }
   return null;
 }
 
@@ -67,20 +63,20 @@ pluginsRoutes.get("/client-halves", (c) => {
 
 /** 列表：内置 + 已安装 + 动态 */
 pluginsRoutes.get("/", (c) => {
-  const denied = ownerGuard(c);
+  const denied = authGuard(c);
   if (denied) return denied;
   return withAdmin(c, async (admin) => c.json({ plugins: await admin.list() }));
 });
 
-/** 市场源：读取 / 修改（owner） */
+/** 市场源：读取 / 修改（所有登录用户） */
 pluginsRoutes.get("/market/source", (c) => {
-  const denied = ownerGuard(c);
+  const denied = authGuard(c);
   if (denied) return denied;
   return withAdmin(c, async (admin) => c.json(await admin.getMarketSource()));
 });
 
 pluginsRoutes.patch("/market/source", async (c) => {
-  const denied = ownerGuard(c);
+  const denied = authGuard(c);
   if (denied) return denied;
   const parsed = await readJson<{ url?: unknown }>(c);
   if (!parsed.ok || typeof parsed.data?.url !== "string") {
@@ -91,7 +87,7 @@ pluginsRoutes.patch("/market/source", async (c) => {
 
 /** 启停 / 改配置 */
 pluginsRoutes.patch("/:id", async (c) => {
-  const denied = ownerGuard(c);
+  const denied = authGuard(c);
   if (denied) return denied;
   const id = c.req.param("id");
   const parsed = await readJson<{ enabled?: unknown; config?: unknown }>(c);
@@ -126,7 +122,7 @@ pluginsRoutes.patch("/:id", async (c) => {
 /** 批准客户端半边 / 运行 / 停止 */
 for (const action of ["approve", "run", "stop"] as const) {
   pluginsRoutes.post(`/:id/${action}`, (c) => {
-    const denied = ownerGuard(c);
+    const denied = authGuard(c);
     if (denied) return denied;
     const id = c.req.param("id");
     return withAdmin(c, async (admin) => c.json(await admin[action](id)));
@@ -135,7 +131,7 @@ for (const action of ["approve", "run", "stop"] as const) {
 
 /** 卸载 / 删除动态定义 */
 pluginsRoutes.delete("/:id", async (c) => {
-  const denied = ownerGuard(c);
+  const denied = authGuard(c);
   if (denied) return denied;
   const id = c.req.param("id");
   return withAdmin(c, async (admin) => {
@@ -146,13 +142,13 @@ pluginsRoutes.delete("/:id", async (c) => {
 
 /** 源码预览 */
 pluginsRoutes.get("/:id/source", (c) => {
-  const denied = ownerGuard(c);
+  const denied = authGuard(c);
   if (denied) return denied;
   const id = c.req.param("id");
   return withAdmin(c, async (admin) => c.json(await admin.source(id)));
 });
 
-/** 市场目录：所有登录用户可浏览；安装/评分/源配置仍 owner-only */
+/** 市场目录：所有登录用户可浏览 */
 pluginsRoutes.get("/market", (c) => {
   const user = userFromRequest(c.req.raw);
   if (!user) return c.json({ error: "Unauthorized" }, 401);
@@ -162,7 +158,7 @@ pluginsRoutes.get("/market", (c) => {
 });
 
 pluginsRoutes.post("/install", async (c) => {
-  const denied = ownerGuard(c);
+  const denied = authGuard(c);
   if (denied) return denied;
   const parsed = await readJson<{ id?: unknown }>(c);
   if (!parsed.ok || typeof parsed.data?.id !== "string" || parsed.data.id.trim() === "") {
@@ -174,7 +170,7 @@ pluginsRoutes.post("/install", async (c) => {
 
 /** 上传/导入插件包（JSON） */
 pluginsRoutes.post("/upload", async (c) => {
-  const denied = ownerGuard(c);
+  const denied = authGuard(c);
   if (denied) return denied;
   const parsed = await readJson<{ bundle?: unknown }>(c);
   if (!parsed.ok || parsed.data?.bundle === undefined) {
@@ -185,7 +181,7 @@ pluginsRoutes.post("/upload", async (c) => {
 
 /** 导出已安装插件包 */
 pluginsRoutes.get("/:id/export", (c) => {
-  const denied = ownerGuard(c);
+  const denied = authGuard(c);
   if (denied) return denied;
   const id = c.req.param("id");
   return withAdmin(c, async (admin) => c.json(await admin.exportPlugin(id)));
@@ -193,7 +189,7 @@ pluginsRoutes.get("/:id/export", (c) => {
 
 /** 发布到本地市场 */
 pluginsRoutes.post("/:id/publish", (c) => {
-  const denied = ownerGuard(c);
+  const denied = authGuard(c);
   if (denied) return denied;
   const id = c.req.param("id");
   return withAdmin(c, async (admin) => c.json(await admin.publishPlugin(id)));
@@ -201,7 +197,7 @@ pluginsRoutes.post("/:id/publish", (c) => {
 
 /** 评分/评论 */
 pluginsRoutes.post("/:id/rate", async (c) => {
-  const denied = ownerGuard(c);
+  const denied = authGuard(c);
   if (denied) return denied;
   const id = c.req.param("id");
   const parsed = await readJson<{ rating?: unknown; comment?: unknown }>(c);

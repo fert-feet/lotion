@@ -65,7 +65,7 @@ function Badge({ children, tone = "neutral" }: { children: React.ReactNode; tone
   );
 }
 
-export function PluginMarket({ canManage = true }: { canManage?: boolean }) {
+export function PluginMarket() {
   const admin = usePluginAdmin();
   const [entries, setEntries] = useState<MarketEntry[]>([]);
   const [plugins, setPlugins] = useState<PluginInfo[]>([]);
@@ -92,8 +92,8 @@ export function PluginMarket({ canManage = true }: { canManage?: boolean }) {
     try {
       const [catalog, list, info] = await Promise.all([
         admin.market(),
-        canManage ? admin.list().catch(() => [] as PluginInfo[]) : Promise.resolve([] as PluginInfo[]),
-        canManage ? admin.getMarketSource().catch(() => null) : Promise.resolve(null),
+        admin.list().catch(() => [] as PluginInfo[]),
+        admin.getMarketSource().catch(() => null),
       ]);
       setEntries(catalog);
       setPlugins(list);
@@ -104,7 +104,7 @@ export function PluginMarket({ canManage = true }: { canManage?: boolean }) {
     } finally {
       setLoading(false);
     }
-  }, [admin, canManage]);
+  }, [admin]);
 
   useEffect(() => {
     void load();
@@ -149,7 +149,6 @@ export function PluginMarket({ canManage = true }: { canManage?: boolean }) {
   }, [entries, search, category, sort]);
 
   const install = async (entry: MarketEntry) => {
-    if (!canManage) return;
     setBusyId(entry.id);
     setError(null);
     setNotice(null);
@@ -166,7 +165,6 @@ export function PluginMarket({ canManage = true }: { canManage?: boolean }) {
   };
 
   const upload = async (file: File) => {
-    if (!canManage) return;
     setUploadBusy(true);
     setError(null);
     setNotice(null);
@@ -185,7 +183,7 @@ export function PluginMarket({ canManage = true }: { canManage?: boolean }) {
   };
 
   const submitRating = async () => {
-    if (!canManage || !ratingEntry) return;
+    if (!ratingEntry) return;
     setBusyId(ratingEntry.id);
     setError(null);
     try {
@@ -202,7 +200,6 @@ export function PluginMarket({ canManage = true }: { canManage?: boolean }) {
   };
 
   const saveSource = async () => {
-    if (!canManage) return;
     setSourceBusy(true);
     setError(null);
     setNotice(null);
@@ -220,7 +217,6 @@ export function PluginMarket({ canManage = true }: { canManage?: boolean }) {
   };
 
   const actionFor = (entry: MarketEntry): { label: string; disabled: boolean; kind: "install" | "update" | "installed" } => {
-    if (!canManage) return { label: "只读", disabled: true, kind: "installed" };
     const current = installed.get(entry.id);
     if (!current) return { label: "安装", disabled: false, kind: "install" };
     if (current.updateAvailable) return { label: `更新 v${entry.version}`, disabled: false, kind: "update" };
@@ -237,23 +233,19 @@ export function PluginMarket({ canManage = true }: { canManage?: boolean }) {
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
-          {canManage ? (
-            <>
-              <input
-                ref={fileRef}
-                type="file"
-                accept=".json,application/json"
-                className="hidden"
-                onChange={(event) => {
-                  const file = event.target.files?.[0];
-                  if (file) void upload(file);
-                }}
-              />
-              <Button variant="secondary" size="sm" onClick={() => fileRef.current?.click()} disabled={uploadBusy}>
-                {uploadBusy ? "导入中…" : "上传插件"}
-              </Button>
-            </>
-          ) : null}
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".json,application/json"
+            className="hidden"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (file) void upload(file);
+            }}
+          />
+          <Button variant="secondary" size="sm" onClick={() => fileRef.current?.click()} disabled={uploadBusy}>
+            {uploadBusy ? "导入中…" : "上传插件"}
+          </Button>
           <Button variant="ghost" size="sm" onClick={() => void load()} disabled={loading}>
             刷新
           </Button>
@@ -263,12 +255,6 @@ export function PluginMarket({ canManage = true }: { canManage?: boolean }) {
       <p className="rounded-[6px] bg-amber-500/10 px-2.5 py-1.5 text-[11px] leading-4 text-amber-800 dark:text-amber-200">
         ⚠️ 第三方插件代码与本机同信任级别（不是安全沙箱）。安装前请审阅权限与源码。
       </p>
-
-      {!canManage ? (
-        <p className="rounded-[6px] bg-secondary px-2.5 py-1.5 text-[11px] leading-4 text-shell-label-secondary">
-          只读模式：安装、更新、评分与市场源配置仅限 owner（最早注册的用户）。
-        </p>
-      ) : null}
 
       {notice ? (
         <p className="rounded-[6px] bg-primary/10 px-2.5 py-1.5 text-[12px] text-primary">{notice}</p>
@@ -311,28 +297,26 @@ export function PluginMarket({ canManage = true }: { canManage?: boolean }) {
         </select>
       </div>
 
-      {canManage ? (
-        <div className="rounded-[8px] border-[0.5px] border-shell-border px-2.5 py-2">
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-[11px] font-medium text-shell-label-secondary">
-              市场源：{source?.remote ? "远端在线 registry" : "本地目录"}
-            </span>
-            {source?.requireSignature ? <Badge tone="green">强制验签</Badge> : <Badge>验签可选</Badge>}
-          </div>
-          <div className="mt-1.5 flex items-center gap-1.5">
-            <Input
-              value={sourceDraft}
-              onChange={(event) => setSourceDraft(event.target.value)}
-              placeholder="https://example.com/registry.json（留空 = 本地目录）"
-              aria-label="市场源 URL"
-              className="h-8 flex-1 font-mono text-[11px]"
-            />
-            <Button variant="secondary" size="sm" onClick={() => void saveSource()} disabled={sourceBusy}>
-              {sourceBusy ? "保存中…" : "保存"}
-            </Button>
-          </div>
+      <div className="rounded-[8px] border-[0.5px] border-shell-border px-2.5 py-2">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-[11px] font-medium text-shell-label-secondary">
+            市场源：{source?.remote ? "远端在线 registry" : "本地目录"}
+          </span>
+          {source?.requireSignature ? <Badge tone="green">强制验签</Badge> : <Badge>验签可选</Badge>}
         </div>
-      ) : null}
+        <div className="mt-1.5 flex items-center gap-1.5">
+          <Input
+            value={sourceDraft}
+            onChange={(event) => setSourceDraft(event.target.value)}
+            placeholder="https://example.com/registry.json（留空 = 本地目录）"
+            aria-label="市场源 URL"
+            className="h-8 flex-1 font-mono text-[11px]"
+          />
+          <Button variant="secondary" size="sm" onClick={() => void saveSource()} disabled={sourceBusy}>
+            {sourceBusy ? "保存中…" : "保存"}
+          </Button>
+        </div>
+      </div>
 
       <div className="-mr-2 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-2">
         {loading ? (
@@ -404,7 +388,7 @@ export function PluginMarket({ canManage = true }: { canManage?: boolean }) {
                   <Button
                     variant="ghost"
                     size="sm"
-                    disabled={!canManage || busyId === entry.id}
+                    disabled={busyId === entry.id}
                     onClick={() => {
                       setRatingEntry(entry);
                       setRatingValue(Math.round(entry.rating ?? 5) || 5);

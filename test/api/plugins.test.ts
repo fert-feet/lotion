@@ -66,12 +66,16 @@ beforeEach(async () => {
 });
 
 describe("GET /api/plugins", () => {
-  it("未登录 401；非 owner 403", async () => {
+  it("未登录 401；任意登录用户权限一致", async () => {
     expect((await get("/api/plugins")).status).toBe(401);
 
-    const forbidden = await get("/api/plugins", otherToken);
-    expect(forbidden.status).toBe(403);
-    expect((await forbidden.json()).code).toBe("NOT_OWNER");
+    const other = await get("/api/plugins", otherToken);
+    expect(other.status).toBe(200);
+    expect((await other.json()).plugins.length).toBeGreaterThan(0);
+
+    const patched = await patch("/api/plugins/ui-ai-panel", { enabled: false }, otherToken);
+    expect(patched.status).toBe(200);
+    expect((await patched.json()).enabled).toBe(false);
   });
 
   it("owner 能拿到列表（含默认关闭的动态通道）", async () => {
@@ -87,18 +91,12 @@ describe("GET /api/plugins", () => {
     expect(body.plugins.find((item) => item.id === "tools-registry")?.core).toBe(true);
   });
 
-  it("市场目录所有登录用户可浏览；源配置仍 owner-only", async () => {
+  it("市场目录对所有登录用户开放", async () => {
     const res = await get("/api/plugins/market", otherToken);
     expect(res.status).toBe(200);
     const body = (await res.json()) as { entries: unknown[] };
     expect(Array.isArray(body.entries)).toBe(true);
-
-    const forbidden = await app.request("/api/plugins/market/source", {
-      method: "PATCH",
-      headers: { "content-type": "application/json", ...cookieOf(otherToken) },
-      body: JSON.stringify({ url: "https://market.example/registry.json" }),
-    });
-    expect(forbidden.status).toBe(403);
+    expect((await get("/api/plugins/market")).status).toBe(401);
   });
 });
 
