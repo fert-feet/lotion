@@ -87,7 +87,7 @@ src/
 ├── router.tsx              # 路由表（导出 routes 供测试用 createMemoryRouter 复用）
 ├── kernel/                 # 客户端内核装配：client.ts（bootClientKernel）+ react.tsx（useDocStore/useSlot/usePluginAdmin）
 ├── dynamic/                # 动态插件客户端半边（宿主关闭时为空操作）
-├── pages/                  # 页面：marketing / login / register / documents / document / preview / 404 / error
+├── pages/                  # 页面：marketing / login / register / documents / document / market / preview / 404 / error
 ├── shell/                  # 认证区外壳：app-shell / main-layout(守卫) / sidebar / ai-panel / editor / ...
 │   └── ui-plugins.tsx       # 内置 UI 插件清单（AI 面板由插槽贡献，AppShell 只渲染 slot）
 ├── marketing/              # 着陆页组件
@@ -142,7 +142,7 @@ lib/
 └── layout/columns.ts       # 三栏让步链纯函数
 hooks/                      # Zustand stores + use-user（含 refreshUser / isOwner）
 components/                 # shadcn/ui + Toolbar + SearchCommand + Upload + editor/
-│   └── settings/            # 设置弹窗里的插件页 / 配置弹窗 / 源码预览 / 市场
+│   └── settings/            # 设置弹窗插件页 / 配置弹窗 / 源码预览（市场页在 src/pages/market.tsx）
 public/plugin-market/       # 本地市场 registry + 示例 bundle（word-count / daily-quote）
 templates/plugin/           # 第三方插件最小模板（复制到 data/plugins/installed）
 test/                       # Vitest 单测（lib/ / api/ / components/ / seams/ 同构）

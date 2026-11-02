@@ -18,6 +18,7 @@ import ErrorBoundary from "./pages/error-boundary";
 import LoginPage from "./pages/login";
 import RegisterPage from "./pages/register";
 import DocumentsPage from "./pages/documents";
+import MarketPage from "./pages/market";
 import NotFoundPage from "./pages/not-found";
 import MarketingLayout from "./pages/marketing-layout";
 import MarketingPage from "./pages/marketing";
@@ -47,6 +48,7 @@ export const routes = [
     element: <MainLayout />,
     errorElement: <ErrorBoundary />,
     children: [
+      { path: "market", element: <MarketPage /> },
       { path: "documents", element: <DocumentsPage /> },
       {
         path: "documents/:documentId",

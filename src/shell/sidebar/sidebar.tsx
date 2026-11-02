@@ -3,9 +3,9 @@
 // 侧边栏根组件（移植 DSH WorkspaceBrowser 结构）：
 // wide 形态 = header(标题+搜索胶囊+操作) + 文档树 + 底部图标栏 + 列表底部渐变；
 // rail 形态（56px）= 36px 图标控件列：logo / 搜索 / 新建 / AI，底部设置/回收站/批量/用户。
-import { useNavigate } from "react-router";
+import { useLocation, useNavigate } from "react-router";
 import { useEffect, useRef, useState } from "react";
-import { PenLine, Plus, Search, Sparkles } from "@/components/icons";
+import { PenLine, Plus, Search, Sparkles, Store } from "@/components/icons";
 import { toast } from "sonner";
 import { useUser } from "@/hooks/use-user";
 import { useRefresh } from "@/hooks/use-refresh";
@@ -28,7 +28,9 @@ export function Sidebar({ wide, onExpand }: SidebarProps) {
   const docStore = useDocStore();
   const actor = useActor();
   const navigate = useNavigate();
-  const { user } = useUser();
+  const location = useLocation();
+  const { user, isOwner } = useUser();
+  const marketActive = location.pathname === "/market";
   const sidebarKey = useRefresh((s) => s.sidebarKey);
   const triggerSidebar = useRefresh((s) => s.triggerSidebar);
   const detailsOpen = useLayout((s) => s.details > 0);
@@ -133,6 +135,20 @@ export function Sidebar({ wide, onExpand }: SidebarProps) {
         >
           <Sparkles className="h-[18px] w-[18px]" />
         </button>
+        {isOwner ? (
+          <button
+            type="button"
+            aria-label="插件市场"
+            title="插件市场"
+            onClick={() => navigate("/market")}
+            className={cn(
+              "flex h-9 w-9 items-center justify-center rounded-full text-shell-label-primary hover:bg-shell-row-hover",
+              marketActive && "bg-shell-row-active",
+            )}
+          >
+            <Store className="h-[18px] w-[18px]" />
+          </button>
+        ) : null}
         <div className="mt-auto" />
         <SidebarFooter rail onBatchMode={() => { setBatchMode(true); onExpand(); }} />
       </div>
@@ -150,6 +166,22 @@ export function Sidebar({ wide, onExpand }: SidebarProps) {
         onCreate={onCreate}
         label="文档"
       />
+
+      {isOwner ? (
+        <button
+          type="button"
+          onClick={() => navigate("/market")}
+          className={cn(
+            "mx-0.5 mb-1 flex h-7 shrink-0 items-center gap-2 rounded-[6px] px-2 text-[13px] transition-colors duration-150",
+            marketActive
+              ? "bg-shell-row-active font-medium text-shell-label-primary"
+              : "text-shell-label-secondary hover:bg-shell-row-hover hover:text-shell-label-primary",
+          )}
+        >
+          <Store className="h-4 w-4" />
+          <span>插件市场</span>
+        </button>
+      ) : null}
 
       {/* 列表区：唯一滚动区域；底部渐变 fade 贴住可见底边 */}
       <div className="relative min-h-0 flex-1 overflow-hidden">

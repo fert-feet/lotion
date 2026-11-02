@@ -57,11 +57,13 @@
   UI 插件（AI 面板）需刷新页面
 - **第三方插件包** — `data/plugins/installed/<id>/plugin.json`（manifest + host/client 代码），
   设置页可配置、审批、卸载；格式与 API 见 [docs/插件开发.md](docs/插件开发.md)，模板在 `templates/plugin/`
+- **侧边栏入口** — owner 的侧边栏有「插件市场」入口（`/market` 独立页），不再塞在设置弹窗里；
+  设置里只保留「外观 / 插件」
 - **本地市场** — `public/plugin-market/registry.json` 发现/安装示例插件（word-count / daily-quote）；
   安装 ≠ 启用 ≠ 批准，客户端半边必须人工审批
 - **搜索 / 分类 / 排序** — 市场页支持关键词（名称/描述/标签/作者）、分类筛选与
   推荐/下载量/评分/最近更新/名称排序
-- **远端在线 registry** — 设置页可填 HTTPS registry URL（`LOTION_MARKET_URL` 也可），
+- **远端在线 registry** — 市场页可填 HTTPS registry URL（`LOTION_MARKET_URL` 也可），
   远端失败自动回退本地；30s 缓存避免重复请求
 - **上传 / 发布 / 导出** — 市场页上传 `plugin.json`；已安装插件可导出包或发布到本地市场
   （写入 `data/plugin-market/`，选择目录里不写代码）
@@ -173,7 +175,7 @@ src/
 ├── router.tsx                    # 路由表（导出 routes 供测试复用）
 ├── kernel/                       # 客户端内核：client.ts 装配 / react.tsx（useDocStore / useSlot / useActor）
 ├── dynamic/                      # 动态插件客户端半边（宿主关闭时空操作）
-├── pages/                        # marketing / login / register / documents / document / preview / 404 / error
+├── pages/                        # marketing / login / register / documents / document / market / preview / 404 / error
 ├── shell/                        # 认证区外壳
 │   ├── main-layout.tsx           # 会话守卫 + AppShell
 │   ├── app-shell.tsx             # DSH 风格三栏 shell（sidebar|center|details + 拖拽手柄）
@@ -196,7 +198,8 @@ server/
 └── routes/                       # 路由插件清单 index.ts + auth / me / documents(+archive|move|restore)
 │                                 #   / chat/sessions / ai-chat(SSE) / ai-undo / upload + uploads / plugins / public-documents
 components/
-├── settings/                     # 设置弹窗插件页 / 配置弹窗 / 源码预览 / 市场
+├── settings/                     # 设置弹窗插件页 / 配置弹窗 / 源码预览
+│                                 # 市场页组件（src/pages/market.tsx 承载）
 ├── editor/                       # blocknote.css / lotion-suggestion-menu.tsx / outline-panel.tsx
 ├── markdown/                     # AI 回复的流式 Markdown 渲染
 ├── ui/ + icons/ + modals/ + upload/ + search-command.tsx

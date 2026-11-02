@@ -120,6 +120,18 @@ export const Copy = ({ size = 16, className, ...rest }: IconProps) => (
   </svg>
 )
 
+/** Store（插件市场：店面 + 门） */
+export const Store = ({ size = 16, className, ...rest }: IconProps) => (
+  <svg width={size} height={size} className={className} {...rest} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path
+      d="M1.6 2.2h12.8l.9 3.4H.7l.9-3.4ZM2.1 6.6h11.8v7.2H2.1V6.6Zm3.4 2.3v4.9h4.9V8.9H5.5Z"
+      fill="currentColor"
+      fillRule="evenodd"
+      clipRule="evenodd"
+    />
+  </svg>
+)
+
 /** Settings（取自 DSH IconSettingsOutline16） */
 export const Settings = ({ size = 16, className, ...rest }: IconProps) => (
   <svg width={size} height={size} className={className} {...rest} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">

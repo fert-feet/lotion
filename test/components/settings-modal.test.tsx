@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-// 设置弹窗：owner 能看到 外观/插件/市场 三个标签，插件页内容在固定高度容器里渲染。
+// 设置弹窗：owner 能看到 外观/插件 两个标签（市场已移到侧边栏），插件页在固定高度容器里渲染。
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { act, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -87,7 +87,7 @@ afterEach(async () => {
 });
 
 describe("SettingsModal", () => {
-  it("owner 能看到三个标签，插件页可渲染", async () => {
+  it("owner 能看到两个标签，插件页可渲染，市场不在设置里", async () => {
     const admin = createPluginAdminStub({
       list: vi.fn(async () => [pluginInfo]),
     });
@@ -109,7 +109,7 @@ describe("SettingsModal", () => {
 
     expect(findButton("外观")).toBeDefined();
     expect(findButton("插件")).toBeDefined();
-    expect(findButton("市场")).toBeDefined();
+    expect(findButton("市场")).toBeUndefined();
 
     await act(async () => {
       findButton("插件")?.click();
