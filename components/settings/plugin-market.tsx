@@ -473,6 +473,17 @@ export function PluginMarket() {
               aria-label="评论"
               className="min-h-[80px] w-full resize-y rounded-[8px] border-[0.5px] border-shell-border-l2 bg-card p-2.5 text-[13px] leading-5 outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
             />
+            {(ratingEntry?.comments ?? []).length > 0 ? (
+              <div className="max-h-32 overflow-y-auto rounded-[8px] border-[0.5px] border-shell-border p-2">
+                <p className="mb-1 text-[11px] font-medium text-shell-label-secondary">最近评论</p>
+                {(ratingEntry?.comments ?? []).slice(-5).map((comment, index) => (
+                  <div key={`${comment.createdAt}-${index}`} className="border-t-[0.5px] border-shell-border py-1 first:border-t-0">
+                    <span className="text-[11px] text-amber-500">{"★".repeat(comment.rating)}</span>
+                    <p className="text-[11px] leading-4 text-shell-label-tertiary">{comment.text}</p>
+                  </div>
+                ))}
+              </div>
+            ) : null}
           </div>
           <DialogFooter>
             <Button variant="secondary" onClick={() => setRatingEntry(null)}>
