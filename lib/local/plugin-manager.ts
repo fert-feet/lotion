@@ -538,7 +538,10 @@ export function createPluginManager(options: CreatePluginManagerOptions): Plugin
     return entry;
   };
 
-  const getMarketSource = async (): Promise<MarketSourceInfo> => requireMarket().source();
+  const getMarketSource = async (): Promise<MarketSourceInfo> => {
+    if (!options.market) return { url: "", remote: false, requireSignature: false };
+    return options.market.source();
+  };
 
   const setMarketSource = async (url: string): Promise<MarketSourceInfo> => {
     const trimmed = url.trim();

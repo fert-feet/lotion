@@ -57,8 +57,8 @@
   UI 插件（AI 面板）需刷新页面
 - **第三方插件包** — `data/plugins/installed/<id>/plugin.json`（manifest + host/client 代码），
   设置页可配置、审批、卸载；格式与 API 见 [docs/插件开发.md](docs/插件开发.md)，模板在 `templates/plugin/`
-- **侧边栏入口** — owner 的侧边栏有「插件市场」入口（`/market` 独立页），不再塞在设置弹窗里；
-  设置里只保留「外观 / 插件」
+- **侧边栏入口** — 所有登录用户的侧边栏都有「插件市场」入口（`/market` 独立页），不再塞在设置弹窗里；
+  市场可浏览，安装/评分/市场源仍限 owner
 - **本地市场** — `public/plugin-market/registry.json` 发现/安装示例插件（word-count / daily-quote）；
   安装 ≠ 启用 ≠ 批准，客户端半边必须人工审批
 - **搜索 / 分类 / 排序** — 市场页支持关键词（名称/描述/标签/作者）、分类筛选与
@@ -226,7 +226,7 @@ lib/
 public/plugin-market/             # 本地市场 registry + 示例 bundle
 templates/plugin/                 # 第三方插件最小模板
 docs/                             # 插件化架构 / 本地数据库版 / 插件开发
-test/                             # Vitest 单测（与 lib/、server/ 同构，716 个用例）
+test/                             # Vitest 单测（与 lib/、server/ 同构，718 个用例）
 ```
 
 ## 数据模型（SQLite 6 张表）
@@ -260,7 +260,7 @@ pnpm build        # vite 构建客户端到 dist/
 pnpm start        # 运行 Hono（托管 dist/ + API，单机自托管）
 pnpm typecheck    # tsc --noEmit
 pnpm lint         # ESLint
-pnpm test         # Vitest 单测（716 个用例，内存 SQLite + Hono app.request）
+pnpm test         # Vitest 单测（718 个用例，内存 SQLite + Hono app.request）
 pnpm test:watch   # Vitest 监听模式
 ```
 

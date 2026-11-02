@@ -86,6 +86,20 @@ describe("GET /api/plugins", () => {
     });
     expect(body.plugins.find((item) => item.id === "tools-registry")?.core).toBe(true);
   });
+
+  it("市场目录所有登录用户可浏览；源配置仍 owner-only", async () => {
+    const res = await get("/api/plugins/market", otherToken);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { entries: unknown[] };
+    expect(Array.isArray(body.entries)).toBe(true);
+
+    const forbidden = await app.request("/api/plugins/market/source", {
+      method: "PATCH",
+      headers: { "content-type": "application/json", ...cookieOf(otherToken) },
+      body: JSON.stringify({ url: "https://market.example/registry.json" }),
+    });
+    expect(forbidden.status).toBe(403);
+  });
 });
 
 describe("PATCH /api/plugins/:id", () => {

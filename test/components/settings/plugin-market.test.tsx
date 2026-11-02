@@ -37,11 +37,14 @@ function kernelWith(admin: ReturnType<typeof createPluginAdminStub>): ClientKern
   };
 }
 
-async function mount(admin: ReturnType<typeof createPluginAdminStub>) {
+async function mount(
+  admin: ReturnType<typeof createPluginAdminStub>,
+  canManage = true,
+) {
   await act(async () => {
     root.render(
       <KernelProvider kernel={kernelWith(admin)}>
-        <PluginMarket />
+        <PluginMarket canManage={canManage} />
       </KernelProvider>,
     );
   });
@@ -260,5 +263,20 @@ describe("PluginMarket", () => {
   it("市场为空时显示空态", async () => {
     await mount(createPluginAdminStub());
     expect(container.textContent).toContain("市场里还没有插件");
+  });
+});
+
+describe("PluginMarket 只读模式（非 owner）", () => {
+  it("不请求管理数据，显示只读提示，安装按钮禁用", async () => {
+    const admin = createPluginAdminStub({
+      market: vi.fn(async () => [entry]),
+    });
+    await mount(admin, false);
+
+    expect(container.textContent).toContain("只读模式");
+    expect(container.textContent).not.toContain("上传插件");
+    expect(findButton("只读", container)?.disabled).toBe(true);
+    expect(admin.list).not.toHaveBeenCalled();
+    expect(admin.getMarketSource).not.toHaveBeenCalled();
   });
 });

@@ -29,7 +29,7 @@ export function Sidebar({ wide, onExpand }: SidebarProps) {
   const actor = useActor();
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, isOwner } = useUser();
+  const { user } = useUser();
   const marketActive = location.pathname === "/market";
   const sidebarKey = useRefresh((s) => s.sidebarKey);
   const triggerSidebar = useRefresh((s) => s.triggerSidebar);
@@ -135,20 +135,18 @@ export function Sidebar({ wide, onExpand }: SidebarProps) {
         >
           <Sparkles className="h-[18px] w-[18px]" />
         </button>
-        {isOwner ? (
-          <button
-            type="button"
-            aria-label="插件市场"
-            title="插件市场"
-            onClick={() => navigate("/market")}
-            className={cn(
-              "flex h-9 w-9 items-center justify-center rounded-full text-shell-label-primary hover:bg-shell-row-hover",
-              marketActive && "bg-shell-row-active",
-            )}
-          >
-            <Store className="h-[18px] w-[18px]" />
-          </button>
-        ) : null}
+        <button
+          type="button"
+          aria-label="插件市场"
+          title="插件市场"
+          onClick={() => navigate("/market")}
+          className={cn(
+            "flex h-9 w-9 items-center justify-center rounded-full text-shell-label-primary hover:bg-shell-row-hover",
+            marketActive && "bg-shell-row-active",
+          )}
+        >
+          <Store className="h-[18px] w-[18px]" />
+        </button>
         <div className="mt-auto" />
         <SidebarFooter rail onBatchMode={() => { setBatchMode(true); onExpand(); }} />
       </div>
@@ -167,21 +165,19 @@ export function Sidebar({ wide, onExpand }: SidebarProps) {
         label="文档"
       />
 
-      {isOwner ? (
-        <button
-          type="button"
-          onClick={() => navigate("/market")}
-          className={cn(
-            "mx-0.5 mb-1 flex h-7 shrink-0 items-center gap-2 rounded-[6px] px-2 text-[13px] transition-colors duration-150",
-            marketActive
-              ? "bg-shell-row-active font-medium text-shell-label-primary"
-              : "text-shell-label-secondary hover:bg-shell-row-hover hover:text-shell-label-primary",
-          )}
-        >
-          <Store className="h-4 w-4" />
-          <span>插件市场</span>
-        </button>
-      ) : null}
+      <button
+        type="button"
+        onClick={() => navigate("/market")}
+        className={cn(
+          "mx-0.5 mb-1 flex h-7 shrink-0 items-center gap-2 rounded-[6px] px-2 text-[13px] transition-colors duration-150",
+          marketActive
+            ? "bg-shell-row-active font-medium text-shell-label-primary"
+            : "text-shell-label-secondary hover:bg-shell-row-hover hover:text-shell-label-primary",
+        )}
+      >
+        <Store className="h-4 w-4" />
+        <span>插件市场</span>
+      </button>
 
       {/* 列表区：唯一滚动区域；底部渐变 fade 贴住可见底边 */}
       <div className="relative min-h-0 flex-1 overflow-hidden">

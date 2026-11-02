@@ -152,10 +152,10 @@ pluginsRoutes.get("/:id/source", (c) => {
   return withAdmin(c, async (admin) => c.json(await admin.source(id)));
 });
 
-/** 市场目录 + 安装 */
+/** 市场目录：所有登录用户可浏览；安装/评分/源配置仍 owner-only */
 pluginsRoutes.get("/market", (c) => {
-  const denied = ownerGuard(c);
-  if (denied) return denied;
+  const user = userFromRequest(c.req.raw);
+  if (!user) return c.json({ error: "Unauthorized" }, 401);
   return withAdmin(c, async (admin) =>
     c.json({ entries: await admin.market(), source: await admin.getMarketSource() }),
   );
