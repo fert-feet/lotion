@@ -1,7 +1,9 @@
 "use client";
 
 // 侧边栏头部 —— macOS 语言：
-// 13px 半粗小标题 + 填充式搜索框（放大镜内置、无边框）+ 24px 图标按钮。
+// 填充式搜索框（放大镜内置、无边框）+ 24px 图标按钮，搜索在左、操作在右。
+// 不再有「文档」小标题：它既不是工作区名也不是当前文档名，只是给列表起个名字，
+// 而列表内容本身就说明了它是文档；去掉后这一行只保留可操作的东西。
 // expanded 由父级控制（rail 的搜索按钮点击后展开侧边栏并强制展开搜索框）。
 // 插件市场入口就在这里（与 AI 助手 / 新建同一组 toolbar 图标），不再单占一整行。
 import { useEffect, useRef } from "react";
@@ -15,7 +17,6 @@ interface SidebarHeaderProps {
   expanded: boolean;
   onExpandedChange: (open: boolean) => void;
   onCreate: () => void;
-  label: string;
   /** 打开插件市场（/market）；放在顶部图标组里 */
   onOpenMarket: () => void;
   /** 当前是否停在 /market（选中态高亮） */
@@ -32,7 +33,6 @@ export function SidebarHeader({
   expanded,
   onExpandedChange,
   onCreate,
-  label,
   onOpenMarket,
   marketActive = false,
 }: SidebarHeaderProps) {
@@ -61,18 +61,8 @@ export function SidebarHeader({
   };
 
   return (
-    <div data-sidebar-header className="mb-2 flex h-7 shrink-0 items-center justify-end gap-1 px-0.5">
-      {/* 标题：搜索展开时折叠让位 */}
-      <span
-        className={cn(
-          "min-w-0 max-w-[45%] flex-none overflow-hidden text-ellipsis whitespace-nowrap text-[13px] font-semibold leading-5 tracking-[-0.01em] text-shell-label-primary transition-all duration-200 ease-[var(--ds-ease-in-out)]",
-          expanded && "max-w-0 -mr-1 translate-x-[-4px] opacity-0"
-        )}
-      >
-        {label}
-      </span>
-
-      {/* 搜索框：Apple 的填充式搜索（放大镜内置） */}
+    <div data-sidebar-header className="mb-2 flex h-7 shrink-0 items-center justify-between gap-1 px-0.5">
+      {/* 搜索框：Apple 的填充式搜索（放大镜内置）；收起时是左侧的放大镜图标 */}
       <div className={cn("flex min-w-0 flex-1 items-center transition-all duration-200 ease-[var(--ds-ease-in-out)]", expanded ? "max-w-full" : "max-w-6")}>
         <div
           data-sidebar-search

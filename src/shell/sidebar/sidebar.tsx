@@ -1,7 +1,7 @@
 "use client";
 
 // 侧边栏根组件（移植 DSH WorkspaceBrowser 结构）：
-// wide 形态 = header(标题+搜索胶囊+操作) + 文档树 + 底部图标栏 + 列表底部渐变；
+// wide 形态 = header(搜索框+操作图标) + 文档树 + 底部图标栏 + 列表底部渐变；
 // rail 形态（56px）= 36px 图标控件列：logo / 搜索 / 新建 / AI，底部设置/回收站/批量/用户。
 import { useLocation, useNavigate } from "react-router";
 import { useEffect, useRef, useState } from "react";
@@ -162,7 +162,6 @@ export function Sidebar({ wide, onExpand }: SidebarProps) {
         expanded={searchExpanded}
         onExpandedChange={setSearchExpanded}
         onCreate={onCreate}
-        label="文档"
         onOpenMarket={() => navigate("/market")}
         marketActive={marketActive}
       />
