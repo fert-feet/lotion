@@ -4,6 +4,7 @@
 // 组件里 user.id / user.email 用法不变（LocalUser 与 Supabase User 字段对齐）。
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import type { LocalUser } from "@/lib/local/auth";
+import { fetchWithRetry } from "@/lib/client/fetch-retry";
 
 type UserState = {
   user: LocalUser | null;
@@ -24,15 +25,34 @@ const UserContext = createContext<UserContextValue>({
   refreshUser: async () => {},
 });
 
-async function fetchMe(): Promise<{ user: LocalUser | null; isOwner: boolean }> {
+async function requestMe(): Promise<{ user: LocalUser | null; isOwner: boolean }> {
   try {
-    const res = await fetch("/api/me", { cache: "no-store" });
+    const res = await fetchWithRetry(
+      "/api/me",
+      { cache: "no-store" },
+      { retries: 5, timeoutMs: 1_500, baseDelayMs: 200, maxDelayMs: 1_500 },
+    );
     if (!res.ok) return { user: null, isOwner: false };
     const data = await res.json();
     return { user: (data.user as LocalUser) ?? null, isOwner: data.isOwner === true };
   } catch {
     return { user: null, isOwner: false };
   }
+}
+
+/**
+ * 会话恢复去重：React StrictMode 会双跑 effect，登录态恢复不应发两次 /api/me；
+ * 并发调用共享同一个 in-flight promise。
+ */
+let meInFlight: Promise<{ user: LocalUser | null; isOwner: boolean }> | null = null;
+
+function fetchMe(): Promise<{ user: LocalUser | null; isOwner: boolean }> {
+  if (!meInFlight) {
+    meInFlight = requestMe().finally(() => {
+      meInFlight = null;
+    });
+  }
+  return meInFlight;
 }
 
 /**

@@ -1,0 +1,122 @@
+// @vitest-environment jsdom
+// 设置弹窗：owner 能看到 外观/插件/市场 三个标签，插件页内容在固定高度容器里渲染。
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { act, type ReactNode } from "react";
+import { createRoot, type Root } from "react-dom/client";
+import { createRootContext } from "@/lib/kernel";
+import { providePluginAdmin, type PluginInfo } from "@/lib/seams/plugins";
+import { createUiSlots, provideUiSlots } from "@/lib/seams/ui-slots";
+import { ThemeProvider } from "@/components/providers/theme-provider";
+import SettingsModal from "@/components/modals/settings-modal";
+import useSettings from "@/hooks/use-setting";
+import { UserProvider } from "@/hooks/use-user";
+import { KernelProvider } from "@/src/kernel/react";
+import type { ClientKernel } from "@/src/kernel/client";
+import { createPluginAdminStub } from "../mocks/plugin-admin";
+
+let container: HTMLDivElement;
+let root: Root;
+
+const pluginInfo: PluginInfo = {
+  id: "ui-ai-panel",
+  title: "AI 助手面板",
+  description: "详情栏面板",
+  scope: "ui",
+  source: "builtin",
+  version: "0.1.0",
+  enabled: true,
+  approved: true,
+  core: false,
+  restartRequired: true,
+  status: "active",
+  config: {},
+  configFields: [],
+  capabilities: ["uiSlots"],
+};
+
+function kernelWith(admin: ReturnType<typeof createPluginAdminStub>): ClientKernel {
+  const ctx = createRootContext();
+  const uiSlots = createUiSlots<ReactNode>();
+  provideUiSlots(ctx, uiSlots);
+  providePluginAdmin(ctx, admin);
+  return {
+    ctx,
+    uiSlots,
+    load: {
+      mounted: [],
+      skipped: [],
+      failed: [],
+      unknownPatchIds: [],
+      fibers: new Map(),
+      dispose: async () => {},
+    },
+    ready: Promise.resolve(),
+    startupText: "",
+    dispose: async () => {},
+  };
+}
+
+function findButton(label: string): HTMLButtonElement | undefined {
+  return [...document.querySelectorAll("button")].find((button) => button.textContent === label);
+}
+
+beforeEach(() => {
+  useSettings.setState({ isOpen: true });
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () =>
+      new Response(
+        JSON.stringify({
+          user: { id: "u1", email: "owner@x.com", name: "Owner" },
+          isOwner: true,
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      ),
+    ),
+  );
+  container = document.createElement("div");
+  document.body.appendChild(container);
+  root = createRoot(container);
+});
+
+afterEach(async () => {
+  await act(async () => root.unmount());
+  container.remove();
+  useSettings.setState({ isOpen: false });
+  vi.unstubAllGlobals();
+});
+
+describe("SettingsModal", () => {
+  it("owner 能看到三个标签，插件页可渲染", async () => {
+    const admin = createPluginAdminStub({
+      list: vi.fn(async () => [pluginInfo]),
+    });
+
+    await act(async () => {
+      root.render(
+        <ThemeProvider attribute="class" defaultTheme="light">
+          <KernelProvider kernel={kernelWith(admin)}>
+            <UserProvider initialUser={null}>
+              <SettingsModal />
+            </UserProvider>
+          </KernelProvider>
+        </ThemeProvider>,
+      );
+    });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 30));
+    });
+
+    expect(findButton("外观")).toBeDefined();
+    expect(findButton("插件")).toBeDefined();
+    expect(findButton("市场")).toBeDefined();
+
+    await act(async () => {
+      findButton("插件")?.click();
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    expect(admin.list).toHaveBeenCalled();
+    expect(document.body.textContent).toContain("AI 助手面板");
+  });
+});

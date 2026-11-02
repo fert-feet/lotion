@@ -52,13 +52,16 @@ const SettingsModal = () => {
 
   return (
     <Dialog open={settings.isOpen} onOpenChange={settings.onClose}>
-      <DialogContent className="max-w-[680px] overflow-hidden p-0">
+      <DialogContent className="max-h-[min(82vh,720px)] max-w-[720px] overflow-hidden p-0">
         <DialogHeader className="sr-only">
           <DialogTitle>设置</DialogTitle>
         </DialogHeader>
 
-        <div className="flex min-h-[420px]">
-          <nav className="flex w-[148px] shrink-0 flex-col gap-0.5 border-r-[0.5px] border-shell-border bg-secondary/40 p-2.5">
+        <div className="flex h-[min(72vh,560px)] min-h-[380px]">
+          <nav
+            aria-label="设置导航"
+            className="flex w-[148px] shrink-0 flex-col gap-0.5 overflow-y-auto border-r-[0.5px] border-shell-border bg-secondary/40 p-2.5"
+          >
             <p className="px-2 pb-1.5 pt-1 text-[11px] font-semibold uppercase tracking-[0.04em] text-shell-label-tertiary">
               设置
             </p>
@@ -77,7 +80,7 @@ const SettingsModal = () => {
             ) : null}
           </nav>
 
-          <div className="min-w-0 flex-1 p-5">
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden p-5">
             {tab === "appearance" ? (
               <div className="flex flex-col gap-4">
                 <div>

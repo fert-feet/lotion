@@ -11,6 +11,7 @@ import { aiUndoRoutes } from "./ai-undo";
 import { authRoutes } from "./auth";
 import { chatRoutes } from "./chat";
 import { documentsRoutes } from "./documents";
+import { healthRoutes } from "./health";
 import { meRoutes } from "./me";
 import { pluginsRoutes } from "./plugins";
 import { publicDocumentsRoutes } from "./public-documents";
@@ -37,6 +38,7 @@ function routePlugin(name: string, path: string, app: ApiSubApp): PluginEntry {
 /** 内置路由插件清单（顺序即注册顺序） */
 export function apiRoutePlugins(): PluginEntry[] {
   return [
+    routePlugin("health", "/health", healthRoutes),
     routePlugin("auth", "/auth", authRoutes),
     routePlugin("me", "/me", meRoutes),
     routePlugin("documents", "/documents", documentsRoutes),

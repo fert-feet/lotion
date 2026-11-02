@@ -82,6 +82,15 @@ export const PLUGIN_CATALOG: readonly PluginCatalogEntry[] = [
     capabilities: ["tools", "httpRoutes", "dynamicPlugins"],
   },
   {
+    id: "route-health",
+    title: "健康检查路由",
+    description: "GET /api/health 存活探针（dev 启动等待脚本用，无需鉴权）。",
+    scope: "host",
+    version: BUILTIN_PLUGIN_VERSION,
+    core: false,
+    capabilities: ["httpRoutes"],
+  },
+  {
     id: "route-auth",
     title: "认证路由",
     description: "注册 / 登录 / 注销。",

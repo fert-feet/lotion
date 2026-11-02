@@ -50,7 +50,7 @@ describe("server/kernel 宿主装配", () => {
     expect(kernel.audit.services).toContain("docStore");
     expect(kernel.audit.services).toContain("settings");
     expect(kernel.auditText).toContain("已装配");
-    // 装配报告：稳定 id 与 fiber 状态可追踪（1 注册表 + 3 提供方 + 9 路由插件）
+    // 装配报告：稳定 id 与 fiber 状态可追踪（1 注册表 + 3 提供方 + 10 路由插件）
     const ids = kernel.load.mounted.map((m) => m.id);
     expect(ids).toContain("http-routes");
     expect(ids).toContain("settings-file");
@@ -60,6 +60,7 @@ describe("server/kernel 宿主装配", () => {
 
     // 路由确实由插件注册进注册表（端到端：组合清单 → 路由插件 → 注册表）
     expect(routePaths(kernel.httpRoutes)).toEqual([
+      "/health",
       "/auth",
       "/me",
       "/documents",

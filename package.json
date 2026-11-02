@@ -4,7 +4,7 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "concurrently -n web,api -c cyan,magenta \"vite\" \"tsx watch server/index.ts\"",
+    "dev": "concurrently -n api,web -c magenta,cyan \"tsx watch server/index.ts\" \"node scripts/wait-api.mjs && vite\"",
     "dev:web": "vite",
     "dev:api": "tsx watch server/index.ts",
     "build": "vite build",
