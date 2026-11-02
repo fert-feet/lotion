@@ -1,8 +1,8 @@
 "use client";
 
-// 设置 → 市场：搜索/分类/排序、安装/更新、上传、评分评论、远端 registry 配置。
+// 设置 → 市场：搜索/分类/排序、安装/更新、启用/批准、上传、评分评论、远端 registry 配置。
 //
-// 安装 = 落盘 + 默认停用；启用与客户端半边审批在「插件」页完成。
+// 安装 = 落盘 + 默认停用；市场卡片可直接启用并批准客户端半边，也可去「插件」页。
 // 第三方代码与本机 shell 同信任级别，界面必须明说；签名/校验和只做完整性提示。
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -155,10 +155,40 @@ export function PluginMarket() {
     try {
       await admin.install(entry.id);
       setConfirmEntry(null);
-      setNotice(`「${entry.name}」已安装/更新。去「插件」页启用或审批。`);
+      setNotice(`「${entry.name}」已安装/更新。现在可以直接在市场里启用。`);
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "安装失败");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const enablePlugin = async (entry: MarketEntry) => {
+    setBusyId(entry.id);
+    setError(null);
+    setNotice(null);
+    try {
+      await admin.setEnabled(entry.id, true);
+      setNotice(`「${entry.name}」已启用。${entry.capabilities?.includes("ui") ? "客户端半边还需批准。" : ""}`);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "启用失败");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const approvePlugin = async (entry: MarketEntry) => {
+    setBusyId(entry.id);
+    setError(null);
+    setNotice(null);
+    try {
+      await admin.approve(entry.id);
+      setNotice(`「${entry.name}」客户端半边已批准。点「刷新页面」后生效。`);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "批准失败");
     } finally {
       setBusyId(null);
     }
@@ -216,11 +246,15 @@ export function PluginMarket() {
     }
   };
 
-  const actionFor = (entry: MarketEntry): { label: string; disabled: boolean; kind: "install" | "update" | "installed" } => {
+  const actionFor = (
+    entry: MarketEntry,
+  ): { label: string; disabled: boolean; kind: "install" | "update" | "enable" | "approve" | "enabled" } => {
     const current = installed.get(entry.id);
     if (!current) return { label: "安装", disabled: false, kind: "install" };
     if (current.updateAvailable) return { label: `更新 v${entry.version}`, disabled: false, kind: "update" };
-    return { label: "已安装", disabled: true, kind: "installed" };
+    if (!current.enabled) return { label: "启用", disabled: false, kind: "enable" };
+    if (!current.approved) return { label: "批准", disabled: false, kind: "approve" };
+    return { label: "已启用", disabled: true, kind: "enabled" };
   };
 
   return (
@@ -375,16 +409,38 @@ export function PluginMarket() {
                 </div>
                 <div className="flex shrink-0 flex-col items-end gap-1">
                   <Button
-                    variant={action.kind === "installed" ? "secondary" : "default"}
+                    variant={action.kind === "enabled" ? "secondary" : "default"}
                     size="sm"
                     disabled={action.disabled || busyId === entry.id}
                     onClick={() => {
-                      if (action.kind === "installed") return;
-                      setConfirmEntry(entry);
+                      if (action.kind === "install" || action.kind === "update") {
+                        setConfirmEntry(entry);
+                        return;
+                      }
+                      if (action.kind === "enable") {
+                        void enablePlugin(entry);
+                        return;
+                      }
+                      if (action.kind === "approve") void approvePlugin(entry);
                     }}
                   >
                     {busyId === entry.id ? "处理中…" : action.label}
                   </Button>
+                  {current ? (
+                    <span className="text-[10px] leading-3 text-shell-label-tertiary">
+                      {!current.enabled ? "未启用" : !current.approved ? "待批准" : "运行中"}
+                    </span>
+                  ) : null}
+                  {current?.enabled && current.approved && (current.capabilities ?? []).includes("ui") ? (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      disabled={busyId === entry.id}
+                      onClick={() => window.location.reload()}
+                    >
+                      刷新页面
+                    </Button>
+                  ) : null}
                   <Button
                     variant="ghost"
                     size="sm"

@@ -133,17 +133,47 @@ describe("PluginMarket", () => {
     expect(container.textContent).toContain("已安装/更新");
   });
 
-  it("已安装的条目不重复安装", async () => {
+  it("已安装未启用：一键启用", async () => {
+    const setEnabled = vi.fn(async () => ({ ...installedInfo, enabled: true }));
     const admin = createPluginAdminStub({
       market: vi.fn(async () => [entry]),
       list: vi.fn(async () => [installedInfo]),
+      setEnabled,
     });
     await mount(admin);
 
-    const button = [...container.querySelectorAll("button")].find(
-      (item) => item.textContent === "已安装",
-    );
-    expect(button?.disabled).toBe(true);
+    await act(async () => {
+      findButton("启用", container)?.click();
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    });
+    expect(setEnabled).toHaveBeenCalledWith("word-count", true);
+    expect(container.textContent).toContain("已启用");
+  });
+
+  it("客户端插件启用后可一键批准", async () => {
+    const clientInstalled: PluginInfo = {
+      ...installedInfo,
+      id: "daily-quote",
+      title: "今日一句",
+      scope: "ui",
+      capabilities: ["ui"],
+      enabled: true,
+      approved: false,
+    };
+    const approve = vi.fn(async () => ({ ...clientInstalled, approved: true }));
+    const admin = createPluginAdminStub({
+      market: vi.fn(async () => [{ ...entry, id: "daily-quote", name: "今日一句" }]),
+      list: vi.fn(async () => [clientInstalled]),
+      approve,
+    });
+    await mount(admin);
+
+    await act(async () => {
+      findButton("批准", container)?.click();
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    });
+    expect(approve).toHaveBeenCalledWith("daily-quote");
+    expect(container.textContent).toContain("已批准");
   });
 
   it("搜索会过滤条目", async () => {

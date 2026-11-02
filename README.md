@@ -60,7 +60,7 @@
 - **侧边栏入口** — 所有登录用户的侧边栏都有「插件市场」入口（`/market` 独立页），不再塞在设置弹窗里；
   所有登录账号权限一致：浏览、安装/更新、评分、上传、发布、市场源都可操作
 - **本地市场** — `public/plugin-market/registry.json` 发现/安装示例插件（word-count / daily-quote）；
-  安装 ≠ 启用 ≠ 批准，客户端半边必须人工审批
+  安装 ≠ 启用 ≠ 批准，客户端半边必须人工审批；市场卡片直接提供「启用 → 批准 → 刷新页面」
 - **搜索 / 分类 / 排序** — 市场页支持关键词（名称/描述/标签/作者）、分类筛选与
   推荐/下载量/评分/最近更新/名称排序
 - **远端在线 registry** — 市场页可填 HTTPS registry URL（`LOTION_MARKET_URL` 也可），
@@ -226,7 +226,7 @@ lib/
 public/plugin-market/             # 本地市场 registry + 示例 bundle
 templates/plugin/                 # 第三方插件最小模板
 docs/                             # 插件化架构 / 本地数据库版 / 插件开发
-test/                             # Vitest 单测（与 lib/、server/ 同构，717 个用例）
+test/                             # Vitest 单测（与 lib/、server/ 同构，718 个用例）
 ```
 
 ## 数据模型（SQLite 6 张表）
@@ -260,7 +260,7 @@ pnpm build        # vite 构建客户端到 dist/
 pnpm start        # 运行 Hono（托管 dist/ + API，单机自托管）
 pnpm typecheck    # tsc --noEmit
 pnpm lint         # ESLint
-pnpm test         # Vitest 单测（717 个用例，内存 SQLite + Hono app.request）
+pnpm test         # Vitest 单测（718 个用例，内存 SQLite + Hono app.request）
 pnpm test:watch   # Vitest 监听模式
 ```
 
