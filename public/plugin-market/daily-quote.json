@@ -11,5 +11,10 @@
   "enabled": false,
   "approved": false,
   "configValues": {},
-  "client": "harness.define({\n  name: \"daily-quote\",\n  apply: (ctx) => {\n    const ui = ctx.get(\"uiSlots\");\n    const quotes = [\"把今天写下来，明天就有迹可循。\", \"慢一点，也是在前进。\", \"笔记是第二大脑的抽屉。\"];\n    ui.register({\n      id: \"daily-quote\",\n      slot: \"sidebar.footer.action\",\n      kind: \"list\",\n      order: 10,\n      component: harness.createElement(\n        \"button\",\n        {\n          type: \"button\",\n          title: \"今日一句\",\n          \"aria-label\": \"今日一句\",\n          className: \"flex h-7 w-7 items-center justify-center rounded-full text-shell-label-secondary hover:bg-shell-row-hover\",\n          onClick: () => {\n            const index = Math.floor(Math.random() * quotes.length);\n            window.alert(quotes[index]);\n          },\n        },\n        \"✨\",\n      ),\n    });\n  },\n});"
+  "client": "harness.define({\n  name: \"daily-quote\",\n  apply: (ctx) => {\n    const ui = ctx.get(\"uiSlots\");\n    const quotes = [\"把今天写下来，明天就有迹可循。\", \"慢一点，也是在前进。\", \"笔记是第二大脑的抽屉。\"];\n    ui.register({\n      id: \"daily-quote\",\n      slot: \"sidebar.footer.action\",\n      kind: \"list\",\n      order: 10,\n      component: harness.createElement(\n        \"button\",\n        {\n          type: \"button\",\n          title: \"今日一句\",\n          \"aria-label\": \"今日一句\",\n          className: \"flex h-7 w-7 items-center justify-center rounded-full text-shell-label-secondary hover:bg-shell-row-hover\",\n          onClick: () => {\n            const index = Math.floor(Math.random() * quotes.length);\n            window.alert(quotes[index]);\n          },\n        },\n        \"✨\",\n      ),\n    });\n  },\n});",
+  "category": "界面",
+  "tags": [
+    "UI",
+    "侧边栏"
+  ]
 }

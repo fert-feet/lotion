@@ -7,7 +7,9 @@ import {
   providePluginAdmin,
   type ClientPluginConfig,
   type MarketEntry,
+  type MarketSourceInfo,
   type PluginAdminService,
+  type PluginBundleExport,
   type PluginClientHalf,
   type PluginInfo,
   type PluginSourceCode,
@@ -94,6 +96,33 @@ export function createRestPluginAdmin(fetchImpl: FetchImpl = fetch): PluginAdmin
       return request<PluginInfo>(fetchImpl, "/api/plugins/install", {
         method: "POST",
         body: JSON.stringify({ id }),
+      });
+    },
+    installBundle(bundle) {
+      return request<PluginInfo>(fetchImpl, "/api/plugins/upload", {
+        method: "POST",
+        body: JSON.stringify({ bundle }),
+      });
+    },
+    exportPlugin(id) {
+      return request<PluginBundleExport>(fetchImpl, `${pluginPath(id)}/export`);
+    },
+    publishPlugin(id) {
+      return request<MarketEntry>(fetchImpl, `${pluginPath(id)}/publish`, { method: "POST" });
+    },
+    ratePlugin(id, rating, comment) {
+      return request<MarketEntry>(fetchImpl, `${pluginPath(id)}/rate`, {
+        method: "POST",
+        body: JSON.stringify({ rating, ...(comment !== undefined ? { comment } : {}) }),
+      });
+    },
+    getMarketSource() {
+      return request<MarketSourceInfo>(fetchImpl, "/api/plugins/market/source");
+    },
+    setMarketSource(url) {
+      return request<MarketSourceInfo>(fetchImpl, "/api/plugins/market/source", {
+        method: "PATCH",
+        body: JSON.stringify({ url }),
       });
     },
     clientConfig() {

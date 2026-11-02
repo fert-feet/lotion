@@ -11,5 +11,10 @@
   "enabled": false,
   "approved": true,
   "configValues": {},
-  "host": "harness.define({\n  name: \"word-count\",\n  inject: [\"tools\"],\n  apply: (ctx) => {\n    ctx.get(\"tools\").register({\n      name: \"count_words\",\n      label: \"字数统计\",\n      icon: \"🔢\",\n      description: \"统计一段文本的字数（示例插件）\",\n      create: () => ({\n        description: \"统计字数\",\n        inputSchema: {},\n        execute: async () => \"示例插件已运行：共 42 字\",\n      }),\n    });\n  },\n});"
+  "host": "harness.define({\n  name: \"word-count\",\n  inject: [\"tools\"],\n  apply: (ctx) => {\n    ctx.get(\"tools\").register({\n      name: \"count_words\",\n      label: \"字数统计\",\n      icon: \"🔢\",\n      description: \"统计一段文本的字数（示例插件）\",\n      create: () => ({\n        description: \"统计字数\",\n        inputSchema: {},\n        execute: async () => \"示例插件已运行：共 42 字\",\n      }),\n    });\n  },\n});",
+  "category": "效率",
+  "tags": [
+    "工具",
+    "AI"
+  ]
 }

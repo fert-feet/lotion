@@ -29,8 +29,8 @@ export async function fetchWithRetry(
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
       const response = await impl(input, { ...init, signal: controller.signal });
-      // 502/503/504 通常意味着 API 还在启动或重启：重试
-      if ((response.status === 502 || response.status === 503 || response.status === 504) && attempt < retries) {
+      // 5xx 通常意味着 API 还在启动/重启（Vite 代理失败也会回 500）：重试
+      if (response.status >= 500 && response.status <= 504 && attempt < retries) {
         await sleep(delayOf(attempt, baseDelayMs, maxDelayMs));
         continue;
       }

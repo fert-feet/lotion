@@ -59,6 +59,18 @@
   设置页可配置、审批、卸载；格式与 API 见 [docs/插件开发.md](docs/插件开发.md)，模板在 `templates/plugin/`
 - **本地市场** — `public/plugin-market/registry.json` 发现/安装示例插件（word-count / daily-quote）；
   安装 ≠ 启用 ≠ 批准，客户端半边必须人工审批
+- **搜索 / 分类 / 排序** — 市场页支持关键词（名称/描述/标签/作者）、分类筛选与
+  推荐/下载量/评分/最近更新/名称排序
+- **远端在线 registry** — 设置页可填 HTTPS registry URL（`LOTION_MARKET_URL` 也可），
+  远端失败自动回退本地；30s 缓存避免重复请求
+- **上传 / 发布 / 导出** — 市场页上传 `plugin.json`；已安装插件可导出包或发布到本地市场
+  （写入 `data/plugin-market/`，选择目录里不写代码）
+- **版本更新** — 市场条目与已安装版本比较，显示「可更新 vX」；更新保留启用态与配置，
+  客户端代码变化会重置审批，要求重新批准
+- **评分 / 评论 / 下载量** — 本地统计落 `data/plugin-market/stats.json`，与 registry 基线合并展示
+- **完整性 / 签名 / 权限声明** — bundle 计算 sha256；registry 提供 sha256 时校验；
+  配置 `LOTION_MARKET_PUBLIC_KEY` 后支持 Ed25519 验签，`requireSignature` 可强制；
+  安装确认框列出 capabilities（tools / httpRoutes / ui）
 - **AI 动态插件** — 模型用 `plugin_*` 工具现场定义；定义持久化到 `data/plugins/dynamic/`，
   重启后仍在但运行状态不自动恢复；客户端半边在设置页审批后下发
 - **安全姿态（如实）** — `node:vm` / 浏览器 `new Function` **不是安全边界**，插件与 Lotion 进程同信任级别；
@@ -125,6 +137,7 @@ DEEPSEEK_API_KEY=sk-xxxxxxxx
 
 # 3. 启动（并行起 vite 5173 + Hono 3001；首个请求自动建库 data/lotion.db）
 pnpm dev
+# （dev 会先轮询 /api/health 就绪再启动 Vite，避免首屏 ECONNREFUSED）
 ```
 
 打开 [http://localhost:5173](http://localhost:5173)，注册账号即可使用。
@@ -137,12 +150,15 @@ pnpm dev
 {
   "ai": { "model": "deepseek-chat" },
   "server": { "port": 3100 },
-  "plugins": { "dynamic-plugins": { "disabled": false } }
+  "plugins": { "dynamic-plugins": { "disabled": false } },
+  "market": { "registryUrl": "", "requireSignature": false }
 }
 ```
 
 - `ai` / `storage` / `server` / `logging`：改完 **无需重启** 即生效（AI 模型与 Key 每次请求解析）
 - `plugins`：**装配 patch**，按插件 id 覆盖配置或停用插件（清单见 `server/composition.ts`、`src/shell/ui-plugins.tsx`）
+- `market`：插件市场源与验签策略。`registryUrl` 也可用 `LOTION_MARKET_URL` 注入；
+  设置 `LOTION_MARKET_PUBLIC_KEY`（Ed25519 PEM）后启用远端签名校验
 - `dynamic-plugins` 是**默认关闭**的 opt-in 通道（让 AI 现场写插件并热挂载）。开启前请先读
   [`docs/插件化架构.md`](docs/插件化架构.md) 的「安全姿态」表 —— 它**不是沙箱边界**（宿主半边与本机 shell 同级信任，客户端半边需人工审批）。
 
@@ -207,7 +223,7 @@ lib/
 public/plugin-market/             # 本地市场 registry + 示例 bundle
 templates/plugin/                 # 第三方插件最小模板
 docs/                             # 插件化架构 / 本地数据库版 / 插件开发
-test/                             # Vitest 单测（与 lib/、server/ 同构，691 个用例）
+test/                             # Vitest 单测（与 lib/、server/ 同构，716 个用例）
 ```
 
 ## 数据模型（SQLite 6 张表）
@@ -236,12 +252,12 @@ test/                             # Vitest 单测（与 lib/、server/ 同构，
 ## 开发
 
 ```bash
-pnpm dev          # vite(5173) + Hono(3001)，/api 代理到 Hono（禁止由 agent 在本仓库内启动）
+pnpm dev          # 等 API /api/health 就绪后起 vite(5173) + Hono(3001)，/api 代理到 Hono
 pnpm build        # vite 构建客户端到 dist/
 pnpm start        # 运行 Hono（托管 dist/ + API，单机自托管）
 pnpm typecheck    # tsc --noEmit
 pnpm lint         # ESLint
-pnpm test         # Vitest 单测（691 个用例，内存 SQLite + Hono app.request）
+pnpm test         # Vitest 单测（716 个用例，内存 SQLite + Hono app.request）
 pnpm test:watch   # Vitest 监听模式
 ```
 

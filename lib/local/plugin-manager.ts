@@ -12,16 +12,19 @@ import { findDynamic, type DynamicRecord, type DynamicRunner } from "@/lib/seams
 import type {
   ClientPluginConfig,
   MarketEntry,
+  MarketSourceInfo,
   PluginAdminService,
+  PluginBundleExport,
   PluginClientHalf,
   PluginInfo,
   PluginSourceCode,
   PluginStatus,
 } from "@/lib/seams/plugins";
 import type { SettingsSection } from "@/lib/seams/settings";
-import type { PluginsSettings } from "./lotion-config";
+import type { MarketSettings, PluginsSettings } from "./lotion-config";
 import { PLUGIN_CATALOG, type PluginCatalogEntry } from "./plugin-catalog";
 import {
+  compareVersions,
   validatePluginManifest,
   type InstalledPluginManifest,
   type PluginPackageStore,
@@ -46,6 +49,8 @@ export interface CreatePluginManagerOptions {
   ctx: Context;
   /** `plugins` 配置命名空间的读写句柄（用户层 patch） */
   settings: SettingsSection<PluginsSettings>;
+  /** `market` 配置（远端 registry / 验签策略；owner 可改） */
+  marketSettings?: SettingsSection<MarketSettings>;
   /** 静态插件的装配报告（可选：测试/早期装配阶段没有） */
   getLoadReport?: () => LoadReport | undefined;
   /** 动态 runner 访问器（默认从 ctx 取；测试可注入） */
@@ -68,6 +73,11 @@ export function createPluginManager(options: CreatePluginManagerOptions): Plugin
   const packages = () => options.getPackages?.();
   const installedRuntime = () => options.getRuntime?.();
   const staticController = () => options.getStaticController?.();
+  const pluginMarket = () => options.market;
+  const requireMarket = () => {
+    if (!options.market) throw new PluginAdminError("UNSUPPORTED", "插件市场未装配");
+    return options.market;
+  };
 
   const requirePackages = (): PluginPackageStore => {
     const store = packages();
@@ -139,7 +149,7 @@ export function createPluginManager(options: CreatePluginManagerOptions): Plugin
     };
   };
 
-  const installedInfo = (manifest: InstalledPluginManifest): PluginInfo => {
+  const installedInfo = (manifest: InstalledPluginManifest, marketEntry?: MarketEntry): PluginInfo => {
     const hasHost = typeof manifest.host === "string" && manifest.host.length > 0;
     const hasClient = typeof manifest.client === "string" && manifest.client.length > 0;
     const runtime = installedRuntime();
@@ -162,19 +172,25 @@ export function createPluginManager(options: CreatePluginManagerOptions): Plugin
       enabled: manifest.enabled,
       approved: !hasClient || manifest.approved,
       core: false,
-      // httpRoutes 贡献受注册表限制；启停/配置都需要重启才能完全生效
       restartRequired: false,
       status,
       ...(runtimeError ? { error: runtimeError } : {}),
       config: manifest.configValues,
       configFields: manifest.config,
       capabilities: manifest.capabilities,
+      ...(marketEntry
+        ? {
+            latestVersion: marketEntry.version,
+            updateAvailable: compareVersions(marketEntry.version, manifest.version) > 0,
+          }
+        : {}),
     };
   };
 
   const installedList = (): InstalledPluginManifest[] => packages()?.list() ?? [];
 
-  const dynamicStatus = (record: DynamicRecord): PluginStatus => {    switch (record.state) {
+  const dynamicStatus = (record: DynamicRecord): PluginStatus => {
+    switch (record.state) {
       case "running":
         return "active";
       case "error":
@@ -217,7 +233,10 @@ export function createPluginManager(options: CreatePluginManagerOptions): Plugin
 
   const list = async (): Promise<PluginInfo[]> => {
     const statics = catalog.map(staticInfo);
-    const installed = installedList().map(installedInfo);
+    const marketEntries = options.market ? await options.market.list().catch(() => []) : [];
+    const installed = installedList().map((manifest) =>
+      installedInfo(manifest, marketEntries.find((entry) => entry.id === manifest.id)),
+    );
     const runner = dynamic();
     const dynamics = runner ? runner.list().map(dynamicInfo) : [];
     return [...statics, ...installed, ...dynamics];
@@ -406,37 +425,140 @@ export function createPluginManager(options: CreatePluginManagerOptions): Plugin
   });
 
   const market = async (): Promise<MarketEntry[]> => {
-    const source = options.market;
-    if (!source) return [];
-    return await source.list();
+    const source = pluginMarket();
+    return source ? await source.list() : [];
   };
 
   const install = async (id: string): Promise<PluginInfo> => {
-    const source = options.market;
-    if (!source) {
-      throw new PluginAdminError("UNSUPPORTED", "插件市场未装配");
-    }
+    const source = requireMarket();
     const entry = (await source.list()).find((item) => item.id === id);
     if (!entry) throw new PluginAdminError("NOT_FOUND", `市场里没有「${id}」`);
+
     const store = requirePackages();
-    if (store.get(id)) {
-      throw new PluginAdminError("CONFLICT", `「${entry.name}」已安装，请先卸载`);
+    const existing = store.get(id);
+    if (existing) {
+      const comparison = compareVersions(entry.version, existing.version);
+      if (comparison <= 0) {
+        throw new PluginAdminError(
+          "CONFLICT",
+          comparison === 0
+            ? `「${entry.name}」已是最新版本（v${existing.version}）`
+            : `市场版本 v${entry.version} 低于已安装的 v${existing.version}`,
+        );
+      }
     }
 
-    const raw = await source.bundle(entry.bundle);
-    const manifest = validatePluginManifest(raw);
-    if (manifest.id !== entry.id) {
-      throw new PluginAdminError("CONFLICT", `bundle 的 id「${manifest.id}」与市场条目「${entry.id}」不一致`);
+    const bundle = await source.bundle(entry);
+    const manifest = validatePluginManifest(bundle.manifest);
+    if (manifest.id !== id) {
+      throw new PluginAdminError("CONFLICT", `bundle 的 id「${manifest.id}」与市场条目「${id}」不一致`);
+    }
+    if (manifest.version !== entry.version) {
+      throw new PluginAdminError(
+        "CONFLICT",
+        `bundle 版本「${manifest.version}」与市场条目「${entry.version}」不一致`,
+      );
     }
 
-    // 安装 ≠ 启用 ≠ 批准：先落盘为停用；有客户端半边的还需人工批准
+    // 安装 ≠ 启用 ≠ 批准：
+    // 新装默认停用；更新保留启用态与配置，但客户端代码变了必须重新审批。
+    const next: InstalledPluginManifest = existing
+      ? {
+          ...manifest,
+          enabled: existing.enabled,
+          approved: manifest.client ? false : true,
+          configValues: existing.configValues,
+        }
+      : {
+          ...manifest,
+          enabled: false,
+          approved: manifest.client ? false : true,
+        };
+    store.save(next);
+    source.recordDownload(id);
+
+    if (existing?.enabled && next.host) {
+      const runtime = installedRuntime();
+      if (runtime) {
+        await runtime.unmount(id);
+        const mounted = await runtime.mount(id);
+        if (!mounted.ok) {
+          throw new PluginAdminError("CONFLICT", mounted.error ?? "更新后重新挂载失败");
+        }
+      }
+    }
+
+    return installedInfo(next, entry);
+  };
+
+  const installBundle = async (bundle: unknown): Promise<PluginInfo> => {
+    const manifest = validatePluginManifest(bundle);
+    const store = requirePackages();
+    const existing = store.get(manifest.id);
+    if (existing && compareVersions(manifest.version, existing.version) <= 0) {
+      throw new PluginAdminError(
+        "CONFLICT",
+        compareVersions(manifest.version, existing.version) === 0
+          ? `「${manifest.name}」同版本已安装`
+          : `上传版本 v${manifest.version} 低于已安装的 v${existing.version}`,
+      );
+    }
+    // 上传更新视为"替换代码"：先卸掉旧宿主半边，再以停用态落盘
+    if (existing?.enabled) await installedRuntime()?.unmount(manifest.id);
     const next: InstalledPluginManifest = {
       ...manifest,
       enabled: false,
       approved: manifest.client ? false : true,
+      ...(existing ? { configValues: existing.configValues } : {}),
     };
     store.save(next);
     return installedInfo(next);
+  };
+
+  const exportPlugin = async (id: string): Promise<PluginBundleExport> => {
+    const manifest = requirePackages().get(id);
+    if (!manifest) throw new PluginAdminError("NOT_FOUND", `未安装插件「${id}」`);
+    return {
+      filename: `${manifest.id}-${manifest.version}.json`,
+      bundle: manifest,
+    };
+  };
+
+  const publishPlugin = async (id: string): Promise<MarketEntry> => {
+    const manifest = requirePackages().get(id);
+    if (!manifest) throw new PluginAdminError("NOT_FOUND", `未安装插件「${id}」`);
+    return requireMarket().publish(manifest);
+  };
+
+  const ratePlugin = async (id: string, rating: number, comment?: string): Promise<MarketEntry> => {
+    const source = requireMarket();
+    source.rate(id, rating, comment);
+    const entry = (await source.list()).find((item) => item.id === id);
+    if (!entry) throw new PluginAdminError("NOT_FOUND", `市场里没有「${id}」`);
+    return entry;
+  };
+
+  const getMarketSource = async (): Promise<MarketSourceInfo> => requireMarket().source();
+
+  const setMarketSource = async (url: string): Promise<MarketSourceInfo> => {
+    const trimmed = url.trim();
+    if (trimmed) {
+      let parsed: URL;
+      try {
+        parsed = new URL(trimmed);
+      } catch {
+        throw new PluginAdminError("CONFLICT", "registry URL 不合法");
+      }
+      const localhost = parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1";
+      if (parsed.protocol !== "https:" && !(parsed.protocol === "http:" && localhost)) {
+        throw new PluginAdminError("CONFLICT", "远端市场只支持 HTTPS（localhost 可用 HTTP）");
+      }
+    }
+    if (!options.marketSettings) {
+      throw new PluginAdminError("UNSUPPORTED", "market 配置命名空间未装配");
+    }
+    await options.marketSettings.set({ registryUrl: trimmed });
+    return requireMarket().source();
   };
 
   const clientHalves = async (): Promise<PluginClientHalf[]> => {
@@ -472,6 +594,12 @@ export function createPluginManager(options: CreatePluginManagerOptions): Plugin
     source,
     market,
     install,
+    installBundle,
+    exportPlugin,
+    publishPlugin,
+    ratePlugin,
+    getMarketSource,
+    setMarketSource,
     clientConfig,
     clientHalves,
   };

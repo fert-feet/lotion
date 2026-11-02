@@ -76,6 +76,28 @@ const installedInfo: PluginInfo = {
   capabilities: ["tools"],
 };
 
+const updateInfo: PluginInfo = {
+  ...installedInfo,
+  latestVersion: "1.1.0",
+  updateAvailable: true,
+};
+
+function findButton(label: string, scope: ParentNode = document): HTMLButtonElement | undefined {
+  return [...scope.querySelectorAll("button")].find((button) => button.textContent === label);
+}
+
+function setInput(input: HTMLInputElement, value: string) {
+  const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set;
+  setter?.call(input, value);
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
+function setSelect(select: HTMLSelectElement, value: string) {
+  const setter = Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, "value")?.set;
+  setter?.call(select, value);
+  select.dispatchEvent(new Event("change", { bubbles: true }));
+}
+
 beforeEach(() => {
   container = document.createElement("div");
   document.body.appendChild(container);
@@ -88,7 +110,7 @@ afterEach(async () => {
 });
 
 describe("PluginMarket", () => {
-  it("渲染市场条目并调用 install", async () => {
+  it("安装需确认；确认后调用 install 并刷新", async () => {
     const install = vi.fn(async () => installedInfo);
     const admin = createPluginAdminStub({
       market: vi.fn(async () => [entry]),
@@ -97,14 +119,18 @@ describe("PluginMarket", () => {
     await mount(admin);
 
     expect(container.textContent).toContain("字数统计");
-    const button = [...container.querySelectorAll("button")].find((item) => item.textContent === "安装");
     await act(async () => {
-      button?.click();
+      findButton("安装", container)?.click();
+    });
+    expect(document.body.textContent).toContain("权限声明");
+
+    await act(async () => {
+      findButton("确认")?.click();
       await new Promise((resolve) => setTimeout(resolve, 10));
     });
 
     expect(install).toHaveBeenCalledWith("word-count");
-    expect(container.textContent).toContain("已安装");
+    expect(container.textContent).toContain("已安装/更新");
   });
 
   it("已安装的条目不重复安装", async () => {
@@ -118,6 +144,117 @@ describe("PluginMarket", () => {
       (item) => item.textContent === "已安装",
     );
     expect(button?.disabled).toBe(true);
+  });
+
+  it("搜索会过滤条目", async () => {
+    const other = { ...entry, id: "daily-quote", name: "今日一句", description: "随机一句" };
+    const admin = createPluginAdminStub({
+      market: vi.fn(async () => [entry, other]),
+    });
+    await mount(admin);
+    expect(container.textContent).toContain("今日一句");
+
+    const input = container.querySelector<HTMLInputElement>('[aria-label="搜索插件"]')!;
+    await act(async () => {
+      setInput(input, "字数");
+    });
+
+    expect(container.textContent).toContain("字数统计");
+    expect(container.textContent).not.toContain("今日一句");
+  });
+
+  it("有更新时显示更新按钮，确认走 install", async () => {
+    const install = vi.fn(async () => ({ ...updateInfo, version: "1.1.0" }));
+    const admin = createPluginAdminStub({
+      market: vi.fn(async () => [{ ...entry, version: "1.1.0" }]),
+      list: vi.fn(async () => [updateInfo]),
+      install,
+    });
+    await mount(admin);
+
+    const update = findButton("更新 v1.1.0", container);
+    expect(update?.disabled).toBe(false);
+    await act(async () => {
+      update?.click();
+    });
+    await act(async () => {
+      findButton("确认")?.click();
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    });
+    expect(install).toHaveBeenCalledWith("word-count");
+  });
+
+  it("评分弹窗提交评分与评论", async () => {
+    const ratePlugin = vi.fn(async () => entry);
+    const admin = createPluginAdminStub({
+      market: vi.fn(async () => [entry]),
+      ratePlugin,
+    });
+    await mount(admin);
+
+    await act(async () => {
+      findButton("评分", container)?.click();
+    });
+    await act(async () => {
+      document.querySelector<HTMLButtonElement>('[aria-label="4 星"]')?.click();
+    });
+    await act(async () => {
+      findButton("提交评分")?.click();
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    });
+
+    expect(ratePlugin).toHaveBeenCalledWith("word-count", 4, undefined);
+  });
+
+  it("分类过滤与下载量排序", async () => {
+    const productivity = { ...entry, category: "效率", downloads: 1 };
+    const ui = {
+      ...entry,
+      id: "daily-quote",
+      name: "今日一句",
+      category: "界面",
+      downloads: 99,
+    };
+    const admin = createPluginAdminStub({
+      market: vi.fn(async () => [productivity, ui]),
+    });
+    await mount(admin);
+
+    const category = container.querySelector<HTMLSelectElement>('[aria-label="分类"]')!;
+    await act(async () => {
+      setSelect(category, "界面");
+    });
+    expect(container.textContent).toContain("今日一句");
+    expect(container.textContent).not.toContain("字数统计");
+
+    await act(async () => {
+      setSelect(category, "全部");
+    });
+    const sort = container.querySelector<HTMLSelectElement>('[aria-label="排序"]')!;
+    await act(async () => {
+      setSelect(sort, "downloads");
+    });
+    const text = container.textContent ?? "";
+    expect(text.indexOf("今日一句")).toBeLessThan(text.indexOf("字数统计"));
+  });
+
+  it("可保存远端市场源", async () => {
+    const setMarketSource = vi.fn(async (url: string) => ({
+      url,
+      remote: true,
+      requireSignature: false,
+    }));
+    const admin = createPluginAdminStub({ setMarketSource });
+    await mount(admin);
+
+    const input = container.querySelector<HTMLInputElement>('[aria-label="市场源 URL"]')!;
+    await act(async () => {
+      setInput(input, "https://market.example/registry.json");
+      findButton("保存", container)?.click();
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    });
+
+    expect(setMarketSource).toHaveBeenCalledWith("https://market.example/registry.json");
   });
 
   it("市场为空时显示空态", async () => {

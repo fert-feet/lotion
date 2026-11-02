@@ -28,6 +28,22 @@ export function createPluginAdminStub(
     install: vi.fn(async () => {
       throw new Error("install 未打桩");
     }),
+    installBundle: vi.fn(async () => {
+      throw new Error("installBundle 未打桩");
+    }),
+    exportPlugin: vi.fn(async () => ({ filename: "plugin.json", bundle: {} })),
+    publishPlugin: vi.fn(async () => {
+      throw new Error("publishPlugin 未打桩");
+    }),
+    ratePlugin: vi.fn(async () => {
+      throw new Error("ratePlugin 未打桩");
+    }),
+    getMarketSource: vi.fn(async () => ({ url: "", remote: false, requireSignature: false })),
+    setMarketSource: vi.fn(async (url: string) => ({
+      url,
+      remote: url.length > 0,
+      requireSignature: false,
+    })),
     clientConfig: vi.fn(async () => ({ disabledUi: [] })),
     clientHalves: vi.fn(async () => []),
     ...overrides,

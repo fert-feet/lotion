@@ -51,6 +51,10 @@ export interface PluginInfo {
   config: Record<string, unknown>;
   configFields: readonly PluginConfigField[];
   capabilities: readonly string[];
+  /** 市场最新版本（已安装插件才有） */
+  latestVersion?: string;
+  /** 有更新可装 */
+  updateAvailable?: boolean;
 }
 
 /** 代码预览（只给 owner） */
@@ -59,7 +63,14 @@ export interface PluginSourceCode {
   client?: string;
 }
 
-/** 市场条目（M3）：bundle 是同源或 HTTPS 的 JSON 地址 */
+/** 市场评论 / 评分记录（本地单机版） */
+export interface MarketComment {
+  rating: number;
+  text: string;
+  createdAt: string;
+}
+
+/** 市场条目：bundle 支持 /同源路径、local:<id>、https:// 地址 */
 export interface MarketEntry {
   id: string;
   name: string;
@@ -67,6 +78,35 @@ export interface MarketEntry {
   description: string;
   author?: string;
   bundle: string;
+  category?: string;
+  tags?: string[];
+  capabilities?: string[];
+  /** 远程 / 本地统计合并后的下载量 */
+  downloads?: number;
+  /** 平均分 0–5 */
+  rating?: number;
+  ratingCount?: number;
+  comments?: MarketComment[];
+  updatedAt?: string;
+  /** 完整性校验（bundle 原始文本的 sha256 hex） */
+  sha256?: string;
+  /** Ed25519 签名（base64；对 sha256 字节串签名） */
+  signature?: string;
+  source?: "local" | "remote";
+}
+
+/** 市场源信息（owner 可配置） */
+export interface MarketSourceInfo {
+  url: string;
+  remote: boolean;
+  /** 是否强制要求签名（配置项） */
+  requireSignature: boolean;
+}
+
+/** 导出已安装插件包（下载/发布用） */
+export interface PluginBundleExport {
+  filename: string;
+  bundle: unknown;
 }
 
 /** 启动期客户端配置：只暴露 disabled 的 UI 插件 id（不泄露任何代码/配置） */
@@ -96,6 +136,16 @@ export interface PluginAdminService {
   source(id: string): Promise<PluginSourceCode>;
   market(): Promise<MarketEntry[]>;
   install(id: string): Promise<PluginInfo>;
+  /** 上传/导入一个插件包 JSON（安装后默认停用） */
+  installBundle(bundle: unknown): Promise<PluginInfo>;
+  /** 导出已安装插件包 */
+  exportPlugin(id: string): Promise<PluginBundleExport>;
+  /** 发布已安装插件到本地市场（写入 data/plugin-market） */
+  publishPlugin(id: string): Promise<MarketEntry>;
+  /** 给市场条目评分/评论（本地统计） */
+  ratePlugin(id: string, rating: number, comment?: string): Promise<MarketEntry>;
+  getMarketSource(): Promise<MarketSourceInfo>;
+  setMarketSource(url: string): Promise<MarketSourceInfo>;
   clientConfig(): Promise<ClientPluginConfig>;
   /** 已批准、可下发给浏览器的客户端半边（已安装 + AI 动态） */
   clientHalves(): Promise<PluginClientHalf[]>;
@@ -114,6 +164,12 @@ const REQUIRED_METHODS = [
   "source",
   "market",
   "install",
+  "installBundle",
+  "exportPlugin",
+  "publishPlugin",
+  "ratePlugin",
+  "getMarketSource",
+  "setMarketSource",
   "clientConfig",
   "clientHalves",
 ] as const;

@@ -61,7 +61,7 @@ Lotion 是**插件化应用**：核心只提供内核与接缝，功能以插件
 ```
 Hono（server/，Node 进程）
    ├── requireAuth 中间件（会话 cookie → c.get("user")）
-   ├── 37 个 REST 端点（= 10 个路由插件，清单见 server/routes/index.ts；另 +1 个 opt-in 动态插件路由）
+   ├── 44 个 REST 端点（= 11 个路由插件，清单见 server/routes/index.ts；另 +1 个 opt-in 动态插件路由）
    │     例如 /api/documents/:id/append、/api/ai/undo
    ├── 直接调用 lib/local/db.ts（原生 SQLite，无 HTTP 中转）
    └── 静态资源 dist/ + public/ + SPA 回退
@@ -116,7 +116,7 @@ lib/
 │   ├── db.ts                # 本地 SQL 实现（docStore 宿主实现的数据源，显式 userId 过滤）
 │   ├── doc-store-sqlite.ts  # docStore 的宿主提供方（包 lib/local/db.ts）
 │   ├── settings-file.ts     # settings 提供方（用户层 data/settings.json + 组合默认 + env 三层）
-│   ├── lotion-config.ts     # Lotion 四个配置命名空间（ai / storage / server / logging）
+│   ├── lotion-config.ts     # Lotion 配置命名空间（ai / plugins / market / storage / server / logging）
 │   ├── auth.ts              # scrypt 哈希 + 会话管理 + cookie 工具
 │   ├── request-user.ts      # 从请求 cookie 解析会话用户（中间件调用）
 │   ├── uploads.ts           # 上传目录解析（UPLOAD_DIR）
@@ -125,7 +125,7 @@ lib/
 │   ├── plugin-manager.ts    # pluginAdmin 宿主实现（列表/启停/配置/审批/市场）
 │   ├── plugin-package.ts    # 已安装包 manifest + data/plugins/installed 存储
 │   ├── plugin-runtime.ts    # 已安装插件宿主半边挂载/卸载
-│   ├── plugin-market.ts     # public/plugin-market 本地市场读取
+│   ├── plugin-market.ts     # 本地/远端市场（registry / bundle / stats / 发布 / 校验和与验签）
 │   ├── dynamic-store.ts     # 动态定义持久化 data/plugins/dynamic
 │   └── static-plugin-controller.ts  # 静态插件热挂载（M4）
 ├── agent.ts                # Agent 核心：streamText + doom loop 检测 + SSE 事件流包装 + 回合快照/改动前快照
@@ -161,10 +161,12 @@ test/                       # Vitest 单测（lib/ / api/ / components/ / seams/
   刷新后的终态靠"文档事实对账"恢复：文档不在了 = 已丢弃，`isDraft=false` = 已保存
 - sidebar 宽度可拖拽（264-420px），可折叠为 56px rail
 - 运行时数据：`data/lotion.db`（可用 `LOTION_DB_PATH` 覆盖）、`data/uploads/`（可用 `UPLOAD_DIR` 覆盖）、
-  `data/plugins/`（已安装 + AI 动态定义，可用 `LOTION_PLUGINS_DIR` 覆盖），均 gitignore
+  `data/plugins/`（已安装 + AI 动态定义，可用 `LOTION_PLUGINS_DIR` 覆盖）、
+  `data/plugin-market/`（发布包 / stats）与 `data/plugin-market.json`（本机市场 registry），均 gitignore
 - 插件管理：`pluginAdmin` 接缝 + `data/settings.json` 的 `plugins` patch；只有**最早注册的用户**（owner）
-  能改装配；静态插件启停走 `static-plugin-controller`（实时），UI 插件需刷新；已安装包/市场见
-  `docs/插件开发.md`
+  能改装配；静态插件启停走 `static-plugin-controller`（实时），UI 插件需刷新。市场支持
+  本地/远端 registry（`market.registryUrl` / `LOTION_MARKET_URL`）、搜索/分类/排序、上传/发布/导出、
+  版本更新、评分评论下载量、sha256 + 可选 Ed25519 验签；见 `docs/插件开发.md`
 
 ## 设计系统（Apple / macOS 语言）
 

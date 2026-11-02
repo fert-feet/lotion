@@ -46,16 +46,25 @@ export const pluginsSettingsSchema = z.record(
 );
 export type PluginsSettings = z.infer<typeof pluginsSettingsSchema>;
 
+/** 插件市场配置：远端 registry URL + 是否强制验签 */
+export const marketSettingsSchema = z.object({
+  registryUrl: z.string().default(""),
+  requireSignature: z.boolean().default(false),
+});
+export type MarketSettings = z.infer<typeof marketSettingsSchema>;
+
 export const loggingSettingsSchema = z.object({
   level: z.enum(["debug", "info", "warn", "error"]).default("info"),
 });
 export type LoggingSettings = z.infer<typeof loggingSettingsSchema>;
 
-/** 四个命名空间的读写句柄（消费方按需取用） */
+/** 配置命名空间的读写句柄（消费方按需取用） */
 export interface LotionSettings {
   ai: SettingsSection<AiSettings>;
   /** 插件装配 patch（用户层可停用/改配置某个插件） */
   plugins: SettingsSection<PluginsSettings>;
+  /** 插件市场（远端 registry / 验签策略） */
+  market: SettingsSection<MarketSettings>;
   storage: SettingsSection<StorageSettings>;
   server: SettingsSection<ServerSettings>;
   logging: SettingsSection<LoggingSettings>;
@@ -91,6 +100,7 @@ export function lotionSettingsDefaults(cwd = process.cwd()) {
     server: { port: 3001 } satisfies ServerSettings,
     logging: { level: "info" } satisfies LoggingSettings,
     plugins: {} satisfies PluginsSettings,
+    market: { registryUrl: "", requireSignature: false } satisfies MarketSettings,
   };
 }
 
@@ -112,6 +122,9 @@ export function installLotionSettings(ctx: Context, cwd?: string): LotionSetting
       env: { port: "PORT" },
     }),
     plugins: installSettingsSection(ctx, "plugins", pluginsSettingsSchema, base.plugins),
+    market: installSettingsSection(ctx, "market", marketSettingsSchema, base.market, {
+      env: { registryUrl: "LOTION_MARKET_URL" },
+    }),
     logging: installSettingsSection(ctx, "logging", loggingSettingsSchema, base.logging, {
       env: { level: "LOG_LEVEL" },
     }),

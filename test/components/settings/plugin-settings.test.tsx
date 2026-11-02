@@ -118,6 +118,28 @@ function makeAdmin(initial: PluginInfo[]) {
     })),
     market: vi.fn(async () => []),
     install: vi.fn(async (id: string) => find(id)),
+    installBundle: vi.fn(async () => corePlugin),
+    exportPlugin: vi.fn(async () => ({ filename: "demo.json", bundle: {} })),
+    publishPlugin: vi.fn(async () => ({
+      id: "demo",
+      name: "Demo",
+      version: "1.0.0",
+      description: "",
+      bundle: "local:demo",
+    })),
+    ratePlugin: vi.fn(async () => ({
+      id: "demo",
+      name: "Demo",
+      version: "1.0.0",
+      description: "",
+      bundle: "local:demo",
+    })),
+    getMarketSource: vi.fn(async () => ({ url: "", remote: false, requireSignature: false })),
+    setMarketSource: vi.fn(async (url: string) => ({
+      url,
+      remote: url.length > 0,
+      requireSignature: false,
+    })),
     clientConfig: vi.fn(async () => ({ disabledUi: [] })),
     clientHalves: vi.fn(async () => []),
   } satisfies PluginAdminService;
@@ -252,5 +274,27 @@ describe("PluginSettings", () => {
 
     expect(admin.remove).toHaveBeenCalledWith("dyn-1");
     expect(container.querySelector('[aria-label="日报生成器 启用状态"]')).toBeNull();
+  });
+});
+
+describe("PluginSettings 已安装插件", () => {
+  it("显示可更新徽标，发布调用 publishPlugin", async () => {
+    const installed = plugin({
+      id: "demo",
+      title: "第三方插件",
+      source: "installed",
+      latestVersion: "1.1.0",
+      updateAvailable: true,
+    });
+    const admin = makeAdmin([installed]);
+    await mount(admin);
+
+    expect(container.textContent).toContain("可更新 v1.1.0");
+    await act(async () => {
+      findButton("发布到本地市场", container)?.click();
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    });
+    expect(admin.publishPlugin).toHaveBeenCalledWith("demo");
+    expect(container.textContent).toContain("已发布到本地市场");
   });
 });

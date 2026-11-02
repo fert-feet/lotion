@@ -9,12 +9,12 @@ import { SESSION_COOKIE, createSession, createUser } from "@/lib/local/auth";
 import { createPluginManager } from "@/lib/local/plugin-manager";
 import { createDynamicRunner } from "@/lib/dynamic/runner";
 import { createFilePluginPackageStore } from "@/lib/local/plugin-package";
-import { createFilePluginMarket } from "@/lib/local/plugin-market";
+import { createPluginMarket } from "@/lib/local/plugin-market";
 import type { InstalledPluginRuntime } from "@/lib/local/plugin-runtime";
 import type { DynamicPersistence, DynamicRecord } from "@/lib/seams/dynamic";
 import type { PluginInfo } from "@/lib/seams/plugins";
 import { createApiTestApp } from "../mocks/api-app";
-import { createMemoryPluginsSettings } from "../mocks/plugin-settings";
+import { createMemoryMarketSettings, createMemoryPluginsSettings } from "../mocks/plugin-settings";
 
 const state = vi.hoisted(() => ({ db: null as Database.Database | null }));
 
@@ -221,12 +221,23 @@ describe("动态插件端点与 /api/me", () => {
         error: () => undefined,
         dispose: async () => {},
       };
+      const marketSettings = createMemoryMarketSettings();
+      const market = createPluginMarket({
+        publicDir,
+        dataDir: path.join(dir, "data"),
+        registryUrl: () => marketSettings.get().registryUrl,
+        // 远端源改成 https 后避免真实网络请求：立即失败，market.list 会回退本地
+        fetchImpl: (async () => {
+          throw new Error("offline");
+        }) as typeof fetch,
+      });
       const manager = createPluginManager({
         ctx: createRootContext(),
         settings: createMemoryPluginsSettings(),
+        marketSettings,
         getPackages: () => store,
         getRuntime: () => runtime,
-        market: createFilePluginMarket({ publicDir }),
+        market,
       });
       const { app: installedApp } = await createApiTestApp([], { pluginAdmin: manager });
       const auth = { cookie: `${SESSION_COOKIE}=${ownerToken}` };
@@ -264,6 +275,58 @@ describe("动态插件端点与 /api/me", () => {
       expect(payload[0].client).toContain("harness.define");
 
       expect((await installedApp.request("/api/plugins/client-halves")).status).toBe(401);
+
+      const catalog = await installedApp.request("/api/plugins/market", { headers: auth });
+      const catalogBody = (await catalog.json()) as {
+        entries: Array<{ id: string }>;
+        source: { remote: boolean };
+      };
+      expect(catalogBody.entries.some((item) => item.id === "daily-quote")).toBe(true);
+      expect(catalogBody.source.remote).toBe(false);
+
+      const source = await installedApp.request("/api/plugins/market/source", {
+        method: "PATCH",
+        headers: { "content-type": "application/json", ...auth },
+        body: JSON.stringify({ url: "https://market.example/registry.json" }),
+      });
+      expect(source.status).toBe(200);
+      expect((await source.json()).url).toBe("https://market.example/registry.json");
+
+      const upload = await installedApp.request("/api/plugins/upload", {
+        method: "POST",
+        headers: { "content-type": "application/json", ...auth },
+        body: JSON.stringify({
+          bundle: {
+            id: "new-plugin",
+            name: "New",
+            version: "1.0.0",
+            capabilities: ["tools"],
+            host: "harness.define({ apply() {} })",
+          },
+        }),
+      });
+      expect(upload.status).toBe(200);
+      expect(await upload.json()).toMatchObject({ id: "new-plugin", enabled: false });
+
+      const exported = await installedApp.request("/api/plugins/new-plugin/export", {
+        headers: auth,
+      });
+      expect(await exported.json()).toMatchObject({ filename: "new-plugin-1.0.0.json" });
+
+      const published = await installedApp.request("/api/plugins/new-plugin/publish", {
+        method: "POST",
+        headers: auth,
+      });
+      expect(published.status).toBe(200);
+      expect((await published.json()).bundle).toBe("local:new-plugin");
+
+      const rated = await installedApp.request("/api/plugins/daily-quote/rate", {
+        method: "POST",
+        headers: { "content-type": "application/json", ...auth },
+        body: JSON.stringify({ rating: 5, comment: "好用" }),
+      });
+      expect(rated.status).toBe(200);
+      expect(await rated.json()).toMatchObject({ rating: 5, ratingCount: 1 });
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }

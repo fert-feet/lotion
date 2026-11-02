@@ -125,16 +125,20 @@ export function hostComposition(options: HostCompositionOptions = {}): PluginEnt
         name: "plugin-manager",
         inject: [LOTION_SETTINGS_SERVICE],
         apply: (ctx: Context) => {
-          const settings = requireLotionSettings(ctx).plugins;
+          const lotion = requireLotionSettings(ctx);
           const manager = createPluginManager({
             ctx,
-            settings,
+            settings: lotion.plugins,
+            marketSettings: lotion.market,
             getDynamic: () => findDynamic(ctx),
             // 已安装包/运行时由 server/kernel.ts 在装配后提供（这里延迟取）
             getPackages: () => findInstalledStore(ctx),
             getRuntime: () => findInstalledRuntime(ctx),
             getStaticController: () => findStaticPluginController(ctx),
-            market: createDefaultPluginMarket(),
+            market: createDefaultPluginMarket({
+              registryUrl: () => lotion.market.get().registryUrl,
+              requireSignature: () => lotion.market.get().requireSignature,
+            }),
           });
           providePluginAdmin(ctx, manager);
         },

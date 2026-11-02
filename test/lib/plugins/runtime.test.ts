@@ -26,6 +26,7 @@ function manifest(overrides: Partial<InstalledPluginManifest> = {}): InstalledPl
     id: "demo",
     name: "Demo",
     version: "1.0.0",
+    tags: [],
     capabilities: ["tools"],
     config: [],
     enabled: false,

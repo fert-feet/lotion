@@ -52,6 +52,7 @@ describe("lib/local/lotion-config 组合层默认值", () => {
       server: { port: 3001 },
       logging: { level: "info" },
       plugins: {},
+      market: { registryUrl: "", requireSignature: false },
     });
   });
 

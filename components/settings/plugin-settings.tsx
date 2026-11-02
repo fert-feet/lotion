@@ -62,6 +62,8 @@ function PluginRow({
   onApprove,
   onSource,
   onDelete,
+  onPublish,
+  onExport,
 }: {
   plugin: PluginInfo;
   busy: boolean;
@@ -70,6 +72,8 @@ function PluginRow({
   onApprove: () => void;
   onSource: () => void;
   onDelete: () => void;
+  onPublish: () => void;
+  onExport: () => void;
 }) {
   const status = statusLabel(plugin);
   const restartText = plugin.restartRequired
@@ -85,6 +89,9 @@ function PluginRow({
           <span className="text-[13px] font-medium text-foreground">{plugin.title}</span>
           {plugin.core ? <Badge>核心</Badge> : null}
           {plugin.source === "installed" ? <Badge tone="blue">已安装</Badge> : null}
+          {plugin.updateAvailable ? (
+            <Badge tone="amber">可更新 v{plugin.latestVersion}</Badge>
+          ) : null}
           {plugin.source === "dynamic" ? <Badge tone="blue">AI 生成</Badge> : null}
           {plugin.source === "dynamic" &&
           plugin.approved &&
@@ -119,6 +126,16 @@ function PluginRow({
             </Button>
           </div>
         ) : null}
+        {plugin.source === "installed" ? (
+          <div className="mt-1.5 flex flex-wrap items-center gap-1">
+            <Button variant="ghost" size="sm" onClick={onExport} disabled={busy}>
+              导出包
+            </Button>
+            <Button variant="ghost" size="sm" onClick={onPublish} disabled={busy}>
+              发布到本地市场
+            </Button>
+          </div>
+        ) : null}
       </div>
 
       <div className="flex shrink-0 items-center gap-1.5 pt-0.5">
@@ -148,6 +165,8 @@ function Section({
   onApprove,
   onSource,
   onDelete,
+  onPublish,
+  onExport,
 }: {
   title: string;
   description?: string;
@@ -158,6 +177,8 @@ function Section({
   onApprove: (plugin: PluginInfo) => void;
   onSource: (plugin: PluginInfo) => void;
   onDelete: (plugin: PluginInfo) => void;
+  onPublish: (plugin: PluginInfo) => void;
+  onExport: (plugin: PluginInfo) => void;
 }) {
   if (plugins.length === 0) return null;
   return (
@@ -179,6 +200,8 @@ function Section({
             onApprove={() => onApprove(plugin)}
             onSource={() => onSource(plugin)}
             onDelete={() => onDelete(plugin)}
+            onPublish={() => onPublish(plugin)}
+            onExport={() => onExport(plugin)}
           />
         ))}
       </div>
@@ -286,6 +309,41 @@ export function PluginSettings() {
     }
   };
 
+  const exportPlugin = async (plugin: PluginInfo) => {
+    setBusyId(plugin.id);
+    setError(null);
+    try {
+      const data = await admin.exportPlugin(plugin.id);
+      const blob = new Blob([JSON.stringify(data.bundle, null, 2) + "\n"], {
+        type: "application/json",
+      });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = data.filename;
+      anchor.click();
+      URL.revokeObjectURL(url);
+      setNotice(`已导出「${plugin.title}」插件包。`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "导出失败");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const publishPlugin = async (plugin: PluginInfo) => {
+    setBusyId(plugin.id);
+    setError(null);
+    try {
+      await admin.publishPlugin(plugin.id);
+      setNotice(`「${plugin.title}」已发布到本地市场。`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "发布失败");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   const handlers = {
     busyId,
     onToggle: (plugin: PluginInfo, enabled: boolean) => void toggle(plugin, enabled),
@@ -293,6 +351,8 @@ export function PluginSettings() {
     onApprove: (plugin: PluginInfo) => void approve(plugin),
     onSource: (plugin: PluginInfo) => void preview(plugin),
     onDelete: (plugin: PluginInfo) => setDeleteTarget(plugin),
+    onPublish: (plugin: PluginInfo) => void publishPlugin(plugin),
+    onExport: (plugin: PluginInfo) => void exportPlugin(plugin),
   };
 
   const grouped = useMemo(

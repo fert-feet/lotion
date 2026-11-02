@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import {
   MAX_CODE_BYTES,
+  compareVersions,
   createFilePluginPackageStore,
   resolveInstalledDir,
   validatePluginManifest,
@@ -27,6 +28,7 @@ function manifest(overrides: Partial<InstalledPluginManifest> = {}): InstalledPl
     name: "字数统计",
     version: "1.0.0",
     description: "示例",
+    tags: [],
     capabilities: ["tools"],
     config: [],
     enabled: false,
@@ -61,6 +63,12 @@ describe("validatePluginManifest", () => {
     expect(() =>
       validatePluginManifest(manifest({ host: "x".repeat(MAX_CODE_BYTES + 1) })),
     ).toThrow(/too big|最大|length/i);
+  });
+
+  it("版本比较按数字段（1.10 > 1.9）", () => {
+    expect(compareVersions("1.10.0", "1.9.0")).toBe(1);
+    expect(compareVersions("1.0.0", "1.0.0")).toBe(0);
+    expect(compareVersions("2.0.0", "10.0.0")).toBe(-1);
   });
 });
 

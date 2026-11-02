@@ -6,7 +6,27 @@
       "version": "1.0.0",
       "description": "给 AI 增加一个统计字数的工具，演示只贡献宿主 tools 的插件。",
       "author": "lotion",
-      "bundle": "/plugin-market/word-count.json"
+      "category": "效率",
+      "tags": [
+        "工具",
+        "AI"
+      ],
+      "capabilities": [
+        "tools"
+      ],
+      "downloads": 128,
+      "rating": 4.8,
+      "ratingCount": 12,
+      "comments": [
+        {
+          "rating": 5,
+          "text": "装上就能用，演示很清楚。",
+          "createdAt": "2026-10-20T08:00:00.000Z"
+        }
+      ],
+      "updatedAt": "2026-10-20T08:00:00.000Z",
+      "bundle": "/plugin-market/word-count.json",
+      "sha256": "36695ca3e39fca3517cb39c9064233d3351d946e9b09f7bd7aefb3ffefca38e7"
     },
     {
       "id": "daily-quote",
@@ -14,7 +34,27 @@
       "version": "1.0.0",
       "description": "在侧边栏底部加一个 ✨ 按钮，点开随机一句；演示客户端半边 + UI 插槽。",
       "author": "lotion",
-      "bundle": "/plugin-market/daily-quote.json"
+      "category": "界面",
+      "tags": [
+        "UI",
+        "侧边栏"
+      ],
+      "capabilities": [
+        "ui"
+      ],
+      "downloads": 76,
+      "rating": 4.5,
+      "ratingCount": 8,
+      "comments": [
+        {
+          "rating": 4,
+          "text": "按钮很小巧，希望多几句。",
+          "createdAt": "2026-10-21T08:00:00.000Z"
+        }
+      ],
+      "updatedAt": "2026-10-21T08:00:00.000Z",
+      "bundle": "/plugin-market/daily-quote.json",
+      "sha256": "fe13b592031a2c66e3269b55cc4da0d706035581ca5df3101df78e6a48911087"
     }
   ]
 }

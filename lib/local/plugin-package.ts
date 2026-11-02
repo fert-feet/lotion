@@ -35,6 +35,8 @@ export const pluginManifestSchema = z
     version: z.string().min(1).max(32),
     description: z.string().max(500).optional(),
     author: z.string().max(80).optional(),
+    category: z.string().max(40).optional(),
+    tags: z.array(z.string().max(30)).max(10).default([]),
     capabilities: z
       .array(z.enum(["tools", "ui", "httpRoutes"]))
       .max(3)
@@ -75,6 +77,29 @@ export function validatePluginManifest(raw: unknown): InstalledPluginManifest {
     throw new Error(`插件清单不合法：${detail}`);
   }
   return parsed.data;
+}
+
+/**
+ * 轻量版本比较：按数字段比较（1.10.0 > 1.9.0），非数字段退化为字符串比较。
+ * 返回 >0 表示 a 更新。
+ */
+export function compareVersions(a: string, b: string): number {
+  const split = (value: string) => value.split(/[.+-]/).filter(Boolean);
+  const left = split(a);
+  const right = split(b);
+  const length = Math.max(left.length, right.length);
+  for (let index = 0; index < length; index += 1) {
+    const l = left[index] ?? "0";
+    const r = right[index] ?? "0";
+    const ln = Number(l);
+    const rn = Number(r);
+    if (Number.isFinite(ln) && Number.isFinite(rn)) {
+      if (ln !== rn) return ln > rn ? 1 : -1;
+      continue;
+    }
+    if (l !== r) return l > r ? 1 : -1;
+  }
+  return 0;
 }
 
 /** 已安装插件根目录：<plugins>/installed */

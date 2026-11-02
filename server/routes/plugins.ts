@@ -72,6 +72,23 @@ pluginsRoutes.get("/", (c) => {
   return withAdmin(c, async (admin) => c.json({ plugins: await admin.list() }));
 });
 
+/** 市场源：读取 / 修改（owner） */
+pluginsRoutes.get("/market/source", (c) => {
+  const denied = ownerGuard(c);
+  if (denied) return denied;
+  return withAdmin(c, async (admin) => c.json(await admin.getMarketSource()));
+});
+
+pluginsRoutes.patch("/market/source", async (c) => {
+  const denied = ownerGuard(c);
+  if (denied) return denied;
+  const parsed = await readJson<{ url?: unknown }>(c);
+  if (!parsed.ok || typeof parsed.data?.url !== "string") {
+    return c.json({ error: "需要字符串字段 url" }, 400);
+  }
+  return withAdmin(c, async (admin) => c.json(await admin.setMarketSource(parsed.data.url as string)));
+});
+
 /** 启停 / 改配置 */
 pluginsRoutes.patch("/:id", async (c) => {
   const denied = ownerGuard(c);
@@ -139,7 +156,9 @@ pluginsRoutes.get("/:id/source", (c) => {
 pluginsRoutes.get("/market", (c) => {
   const denied = ownerGuard(c);
   if (denied) return denied;
-  return withAdmin(c, async (admin) => c.json({ entries: await admin.market() }));
+  return withAdmin(c, async (admin) =>
+    c.json({ entries: await admin.market(), source: await admin.getMarketSource() }),
+  );
 });
 
 pluginsRoutes.post("/install", async (c) => {
@@ -151,4 +170,52 @@ pluginsRoutes.post("/install", async (c) => {
   }
   const id = parsed.data.id.trim();
   return withAdmin(c, async (admin) => c.json(await admin.install(id)));
+});
+
+/** 上传/导入插件包（JSON） */
+pluginsRoutes.post("/upload", async (c) => {
+  const denied = ownerGuard(c);
+  if (denied) return denied;
+  const parsed = await readJson<{ bundle?: unknown }>(c);
+  if (!parsed.ok || parsed.data?.bundle === undefined) {
+    return c.json({ error: "需要 bundle 字段（plugin.json 内容）" }, 400);
+  }
+  return withAdmin(c, async (admin) => c.json(await admin.installBundle(parsed.data.bundle)));
+});
+
+/** 导出已安装插件包 */
+pluginsRoutes.get("/:id/export", (c) => {
+  const denied = ownerGuard(c);
+  if (denied) return denied;
+  const id = c.req.param("id");
+  return withAdmin(c, async (admin) => c.json(await admin.exportPlugin(id)));
+});
+
+/** 发布到本地市场 */
+pluginsRoutes.post("/:id/publish", (c) => {
+  const denied = ownerGuard(c);
+  if (denied) return denied;
+  const id = c.req.param("id");
+  return withAdmin(c, async (admin) => c.json(await admin.publishPlugin(id)));
+});
+
+/** 评分/评论 */
+pluginsRoutes.post("/:id/rate", async (c) => {
+  const denied = ownerGuard(c);
+  if (denied) return denied;
+  const id = c.req.param("id");
+  const parsed = await readJson<{ rating?: unknown; comment?: unknown }>(c);
+  if (!parsed.ok || typeof parsed.data?.rating !== "number") {
+    return c.json({ error: "需要数字字段 rating（1–5）" }, 400);
+  }
+  const { rating, comment } = parsed.data;
+  if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
+    return c.json({ error: "rating 必须是 1–5 的整数" }, 400);
+  }
+  if (comment !== undefined && typeof comment !== "string") {
+    return c.json({ error: "comment 必须是字符串" }, 400);
+  }
+  return withAdmin(c, async (admin) =>
+    c.json(await admin.ratePlugin(id, rating, typeof comment === "string" ? comment : undefined)),
+  );
 });
