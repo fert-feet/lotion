@@ -27,7 +27,7 @@ interface SidebarHeaderProps {
 
 /** 图标按钮：24px 圆形，hover 出现填充底（Apple 的 toolbar button） */
 const iconBtn =
-  "flex h-6 w-6 flex-none cursor-pointer items-center justify-center rounded-control bg-transparent p-0 text-shell-label-secondary transition-colors duration-150 hover:bg-shell-row-hover hover:text-shell-label-primary";
+  "flex size-7 flex-none cursor-pointer items-center justify-center rounded-control bg-transparent p-0 text-shell-label-secondary transition-colors duration-150 hover:bg-shell-row-hover hover:text-shell-label-primary";
 
 export function SidebarHeader({
   query,
@@ -111,7 +111,7 @@ export function SidebarHeader({
                 e.stopPropagation();
                 collapse();
               }}
-              className={cn(iconBtn, "mr-0.5 h-5 w-5")}
+              className={cn(iconBtn, "mr-0.5")}
             >
               <X className="h-3 w-3" />
             </button>
