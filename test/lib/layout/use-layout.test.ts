@@ -8,6 +8,7 @@ beforeEach(() => {
   useLayout.setState({
     sidebar: SIDEBAR_DEFAULT,
     details: 0,
+    detailsMode: "docked",
     narrow: false,
     narrowExpanded: false,
   });
@@ -86,6 +87,32 @@ describe("hooks/use-layout details", () => {
     expect(get().details).toBe(300);
     get().setDetails(999);
     expect(get().details).toBe(520);
+  });
+});
+
+describe("hooks/use-layout detailsMode（呈现模式）", () => {
+  it("默认停靠；setDetailsMode 直接写入", () => {
+    expect(get().detailsMode).toBe("docked");
+    get().setDetailsMode("fullscreen");
+    expect(get().detailsMode).toBe("fullscreen");
+  });
+
+  it("cycleDetailsMode：停靠 → 浮层 → 全屏 → 停靠（⌘⇧J 的语义）", () => {
+    expect(get().detailsMode).toBe("docked");
+    get().cycleDetailsMode();
+    expect(get().detailsMode).toBe("overlay");
+    get().cycleDetailsMode();
+    expect(get().detailsMode).toBe("fullscreen");
+    get().cycleDetailsMode();
+    expect(get().detailsMode).toBe("docked");
+  });
+
+  it("呈现模式与开合正交：切模式不改写宽度偏好", () => {
+    get().openDetails();
+    const width = get().details;
+    get().setDetailsMode("overlay");
+    expect(get().details).toBe(width);
+    expect(get().details).toBeGreaterThan(0);
   });
 });
 
