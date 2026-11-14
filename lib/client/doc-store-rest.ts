@@ -18,7 +18,6 @@ import {
   deleteChatSession,
   getById,
   getByIdFresh,
-  getPublishedDocument,
   getChatHistory,
   getChatSessions,
   getSearch,
@@ -62,9 +61,6 @@ export function createRestDocStore(): UiDocStore {
     },
     async getById(_actor, id: string, options?: { fresh?: boolean }) {
       return options?.fresh ? getByIdFresh(id) : getById(id);
-    },
-    async getPublishedById(id: string) {
-      return getPublishedDocument(id);
     },
     // 缓存预热提示（客户端可选能力：宿主侧不需要）
     prefetch(_actor, id: string) {

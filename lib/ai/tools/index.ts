@@ -13,7 +13,6 @@ import { createUpdateNoteTool } from "./update-note";
 import { createRenameNoteTool } from "./rename-note";
 import { createMoveNoteTool } from "./move-note";
 import { createSetNoteIconTool } from "./set-note-icon";
-import { createPublishNoteTool } from "./publish-note";
 import { createDeleteNoteTool } from "./delete-note";
 import { createManageTrashTool } from "./manage-trash";
 import { createListNotesTool } from "./list-notes";
@@ -88,10 +87,6 @@ function summarizeResult(tool: ToolName, result: string): string {
       return t ? "已移动「" + t + "」" : "等待用户确认移动";
     }
     case "setNoteIcon": return "图标已更新";
-    case "publishNote": {
-      const p = pick(/已取消发布/);
-      return p !== null ? "已取消发布" : "已发布";
-    }
     case "restoreNote": {
       const t = pick(/「([^」]+)」已从回收站恢复/);
       return t ? "已恢复「" + t + "」" : "已恢复";
@@ -150,7 +145,6 @@ export function registerBuiltinTools(registry: HostToolRegistry): void {
     { name: "renameNote", create: (db, userId, onEvent) => createRenameNoteTool(db, userId, onEvent) },
     { name: "moveNote", create: (db, userId, onEvent) => createMoveNoteTool(db, userId, onEvent) },
     { name: "setNoteIcon", create: (db, userId, onEvent) => createSetNoteIconTool(db, userId, onEvent) },
-    { name: "publishNote", create: (db, userId, onEvent) => createPublishNoteTool(db, userId, onEvent) },
     { name: "manageTrash", create: (db, userId, onEvent) => createManageTrashTool(db, userId, onEvent) },
     { name: "deleteNote", create: (db, userId, onEvent) => createDeleteNoteTool(db, userId, onEvent) },
     { name: "askUser", create: (db, userId, onEvent) => createAskUserTool(db, userId, onEvent) },

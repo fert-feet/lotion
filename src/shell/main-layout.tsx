@@ -8,7 +8,7 @@ import { Spinner } from "@/components/ui/spinner";
 // 迁移说明：Next.js 版由服务端布局读 cookie 直接 redirect（D4 决策的产物）；
 // SPA 无服务端渲染，改为等 /api/me 解析后客户端重定向——语义一致（未登录看不到主界面），
 // 且服务端另有 Hono 中间件兜底（API 层一律 401）。
-// 公开路由（/login /register /preview 与着陆页）不走本布局。
+// 公开路由（/login /register 与着陆页）不走本布局。
 // 大块依赖（AiPanel/SearchCommand）经 lazy-panels 按需加载。
 const MainLayout = () => {
   const { user, loading } = useUser();

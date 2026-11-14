@@ -63,7 +63,6 @@ describe("lib/local/db 文档操作", () => {
     expect(doc!.title).toBe("第一篇");
     expect(doc!.isArchived).toBe(false);
     expect(doc!.isDraft).toBe(false);
-    expect(doc!.isPublished).toBe(false);
     expect(doc!.parentDocument).toBeNull();
     expect(doc!.createdAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
   });
@@ -117,10 +116,9 @@ describe("lib/local/db 文档操作", () => {
     const id = seedDoc(db, userId, "t");
     const before = getDocumentById(db, id, userId)!;
     await new Promise((r) => setTimeout(r, 5));
-    updateDocument(db, userId, id, { title: "新标题", isPublished: true });
+    updateDocument(db, userId, id, { title: "新标题" });
     const after = getDocumentById(db, id, userId)!;
     expect(after.title).toBe("新标题");
-    expect(after.isPublished).toBe(true);
     expect(after.updatedAt > before.updatedAt).toBe(true);
   });
 
@@ -470,13 +468,12 @@ describe("AI 改动快照与撤销", () => {
         icon: before.icon,
         coverImage: before.coverImage,
         parentDocument: before.parentDocument,
-        isPublished: before.isPublished,
         isArchived: before.isArchived,
       }),
     });
 
     // AI 改写
-    updateDocument(db, userId, docId, { title: "AI 改的标题", content: "AI 改的内容", isPublished: true });
+    updateDocument(db, userId, docId, { title: "AI 改的标题", content: "AI 改的内容" });
 
     expect(listAiChanges(db, userId, "req-1")).toHaveLength(1);
     const { restored, skipped } = undoAiChanges(db, userId, "req-1");
@@ -486,7 +483,6 @@ describe("AI 改动快照与撤销", () => {
     const after = getDocumentById(db, docId, userId)!;
     expect(after.title).toBe("原标题");
     expect(after.content).toBe("原内容");
-    expect(after.isPublished).toBe(false);
 
     // 幂等：再撤一次没有内容可恢复
     expect(undoAiChanges(db, userId, "req-1")).toEqual({ restored: [], skipped: 0 });

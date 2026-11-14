@@ -163,15 +163,6 @@ export const PLUGIN_CATALOG: readonly PluginCatalogEntry[] = [
     capabilities: ["httpRoutes"],
   },
   {
-    id: "route-public-documents",
-    title: "公开预览路由",
-    description: "无鉴权读取已发布文档。",
-    scope: "host",
-    version: BUILTIN_PLUGIN_VERSION,
-    core: false,
-    capabilities: ["httpRoutes"],
-  },
-  {
     id: "route-plugins",
     title: "插件管理路由",
     description: "GET/PATCH /api/plugins 与动态插件审批（owner-only）。",

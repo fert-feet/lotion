@@ -28,7 +28,6 @@ export type Document = {
   content: string | null;
   coverImage: string | null;
   icon: string | null;
-  isPublished: boolean;
   createdAt: string;
   updatedAt: string;
 };
@@ -67,7 +66,7 @@ export type ChatSession = {
 
 /** 可更新字段白名单（与 REST PATCH 白名单一致） */
 export type DocumentUpdateFields = Partial<
-  Pick<Document, "title" | "content" | "coverImage" | "icon" | "isPublished" | "isDraft">
+  Pick<Document, "title" | "content" | "coverImage" | "icon" | "isDraft">
 >;
 
 /** 消息写入（userId 由 Actor 提供，不由调用方传） */
@@ -121,8 +120,6 @@ export interface DocStore {
   listSearch(actor: Actor, query?: string): Promise<SidebarDocument[]>;
   /** 单文档（含 content）；`fresh` 表示绕过缓存 */
   getById(actor: Actor, id: string, options?: { fresh?: boolean }): Promise<Document | null>;
-  /** 公开预览读取：不带 Actor（只返回 isPublished 文档，未发布返回 null） */
-  getPublishedById(id: string): Promise<Document | null>;
   /** 文档概览（含子文档数），供 AI 浏览类工具 */
   listOverview(actor: Actor, parentDocument: string | null): Promise<DocumentOverviewItem[]>;
 
@@ -170,7 +167,6 @@ const DOC_STORE_METHODS = [
   "listTrash",
   "listSearch",
   "getById",
-  "getPublishedById",
   "listOverview",
   "create",
   "update",

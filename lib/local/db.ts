@@ -20,7 +20,6 @@ export type Document = {
   content: string | null;
   coverImage: string | null;
   icon: string | null;
-  isPublished: boolean;
   createdAt: string;
   updatedAt: string;
 };
@@ -61,20 +60,19 @@ export type ChatMessageInput = {
 };
 
 // ---- 行映射：SQLite INTEGER(0/1) → JS boolean，字段裁剪到上层类型 ----
-type DocumentRow = Omit<Document, "isArchived" | "isDraft" | "isPublished"> & {
+type DocumentRow = Omit<Document, "isArchived" | "isDraft"> & {
   isArchived: number;
   isDraft: number;
-  isPublished: number;
 };
 
 function rowToDocument(r: DocumentRow): Document {
-  return { ...r, isArchived: !!r.isArchived, isDraft: !!r.isDraft, isPublished: !!r.isPublished };
+  return { ...r, isArchived: !!r.isArchived, isDraft: !!r.isDraft };
 }
 
 // 查询语句写成完整字面量常量（不在 prepare 里拼列名）：
 // 列清单是编译期常量，但拼接会让静态检查与人工审查都无法确认"SQL 里没有外部输入"。
-const Q_DOCUMENT = `id, title, userId, isArchived, isDraft, parentDocument, content, coverImage, icon, isPublished, createdAt, updatedAt`;
-const Q_SIDEBAR = `id, title, userId, isArchived, isDraft, parentDocument, icon, isPublished, createdAt, updatedAt`;
+const Q_DOCUMENT = `id, title, userId, isArchived, isDraft, parentDocument, content, coverImage, icon, createdAt, updatedAt`;
+const Q_SIDEBAR = `id, title, userId, isArchived, isDraft, parentDocument, icon, createdAt, updatedAt`;
 
 const SQL_SIDEBAR_ALL = `SELECT ${Q_SIDEBAR} FROM documents WHERE userId = ? AND isArchived = 0 ORDER BY createdAt DESC, rowid DESC`;
 const SQL_TRASH_ALL = `SELECT ${Q_SIDEBAR} FROM documents WHERE userId = ? AND isArchived = 1 ORDER BY createdAt DESC, rowid DESC`;
@@ -82,7 +80,7 @@ const SQL_CHILDREN_BY_PARENT = `SELECT ${Q_DOCUMENT} FROM documents WHERE userId
 const SQL_ROOT_CHILDREN = `SELECT ${Q_DOCUMENT} FROM documents WHERE userId = ? AND isArchived = 0 AND parentDocument IS NULL ORDER BY createdAt DESC, rowid DESC`;
 const SQL_DOCUMENT_BY_ID = `SELECT ${Q_DOCUMENT} FROM documents WHERE id = ?`;
 const SQL_DOCUMENT_BY_ID_USER = `SELECT ${Q_DOCUMENT} FROM documents WHERE id = ? AND userId = ?`;
-const SQL_UPDATE_DOCUMENT = `UPDATE documents SET title = ?, content = ?, coverImage = ?, icon = ?, isPublished = ?, isDraft = ?, updatedAt = ? WHERE id = ? AND userId = ?`;
+const SQL_UPDATE_DOCUMENT = `UPDATE documents SET title = ?, content = ?, coverImage = ?, icon = ?, isDraft = ?, updatedAt = ? WHERE id = ? AND userId = ?`;
 
 // ---- AI 会话 ----
 
@@ -231,7 +229,6 @@ export function undoAiChanges(
     if (typeof state.parentDocument === "string" || state.parentDocument === null) {
       fields.parentDocument = parentDocument;
     }
-    if (typeof state.isPublished === "boolean") fields.isPublished = state.isPublished;
     if (typeof state.isArchived === "boolean") fields.isArchived = state.isArchived;
 
     updateDocument(db, userId, row.documentId, fields as never);
@@ -382,7 +379,6 @@ function toSidebar(d: Document): SidebarDocument {
     isDraft: d.isDraft,
     parentDocument: d.parentDocument,
     icon: d.icon,
-    isPublished: d.isPublished,
     createdAt: d.createdAt,
     updatedAt: d.updatedAt,
   };
@@ -589,7 +585,7 @@ export function moveDocument(
 /**
  * 单文档查询（无缓存；缓存/去重由 lib/db.ts 适配层负责）。
  * userId 可选：本地版无 RLS，需所有权的调用方必须传入 userId 强制校验；
- * 不传仅用于公开预览页（该页自行校验 isPublished）。
+ * 不传只给内部的展示型读取（如版本历史回滚预览）用，写路径必须带 userId。
  */
 export function getDocumentById(
   db: Database.Database,
@@ -614,8 +610,8 @@ export function createDocument(
   const id = newId();
   const now = isoNow();
   db.prepare(
-    `INSERT INTO documents (id, title, userId, isArchived, isDraft, parentDocument, isPublished, createdAt, updatedAt)
-     VALUES (?, ?, ?, 0, 0, ?, 0, ?, ?)`,
+    `INSERT INTO documents (id, title, userId, isArchived, isDraft, parentDocument, createdAt, updatedAt)
+     VALUES (?, ?, ?, 0, 0, ?, ?, ?)`,
   ).run(id, title, userId, parentDocument || null, now, now);
   return id;
 }
@@ -632,7 +628,7 @@ export function updateDocument(
   userId: string,
   id: string,
   fields: Partial<
-    Pick<Document, "title" | "content" | "coverImage" | "icon" | "isPublished" | "isDraft">
+    Pick<Document, "title" | "content" | "coverImage" | "icon" | "isDraft">
   >,
   options: { source?: DocumentVersionSource } = {},
 ): boolean {
@@ -657,7 +653,6 @@ export function updateDocument(
     content: fields.content === undefined ? current.content : fields.content,
     coverImage: fields.coverImage === undefined ? current.coverImage : fields.coverImage,
     icon: fields.icon === undefined ? current.icon : fields.icon,
-    isPublished: fields.isPublished === undefined ? current.isPublished === 1 : fields.isPublished,
     isDraft: fields.isDraft === undefined ? current.isDraft === 1 : fields.isDraft,
   };
   const res = db
@@ -667,7 +662,6 @@ export function updateDocument(
       merged.content,
       merged.coverImage,
       merged.icon,
-      merged.isPublished ? 1 : 0,
       merged.isDraft ? 1 : 0,
       isoNow(),
       id,

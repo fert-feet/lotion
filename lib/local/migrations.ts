@@ -105,7 +105,7 @@ ALTER TABLE chat_messages ADD COLUMN "metadata" TEXT;
   {
     // 003：AI 改动的"改动前快照"（撤销用）。每个被 AI 写过的文档一行，
     // 按 (userId, requestId) 分组；撤销 = 把这些字段恢复回去并标记 undoneAt。
-    // 只覆盖 AI 的隐式写入（updateNote/updateBlock/renameNote/setNoteIcon/publishNote/
+    // 只覆盖 AI 的隐式写入（updateNote/updateBlock/renameNote/setNoteIcon/
     // archiveNote/restoreNote）；用户**显式确认**过的删除/移动不在此列（确认框已是一次确认）。
     name: "003_ai_changes",
     sql: `
@@ -183,6 +183,18 @@ CREATE TABLE IF NOT EXISTS document_versions (
 );
 CREATE INDEX IF NOT EXISTS idx_document_versions_doc
   ON document_versions ("documentId", "userId", "createdAt" DESC);
+`,
+  },
+  {
+    // 007：移除"发布"功能，顺带删掉 documents.isPublished 列。
+    // 之前发布 = 把笔记公开到无鉴权的公开端点，属于 Supabase 时代的分享语义；
+    // 本地单机版里它只是"同一台机器上任何人都能看到"，功能整体下掉。
+    // SQLite 3.35+ 支持 ALTER TABLE DROP COLUMN（better-sqlite3 内置 3.53）：
+    // 该列不在任何索引/触发器中，可以直接删，不必走 12 步重建表。
+    // 001 的建表语句保持原样（历史迁移不改写），这一列由本条迁移抹掉。
+    name: "007_drop_is_published",
+    sql: `
+ALTER TABLE documents DROP COLUMN "isPublished";
 `,
   },
 ];

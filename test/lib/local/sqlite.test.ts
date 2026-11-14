@@ -41,6 +41,7 @@ describe("lib/local/sqlite", () => {
       "004_chat_session_document",
       "005_documents_fts",
       "006_document_versions",
+      "007_drop_is_published",
     ]);
   });
 
@@ -48,7 +49,7 @@ describe("lib/local/sqlite", () => {
     initDatabase(db);
     initDatabase(db);
     const rows = db.prepare("SELECT name FROM _migrations").all() as { name: string }[];
-    expect(rows).toHaveLength(6);
+    expect(rows).toHaveLength(7);
   });
 
   it("WAL 与 foreign_keys PRAGMA 生效", () => {

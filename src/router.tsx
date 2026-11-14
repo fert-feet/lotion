@@ -5,12 +5,11 @@
 //   app/register/page.tsx                        → "/register"
 //   app/(main)/(routes)/documents/page.tsx       → "/documents"
 //   app/(main)/(routes)/documents/[documentId]   → "/documents/:documentId"
-//   app/(public)/(routes)/preview/[documentId]   → "/preview/:documentId"
 //   app/(main)/layout.tsx（服务端守卫）           → MainLayout（客户端守卫 + AppShell）
 //   app/(marketing)/layout.tsx                   → MarketingLayout
 //   app/error.tsx                                → errorElement
 //
-// 页面级懒加载：/documents 与 /preview 体积最大（含 BlockNote 编辑器），单独切 chunk。
+// 页面级懒加载：/documents 与 /documents/:documentId 体积最大（含 BlockNote 编辑器），单独切 chunk。
 import { createBrowserRouter } from "react-router";
 import { lazy, Suspense } from "react";
 import { Spinner } from "@/components/ui/spinner";
@@ -25,7 +24,6 @@ import MarketingPage from "./pages/marketing";
 import MainLayout from "./shell/main-layout";
 
 const DocumentPage = lazy(() => import("./pages/document"));
-const PreviewPage = lazy(() => import("./pages/preview"));
 
 /** 页面 chunk 加载态 */
 const PageFallback = () => (
@@ -59,15 +57,6 @@ export const routes = [
         ),
       },
     ],
-  },
-  {
-    path: "/preview/:documentId",
-    element: (
-      <Suspense fallback={<PageFallback />}>
-        <PreviewPage />
-      </Suspense>
-    ),
-    errorElement: <ErrorBoundary />,
   },
   { path: "*", element: <NotFoundPage /> },
 ] satisfies Parameters<typeof createBrowserRouter>[0];

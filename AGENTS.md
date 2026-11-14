@@ -61,7 +61,7 @@ Lotion 是**插件化应用**：核心只提供内核与接缝，功能以插件
 ```
 Hono（server/，Node 进程）
    ├── requireAuth 中间件（会话 cookie → c.get("user")）
-   ├── 44 个 REST 端点（= 11 个路由插件，清单见 server/routes/index.ts；另 +1 个 opt-in 动态插件路由）
+   ├── 43 个 REST 端点（= 10 个路由插件，清单见 server/routes/index.ts；另 +1 个 opt-in 动态插件路由）
    │     例如 /api/documents/:id/append、/api/ai/undo
    ├── 直接调用 lib/local/db.ts（原生 SQLite，无 HTTP 中转）
    └── 静态资源 dist/ + public/ + SPA 回退
@@ -87,7 +87,7 @@ src/
 ├── router.tsx              # 路由表（导出 routes 供测试用 createMemoryRouter 复用）
 ├── kernel/                 # 客户端内核装配：client.ts（bootClientKernel）+ react.tsx（useDocStore/useSlot/usePluginAdmin）
 ├── dynamic/                # 动态插件客户端半边（宿主关闭时为空操作）
-├── pages/                  # 页面：marketing / login / register / documents / document / market / preview / 404 / error
+├── pages/                  # 页面：marketing / login / register / documents / document / market / 404 / error
 ├── shell/                  # 认证区外壳：app-shell / main-layout(守卫) / sidebar / ai-panel / editor / ...
 │   └── ui-plugins.tsx       # 内置 UI 插件清单（AI 面板由插槽贡献，AppShell 只渲染 slot）
 ├── marketing/              # 着陆页组件
@@ -100,7 +100,7 @@ server/
 ├── app.ts                  # 实时分发：按请求查 httpRoutes 注册表装配 /api/*（可测试，不监听端口）
 ├── http.ts                 # AppEnv（Bindings.kernel / Variables.user）/ readJson / 统一错误响应
 ├── middleware.ts           # requireAuth（会话校验）
-└── routes/                 # 路由插件清单 index.ts + auth / me / documents / chat / ai-chat(SSE) / ai-undo / upload / plugins / public-documents
+└── routes/                 # 路由插件清单 index.ts + auth / me / documents / chat / ai-chat(SSE) / ai-undo / upload / plugins
 lib/
 ├── kernel/                 # ⚠️ 环境无关纯 TS（禁 node: / React / 服务端模块，由 boundary.test.ts 守卫）
 │   ├── cordis.ts            # 唯一 import "@deepseek-ai/cordis" 处：适配层（FiberState 重建/settle/audit）
@@ -131,7 +131,7 @@ lib/
 ├── agent.ts                # Agent 核心：streamText + doom loop 检测 + SSE 事件流包装 + 回合快照/改动前快照
 ├── chat-snapshot.ts        # 回合快照类型 + 宽容解析（客户端/服务端共享，⚠️ 环境无关）
 ├── tool-meta.ts            # 工具标签/图标单一真相源（客户端 AI 面板也导入）
-├── ai/tools/               # 17 个 Tool（search/list/read/create/update/rename/move/icon/publish/manageTrash/delete/askUser/todoWrite/docInfo/docOutline/docBlocks/updateBlock）+ registry.ts（注册表/守卫）+ blocks-util.ts
+├── ai/tools/               # 16 个 Tool（search/list/read/create/update/rename/move/icon/manageTrash/delete/askUser/todoWrite/docInfo/docOutline/docBlocks/updateBlock）+ registry.ts（注册表/守卫）+ blocks-util.ts
 ├── ai/runtime-config.ts    # 每次请求解析模型/Key（走配置层，不读模块顶层 env）
 ├── ai-prompts.ts           # AI 系统提示词（领域概念/使用模式/规范/安全）
 ├── blocknote-schema.ts     # 自定义 schema（callout / mention），客户端服务端共享
@@ -153,7 +153,7 @@ test/                       # Vitest 单测（lib/ / api/ / components/ / seams/
 
 - 数据库 7 张表：users / sessions / documents / chat_sessions / chat_messages / ai_changes / document_versions
   （另有 FTS5 虚拟表 `documents_fts`：trigram 分词，触发器同步，供 AI searchNotes 用；`<3` 字回落 LIKE）
-  （每次启动自动迁移，当前 6 个迁移；chat_messages.metadata=回合快照，chat_sessions.documentId=会话绑定文档）
+  （每次启动自动迁移，当前 7 个迁移；chat_messages.metadata=回合快照，chat_sessions.documentId=会话绑定文档）
 - `documents` 自引用（`parentDocument`）支持嵌套；多用户隔离靠**应用层显式 userId 过滤**（无 RLS）
 - AI 面板在 `src/shell/ai-panel.tsx`（纯逻辑在 `src/shell/ai/turn-reducer.ts`，有单测），
   流式渲染；**三种呈现模式** `docked`（占列，默认）/ `overlay`（浮层，点遮罩关闭）/
@@ -232,7 +232,7 @@ AI 面板的语义色另由 `test/components/ai/design-tokens.test.ts` 守卫。
   语义差异全部钉在 `test/lib/kernel/cordis-spike.test.ts`
 - Zustand store 模式：`isOpen / onOpen / onClose / toggle`
 - 图片上传到本地磁盘 `data/uploads/`（**后期换图床**：改 `server/routes/upload.ts`，`{ url }` 契约不变）
-- AI 改动的边界：只有**隐式写入**（updateNote/updateBlock/renameNote/setNoteIcon/publishNote/
+- AI 改动的边界：只有**隐式写入**（updateNote/updateBlock/renameNote/setNoteIcon/
   archiveNote/restoreNote）进 `ai_changes` 可撤销；用户显式确认过的删除/移动不进（确认框本身
   已是一次确认，永久删除也无法用"恢复字段"表达）
 - AI 流协议：`POST /api/ai/chat` 返回 SSE（`text/event-stream`），每行 `data: <json>\n\n`，事件类型 `turn_start / text / tool_start / tool_end / note_created / note_modified / confirm_delete / confirm_move / question / todo_update / reference / warning / turn_end / error`（见 `lib/agent.ts` 的 `AgentStreamEvent`）；前端 `ai-panel.tsx` 按 `\n\n` 分隔解析事件行，**不要改成拼接文本 + 正则提取标记**
@@ -243,7 +243,7 @@ AI 面板的语义色另由 `test/components/ai/design-tokens.test.ts` 守卫。
 ## 后期 TODO（代码内已注释）
 
 - 图床迁移（`server/routes/upload.ts`）
-- 公网部署时 SQLite → 远程 libsql + 公开面重新评估（`server/routes/public-documents.ts`）
+- 公网部署时 SQLite → 远程 libsql（本地单机语义的多用户/多端假设需要重新评估）
 
 ## Notes
 

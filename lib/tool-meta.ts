@@ -27,7 +27,6 @@ export const TOOL_META: Record<string, ToolMeta> = {
   renameNote: { label: "重命名", icon: "🏷️", description: "重命名笔记标题" },
   moveNote: { label: "移动笔记", icon: "📦", description: "移动笔记到其他父笔记下（需确认）" },
   setNoteIcon: { label: "设置图标", icon: "🎨", description: "设置或清除笔记的 emoji 图标" },
-  publishNote: { label: "发布笔记", icon: "🌐", description: "发布或取消发布笔记（公开预览）" },
   manageTrash: { label: "回收站", icon: "🗑️", description: "查看回收站 / 归档 / 恢复笔记" },
   deleteNote: { label: "删除笔记", icon: "💥", description: "永久删除（需用户确认）" },
   askUser: { label: "询问用户", icon: "❓", description: "向用户提出结构化问题" },

@@ -7,7 +7,6 @@ import {
   getSearch,
   getById,
   getByIdFresh,
-  getPublishedDocument,
   create,
   update,
   archive,
@@ -98,7 +97,7 @@ describe("lib/db 客户端入口（fetch REST）", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
-  it("trash/search/chat/公开预览端点正确", async () => {
+  it("trash/search/chat 端点正确", async () => {
     // 每次返回新 Response 对象（Response body 只能消费一次）
     fetchMock.mockImplementation(() => Promise.resolve(jsonRes([])));
 
@@ -123,10 +122,6 @@ describe("lib/db 客户端入口（fetch REST）", () => {
     fetchMock.mockResolvedValueOnce(jsonRes([]));
     await getChatHistory("u1", "s1", 10);
     expect(fetchMock.mock.calls[5][0]).toBe("/api/chat/sessions/s1/messages?limit=10");
-
-    fetchMock.mockResolvedValueOnce(jsonRes({ id: "d1", isPublished: true }));
-    await getPublishedDocument("d1");
-    expect(fetchMock.mock.calls[6][0]).toBe("/api/public/documents/d1");
   });
 
   it("HTTP 错误抛出服务端 error 信息", async () => {

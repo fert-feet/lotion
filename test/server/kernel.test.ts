@@ -70,7 +70,6 @@ describe("server/kernel 宿主装配", () => {
       "/upload",
       "/uploads",
       "/plugins",
-      "/public/documents",
     ]);
 
     // 通过内核拿到的 docStore 真的能读写

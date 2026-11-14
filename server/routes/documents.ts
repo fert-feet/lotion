@@ -28,7 +28,6 @@ const UPDATEABLE_FIELDS = [
   "content",
   "coverImage",
   "icon",
-  "isPublished",
   "isDraft",
 ] as const;
 

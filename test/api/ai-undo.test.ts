@@ -61,11 +61,10 @@ describe("POST /api/ai/undo", () => {
         icon: before.icon,
         coverImage: before.coverImage,
         parentDocument: before.parentDocument,
-        isPublished: before.isPublished,
         isArchived: before.isArchived,
       }),
     });
-    updateDocument(state.db!, userId, docId, { title: "AI 标题", content: "AI 内容", isPublished: true });
+    updateDocument(state.db!, userId, docId, { title: "AI 标题", content: "AI 内容" });
 
     const res = await call("/api/ai/undo", "POST", cookie, { requestId: "req-undo-1" });
     expect(res.status).toBe(200);
@@ -74,7 +73,6 @@ describe("POST /api/ai/undo", () => {
     const after = getDocumentById(state.db!, docId, userId)!;
     expect(after.title).toBe("原标题");
     expect(after.content).toBe("原内容");
-    expect(after.isPublished).toBe(false);
   });
 
   it("幂等：同一 requestId 再撤一次返回空 restored", async () => {

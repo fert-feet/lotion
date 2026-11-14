@@ -230,7 +230,6 @@ describe("lib/ai/tools/registry 组装与守卫流水线", () => {
       "renameNote",
       "moveNote",
       "setNoteIcon",
-      "publishNote",
       "manageTrash",
       "deleteNote",
       "askUser",

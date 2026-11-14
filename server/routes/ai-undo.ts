@@ -1,7 +1,7 @@
 // POST /api/ai/undo —— 撤销某轮 AI 对文档的隐式改动（挂在 /ai 下：/api/ai/undo）
 //
 // 语义：agent 在**写入前**为每个会被改的文档拍了一份快照（ai_changes 表，按 requestId 分组）。
-// 撤销 = 把这些字段恢复回去。覆盖 updateNote/updateBlock/renameNote/setNoteIcon/publishNote/
+// 撤销 = 把这些字段恢复回去。覆盖 updateNote/updateBlock/renameNote/setNoteIcon/
 // archiveNote/restoreNote；用户显式确认过的删除/移动不在其中（确认框本身已是一次确认，
 // 且永久删除无法用"恢复字段"表达）。
 //

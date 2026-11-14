@@ -74,7 +74,6 @@ export function createSqliteDocStore(db?: Database.Database): DocStore {
           isDraft: false,
           parentDocument: null,
           icon: null,
-          isPublished: false,
           createdAt: d.updatedAt,
           updatedAt: d.updatedAt,
         }));
@@ -83,10 +82,6 @@ export function createSqliteDocStore(db?: Database.Database): DocStore {
     },
     async getById(actor: Actor, id: string) {
       return getDocumentById(conn(), id, actor.userId);
-    },
-    async getPublishedById(id: string) {
-      const doc = getDocumentById(conn(), id);
-      return doc && doc.isPublished ? doc : null;
     },
     async listOverview(actor: Actor, parentDocument: string | null) {
       return listDocumentsOverview(conn(), actor.userId, parentDocument);

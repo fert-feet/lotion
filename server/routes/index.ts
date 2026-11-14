@@ -14,7 +14,6 @@ import { documentsRoutes } from "./documents";
 import { healthRoutes } from "./health";
 import { meRoutes } from "./me";
 import { pluginsRoutes } from "./plugins";
-import { publicDocumentsRoutes } from "./public-documents";
 import { uploadRoutes, uploadsRoutes } from "./upload";
 
 /** 子应用类型（server 侧固定为 Hono<AppEnv>） */
@@ -48,6 +47,5 @@ export function apiRoutePlugins(): PluginEntry[] {
     routePlugin("upload", "/upload", uploadRoutes),
     routePlugin("uploads", "/uploads", uploadsRoutes),
     routePlugin("plugins", "/plugins", pluginsRoutes),
-    routePlugin("public-documents", "/public/documents", publicDocumentsRoutes),
   ];
 }

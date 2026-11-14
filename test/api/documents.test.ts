@@ -79,19 +79,19 @@ describe("documents API", () => {
     expect(search.map((d: { id: string }) => d.id)).toHaveLength(1);
   });
 
-  it("PATCH 白名单：合法字段生效，isArchived/isDraft 外的越权字段被丢弃", async () => {
+  it("PATCH 白名单：合法字段生效，白名单外的越权字段被丢弃", async () => {
     const { cookie } = await authCookie();
     const { id } = await (await call("/api/documents", "POST", cookie, { title: "t" })).json();
     const res = await call(`/api/documents/${id}`, "PATCH", cookie, {
       title: "改",
-      isPublished: true,
+      isDraft: false,
       isArchived: true, // 不在白名单 → 丢弃
       userId: "hacked",
     });
     expect(res.status).toBe(200);
     const doc = await (await call(`/api/documents/${id}`, "GET", cookie)).json();
     expect(doc.title).toBe("改");
-    expect(doc.isPublished).toBe(true);
+    expect(doc.isDraft).toBe(false);
     expect(doc.isArchived).toBe(false);
   });
 

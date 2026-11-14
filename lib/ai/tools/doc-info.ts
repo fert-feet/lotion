@@ -28,7 +28,7 @@ export function createGetDocInfoTool(db: Database.Database, userId: string) {
         doc.icon ? `图标: ${doc.icon}` : "",
         `字数: ${text.length} 字`,
         `子文档: ${childCount} 篇`,
-        `状态: ${doc.isPublished ? "已发布（公开可访问）" : "私密"}${doc.isArchived ? "（在回收站）" : ""}${doc.isDraft ? "（草稿）" : ""}`,
+        `状态: ${doc.isArchived ? "在回收站" : "正常"}${doc.isDraft ? "（草稿）" : ""}`,
         `创建: ${doc.createdAt}`,
         `更新: ${doc.updatedAt}`,
       ].filter(Boolean);

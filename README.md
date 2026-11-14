@@ -19,7 +19,6 @@
 - **无限层级文档树** — `parentDocument` 自引用嵌套，任意深度组织笔记；32px 行高、hover 浮现「新建子笔记 / 更多」操作与相对时间
 - **内嵌搜索胶囊** — 侧边栏头部点击展开全宽输入框，即时过滤文档树；`Cmd/Ctrl + J` 全局命令面板
 - **回收站与草稿** — 搜索过滤、单条恢复 / 永久删除（删除需二次确认）；AI 新建笔记默认进入确认制草稿
-- **发布预览** — 一键发布生成公开链接并复制到剪贴板（无鉴权端点仅吐已发布文档，单机语义）
 
 **编辑器（BlockNote 0.54，对标 Notion）**
 
@@ -33,7 +32,7 @@
 
 **AI Agent**
 
-- **17 个工具自主决策** — 检索 / 写入 / 组织 / 交互四类（见下），SSE 事件流实时推送每一步进度
+- **16 个工具自主决策** — 检索 / 写入 / 组织 / 交互四类（见下），SSE 事件流实时推送每一步进度
 - **流式事件协议** — 14 种事件类型，前端按事件行解析（非拼接文本 + 正则提取）
 - **Doom loop 检测** — 相同工具 + 参数连续失败 3 次警告、5 次中止（对齐 SiYuan）
 - **上下文压缩** — 滑动窗口保留最近 100 条消息原文（注入最近 N 条），滑出部分由模型重写式摘要（`lib/compress.ts`）
@@ -49,7 +48,7 @@
 - **回合快照** — 每轮的工具卡 / 副作用卡 / 引用 / 待办 / 提问 / 耗时随 assistant 消息落库
   （`chat_messages.metadata`），刷新或切换会话后时间线完整重建（不再只剩一段纯文本）
 - **AI 改动可撤销** — 写类工具执行前先拍文档快照（`ai_changes` 表），回合操作条的
-  「撤销本次改动」把标题/正文/图标/发布态等恢复回去（幂等、可跨多篇文档）
+  「撤销本次改动」把标题/正文/图标等恢复回去（幂等、可跨多篇文档）
 - **附件上下文** — 可附加 .md/.txt/.json/.csv 等文本文件（单文件 20k 字符、单轮最多 3 个），
   内容当轮拼进 prompt，清单落在用户消息上（刷新后仍看得到附了什么）
 - **当前文档上下文** — 提问自动带上正在查看的文档，说"这篇 / 它"无需再 @
@@ -92,7 +91,7 @@
 用户输入经过 `/api/ai/chat` 进入 Agent 循环：`streamText` 驱动 DeepSeek 自主调用工具，工具副作用经 `onEvent` 回调上报事件队列，再以 SSE 事件流逐条推送给前端：
 
 ```
-用户 prompt → POST /api/ai/chat → streamText({ model: AI_MODEL, tools: 17 个, stopWhen: stepCountIs(5) })
+用户 prompt → POST /api/ai/chat → streamText({ model: AI_MODEL, tools: 16 个, stopWhen: stepCountIs(5) })
   → AI 调用 Tool（search/list/read/create/update/rename/move/icon/publish/archive/restore/trash/delete/
                   askUser/todoWrite/docInfo/docOutline/docBlocks/updateBlock）
   → onEvent 上报副作用（创建 / 修改 / 删除确认 / 移动确认 / 提问 / 待办 / 引用）
@@ -117,13 +116,13 @@
 | `turn_end` | 一轮结束（耗时 + token 统计） |
 | `error` | 生成中途出错（模型 API 异常等） |
 
-### Agent 工具（17 个）
+### Agent 工具（16 个）
 
 | 类别 | 工具 |
 |------|------|
 | 检索 | `searchNotes` `listNotes` `readNote` `getDocInfo` `getDocOutline` `getDocBlocks` |
 | 写入 | `createNote` `updateNote` `renameNote` `moveNote` `setNoteIcon` `updateBlock` |
-| 组织 | `publishNote` `manageTrash`（list/archive/restore 三合一） `deleteNote` |
+| 组织 | `manageTrash`（list/archive/restore 三合一） `deleteNote` |
 | 交互 | `askUser` `todoWrite` |
 
 ## 快速开始
@@ -184,7 +183,7 @@ src/
 ├── router.tsx                    # 路由表（导出 routes 供测试复用）
 ├── kernel/                       # 客户端内核：client.ts 装配 / react.tsx（useDocStore / useSlot / useActor）
 ├── dynamic/                      # 动态插件客户端半边（宿主关闭时空操作）
-├── pages/                        # marketing / login / register / documents / document / market / preview / 404 / error
+├── pages/                        # marketing / login / register / documents / document / market / 404 / error
 ├── shell/                        # 认证区外壳
 │   ├── main-layout.tsx           # 会话守卫 + AppShell
 │   ├── app-shell.tsx             # DSH 风格三栏 shell（sidebar|center|details + 拖拽手柄）
@@ -194,7 +193,7 @@ src/
 │   ├── ai/                       # turn-reducer（事件→turn，纯逻辑，单测覆盖）/ note-card / session-menu
 │   │                             #   / tool-card / attachments（文本附件读取与校验）
 │   ├── editor.tsx                # BlockNote 入口（schema / 斜杠菜单 / @提及 / 图片上传）
-│   └── title.tsx / cover.tsx / navbar.tsx / publish.tsx / trash-box.tsx
+│   └── title.tsx / cover.tsx / navbar.tsx / trash-box.tsx
 ├── marketing/                    # 着陆页组件
 └── styles/                       # globals.css（Tailwind 4 设计 token）+ fonts.css
 server/
@@ -205,7 +204,7 @@ server/
 ├── app.ts                        # 实时分发：按请求查 httpRoutes 注册表装配 /api/*（可测试）
 ├── middleware.ts                 # requireAuth（会话 cookie 校验）
 └── routes/                       # 路由插件清单 index.ts + auth / me / documents(+archive|move|restore)
-│                                 #   / chat/sessions / ai-chat(SSE) / ai-undo / upload + uploads / plugins / public-documents
+│                                 #   / chat/sessions / ai-chat(SSE) / ai-undo / upload + uploads / plugins
 components/
 ├── settings/                     # 设置弹窗插件页 / 配置弹窗 / 源码预览
 │                                 # 市场页组件（src/pages/market.tsx 承载）
@@ -229,7 +228,7 @@ lib/
 ├── highlight-shared.ts           # shiki 高亮器工厂（编辑器与 AI 正文共用）
 ├── markdown-highlight.ts         # AI 正文代码块高亮（懒加载 shiki，输出 token）
 ├── agent.ts                      # Agent 核心：streamText + doom loop + 回合快照 + 改动前快照（撤销）
-├── ai/tools/                     # 17 个 Agent Tool + registry.ts（注册表/守卫）+ blocks-util.ts
+├── ai/tools/                     # 16 个 Agent Tool + registry.ts（注册表/守卫）+ blocks-util.ts
 ├── ai/runtime-config.ts          # 每次请求解析模型/Key（走配置层）
 ├── chat-snapshot.ts              # 回合快照类型与宽容解析（客户端/服务端共享）
 ├── tool-meta.ts                  # 工具标签/图标单一真相源（客户端也导入）
@@ -238,7 +237,7 @@ lib/
 public/plugin-market/             # 本地市场 registry + 示例 bundle
 templates/plugin/                 # 第三方插件最小模板
 docs/                             # 插件化架构 / 本地数据库版 / 插件开发
-test/                             # Vitest 单测（与 lib/、server/ 同构，841 个用例）
+test/                             # Vitest 单测（与 lib/、server/ 同构，835 个用例）
 ```
 
 ## 数据模型（SQLite 6 张表）
@@ -261,7 +260,6 @@ test/                             # Vitest 单测（与 lib/、server/ 同构，
 | `parentDocument` | TEXT FK | 父文档（自引用嵌套，`ON DELETE SET NULL`） |
 | `content` | TEXT | BlockNote JSON 块 |
 | `coverImage` / `icon` | TEXT | 封面图 / Emoji 图标 |
-| `isPublished` | INTEGER | 是否公开 |
 | `createdAt` / `updatedAt` | TEXT | ISO 8601（应用层显式更新） |
 
 ## 开发
@@ -272,7 +270,7 @@ pnpm build        # vite 构建客户端到 dist/
 pnpm start        # 运行 Hono（托管 dist/ + API，单机自托管）
 pnpm typecheck    # tsc --noEmit
 pnpm lint         # ESLint
-pnpm test         # Vitest 单测（841 个用例，内存 SQLite + Hono app.request）
+pnpm test         # Vitest 单测（835 个用例，内存 SQLite + Hono app.request）
 pnpm test:watch   # Vitest 监听模式
 ```
 
@@ -282,7 +280,7 @@ pnpm test:watch   # Vitest 监听模式
 
 单机自托管：`pnpm build && pnpm start`。数据落在 `data/lotion.db`（可用 `LOTION_DB_PATH` 覆盖）与 `data/uploads/`（可用 `UPLOAD_DIR` 覆盖）。
 
-> ⚠️ TODO（代码内已注释）：图床迁移（`server/routes/upload.ts`，`{ url }` 契约不变）；公网部署时 SQLite 文件需迁远程 libsql，并重新评估公开面（`server/routes/public-documents.ts`）。
+> ⚠️ TODO（代码内已注释）：图床迁移（`server/routes/upload.ts`，`{ url }` 契约不变）；公网部署时 SQLite 文件需迁远程 libsql，（公开面随发布功能一并删除））。
 
 ## License
 

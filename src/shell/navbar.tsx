@@ -5,7 +5,6 @@ import { MenuIcon } from "@/components/icons";
 import Title from "./title";
 import Banner from "./banner";
 import Menu from "./menu";
-import Publish from "./publish";
 import { useEffect, useState } from "react";
 import type { Document } from "@/lib/seams/doc-store";
 import { useActor, useDocStore } from "@/src/kernel/react";
@@ -74,7 +73,6 @@ const Navbar = ({
                 <div className="flex items-center justify-between w-full">
                     <Title initialData={document} />
                     <div className="flex gap-x-2 items-center">
-                        <Publish initialData={document}/>
                         <Menu documentId={document.id} isArchive={document.isArchived} />
                     </div>
                 </div>

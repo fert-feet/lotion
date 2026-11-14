@@ -108,7 +108,6 @@ export interface AgentChange {
     icon: string | null;
     coverImage: string | null;
     parentDocument: string | null;
-    isPublished: boolean;
     isArchived: boolean;
   };
 }
@@ -122,7 +121,6 @@ const MUTATING_TOOLS = new Set([
   "updateBlock",
   "renameNote",
   "setNoteIcon",
-  "publishNote",
   "manageTrash",
 ]);
 
@@ -255,7 +253,6 @@ export async function runNoteAgent(
                   icon: doc.icon,
                   coverImage: doc.coverImage,
                   parentDocument: doc.parentDocument,
-                  isPublished: doc.isPublished,
                   isArchived: doc.isArchived,
                 },
               });

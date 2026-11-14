@@ -17,7 +17,6 @@ import { createSearchNotesTool } from "@/lib/ai/tools/search-notes";
 import { createListNotesTool } from "@/lib/ai/tools/list-notes";
 import { createMoveNoteTool } from "@/lib/ai/tools/move-note";
 import { createManageTrashTool } from "@/lib/ai/tools/manage-trash";
-import { createPublishNoteTool } from "@/lib/ai/tools/publish-note";
 import { createSetNoteIconTool } from "@/lib/ai/tools/set-note-icon";
 import { createAskUserTool } from "@/lib/ai/tools/ask-user";
 import { createTodoWriteTool } from "@/lib/ai/tools/todo-write";
@@ -500,40 +499,6 @@ describe("manageTrash 工具 · list", () => {
   });
 });
 
-// ---- publishNote ----
-
-describe("publishNote 工具", () => {
-  it("发布与取消发布，上报 note_modified + reference 事件", async () => {
-    const id = seedDoc("待发布", "");
-    const { events, onEvent } = collectEvents();
-    const t = createPublishNoteTool(db, "u1", onEvent);
-
-    const published = await t.execute({ noteId: id, published: true } as never, {} as never);
-    expect(published).toContain("已发布");
-    expect(getDocumentById(db, id, "u1")!.isPublished).toBe(true);
-
-    const unpublished = await t.execute({ noteId: id, published: false } as never, {} as never);
-    expect(unpublished).toContain("取消发布");
-    expect(getDocumentById(db, id, "u1")!.isPublished).toBe(false);
-
-    expect(events.filter((e) => e.type === "note_modified")).toHaveLength(2);
-  });
-
-  it("重复设置同一状态时提示已处于该状态（不重复落库）", async () => {
-    const id = seedDoc("待发布", "");
-    updateDocument(db, "u1", id, { isPublished: true }); // 预置为已发布
-    const t = createPublishNoteTool(db, "u1");
-    const result = await t.execute({ noteId: id, published: true } as never, {} as never);
-    expect(result).toContain("已处于发布状态");
-  });
-
-  it("笔记不存在时返回错误文案", async () => {
-    const t = createPublishNoteTool(db, "u1");
-    const result = await t.execute({ noteId: newId(), published: true } as never, {} as never);
-    expect(result).toContain("不存在");
-  });
-});
-
 // ---- setNoteIcon ----
 
 describe("setNoteIcon 工具", () => {
@@ -642,7 +607,7 @@ describe("getDocInfo 工具", () => {
     expect(result).toContain("父笔记");
     expect(result).toContain("4 字");
     expect(result).toContain("子文档: 1 篇");
-    expect(result).toContain("私密");
+    expect(result).toContain("状态: 正常");
     expect(result).toContain("创建:");
     expect(result).not.toContain("正文内容");
   });

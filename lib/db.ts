@@ -14,7 +14,6 @@ export type Document = {
   content: string | null;
   coverImage: string | null;
   icon: string | null;
-  isPublished: boolean;
   createdAt: string;
   updatedAt: string;
 };
@@ -159,11 +158,6 @@ export function prefetchById(documentId: string) {
   getById(documentId).catch(() => {});
 }
 
-/** 公开预览用：读取已发布文档（无鉴权端点，本地版"仅本机访问"语义） */
-export async function getPublishedDocument(documentId: string): Promise<Document> {
-  return api<Document>(`/api/public/documents/${documentId}`);
-}
-
 // ---- Mutations ----
 
 export async function create(_userId: string, title: string, parentDocument?: string | null) {
@@ -177,7 +171,7 @@ export async function create(_userId: string, title: string, parentDocument?: st
 
 export async function update(
   id: string,
-  fields: Partial<Pick<Document, "title" | "content" | "coverImage" | "icon" | "isPublished" | "isDraft">>,
+  fields: Partial<Pick<Document, "title" | "content" | "coverImage" | "icon" | "isDraft">>,
 ) {
   await api(`/api/documents/${id}`, {
     method: "PATCH",
