@@ -26,6 +26,11 @@ const app = createApp(kernel.httpRoutes, { kernel: kernel.ctx });
 
 if (hasBuild) {
   // 静态资源：Vite 产物（含 assets/）与 public/（logo 等）
+  // /assets/* 的文件名自带内容 hash → 可以 immutable 长缓存（二次访问零请求）
+  app.use("/assets/*", async (c, next) => {
+    await next();
+    c.header("Cache-Control", "public, max-age=31536000, immutable");
+  });
   app.use("/*", serveStatic({ root: "./dist" }));
   app.use("/*", serveStatic({ root: "./public" }));
 

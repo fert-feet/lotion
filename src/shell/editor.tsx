@@ -17,7 +17,7 @@ import {
   useCreateBlockNote,
 } from "@blocknote/react";
 import { filterSuggestionItems, type PartialBlock } from "@blocknote/core";
-import { syntaxHighlighter } from "@blocknote/code-block";
+import { lotionSyntaxHighlighter } from "@/lib/code-highlight";
 import type { DefaultReactSuggestionItem } from "@blocknote/react";
 import "@blocknote/core/style.css";
 import "@blocknote/react/style.css";
@@ -62,8 +62,8 @@ const Editor = ({ onChange, initialContent, editable = true }: EditorProps) => {
       schema: createLotionSchema(),
       initialContent: initialBlocks,
       uploadFile: handleUpload,
-      // 代码块语法高亮（shiki，@blocknote/code-block）
-      extensions: [syntaxHighlighter],
+      // 代码块语法高亮（自建 shiki 高亮器，只打包白名单语言，见 lib/code-highlight.ts）
+      extensions: [lotionSyntaxHighlighter],
     },
     [],
   );

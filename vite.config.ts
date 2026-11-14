@@ -26,6 +26,8 @@ export default defineConfig({
   build: {
     outDir: "dist",
     emptyOutDir: true,
-    sourcemap: true,
+    // 生产默认不发 sourcemap（13 MB 的 .map 会把源码一起发到线上）；
+    // 排障时用 SOURCEMAP=1 pnpm build 显式打开。
+    sourcemap: process.env.SOURCEMAP === "1",
   },
 });

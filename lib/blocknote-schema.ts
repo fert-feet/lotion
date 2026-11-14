@@ -6,7 +6,7 @@
 //   ServerBlockNoteEditor（JSDOM）都能执行 render/toExternalHTML/parse
 
 import { BlockNoteSchema, createBlockSpec, createInlineContentSpec, createCodeBlockSpec } from "@blocknote/core";
-import { codeBlockOptions } from "@blocknote/code-block";
+import { lotionCodeBlockOptions } from "@/lib/code-highlight";
 
 /**
  * Callout（提示框）块：emoji 图标 + 浅色圆角底 + 内联富文本。
@@ -133,8 +133,12 @@ const createMentionSpec = createInlineContentSpec(
       span.addEventListener("click", (e) => {
         e.preventDefault();
         e.stopPropagation();
-        if (inlineContent.props.id) {
-          window.location.href = `/documents/${inlineContent.props.id}`;
+        // 跳转硬化：提及 id 来自文档内容，先过白名单，再强制同源校验（防开放重定向）
+        const id = inlineContent.props.id;
+        if (!/^[A-Za-z0-9-]{1,64}$/.test(id)) return;
+        const target = new URL(`/documents/${encodeURIComponent(id)}`, window.location.origin);
+        if (target.origin === window.location.origin) {
+          window.location.assign(target.href);
         }
       });
       return { dom: span };
@@ -161,7 +165,7 @@ export const lotionSchema = BlockNoteSchema.create().extend({
   blockSpecs: {
     callout: createCalloutBlock(),
     // 代码块支持语言集（配合编辑器 extensions 里的 syntaxHighlighter 渲染高亮）
-    codeBlock: createCodeBlockSpec(codeBlockOptions),
+    codeBlock: createCodeBlockSpec(lotionCodeBlockOptions),
   },
   inlineContentSpecs: {
     mention: createMentionSpec,

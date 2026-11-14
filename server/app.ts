@@ -4,6 +4,7 @@
 // 这里用单个分发器按请求实时查表，因此插件卸载/重挂后路由立即生效（无需重建 app）。
 // 这正是 M4 热切换的基础。
 import { Hono } from "hono";
+import { compress } from "hono/compress";
 import type { Context as KernelContext } from "@/lib/kernel";
 import type { HttpRouteEntry } from "@/lib/seams/http-routes";
 import type { AppEnv } from "./http";
@@ -53,6 +54,10 @@ export function createApp(routes: ApiRouteRegistry, options: CreateAppOptions = 
   });
 
   const app = new Hono<AppEnv>();
+  // 响应压缩（HTML/JS/CSS/JSON/SSE 压缩比通常 3–4 倍）。
+  // 阈值 1KB：更小的响应因协商开销反而变慢。放在 app 层而不是 index.ts，
+  // 这样 createApp() 的测试也能覆盖到它。
+  app.use("*", compress({ threshold: 1024 }));
   app.route("/api", api);
 
   // 未捕获异常 → JSON 500（Next.js 时代由框架兜底，这里显式处理）
