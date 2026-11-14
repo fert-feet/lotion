@@ -40,19 +40,19 @@ export default function RegisterPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-[color-mix(in_srgb,var(--foreground)_4%,var(--background))] px-4">
-      <div className="w-full max-w-[380px] rounded-[16px] border-[0.5px] border-shell-border-l2 bg-card p-7 shadow-[var(--shadow-lg)]">
+      <div className="w-full max-w-[380px] rounded-sheet hairline border-shell-border-l2 bg-card p-7 shadow-[var(--shadow-lg)]">
         <div className="mb-6 flex flex-col items-center gap-3 text-center">
-          <div className="flex h-12 w-12 items-center justify-center rounded-[12px] bg-primary text-primary-foreground shadow-[var(--shadow-sm)]">
+          <div className="flex h-12 w-12 items-center justify-center rounded-panel bg-primary text-primary-foreground shadow-[var(--shadow-sm)]">
             <PenLine className="h-6 w-6" strokeWidth={2} />
           </div>
           <div>
-            <h1 className="text-[17px] font-semibold tracking-[-0.02em]">注册 Lotion</h1>
-            <p className="mt-1 text-[12px] text-muted-foreground">创建账号，开始你的第一篇笔记</p>
+            <h1 className="text-body font-semibold tracking-[-0.02em]">注册 Lotion</h1>
+            <p className="mt-1 text-ui-sm text-muted-foreground">创建账号，开始你的第一篇笔记</p>
           </div>
         </div>
         <form onSubmit={handleRegister} className="space-y-3.5">
           <div className="space-y-1.5">
-            <label className="block text-[12px] font-medium text-shell-label-secondary">邮箱</label>
+            <label className="block text-ui-sm font-medium text-shell-label-secondary">邮箱</label>
             <Input
               type="email"
               value={email}
@@ -62,7 +62,7 @@ export default function RegisterPage() {
             />
           </div>
           <div className="space-y-1.5">
-            <label className="block text-[12px] font-medium text-shell-label-secondary">密码</label>
+            <label className="block text-ui-sm font-medium text-shell-label-secondary">密码</label>
             <Input
               type="password"
               value={password}
@@ -71,12 +71,12 @@ export default function RegisterPage() {
               required
             />
           </div>
-          {error && <p className="text-[12px] text-destructive">{error}</p>}
+          {error && <p className="text-ui-sm text-destructive">{error}</p>}
           <Button type="submit" size="lg" disabled={loading} className="w-full">
             {loading ? "注册中…" : "注册"}
           </Button>
         </form>
-        <p className="mt-5 text-center text-[12px] text-muted-foreground">
+        <p className="mt-5 text-center text-ui-sm text-muted-foreground">
           已有账号？{" "}
           <Link to="/login" className="font-medium text-primary underline-offset-4 hover:underline">
             登录

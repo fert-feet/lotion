@@ -79,14 +79,14 @@ export default function OutlinePanel({
         VISIBILITY_CLASS,
       )}
     >
-      <div className="mb-2 px-2 text-[11px] font-semibold text-shell-label-tertiary">本页大纲</div>
+      <div className="mb-2 px-2 text-caption font-semibold text-shell-label-tertiary">本页大纲</div>
       <nav className="space-y-px">
         {headings.map((h) => (
           <button
             key={h.id}
             onClick={() => editor.setTextCursorPosition(h.id, "start")}
             style={{ paddingLeft: 4 + (h.level - 1) * 12 }}
-            className="block w-full truncate rounded-[5px] px-2 py-1 text-left text-[12px] leading-[18px] text-shell-label-secondary transition-colors hover:bg-shell-row-hover hover:text-shell-label-primary"
+            className="block w-full truncate rounded-control px-2 py-1 text-left text-ui-sm leading-[18px] text-shell-label-secondary transition-colors hover:bg-shell-row-hover hover:text-shell-label-primary"
             title={h.text}
           >
             {h.text}

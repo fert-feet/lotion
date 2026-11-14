@@ -82,9 +82,9 @@ export function PluginConfigDialog({ plugin, open, onOpenChange, onSave }: Plugi
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[460px]">
-        <DialogHeader className="border-b-[0.5px] border-shell-border pb-3 text-left">
+        <DialogHeader className="hairline-b border-shell-border pb-3 text-left">
           <DialogTitle>配置 · {plugin?.title ?? "插件"}</DialogTitle>
-          <p className="text-[12px] text-shell-label-tertiary">
+          <p className="text-ui-sm text-shell-label-tertiary">
             配置写入后需要重启 / 刷新才会生效（静态插件）。
           </p>
         </DialogHeader>
@@ -97,7 +97,7 @@ export function PluginConfigDialog({ plugin, open, onOpenChange, onSave }: Plugi
                   value={json}
                   onChange={(event) => setJson(event.target.value)}
                   spellCheck={false}
-                  className="min-h-[160px] w-full resize-y rounded-[8px] border-[0.5px] border-shell-border-l2 bg-card p-3 font-mono text-[12px] leading-5 text-foreground outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
+                  className="min-h-[160px] w-full resize-y rounded-card hairline border-shell-border-l2 bg-card p-3 font-mono text-ui-sm leading-5 text-foreground outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
                 />
               )
             : fields.map((field) => (
@@ -105,7 +105,7 @@ export function PluginConfigDialog({ plugin, open, onOpenChange, onSave }: Plugi
                   <Label htmlFor={`plugin-config-${field.key}`}>{field.label}</Label>
                   {field.type === "boolean"
                     ? (
-                        <label className="flex items-center gap-2 text-[13px] text-shell-label-secondary">
+                        <label className="flex items-center gap-2 text-ui text-shell-label-secondary">
                           <input
                             id={`plugin-config-${field.key}`}
                             type="checkbox"
@@ -125,7 +125,7 @@ export function PluginConfigDialog({ plugin, open, onOpenChange, onSave }: Plugi
                             onChange={(event) =>
                               setValues((prev) => ({ ...prev, [field.key]: event.target.value }))
                             }
-                            className="h-8 rounded-[6px] border-[0.5px] border-shell-border-l2 bg-card px-2 text-[13px] outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
+                            className="h-8 rounded-control hairline border-shell-border-l2 bg-card px-2 text-ui outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
                           >
                             {(field.options ?? []).map((option) => (
                               <option key={option} value={option}>
@@ -146,7 +146,7 @@ export function PluginConfigDialog({ plugin, open, onOpenChange, onSave }: Plugi
                           />
                         )}
                   {field.description ? (
-                    <p className="text-[11px] text-shell-label-tertiary">{field.description}</p>
+                    <p className="text-caption text-shell-label-tertiary">{field.description}</p>
                   ) : null}
                 </div>
               ))}
@@ -154,7 +154,7 @@ export function PluginConfigDialog({ plugin, open, onOpenChange, onSave }: Plugi
           {fields.length > 0 ? (
             <button
               type="button"
-              className="self-start text-[12px] text-primary hover:underline"
+              className="self-start text-ui-sm text-primary hover:underline"
               onClick={() => setJsonMode((prev) => !prev)}
             >
               {jsonMode ? "使用表单" : "高级：编辑 JSON"}
@@ -162,7 +162,7 @@ export function PluginConfigDialog({ plugin, open, onOpenChange, onSave }: Plugi
           ) : null}
 
           {error ? (
-            <p className={cn("rounded-[6px] bg-destructive/10 px-2.5 py-1.5 text-[12px] text-destructive")}>
+            <p className={cn("rounded-control bg-destructive/10 px-2.5 py-1.5 text-ui-sm text-destructive")}>
               {error}
             </p>
           ) : null}

@@ -798,10 +798,10 @@ const AiPanel = () => {
     <aside className="flex h-full min-w-0 flex-col overflow-hidden" aria-label="AI 文档助手">
       {/* 头部：AI 身份 = Apple Intelligence 渐变 orb（与草稿卡、思考指示同一个标识）；
           操作按钮走 <Button> 原语，拿回按压缩放与 3px 聚焦环 */}
-      <div className="flex shrink-0 items-center justify-between gap-2 border-b-[0.5px] border-shell-border px-2 py-1.5">
+      <div className="flex shrink-0 items-center justify-between gap-2 hairline-b border-shell-border px-2 py-1.5">
         <div className="flex min-w-0 items-center gap-2 pl-0.5">
           <AiOrb size={20} icon={<Sparkles className="h-3 w-3" />} />
-          <span className="truncate text-[13px] font-semibold leading-5 tracking-[-0.01em] text-shell-label-primary">
+          <span className="truncate text-ui font-semibold leading-5 tracking-[-0.01em] text-shell-label-primary">
             {sessions.find((s) => s.id === activeSessionId)?.title ?? "新对话"}
           </span>
         </div>
@@ -868,7 +868,7 @@ const AiPanel = () => {
               <button
                 type="button"
                 onClick={() => setHistoryLimit((n) => n + HISTORY_PAGE)}
-                className="mx-auto cursor-pointer rounded-md border-[0.5px] border-shell-border-l2 px-2.5 py-1 text-[12px] text-shell-label-secondary transition-colors hover:bg-shell-row-hover hover:text-shell-label-primary"
+                className="mx-auto cursor-pointer rounded-card hairline border-shell-border-l2 px-2.5 py-1 text-ui-sm text-shell-label-secondary transition-colors hover:bg-shell-row-hover hover:text-shell-label-primary"
               >
                 加载更早的消息
               </button>
@@ -877,13 +877,13 @@ const AiPanel = () => {
               <div className="flex flex-1 flex-col items-center justify-center gap-4 px-3 pb-16 text-center">
                 <AiOrb size={56} icon={<Sparkles className="h-6 w-6" />} />
                 <div className="space-y-1.5">
-                  <p className="text-[22px] font-semibold leading-7 tracking-[-0.02em] text-shell-label-primary">
+                  <p className="text-title font-semibold leading-7 tracking-[-0.02em] text-shell-label-primary">
                     你好，我是你的文档助手
                   </p>
-                  <p className="text-[13px] leading-5 text-shell-label-tertiary">
+                  <p className="text-ui leading-5 text-shell-label-tertiary">
                     搜索、撰写、改写、整理笔记都可以交给我。
                   </p>
-                  <p className="text-[12px] leading-4 text-shell-label-caption">
+                  <p className="text-ui-sm leading-4 text-shell-label-caption">
                     新建的笔记先以草稿出现在这里，删除这类操作也会先问你。
                   </p>
                 </div>
@@ -920,7 +920,7 @@ const AiPanel = () => {
           <button
             type="button"
             onClick={() => scrollToBottom(true)}
-            className="material-popover absolute bottom-3 left-1/2 z-10 flex h-7 -translate-x-1/2 cursor-pointer items-center gap-1 rounded-full border-[0.5px] border-shell-border-l2 px-3 text-xs font-medium text-shell-label-secondary shadow-[var(--shadow-md)] transition-colors hover:text-shell-label-primary"
+            className="material-popover absolute bottom-3 left-1/2 z-10 flex h-7 -translate-x-1/2 cursor-pointer items-center gap-1 rounded-full hairline border-shell-border-l2 px-3 text-xs font-medium text-shell-label-secondary shadow-[var(--shadow-md)] transition-colors hover:text-shell-label-primary"
           >
             回到底部
           </button>
@@ -930,9 +930,9 @@ const AiPanel = () => {
       {/* 悬浮输入卡 */}
       <div className="shrink-0 px-3 pb-3 pt-1">
         {queueItems.length > 0 && (
-          <div className="mb-3 rounded-lg border-[0.5px] border-shell-border-l2 bg-shell-row-hover p-2.5">
+          <div className="mb-3 rounded-card hairline border-shell-border-l2 bg-shell-row-hover p-2.5">
             <div className="mb-1.5 flex items-center justify-between gap-2">
-              <span className="text-[12px] font-medium text-shell-label-secondary">
+              <span className="text-ui-sm font-medium text-shell-label-secondary">
                 待发送队列（{queueItems.length}）
                 {queueSuppressed && <span className="ml-1 text-shell-label-tertiary">· 已暂停自动发送</span>}
               </span>
@@ -941,7 +941,7 @@ const AiPanel = () => {
                   <button
                     type="button"
                     onClick={resumeQueue}
-                    className="cursor-pointer text-[12px] text-shell-accent hover:underline"
+                    className="cursor-pointer text-ui-sm text-shell-accent hover:underline"
                   >
                     继续发送
                   </button>
@@ -949,7 +949,7 @@ const AiPanel = () => {
                 <button
                   type="button"
                   onClick={clearQueue}
-                  className="cursor-pointer text-[12px] text-shell-label-tertiary transition-colors hover:text-shell-label-primary"
+                  className="cursor-pointer text-ui-sm text-shell-label-tertiary transition-colors hover:text-shell-label-primary"
                 >
                   清空
                 </button>
@@ -959,11 +959,11 @@ const AiPanel = () => {
               {queueItems.map((item, index) => (
                 <div
                   key={item.id}
-                  className="flex items-center gap-2 rounded-sm bg-shell-bg-base/70 px-2 py-1"
+                  className="flex items-center gap-2 rounded-control bg-shell-bg-base/70 px-2 py-1"
                 >
-                  <span className="min-w-0 flex-1 truncate text-[12px] text-shell-label-secondary">{item.content}</span>
+                  <span className="min-w-0 flex-1 truncate text-ui-sm text-shell-label-secondary">{item.content}</span>
                   {item.sessionId !== activeSessionId && (
-                    <span className="shrink-0 rounded-xs bg-shell-row-active px-1 text-[11px] text-shell-label-tertiary">
+                    <span className="shrink-0 rounded-xs bg-shell-row-active px-1 text-caption text-shell-label-tertiary">
                       其他会话
                     </span>
                   )}
@@ -972,7 +972,7 @@ const AiPanel = () => {
                     onClick={() => removeFromQueue(index)}
                     title="移除该条"
                     aria-label="移除这条待发送消息"
-                    className="shrink-0 cursor-pointer rounded-sm p-0.5 text-shell-label-tertiary transition-colors hover:bg-shell-row-hover hover:text-shell-label-primary"
+                    className="shrink-0 cursor-pointer rounded-control p-0.5 text-shell-label-tertiary transition-colors hover:bg-shell-row-hover hover:text-shell-label-primary"
                   >
                     <X className="h-3 w-3" />
                   </button>
@@ -986,11 +986,11 @@ const AiPanel = () => {
             {attachments.map((item, index) => (
               <span
                 key={item.name + index}
-                className="inline-flex max-w-[220px] items-center gap-1.5 rounded-md border-[0.5px] border-shell-border-l2 bg-shell-row-hover px-2 py-1 text-[12px] text-shell-label-secondary"
+                className="inline-flex max-w-[220px] items-center gap-1.5 rounded-card hairline border-shell-border-l2 bg-shell-row-hover px-2 py-1 text-ui-sm text-shell-label-secondary"
               >
                 <FileText className="h-3 w-3 flex-none" />
                 <span className="truncate">{item.name}</span>
-                <span className="flex-none text-[11px] text-shell-label-caption">
+                <span className="flex-none text-caption text-shell-label-caption">
                   {item.content.length.toLocaleString()} 字
                 </span>
                 <button
@@ -998,7 +998,7 @@ const AiPanel = () => {
                   title="移除附件"
                   aria-label={`移除附件 ${item.name}`}
                   onClick={() => setAttachments((prev) => prev.filter((_, i) => i !== index))}
-                  className="flex-none cursor-pointer rounded-sm p-0.5 hover:text-shell-label-primary"
+                  className="flex-none cursor-pointer rounded-control p-0.5 hover:text-shell-label-primary"
                 >
                   <X className="h-3 w-3" />
                 </button>
@@ -1007,7 +1007,7 @@ const AiPanel = () => {
           </div>
         )}
         {/* 输入卡：Apple 的填充式输入区（14px 圆角 + 发丝描边 + 聚焦时加深阴影） */}
-        <div className="rounded-xl border-[0.5px] border-shell-border-l2 bg-card shadow-[var(--shadow-sm)] transition-shadow duration-200 ease-[var(--ds-ease-out)] focus-within:shadow-[var(--shadow-md)]">
+        <div className="rounded-panel hairline border-shell-border-l2 bg-card shadow-[var(--shadow-sm)] transition-shadow duration-200 ease-[var(--ds-ease-out)] focus-within:shadow-[var(--shadow-md)]">
           <MentionInput
             ref={mentionRef}
             onSubmit={handleSend}
@@ -1018,7 +1018,7 @@ const AiPanel = () => {
             className="px-1 pt-2"
           />
           <div className="flex items-center justify-between gap-2 px-1.5 pb-1.5 pt-0.5">
-            <div className="flex min-w-0 items-center gap-0.5 text-[11px] leading-[16px] text-shell-label-tertiary">
+            <div className="flex min-w-0 items-center gap-0.5 text-caption leading-[16px] text-shell-label-tertiary">
               <input
                 ref={fileInputRef}
                 type="file"

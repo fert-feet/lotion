@@ -27,7 +27,7 @@ function TabButton({
       aria-current={active ? "page" : undefined}
       onClick={onClick}
       className={cn(
-        "w-full rounded-[6px] px-2 py-1.5 text-left text-[13px] transition-colors duration-150",
+        "w-full rounded-control px-2 py-1.5 text-left text-ui transition-colors duration-150",
         active
           ? "bg-card font-medium text-shell-label-primary shadow-[var(--shadow-sm)]"
           : "text-shell-label-secondary hover:bg-shell-row-hover",
@@ -52,7 +52,7 @@ const SettingsModal = () => {
         <div className="flex h-[min(72vh,560px)] min-h-[380px]">
           <nav
             aria-label="设置导航"
-            className="flex w-[148px] shrink-0 flex-col gap-0.5 overflow-y-auto border-r-[0.5px] border-shell-border bg-secondary/40 p-2.5"
+            className="flex w-[148px] shrink-0 flex-col gap-0.5 overflow-y-auto hairline-r border-shell-border bg-secondary/40 p-2.5"
           >
             <TabButton active={tab === "appearance"} onClick={() => setTab("appearance")}>
               外观
@@ -66,17 +66,17 @@ const SettingsModal = () => {
             {tab === "appearance" ? (
               <div className="flex flex-col gap-4">
                 <div>
-                  <h2 className="text-[15px] font-semibold tracking-[-0.01em] text-shell-label-primary">
+                  <h2 className="text-lead font-semibold tracking-[-0.01em] text-shell-label-primary">
                     外观
                   </h2>
-                  <p className="mt-0.5 text-[12px] leading-[17px] text-shell-label-tertiary">
+                  <p className="mt-0.5 text-ui-sm leading-[17px] text-shell-label-tertiary">
                     选择 Lotion 的显示主题。
                   </p>
                 </div>
-                <div className="flex items-center justify-between rounded-[10px] border-[0.5px] border-shell-border px-3 py-2.5">
+                <div className="flex items-center justify-between rounded-card hairline border-shell-border px-3 py-2.5">
                   <div className="flex flex-col gap-y-0.5">
                     <Label>主题</Label>
-                    <span className="text-[12px] text-muted-foreground">跟随系统或手动选择明暗</span>
+                    <span className="text-ui-sm text-muted-foreground">跟随系统或手动选择明暗</span>
                   </div>
                   <ModeToggle />
                 </div>

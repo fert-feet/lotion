@@ -260,20 +260,20 @@ const Editor = ({ onChange, initialContent, editable = true }: EditorProps) => {
       {syncState.pending && (
         <div
           role="status"
-          className="material-popover absolute right-6 top-2 z-30 flex items-center gap-2 rounded-[10px] border-[0.5px] border-shell-border-l2 px-3 py-1.5 text-xs text-shell-label-primary shadow-[var(--shadow-md)]"
+          className="material-popover absolute right-6 top-2 z-30 flex items-center gap-2 rounded-card hairline border-shell-border-l2 px-3 py-1.5 text-xs text-shell-label-primary shadow-[var(--shadow-md)]"
         >
           <span>文档已被 AI 更新，你正在编辑</span>
           <button
             type="button"
             onClick={() => dispatchSync({ type: "apply-pending" })}
-            className="cursor-pointer rounded-md bg-primary px-2 py-0.5 text-[11px] font-medium text-primary-foreground transition-opacity hover:opacity-90"
+            className="cursor-pointer rounded-card bg-primary px-2 py-0.5 text-caption font-medium text-primary-foreground transition-opacity hover:opacity-90"
           >
             载入更新
           </button>
           <button
             type="button"
             onClick={() => dispatchSync({ type: "dismiss-pending" })}
-            className="cursor-pointer rounded-md px-2 py-0.5 text-[11px] font-medium text-shell-label-secondary transition-colors hover:bg-shell-row-hover"
+            className="cursor-pointer rounded-card px-2 py-0.5 text-caption font-medium text-shell-label-secondary transition-colors hover:bg-shell-row-hover"
           >
             忽略
           </button>

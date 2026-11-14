@@ -36,7 +36,7 @@ function capabilityLabel(capability: string): string {
 function Stars({ rating = 0, count = 0 }: { rating?: number; count?: number }) {
   const rounded = Math.round(rating);
   return (
-    <span className="inline-flex items-center gap-1 text-[11px] text-shell-label-tertiary">
+    <span className="inline-flex items-center gap-1 text-caption text-shell-label-tertiary">
       <span className="text-amber-500" aria-hidden>
         {"★".repeat(rounded)}
         {"☆".repeat(Math.max(0, 5 - rounded))}
@@ -53,7 +53,7 @@ function Badge({ children, tone = "neutral" }: { children: React.ReactNode; tone
   return (
     <span
       className={cn(
-        "rounded-[4px] px-1.5 py-[1px] text-[10px] font-medium leading-4",
+        "rounded-control px-1.5 py-[1px] text-caption font-medium leading-4",
         tone === "blue" && "bg-primary/10 text-primary",
         tone === "amber" && "bg-amber-500/10 text-amber-700 dark:text-amber-300",
         tone === "green" && "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
@@ -261,8 +261,8 @@ export function PluginMarket() {
     <div className="flex h-full min-h-0 flex-col gap-3">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h2 className="text-[15px] font-semibold tracking-[-0.01em] text-shell-label-primary">插件市场</h2>
-          <p className="mt-0.5 text-[12px] leading-[17px] text-shell-label-tertiary">
+          <h2 className="text-lead font-semibold tracking-[-0.01em] text-shell-label-primary">插件市场</h2>
+          <p className="mt-0.5 text-ui-sm leading-[17px] text-shell-label-tertiary">
             本地精选 + 可选远端 registry。安装后默认停用；客户端半边还需人工批准。
           </p>
         </div>
@@ -286,15 +286,15 @@ export function PluginMarket() {
         </div>
       </div>
 
-      <p className="rounded-[6px] bg-amber-500/10 px-2.5 py-1.5 text-[11px] leading-4 text-amber-800 dark:text-amber-200">
+      <p className="rounded-control bg-amber-500/10 px-2.5 py-1.5 text-caption leading-4 text-amber-800 dark:text-amber-200">
         ⚠️ 第三方插件代码与本机同信任级别（不是安全沙箱）。安装前请审阅权限与源码。
       </p>
 
       {notice ? (
-        <p className="rounded-[6px] bg-primary/10 px-2.5 py-1.5 text-[12px] text-primary">{notice}</p>
+        <p className="rounded-control bg-primary/10 px-2.5 py-1.5 text-ui-sm text-primary">{notice}</p>
       ) : null}
       {error ? (
-        <p className="rounded-[6px] bg-destructive/10 px-2.5 py-1.5 text-[12px] text-destructive">{error}</p>
+        <p className="rounded-control bg-destructive/10 px-2.5 py-1.5 text-ui-sm text-destructive">{error}</p>
       ) : null}
 
       <div className="flex flex-wrap items-center gap-1.5">
@@ -309,7 +309,7 @@ export function PluginMarket() {
           aria-label="分类"
           value={category}
           onChange={(event) => setCategory(event.target.value)}
-          className="h-8 rounded-[6px] border-[0.5px] border-shell-border-l2 bg-card px-2 text-[12px] outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
+          className="h-8 rounded-control hairline border-shell-border-l2 bg-card px-2 text-ui-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
         >
           {categories.map((item) => (
             <option key={item} value={item}>
@@ -321,7 +321,7 @@ export function PluginMarket() {
           aria-label="排序"
           value={sort}
           onChange={(event) => setSort(event.target.value as SortKey)}
-          className="h-8 rounded-[6px] border-[0.5px] border-shell-border-l2 bg-card px-2 text-[12px] outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
+          className="h-8 rounded-control hairline border-shell-border-l2 bg-card px-2 text-ui-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
         >
           {SORT_OPTIONS.map((option) => (
             <option key={option.value} value={option.value}>
@@ -331,9 +331,9 @@ export function PluginMarket() {
         </select>
       </div>
 
-      <div className="rounded-[8px] border-[0.5px] border-shell-border px-2.5 py-2">
+      <div className="rounded-card hairline border-shell-border px-2.5 py-2">
         <div className="flex flex-wrap items-center gap-1.5">
-          <span className="text-[11px] font-medium text-shell-label-secondary">
+          <span className="text-caption font-medium text-shell-label-secondary">
             市场源：{source?.remote ? "远端在线 registry" : "本地目录"}
           </span>
           {source?.requireSignature ? <Badge tone="green">强制验签</Badge> : <Badge>验签可选</Badge>}
@@ -344,7 +344,7 @@ export function PluginMarket() {
             onChange={(event) => setSourceDraft(event.target.value)}
             placeholder="https://example.com/registry.json（留空 = 本地目录）"
             aria-label="市场源 URL"
-            className="h-8 flex-1 font-mono text-[11px]"
+            className="h-8 flex-1 font-mono text-caption"
           />
           <Button variant="secondary" size="sm" onClick={() => void saveSource()} disabled={sourceBusy}>
             {sourceBusy ? "保存中…" : "保存"}
@@ -354,9 +354,9 @@ export function PluginMarket() {
 
       <div className="-mr-2 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-2">
         {loading ? (
-          [0, 1, 2].map((index) => <Skeleton key={index} className="h-[104px] w-full rounded-[10px]" />)
+          [0, 1, 2].map((index) => <Skeleton key={index} className="h-[104px] w-full rounded-card" />)
         ) : visible.length === 0 ? (
-          <p className="rounded-[10px] border-[0.5px] border-dashed border-shell-border px-3 py-6 text-center text-[12px] text-shell-label-tertiary">
+          <p className="rounded-card hairline border-dashed border-shell-border px-3 py-6 text-center text-ui-sm text-shell-label-tertiary">
             {entries.length === 0 ? "市场里还没有插件。" : "没有匹配的插件。"}
           </p>
         ) : (
@@ -367,12 +367,12 @@ export function PluginMarket() {
             return (
               <div
                 key={entry.id}
-                className="flex items-start gap-3 rounded-[10px] border-[0.5px] border-shell-border px-3 py-2.5"
+                className="flex items-start gap-3 rounded-card hairline border-shell-border px-3 py-2.5"
               >
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="text-[13px] font-medium text-foreground">{entry.name}</span>
-                    <span className="rounded-[4px] bg-secondary px-1.5 py-[1px] text-[10px] leading-4 text-shell-label-secondary">
+                    <span className="text-ui font-medium text-foreground">{entry.name}</span>
+                    <span className="rounded-control bg-secondary px-1.5 py-[1px] text-caption leading-4 text-shell-label-secondary">
                       v{entry.version}
                     </span>
                     {entry.category ? <Badge>{entry.category}</Badge> : null}
@@ -381,14 +381,14 @@ export function PluginMarket() {
                   </div>
                   <div className="mt-1 flex flex-wrap items-center gap-2">
                     {entry.author ? (
-                      <span className="text-[11px] text-shell-label-tertiary">{entry.author}</span>
+                      <span className="text-caption text-shell-label-tertiary">{entry.author}</span>
                     ) : null}
                     <Stars rating={entry.rating} count={entry.ratingCount} />
-                    <span className="text-[11px] text-shell-label-tertiary">
+                    <span className="text-caption text-shell-label-tertiary">
                       ↓ {entry.downloads ?? 0}
                     </span>
                   </div>
-                  <p className="mt-1 text-[12px] leading-[17px] text-shell-label-tertiary">{entry.description}</p>
+                  <p className="mt-1 text-ui-sm leading-[17px] text-shell-label-tertiary">{entry.description}</p>
                   <div className="mt-1 flex flex-wrap items-center gap-1">
                     {(entry.capabilities ?? []).map((capability) => (
                       <Badge key={capability} tone="blue">
@@ -402,7 +402,7 @@ export function PluginMarket() {
                     {entry.sha256 ? <Badge>有校验和</Badge> : null}
                   </div>
                   {lastComment ? (
-                    <p className="mt-1 truncate text-[11px] text-shell-label-tertiary">
+                    <p className="mt-1 truncate text-caption text-shell-label-tertiary">
                       「{lastComment.text}」— {lastComment.rating}★
                     </p>
                   ) : null}
@@ -427,7 +427,7 @@ export function PluginMarket() {
                     {busyId === entry.id ? "处理中…" : action.label}
                   </Button>
                   {current ? (
-                    <span className="text-[10px] leading-3 text-shell-label-tertiary">
+                    <span className="text-caption leading-3 text-shell-label-tertiary">
                       {!current.enabled ? "未启用" : !current.approved ? "待批准" : "运行中"}
                     </span>
                   ) : null}
@@ -462,16 +462,16 @@ export function PluginMarket() {
 
       <Dialog open={confirmEntry !== null} onOpenChange={(open) => !open && setConfirmEntry(null)}>
         <DialogContent className="max-w-[480px]">
-          <DialogHeader className="border-b-[0.5px] border-shell-border pb-3 text-left">
+          <DialogHeader className="hairline-b border-shell-border pb-3 text-left">
             <DialogTitle>
               {installed.get(confirmEntry?.id ?? "")?.updateAvailable ? "更新" : "安装"} · {confirmEntry?.name}
             </DialogTitle>
-            <p className="text-[12px] text-shell-label-tertiary">
+            <p className="text-ui-sm text-shell-label-tertiary">
               {confirmEntry?.source === "remote" ? "来源：远端 registry" : "来源：本地市场"} · v
               {confirmEntry?.version}
             </p>
           </DialogHeader>
-          <div className="flex flex-col gap-2 pt-1 text-[12px] text-shell-label-secondary">
+          <div className="flex flex-col gap-2 pt-1 text-ui-sm text-shell-label-secondary">
             <div>
               <span className="font-medium">权限声明：</span>
               {(confirmEntry?.capabilities ?? []).length > 0
@@ -482,7 +482,7 @@ export function PluginMarket() {
               <span className="font-medium">完整性：</span>
               {confirmEntry?.signature ? "已签名（安装时验签）" : confirmEntry?.sha256 ? "有 sha256 校验和" : "未提供校验和"}
             </div>
-            <p className="rounded-[6px] bg-amber-500/10 px-2.5 py-1.5 text-[11px] leading-4 text-amber-800 dark:text-amber-200">
+            <p className="rounded-control bg-amber-500/10 px-2.5 py-1.5 text-caption leading-4 text-amber-800 dark:text-amber-200">
               宿主代码在 Lotion 进程内运行，客户端代码在浏览器执行；都不是安全沙箱。安装后默认停用。
             </p>
           </div>
@@ -502,7 +502,7 @@ export function PluginMarket() {
 
       <Dialog open={ratingEntry !== null} onOpenChange={(open) => !open && setRatingEntry(null)}>
         <DialogContent className="max-w-[420px]">
-          <DialogHeader className="border-b-[0.5px] border-shell-border pb-3 text-left">
+          <DialogHeader className="hairline-b border-shell-border pb-3 text-left">
             <DialogTitle>评分 · {ratingEntry?.name}</DialogTitle>
           </DialogHeader>
           <div className="flex flex-col gap-3 pt-1">
@@ -514,7 +514,7 @@ export function PluginMarket() {
                   aria-label={`${value} 星`}
                   onClick={() => setRatingValue(value)}
                   className={cn(
-                    "text-[22px] leading-none transition-transform hover:scale-110",
+                    "text-title leading-none transition-transform hover:scale-110",
                     value <= ratingValue ? "text-amber-500" : "text-shell-label-tertiary",
                   )}
                 >
@@ -527,15 +527,15 @@ export function PluginMarket() {
               onChange={(event) => setRatingComment(event.target.value.slice(0, 500))}
               placeholder="写一句评论（可选）"
               aria-label="评论"
-              className="min-h-[80px] w-full resize-y rounded-[8px] border-[0.5px] border-shell-border-l2 bg-card p-2.5 text-[13px] leading-5 outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
+              className="min-h-[80px] w-full resize-y rounded-card hairline border-shell-border-l2 bg-card p-2.5 text-ui leading-5 outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
             />
             {(ratingEntry?.comments ?? []).length > 0 ? (
-              <div className="max-h-32 overflow-y-auto rounded-[8px] border-[0.5px] border-shell-border p-2">
-                <p className="mb-1 text-[11px] font-medium text-shell-label-secondary">最近评论</p>
+              <div className="max-h-32 overflow-y-auto rounded-card hairline border-shell-border p-2">
+                <p className="mb-1 text-caption font-medium text-shell-label-secondary">最近评论</p>
                 {(ratingEntry?.comments ?? []).slice(-5).map((comment, index) => (
-                  <div key={`${comment.createdAt}-${index}`} className="border-t-[0.5px] border-shell-border py-1 first:border-t-0">
-                    <span className="text-[11px] text-amber-500">{"★".repeat(comment.rating)}</span>
-                    <p className="text-[11px] leading-4 text-shell-label-tertiary">{comment.text}</p>
+                  <div key={`${comment.createdAt}-${index}`} className="hairline-t border-shell-border py-1 first:border-t-0">
+                    <span className="text-caption text-amber-500">{"★".repeat(comment.rating)}</span>
+                    <p className="text-caption leading-4 text-shell-label-tertiary">{comment.text}</p>
                   </div>
                 ))}
               </div>

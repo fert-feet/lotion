@@ -115,8 +115,8 @@ function DropdownMenuContent({ className, align = "start", side = "bottom", forc
   return createPortal(
     <div
       ref={contentRef}
-      style={{ position: "fixed", top: pos?.top ?? 0, left: pos?.left ?? 0, zIndex: 99999, visibility: pos ? "visible" : "hidden" }}
-      className={cn("material-popover max-h-80 min-w-[9rem] overflow-y-auto rounded-[10px] border-[0.5px] border-shell-border-l2 p-1 shadow-[var(--shadow-md)]", className)}
+      style={{ position: "fixed", top: pos?.top ?? 0, left: pos?.left ?? 0, zIndex: "var(--z-popover)", visibility: pos ? "visible" : "hidden" }}
+      className={cn("material-popover max-h-80 min-w-[9rem] overflow-y-auto rounded-card hairline border-shell-border-l2 p-1 shadow-[var(--shadow-md)]", className)}
       {...props}
     >
       {children}
@@ -130,7 +130,7 @@ function DropdownMenuItem({ className, children, ...props }: HTMLAttributes<HTML
     <div
       role="menuitem"
       tabIndex={-1}
-      className={cn("flex cursor-default select-none items-center gap-2 rounded-[6px] px-2 py-[5px] text-[13px] leading-[18px] text-shell-label-primary outline-none transition-colors hover:bg-primary hover:text-primary-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-40 [&_svg]:size-3.5 [&_svg]:shrink-0", className)}
+      className={cn("flex cursor-default select-none items-center gap-2 rounded-control px-2 py-[5px] text-ui leading-[18px] text-shell-label-primary outline-none transition-colors hover:bg-primary hover:text-primary-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-40 [&_svg]:size-3.5 [&_svg]:shrink-0", className)}
       {...props}
     >
       {children}
@@ -143,12 +143,12 @@ function DropdownMenuSeparator({ className }: { className?: string }) {
 }
 
 const DropdownMenuGroup = ({ children, className }: { children: ReactNode; className?: string }) => <div className={className}>{children}</div>;
-const DropdownMenuLabel = ({ children, className }: { children: ReactNode; className?: string }) => <div className={cn("px-2 py-1 text-[11px] font-medium text-shell-label-tertiary", className)}>{children}</div>;
+const DropdownMenuLabel = ({ children, className }: { children: ReactNode; className?: string }) => <div className={cn("px-2 py-1 text-caption font-medium text-shell-label-tertiary", className)}>{children}</div>;
 const DropdownMenuPortal = ({ children }: { children: ReactNode }) => <>{children}</>;
 const DropdownMenuSub = ({ children }: { children: ReactNode }) => <>{children}</>;
 const DropdownMenuSubTrigger = ({ children, className }: { children: ReactNode; className?: string }) => <div className={className}>{children}</div>;
 const DropdownMenuSubContent = ({ children }: { children: ReactNode }) => <>{children}</>;
-const DropdownMenuShortcut = ({ className, ...props }: HTMLAttributes<HTMLSpanElement>) => <span className={cn("ml-auto text-[11px] tracking-wide text-shell-label-tertiary", className)} {...props} />;
+const DropdownMenuShortcut = ({ className, ...props }: HTMLAttributes<HTMLSpanElement>) => <span className={cn("ml-auto text-caption tracking-wide text-shell-label-tertiary", className)} {...props} />;
 
 export {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator,

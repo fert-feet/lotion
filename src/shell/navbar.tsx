@@ -41,7 +41,7 @@ const Navbar = ({
 
     if (document === undefined) {
         return (
-            <nav className="material-toolbar flex w-full shrink-0 items-center gap-x-2 border-b-[0.5px] border-shell-border px-2 py-1.5">
+            <nav className="material-toolbar flex w-full shrink-0 items-center gap-x-2 hairline-b border-shell-border px-2 py-1.5">
                 <div className="flex items-center justify-between w-full">
                     <Title.Skeleton />
                     <div className="flex gap-x-2 items-center">

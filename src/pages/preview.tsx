@@ -61,7 +61,7 @@ const DocumentIdPage = () => {
     if (!document.isPublished) {
         return (
             <div className="h-full flex flex-col items-center justify-center space-y-4 px-6">
-                <div className="graph-paper flex h-40 w-40 items-center justify-center rounded-xl border border-border bg-card shadow-md shadow-ink/5">
+                <div className="graph-paper flex h-40 w-40 items-center justify-center rounded-panel border border-border bg-card shadow-md shadow-ink/5">
                     <img alt="error" src="/logo.svg" width={80} height={80} />
                 </div>
                 <h2 className="font-display text-2xl font-semibold tracking-tight pt-4 text-center">

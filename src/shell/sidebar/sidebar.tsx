@@ -99,7 +99,7 @@ export function Sidebar({ wide, onExpand }: SidebarProps) {
   if (!wide) {
     return (
       <div className="flex h-full flex-col items-center gap-1 py-3">
-        <div className="mb-2 flex h-9 w-9 items-center justify-center rounded-lg bg-ai text-ai-foreground">
+        <div className="mb-2 flex h-9 w-9 items-center justify-center rounded-card bg-ai text-ai-foreground">
           <PenLine className="h-4 w-4" strokeWidth={2.5} />
         </div>
         <button
@@ -176,7 +176,7 @@ export function Sidebar({ wide, onExpand }: SidebarProps) {
               <div className="h-4 w-2/3 animate-pulse rounded bg-shell-row-active" />
             </div>
           ) : allDocs.length === 0 ? (
-            <div className="px-2 py-3 text-[12px] leading-[18px] text-shell-label-tertiary">
+            <div className="px-2 py-3 text-ui-sm leading-[18px] text-shell-label-tertiary">
               还没有笔记，点 + 新建一篇，或让 AI 帮你写
             </div>
           ) : searching ? (

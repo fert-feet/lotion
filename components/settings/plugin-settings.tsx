@@ -43,7 +43,7 @@ function Badge({ children, tone = "neutral" }: { children: React.ReactNode; tone
   return (
     <span
       className={cn(
-        "rounded-[4px] px-1.5 py-[1px] text-[10px] font-medium leading-4",
+        "rounded-control px-1.5 py-[1px] text-caption font-medium leading-4",
         tone === "blue" && "bg-primary/10 text-primary",
         tone === "amber" && "bg-amber-500/10 text-amber-700 dark:text-amber-300",
         tone === "neutral" && "bg-secondary text-shell-label-secondary",
@@ -83,10 +83,10 @@ function PluginRow({
     : null;
 
   return (
-    <div className="flex items-start gap-3 rounded-[10px] border-[0.5px] border-shell-border px-3 py-2.5">
+    <div className="flex items-start gap-3 rounded-card hairline border-shell-border px-3 py-2.5">
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-1.5">
-          <span className="text-[13px] font-medium text-foreground">{plugin.title}</span>
+          <span className="text-ui font-medium text-foreground">{plugin.title}</span>
           {plugin.core ? <Badge>核心</Badge> : null}
           {plugin.source === "installed" ? <Badge tone="blue">已安装</Badge> : null}
           {plugin.updateAvailable ? (
@@ -99,11 +99,11 @@ function PluginRow({
             <Badge tone="blue">客户端已批准</Badge>
           ) : null}
           {restartText ? <Badge tone="amber">{restartText}</Badge> : null}
-          <span className={cn("text-[11px] font-medium", status.className)}>{status.text}</span>
+          <span className={cn("text-caption font-medium", status.className)}>{status.text}</span>
         </div>
-        <p className="mt-0.5 text-[12px] leading-[17px] text-shell-label-tertiary">{plugin.description}</p>
+        <p className="mt-0.5 text-ui-sm leading-[17px] text-shell-label-tertiary">{plugin.description}</p>
         {plugin.error ? (
-          <p className="mt-1 text-[11px] leading-4 text-destructive">{plugin.error}</p>
+          <p className="mt-1 text-caption leading-4 text-destructive">{plugin.error}</p>
         ) : null}
         {plugin.source === "dynamic" ? (
           <div className="mt-1.5 flex flex-wrap items-center gap-1">
@@ -184,10 +184,10 @@ function Section({
   return (
     <section className="flex flex-col gap-2">
       <div>
-        <h3 className="text-[12px] font-semibold uppercase tracking-[0.04em] text-shell-label-secondary">
+        <h3 className="text-ui-sm font-semibold uppercase tracking-[0.04em] text-shell-label-secondary">
           {title}
         </h3>
-        {description ? <p className="text-[11px] text-shell-label-tertiary">{description}</p> : null}
+        {description ? <p className="text-caption text-shell-label-tertiary">{description}</p> : null}
       </div>
       <div className="flex flex-col gap-1.5">
         {plugins.map((plugin) => (
@@ -369,8 +369,8 @@ export function PluginSettings() {
     <div className="flex h-full min-h-0 flex-col gap-3">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h2 className="text-[15px] font-semibold tracking-[-0.01em] text-shell-label-primary">插件</h2>
-          <p className="mt-0.5 text-[12px] leading-[17px] text-shell-label-tertiary">
+          <h2 className="text-lead font-semibold tracking-[-0.01em] text-shell-label-primary">插件</h2>
+          <p className="mt-0.5 text-ui-sm leading-[17px] text-shell-label-tertiary">
             内置能力也按插件装配；静态插件的改动需要重启或刷新。
           </p>
         </div>
@@ -380,10 +380,10 @@ export function PluginSettings() {
       </div>
 
       {notice ? (
-        <p className="rounded-[6px] bg-primary/10 px-2.5 py-1.5 text-[12px] text-primary">{notice}</p>
+        <p className="rounded-control bg-primary/10 px-2.5 py-1.5 text-ui-sm text-primary">{notice}</p>
       ) : null}
       {error ? (
-        <p className="rounded-[6px] bg-destructive/10 px-2.5 py-1.5 text-[12px] text-destructive">
+        <p className="rounded-control bg-destructive/10 px-2.5 py-1.5 text-ui-sm text-destructive">
           {error}
         </p>
       ) : null}
@@ -392,7 +392,7 @@ export function PluginSettings() {
         {loading && plugins.length === 0 ? (
           <div className="flex flex-col gap-2" aria-label="加载中">
             {[0, 1, 2, 3].map((index) => (
-              <Skeleton key={index} className="h-[58px] w-full rounded-[10px]" />
+              <Skeleton key={index} className="h-[58px] w-full rounded-card" />
             ))}
           </div>
         ) : (
@@ -402,7 +402,7 @@ export function PluginSettings() {
             <Section title="已安装" description="从市场安装的第三方插件。" plugins={grouped.installed} {...handlers} />
             <Section title="AI 动态插件" description="模型在运行时定义；客户端半边需要人工批准。" plugins={grouped.dynamic} {...handlers} />
             {plugins.length === 0 && !loading ? (
-              <p className="rounded-[10px] border-[0.5px] border-dashed border-shell-border px-3 py-6 text-center text-[12px] text-shell-label-tertiary">
+              <p className="rounded-card hairline border-dashed border-shell-border px-3 py-6 text-center text-ui-sm text-shell-label-tertiary">
                 没有可管理的插件。
               </p>
             ) : null}

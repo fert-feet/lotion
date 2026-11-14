@@ -81,7 +81,7 @@ const DocRow = memo(function DocRow({
       onMouseEnter={() => { docStore.prefetch?.(actor, doc.id); }}
       style={{ paddingLeft: level * 16 + 4 }}
       className={cn(
-        "group relative flex h-7 cursor-pointer select-none items-center gap-1.5 rounded-[6px] px-1.5 text-[13px] leading-5 text-shell-label-primary animate-[row-in_150ms_ease]",
+        "group relative flex h-7 cursor-pointer select-none items-center gap-1.5 rounded-control px-1.5 text-ui leading-5 text-shell-label-primary animate-[row-in_150ms_ease]",
         active ? "bg-shell-row-active-accent font-medium" : "hover:bg-shell-row-hover"
       )}
     >
@@ -106,15 +106,15 @@ const DocRow = memo(function DocRow({
 
       <span className="flex h-5 w-4 flex-none items-center justify-center">
         {doc.icon ? (
-          <span className="text-[15px] leading-none">{doc.icon}</span>
+          <span className="text-lead leading-none">{doc.icon}</span>
         ) : (
           <FileIcon className="h-4 w-4 text-shell-label-tertiary" strokeWidth={1.75} />
         )}
       </span>
 
-      <span className="min-w-0 flex-1 truncate text-[13px] leading-5">{doc.title || "无标题"}</span>
+      <span className="min-w-0 flex-1 truncate text-ui leading-5">{doc.title || "无标题"}</span>
 
-      <span className="flex-none text-[11px] leading-5 text-shell-label-tertiary group-hover:hidden">
+      <span className="flex-none text-caption leading-5 text-shell-label-tertiary group-hover:hidden">
         {relativeTime(doc.updatedAt, now)}
       </span>
 
@@ -124,7 +124,7 @@ const DocRow = memo(function DocRow({
           aria-label="新建子笔记"
           title="新建子笔记"
           onClick={(e) => { e.stopPropagation(); onCreateChild(); }}
-          className="flex h-5 w-5 cursor-pointer items-center justify-center rounded-[5px] bg-transparent p-0 text-shell-label-tertiary hover:bg-shell-row-active hover:text-shell-label-primary"
+          className="flex h-5 w-5 cursor-pointer items-center justify-center rounded-control bg-transparent p-0 text-shell-label-tertiary hover:bg-shell-row-active hover:text-shell-label-primary"
         >
           <Plus className="h-3.5 w-3.5" />
         </button>
@@ -134,7 +134,7 @@ const DocRow = memo(function DocRow({
               type="button"
               aria-label="更多操作"
               onClick={(e) => e.stopPropagation()}
-              className="flex h-5 w-5 cursor-pointer items-center justify-center rounded-[5px] bg-transparent p-0 text-shell-label-tertiary hover:bg-shell-row-active hover:text-shell-label-primary"
+              className="flex h-5 w-5 cursor-pointer items-center justify-center rounded-control bg-transparent p-0 text-shell-label-tertiary hover:bg-shell-row-active hover:text-shell-label-primary"
             >
               <MoreHorizontal className="h-3.5 w-3.5" />
             </button>
@@ -260,7 +260,7 @@ export function DocSearchResults({ docs, query }: {
   const q = query.trim().toLowerCase();
   const hits = docs.filter((d) => d.title.toLowerCase().includes(q));
   if (hits.length === 0) {
-    return <div className="px-3 py-2.5 text-[13px] leading-[18px] text-shell-label-tertiary">没有匹配的笔记</div>;
+    return <div className="px-3 py-2.5 text-ui leading-[18px] text-shell-label-tertiary">没有匹配的笔记</div>;
   }
   return (
     <div className="flex flex-col gap-0.5">
@@ -270,12 +270,12 @@ export function DocSearchResults({ docs, query }: {
           role="button"
           onClick={() => { navigate("/documents/" + doc.id); }}
           className={cn(
-            "flex h-8 cursor-pointer select-none items-center gap-1.5 rounded-lg px-2 text-shell-label-primary",
+            "flex h-8 cursor-pointer select-none items-center gap-1.5 rounded-card px-2 text-shell-label-primary",
             params.documentId === doc.id ? "bg-shell-row-active" : "hover:bg-shell-row-hover"
           )}
         >
           <span className="flex h-5 w-4 flex-none items-center justify-center">
-            {doc.icon ? <span className="text-[15px] leading-none">{doc.icon}</span> : <FileIcon className="h-4 w-4 text-shell-label-tertiary" strokeWidth={1.75} />}
+            {doc.icon ? <span className="text-lead leading-none">{doc.icon}</span> : <FileIcon className="h-4 w-4 text-shell-label-tertiary" strokeWidth={1.75} />}
           </span>
           <span className="min-w-0 flex-1 truncate text-sm leading-5">{doc.title || "无标题"}</span>
         </div>

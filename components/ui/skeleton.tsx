@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 function Skeleton({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={cn("animate-pulse rounded-[6px] bg-[color-mix(in_srgb,var(--foreground)_8%,transparent)]", className)}
+      className={cn("animate-pulse rounded-control bg-[color-mix(in_srgb,var(--foreground)_8%,transparent)]", className)}
       {...props}
     />
   );

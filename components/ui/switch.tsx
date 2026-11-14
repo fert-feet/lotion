@@ -22,7 +22,7 @@ export function Switch({
       disabled={disabled}
       onClick={() => onCheckedChange?.(!checked)}
       className={cn(
-        "relative h-[22px] w-[38px] shrink-0 cursor-pointer rounded-full border-[0.5px] border-shell-border-l2",
+        "relative h-[22px] w-[38px] shrink-0 cursor-pointer rounded-full hairline border-shell-border-l2",
         "transition-colors duration-150 ease-[var(--ds-ease-out)]",
         "outline-none focus-visible:ring-[3px] focus-visible:ring-ring",
         "disabled:cursor-not-allowed disabled:opacity-40",

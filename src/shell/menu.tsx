@@ -47,7 +47,7 @@ const Menu = ({
         <div>
             <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                    <div role="button" onClick={(e) => e.stopPropagation()} className="cursor-pointer h-full ml-auto rounded-sm hover:bg-secondary">
+                    <div role="button" onClick={(e) => e.stopPropagation()} className="cursor-pointer h-full ml-auto rounded-control hover:bg-secondary">
                         <MoreHorizontal className="h-4 w-4" />
                     </div>
                 </DropdownMenuTrigger>
@@ -73,7 +73,7 @@ const Menu = ({
 
 Menu.Skeleton = function MenuSkeleton() {
     return (
-        <Skeleton className="mt-1 h-4 w-5 rounded-sm" />
+        <Skeleton className="mt-1 h-4 w-5 rounded-control" />
     );
 };
 

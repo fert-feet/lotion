@@ -89,7 +89,7 @@ const Title = ({
 
     return (
         <div className="flex items-center gap-1">
-            {!!initialData.icon && <span className="text-[13px] leading-none">{initialData.icon}</span>}
+            {!!initialData.icon && <span className="text-ui leading-none">{initialData.icon}</span>}
             {isEditing ? (
                 <Input
                     ref={inputRef}
@@ -98,14 +98,14 @@ const Title = ({
                     onChange={onChange}
                     onKeyDown={onKeyDown}
                     value={title}
-                    className="h-6 w-auto px-1.5 text-[13px] font-medium"
+                    className="h-6 w-auto px-1.5 text-ui font-medium"
                 />
             ) : (
                 <Button
                     onClick={enableInput}
                     variant="ghost"
                     size="sm"
-                    className="h-6 max-w-[42ch] cursor-pointer px-1.5 text-[13px] font-medium text-shell-label-secondary hover:text-shell-label-primary"
+                    className="h-6 max-w-[42ch] cursor-pointer px-1.5 text-ui font-medium text-shell-label-secondary hover:text-shell-label-primary"
                 >
                     <span className="truncate">
                         {displayTitle}
@@ -118,7 +118,7 @@ const Title = ({
 
 Title.Skeleton = function TitleSkeleton() {
     return (
-        <Skeleton className="mt-1 h-5.5 w-20 rounded-sm" />
+        <Skeleton className="mt-1 h-5.5 w-20 rounded-control" />
     );
 };
 

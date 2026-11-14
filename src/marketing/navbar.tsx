@@ -20,14 +20,14 @@ const Navbar = () => {
         <header
             className={cn(
                 "fixed top-0 z-50 flex h-[52px] w-full items-center px-5 md:px-8",
-                "material-toolbar border-b-[0.5px] border-border",
+                "material-toolbar hairline-b border-border",
                 "transition-colors duration-150",
                 scrolled && "shadow-[var(--shadow-sm)]",
             )}
         >
             <Logo />
             <nav className="ml-auto flex items-center gap-x-2">
-                {loading && <Skeleton className="h-8 w-20 rounded-[7px]" />}
+                {loading && <Skeleton className="h-8 w-20 rounded-control" />}
                 {!isAuthenticated && !loading && (
                     <>
                         <Link to="/login">

@@ -14,7 +14,7 @@ const ErrorBoundary = () => {
       <div className="flex">
         <img alt="error" src="/logo.svg" width={300} height={300} />
       </div>
-      <h2 className="text-[19px] font-semibold tracking-[-0.02em]">出了点问题</h2>
+      <h2 className="text-title font-semibold tracking-[-0.02em]">出了点问题</h2>
       <Button
         onClick={() => navigate("/documents")}
         className="mt-1"

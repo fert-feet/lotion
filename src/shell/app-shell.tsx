@@ -41,8 +41,8 @@ function DetailsColumn(props: { children?: ReactNode; overlay?: boolean }) {
     <div
       className={
         props.overlay
-          ? "material-sidebar fixed inset-y-0 right-0 z-40 w-[min(440px,100vw)] min-w-0 overflow-hidden border-l-[0.5px] border-shell-border shadow-[var(--shadow-lg)]"
-          : "material-sidebar min-w-0 overflow-hidden border-l-[0.5px] border-shell-border"
+          ? "material-sidebar fixed inset-y-0 right-0 z-40 w-[min(440px,100vw)] min-w-0 overflow-hidden hairline-l border-shell-border shadow-[var(--shadow-lg)]"
+          : "material-sidebar min-w-0 overflow-hidden hairline-l border-shell-border"
       }
     >
       {props.children}
@@ -105,7 +105,7 @@ function DragHandle(props: {
         "absolute top-0 bottom-0 z-[2] -ml-1 w-2 cursor-col-resize touch-none " +
         "transition-[left] duration-300 ease-[var(--ds-ease-in-out)] " +
         (isDetails
-          ? "after:absolute after:top-1/2 after:left-1/2 after:-translate-x-1/2 after:-translate-y-1/2 after:block after:h-8 after:w-3 after:rounded-[10px] after:border after:border-shell-border-l2 after:bg-shell-bg-base after:opacity-0 after:transition-opacity after:duration-300 after:ease-[var(--ds-ease-in-out)] " +
+          ? "after:absolute after:top-1/2 after:left-1/2 after:-translate-x-1/2 after:-translate-y-1/2 after:block after:h-8 after:w-3 after:rounded-card after:border after:border-shell-border-l2 after:bg-shell-bg-base after:opacity-0 after:transition-opacity after:duration-300 after:ease-[var(--ds-ease-in-out)] " +
             "hover:after:opacity-100 [&[data-dragging]]:after:opacity-100 [&[data-dragging]]:after:bg-shell-row-active"
           : "")
       }
@@ -119,7 +119,7 @@ function DragHandle(props: {
 /** 非文档页顶栏：折叠时提供展开按钮。 */
 function SlimTopBar(props: { collapsed: boolean; onExpand: () => void }) {
   return (
-    <nav className="material-toolbar flex h-13 shrink-0 items-center border-b-[0.5px] border-shell-border px-3">
+    <nav className="material-toolbar flex h-13 shrink-0 items-center hairline-b border-shell-border px-3">
       {props.collapsed && (
         <button
           type="button"
@@ -220,7 +220,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       data-dragging={dragging || undefined}
     >
       {/* sidebar 槽位：折叠时以紧凑 rail 保持挂载；拖拽过渡由 frame 统一控制 */}
-      <div className="material-sidebar min-w-0 overflow-hidden border-r-[0.5px] border-shell-border">
+      <div className="material-sidebar min-w-0 overflow-hidden hairline-r border-shell-border">
         <Sidebar wide={!sidebarCollapsed} onExpand={() => toggleSidebar()} />
       </div>
 

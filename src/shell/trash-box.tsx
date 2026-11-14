@@ -87,20 +87,20 @@ const TrashBox = () => {
                 <Input
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    className="h-7 px-2 text-[12px]"
+                    className="h-7 px-2 text-ui-sm"
                     placeholder="Filter by page title..."
                 />
 
             </div>
             <div className="mt-2 min-h-0 flex-1 overflow-y-auto px-1 pb-1">
-                <p className="hidden pb-2 text-center text-[12px] text-muted-foreground last:block">
+                <p className="hidden pb-2 text-center text-ui-sm text-muted-foreground last:block">
                     No document Found
                 </p>
                 {filterDocuments?.map((document) => (
                     <div
                         key={document.id}
                         role="button"
-                        className="group flex w-full cursor-pointer items-center justify-between rounded-[6px] px-1.5 py-1 text-[13px] text-shell-label-primary hover:bg-shell-row-hover"
+                        className="group flex w-full cursor-pointer items-center justify-between rounded-control px-1.5 py-1 text-ui text-shell-label-primary hover:bg-shell-row-hover"
                         onClick={() => handleClick(document.id)}
                     >
                         <span className="truncate">
@@ -109,7 +109,7 @@ const TrashBox = () => {
                         <div className="flex items-center group-hover:opacity-100 opacity-0 max-md:opacity-100">
                             <div
                                 role="button"
-                                className="flex h-6 w-6 items-center justify-center rounded-[5px] text-shell-label-tertiary hover:bg-shell-row-active hover:text-shell-label-primary"
+                                className="flex h-6 w-6 items-center justify-center rounded-control text-shell-label-tertiary hover:bg-shell-row-active hover:text-shell-label-primary"
                                 onClick={(e) => onRestore(e, document.id)}
                             >
                                 <Undo className="h-3.5 w-3.5" />
@@ -122,7 +122,7 @@ const TrashBox = () => {
                             >
                                 <div
                                     role="button"
-                                    className="rounded-sm p-2 hover:bg-secondary"
+                                    className="rounded-control p-2 hover:bg-secondary"
                                 >
                                     <Trash className="h-3.5 w-3.5" />
                                 </div>

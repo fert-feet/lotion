@@ -81,16 +81,35 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
-  /* 连续圆角：Apple 的小控件 6–8px、卡片 10px、面板 14px、弹窗 20px */
-  --radius-xs: 4px;
-  --radius-sm: 6px;
-  --radius-md: 8px;
-  --radius-lg: 10px;
-  --radius-xl: 14px;
-  --radius-2xl: 20px;
-  --shadow-apple-sm: var(--shadow-sm);
-  --shadow-apple-md: var(--shadow-md);
-  --shadow-apple-lg: var(--shadow-lg);
+  /* 连续圆角：4 档语义刻度（控件 6 / 卡片 10 / 浮层 14 / 弹窗 16）
+     ⚠️ 不要再覆盖 Tailwind 的 --radius-sm/md/lg：覆盖过一次，导致 shadcn 派生的
+     按钮/输入框圆角悄悄变成 8px，而设计文档要求 6px，实际代码里又写成 7/6/5 三种。 */
+  --radius-control: 6px;
+  --radius-card: 10px;
+  --radius-panel: 14px;
+  --radius-sheet: 16px;
+
+  /* 字级刻度：8 档（caption/ui-sm/ui/lead/body/title/display/hero）。
+     组件里禁止再写 text-[Npx]——历史上散出过 14 个值、211 处任意值。 */
+  --text-caption: 11px;
+  --text-caption--line-height: 1.4;
+  --text-ui-sm: 12px;
+  --text-ui-sm--line-height: 1.5;
+  --text-ui: 13px;
+  --text-ui--line-height: 1.5;
+  --text-lead: 15px;
+  --text-lead--line-height: 1.45;
+  --text-body: 17px;
+  --text-body--line-height: 1.5;
+  --text-title: 22px;
+  --text-title--line-height: 1.25;
+  --text-title--letter-spacing: -0.02em;
+  --text-display: 32px;
+  --text-display--line-height: 1.2;
+  --text-display--letter-spacing: -0.02em;
+  --text-hero: 44px;
+  --text-hero--line-height: 1.1;
+  --text-hero--letter-spacing: -0.024em;
 }
 
 :root {
@@ -297,6 +316,53 @@ body,
     background: color-mix(in srgb, var(--primary) 26%, transparent);
     color: inherit;
   }
+}
+
+/* 发丝线 / 层级 / 材质 elevation
+   —— 0.5px 曾在 64 处手写：非 Retina（1x / 125% 缩放）下会被舍入成 0 或 1px，
+      同一份 CSS 在不同屏上时有时无。收成一个 token + 分辨率回退。 */
+:root {
+  --hairline: 0.5px;
+  /* 层级表：dialog < popover 是有意的——浮层要能盖在弹窗之上 */
+  --z-chrome: 20;
+  --z-modal: 9980;
+  --z-popover: 9990;
+  --z-toast: 9999;
+}
+
+/* 1x 屏回退：视觉粗细等价，但不再被舍入 */
+@media (max-resolution: 1.9dppx) {
+  :root {
+    --hairline: 1px;
+  }
+}
+
+@utility hairline {
+  border-width: var(--hairline);
+}
+@utility hairline-t {
+  border-top-width: var(--hairline);
+}
+@utility hairline-b {
+  border-bottom-width: var(--hairline);
+}
+@utility hairline-l {
+  border-left-width: var(--hairline);
+}
+@utility hairline-r {
+  border-right-width: var(--hairline);
+}
+@utility z-chrome {
+  z-index: var(--z-chrome);
+}
+@utility z-popover {
+  z-index: var(--z-popover);
+}
+@utility z-modal {
+  z-index: var(--z-modal);
+}
+@utility z-toast {
+  z-index: var(--z-toast);
 }
 
 /* ---------------- 材质（vibrancy） ---------------- */

@@ -51,10 +51,10 @@ const Banner = ({
     };
 
     return (
-        <div className="w-full border-b-[0.5px] border-shell-border bg-secondary">
+        <div className="w-full hairline-b border-shell-border bg-secondary">
             <div className="mx-auto flex max-w-3xl items-center gap-2.5 px-4 py-2 lg:max-w-4xl">
                 <Archive className="h-4 w-4 text-foreground shrink-0" />
-                <p className="flex-1 text-[13px] font-medium text-foreground">
+                <p className="flex-1 text-ui font-medium text-foreground">
                     此页面已在回收站
                 </p>
                 <Button

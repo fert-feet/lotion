@@ -101,7 +101,7 @@ function RunningClock({ startedAt }: { startedAt: number }) {
     return () => clearInterval(id);
   }, [startedAt]);
   return (
-    <div className="flex items-center gap-2 text-[12px] leading-[18px] text-shell-label-tertiary" role="status" aria-live="polite">
+    <div className="flex items-center gap-2 text-ui-sm leading-[18px] text-shell-label-tertiary" role="status" aria-live="polite">
       <AiDot size={7} running />
       <span>正在思考</span>
       {elapsed >= 15000 && <span className="tabular-nums">· {formatDuration(elapsed)}</span>}
@@ -147,15 +147,15 @@ function TodoCard({ items }: { items: TodoItem[] }) {
   };
   return (
     <div className="surface-card px-3 py-2.5">
-      <p className="mb-2 text-[12px] font-medium text-shell-label-secondary">任务清单</p>
+      <p className="mb-2 text-ui-sm font-medium text-shell-label-secondary">任务清单</p>
       <ul className="flex flex-col gap-1.5">
         {items.map((item, i) => (
-          <li key={i} className="flex items-center gap-2 text-[13px] leading-5">
+          <li key={i} className="flex items-center gap-2 text-ui leading-5">
             {/* 勾/叉是图标字形而非可读正文：16px 圆圈里 10px 才是正确视觉重量
                 （"最小 11px"针对正文，不针对符号） */}
             <span
               className={cn(
-                "flex h-4 w-4 flex-none items-center justify-center rounded-full border-[0.5px] text-[10px] font-semibold",
+                "flex h-4 w-4 flex-none items-center justify-center rounded-full hairline text-caption font-semibold",
                 item.status === "completed" && "border-success/40 bg-success/10 text-success",
                 item.status === "in_progress" && "border-shell-accent/50 text-shell-accent",
                 item.status === "pending" && "border-shell-border-l2 text-transparent",
@@ -175,7 +175,7 @@ function TodoCard({ items }: { items: TodoItem[] }) {
             </span>
             <span
               className={cn(
-                "flex-none text-[11px] leading-4",
+                "flex-none text-caption leading-4",
                 item.status === "in_progress" && "text-shell-accent",
                 item.status === "completed" && "text-success",
                 (item.status === "pending" || item.status === "cancelled") && "text-shell-label-caption",
@@ -207,8 +207,8 @@ function QuestionCard({
       <div className="surface-card flex items-start gap-2 px-3 py-2.5">
         <Check className="mt-0.5 h-3.5 w-3.5 flex-none text-success" />
         <div className="min-w-0">
-          <p className="text-[12px] leading-5 text-shell-label-tertiary">{question.question}</p>
-          <p className="text-[13px] leading-5 text-shell-label-primary">{question.answered}</p>
+          <p className="text-ui-sm leading-5 text-shell-label-tertiary">{question.question}</p>
+          <p className="text-ui leading-5 text-shell-label-primary">{question.answered}</p>
         </div>
       </div>
     );
@@ -232,8 +232,8 @@ function QuestionCard({
 
   return (
     <div className="surface-card px-3.5 py-3">
-      <p className="text-[14px] font-medium leading-6 text-shell-label-primary">{question.question}</p>
-      {question.header && <p className="mb-2.5 mt-0.5 text-[12px] leading-4 text-shell-label-tertiary">{question.header}</p>}
+      <p className="text-lead font-medium leading-6 text-shell-label-primary">{question.question}</p>
+      {question.header && <p className="mb-2.5 mt-0.5 text-ui-sm leading-4 text-shell-label-tertiary">{question.header}</p>}
       <div className={cn("flex flex-col gap-1.5", !question.header && "mt-2.5")}>
         {question.options.map((opt) => {
           const active = selected.includes(opt.label);
@@ -244,15 +244,15 @@ function QuestionCard({
               disabled={submitting}
               onClick={() => toggle(opt.label)}
               className={cn(
-                "cursor-pointer rounded-md border-[0.5px] px-2.5 py-1.5 text-left transition-colors duration-150 ease-[var(--ds-ease-out)] disabled:cursor-default disabled:opacity-50",
+                "cursor-pointer rounded-card hairline px-2.5 py-1.5 text-left transition-colors duration-150 ease-[var(--ds-ease-out)] disabled:cursor-default disabled:opacity-50",
                 active
                   ? "border-shell-accent/50 bg-shell-accent/10"
                   : "border-shell-border-l2 hover:bg-shell-row-hover",
               )}
             >
-              <span className="block text-[13px] font-medium leading-5 text-shell-label-primary">{opt.label}</span>
+              <span className="block text-ui font-medium leading-5 text-shell-label-primary">{opt.label}</span>
               {opt.description && (
-                <span className="block text-[12px] leading-4 text-shell-label-tertiary">{opt.description}</span>
+                <span className="block text-ui-sm leading-4 text-shell-label-tertiary">{opt.description}</span>
               )}
             </button>
           );
@@ -263,7 +263,7 @@ function QuestionCard({
             disabled={submitting}
             onChange={(e) => setCustom(e.target.value)}
             placeholder="自定义回答（可选）"
-            className="h-8 rounded-md border-[0.5px] border-shell-border-l2 bg-transparent px-2.5 text-[13px] text-shell-label-primary outline-none transition-colors placeholder:text-shell-label-caption focus:border-shell-accent/50"
+            className="h-8 rounded-card hairline border-shell-border-l2 bg-transparent px-2.5 text-ui text-shell-label-primary outline-none transition-colors placeholder:text-shell-label-caption focus:border-shell-accent/50"
           />
         )}
       </div>
@@ -287,7 +287,7 @@ function NoticeCard({ level, message, onRetry }: { level: "warning" | "error"; m
     >
       <div className="flex items-start gap-2">
         <AlertTriangle className={cn("mt-0.5 h-3.5 w-3.5 flex-none", danger ? "text-destructive" : "text-warning")} />
-        <p className={cn("min-w-0 flex-1 text-[13px] leading-5", danger ? "text-destructive" : "text-shell-label-primary")}>
+        <p className={cn("min-w-0 flex-1 text-ui leading-5", danger ? "text-destructive" : "text-shell-label-primary")}>
           {message}
         </p>
         {onRetry && (
@@ -338,7 +338,7 @@ function TurnActions({
   }, [hasText, turn.text]);
 
   const actionClass =
-    "cursor-pointer rounded-sm px-1.5 py-0.5 text-[11px] text-shell-label-tertiary transition-colors hover:bg-shell-row-hover hover:text-shell-label-primary";
+    "cursor-pointer rounded-control px-1.5 py-0.5 text-caption text-shell-label-tertiary transition-colors hover:bg-shell-row-hover hover:text-shell-label-primary";
 
   const [preview, setPreview] = useState<AiChangePreview[] | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -393,7 +393,7 @@ function TurnActions({
           </button>
         )}
         {turn.undone && turn.changedDocuments.length > 0 && (
-          <span className="px-1.5 py-0.5 text-[11px] text-shell-label-caption">已撤销本次改动</span>
+          <span className="px-1.5 py-0.5 text-caption text-shell-label-caption">已撤销本次改动</span>
         )}
         <button
           type="button"
@@ -445,23 +445,23 @@ function TurnActions({
         )}
       </span>
       {preview && preview.length > 0 && (
-        <div className="mt-1.5 w-full space-y-2 rounded-lg border-[0.5px] border-shell-border bg-[color-mix(in_srgb,var(--foreground)_4%,transparent)] p-2.5">
+        <div className="mt-1.5 w-full space-y-2 rounded-card hairline border-shell-border bg-[color-mix(in_srgb,var(--foreground)_4%,transparent)] p-2.5">
           {preview.map((change) => (
             <div key={change.documentId} className="space-y-1">
-              <p className="text-[11px] font-medium text-shell-label-secondary">
+              <p className="text-caption font-medium text-shell-label-secondary">
                 {change.beforeTitle === change.title
                   ? change.title
                   : `${change.beforeTitle} → ${change.title}`}
               </p>
-              <div className="grid grid-cols-2 gap-2 text-[11px] leading-4">
-                <div className="rounded-md bg-destructive/5 p-2">
-                  <p className="mb-1 text-[11px] font-medium text-destructive">改动前</p>
+              <div className="grid grid-cols-2 gap-2 text-caption leading-4">
+                <div className="rounded-card bg-destructive/5 p-2">
+                  <p className="mb-1 text-caption font-medium text-destructive">改动前</p>
                   <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-words font-mono text-shell-label-secondary">
                     {change.before.trim() || "（空）"}
                   </pre>
                 </div>
-                <div className="rounded-md bg-shell-accent/5 p-2">
-                  <p className="mb-1 text-[11px] font-medium text-shell-accent">改动后</p>
+                <div className="rounded-card bg-shell-accent/5 p-2">
+                  <p className="mb-1 text-caption font-medium text-shell-accent">改动后</p>
                   <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-words font-mono text-shell-label-secondary">
                     {change.after.trim() || "（空）"}
                   </pre>
@@ -494,7 +494,7 @@ function TurnViewInner({ turn, onOpenDocument, onConfirmDelete, onCancelDelete, 
               <span
                 key={item.name + index}
                 title={`${item.name}（${item.size.toLocaleString()} 字）`}
-                className="inline-flex max-w-[200px] items-center gap-1 rounded-sm border-[0.5px] border-shell-border-l2 px-1.5 py-0.5 text-[11px] text-shell-label-tertiary"
+                className="inline-flex max-w-[200px] items-center gap-1 rounded-control hairline border-shell-border-l2 px-1.5 py-0.5 text-caption text-shell-label-tertiary"
               >
                 <FileText className="h-3 w-3 flex-none" />
                 <span className="truncate">{item.name}</span>
@@ -502,7 +502,7 @@ function TurnViewInner({ turn, onOpenDocument, onConfirmDelete, onCancelDelete, 
             ))}
           </div>
         )}
-        <div className="max-w-[85%] whitespace-pre-wrap break-words rounded-2xl bg-primary px-3.5 py-2 text-[14px] leading-[1.45] text-primary-foreground">
+        <div className="max-w-[85%] whitespace-pre-wrap break-words rounded-sheet bg-primary px-3.5 py-2 text-lead leading-[1.45] text-primary-foreground">
           {renderMentions(turn.userContent, onOpenDocument, true)}
         </div>
       </div>
@@ -513,7 +513,7 @@ function TurnViewInner({ turn, onOpenDocument, onConfirmDelete, onCancelDelete, 
           switch (part.kind) {
             case "text":
               return (
-                <div key={i} className="text-[14px] leading-[1.6] text-shell-label-primary">
+                <div key={i} className="text-lead leading-[1.6] text-shell-label-primary">
                   <MarkdownText
                     text={part.text}
                     streaming={running && i === lastPartIndex}
@@ -591,7 +591,7 @@ function TurnViewInner({ turn, onOpenDocument, onConfirmDelete, onCancelDelete, 
                 key={ref.noteId}
                 type="button"
                 onClick={() => onOpenDocument(ref.noteId)}
-                className="inline-flex max-w-[240px] cursor-pointer items-center gap-1.5 rounded-sm bg-[color-mix(in_srgb,var(--shell-accent)_12%,transparent)] px-2 py-0.5 text-[12px] font-medium text-shell-accent transition-colors hover:bg-[color-mix(in_srgb,var(--shell-accent)_20%,transparent)]"
+                className="inline-flex max-w-[240px] cursor-pointer items-center gap-1.5 rounded-control bg-[color-mix(in_srgb,var(--shell-accent)_12%,transparent)] px-2 py-0.5 text-ui-sm font-medium text-shell-accent transition-colors hover:bg-[color-mix(in_srgb,var(--shell-accent)_20%,transparent)]"
               >
                 <span className="shrink-0" aria-hidden="true">📄</span>
                 <span className="truncate">{ref.title}</span>
@@ -605,7 +605,7 @@ function TurnViewInner({ turn, onOpenDocument, onConfirmDelete, onCancelDelete, 
         {turn.status === "done" && (
           <div className="flex flex-col gap-1 pt-0.5">
             {metaOpen && hasMeta && (
-              <p className="px-1.5 text-[11px] leading-4 text-shell-label-caption tabular-nums">
+              <p className="px-1.5 text-caption leading-4 text-shell-label-caption tabular-nums">
                 {turn.durationMs !== null && <>耗时 {formatDuration(turn.durationMs)}</>}
                 {turn.durationMs !== null && turn.tokens !== null && <span className="mx-1.5">·</span>}
                 {turn.tokens !== null && (
@@ -624,7 +624,7 @@ function TurnViewInner({ turn, onOpenDocument, onConfirmDelete, onCancelDelete, 
                   aria-label={metaOpen ? "收起本次运行详情" : "查看本次运行详情（耗时与 token 用量）"}
                   title={metaOpen ? "收起运行详情" : "运行详情（耗时 / tokens）"}
                   className={cn(
-                    "flex h-5 w-5 flex-none cursor-pointer items-center justify-center rounded-sm text-shell-label-caption transition-colors hover:bg-shell-row-hover hover:text-shell-label-secondary",
+                    "flex h-5 w-5 flex-none cursor-pointer items-center justify-center rounded-control text-shell-label-caption transition-colors hover:bg-shell-row-hover hover:text-shell-label-secondary",
                     metaOpen && "bg-shell-row-hover text-shell-label-secondary",
                   )}
                 >

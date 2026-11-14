@@ -122,7 +122,7 @@ export function Floating({ open, onOpenChange, trigger, side = "bottom", align =
         <div
           ref={contentRef}
           role="menu"
-          style={{ position: "fixed", top: pos?.top ?? 0, left: pos?.left ?? 0, zIndex: 99999, visibility: pos ? "visible" : "hidden" }}
+          style={{ position: "fixed", top: pos?.top ?? 0, left: pos?.left ?? 0, zIndex: "var(--z-popover)", visibility: pos ? "visible" : "hidden" }}
           className={className}
         >
           {children}

@@ -14,14 +14,14 @@ const Heading = () => {
 
     return (
         <section className="mx-auto w-full max-w-[680px] py-6 text-center md:py-10">
-            <div className="inline-flex items-center gap-1.5 rounded-full bg-secondary px-3 py-1 text-[13px] font-medium text-muted-foreground">
+            <div className="inline-flex items-center gap-1.5 rounded-full bg-secondary px-3 py-1 text-ui font-medium text-muted-foreground">
                 <Sparkles className="h-3.5 w-3.5 text-primary" strokeWidth={2} />
                 An AI assistant lives inside every note
             </div>
-            <h1 className="mt-6 text-balance text-[44px] font-bold leading-[1.05] tracking-[-0.03em] md:text-[56px]">
+            <h1 className="mt-6 text-balance text-hero font-bold leading-[1.05] tracking-[-0.03em] md:text-hero">
                 The notebook that <span className="text-primary">thinks</span> with you.
             </h1>
-            <p className="mx-auto mt-5 max-w-[560px] text-[17px] leading-[1.5] text-muted-foreground md:text-[19px]">
+            <p className="mx-auto mt-5 max-w-[560px] text-body leading-[1.5] text-muted-foreground md:text-title">
                 Lotion is the connected workspace where an AI assistant writes,
                 summarizes and organizes your notes — in your language.
             </p>
@@ -33,12 +33,12 @@ const Heading = () => {
             {!isAuthenticated && !loading && (
                 <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
                     <Link to="/register">
-                        <Button className="h-11 rounded-[10px] px-6 text-[15px] font-medium active:scale-[0.98]">
+                        <Button className="h-11 rounded-card px-6 text-lead font-medium active:scale-[0.98]">
                             Get Lotion Free!
                         </Button>
                     </Link>
                     <Link to="/login">
-                        <Button variant="secondary" className="h-11 rounded-[10px] px-6 text-[15px] font-medium active:scale-[0.98]">
+                        <Button variant="secondary" className="h-11 rounded-card px-6 text-lead font-medium active:scale-[0.98]">
                             Login
                         </Button>
                     </Link>
@@ -46,7 +46,7 @@ const Heading = () => {
             )}
             {isAuthenticated && !loading && (
                 <div className="mt-8">
-                    <Button asChild className="h-11 rounded-[10px] px-6 text-[15px] font-medium active:scale-[0.98]">
+                    <Button asChild className="h-11 rounded-card px-6 text-lead font-medium active:scale-[0.98]">
                         <Link to="/documents">
                             Enter Lotion
                             <ArrowRight className="ml-1 h-4 w-4" strokeWidth={2} />

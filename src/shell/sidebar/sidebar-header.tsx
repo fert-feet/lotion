@@ -25,7 +25,7 @@ interface SidebarHeaderProps {
 
 /** 图标按钮：24px 圆形，hover 出现填充底（Apple 的 toolbar button） */
 const iconBtn =
-  "flex h-6 w-6 flex-none cursor-pointer items-center justify-center rounded-[6px] bg-transparent p-0 text-shell-label-secondary transition-colors duration-150 hover:bg-shell-row-hover hover:text-shell-label-primary";
+  "flex h-6 w-6 flex-none cursor-pointer items-center justify-center rounded-control bg-transparent p-0 text-shell-label-secondary transition-colors duration-150 hover:bg-shell-row-hover hover:text-shell-label-primary";
 
 export function SidebarHeader({
   query,
@@ -68,8 +68,8 @@ export function SidebarHeader({
           data-sidebar-search
           onClick={() => onExpandedChange(true)}
           className={cn(
-            "flex h-6 w-full cursor-text items-center overflow-hidden rounded-[6px] bg-transparent text-shell-label-secondary transition-all duration-200 ease-[var(--ds-ease-in-out)]",
-            expanded && "h-7 rounded-[6px] bg-secondary text-shell-label-tertiary"
+            "flex h-6 w-full cursor-text items-center overflow-hidden rounded-control bg-transparent text-shell-label-secondary transition-all duration-200 ease-[var(--ds-ease-in-out)]",
+            expanded && "h-7 rounded-control bg-secondary text-shell-label-tertiary"
           )}
         >
           <button
@@ -94,7 +94,7 @@ export function SidebarHeader({
               if (e.key === "Escape") collapse();
             }}
             className={cn(
-              "w-0 min-w-0 flex-1 border-none bg-transparent pr-1 text-[13px] leading-[18px] text-shell-label-primary opacity-0 outline-none transition-opacity duration-100 placeholder:text-shell-label-tertiary",
+              "w-0 min-w-0 flex-1 border-none bg-transparent pr-1 text-ui leading-[18px] text-shell-label-primary opacity-0 outline-none transition-opacity duration-100 placeholder:text-shell-label-tertiary",
               expanded && "opacity-100"
             )}
             tabIndex={expanded ? 0 : -1}

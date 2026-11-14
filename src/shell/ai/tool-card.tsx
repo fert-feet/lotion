@@ -29,17 +29,17 @@ export function ToolCard({ card }: { card: ToolCardState }) {
         aria-expanded={open}
         aria-label={`工具调用 ${card.label}：${running ? "执行中" : failed ? "失败" : "完成"}`}
         className={cn(
-          "relative flex w-full cursor-pointer items-center gap-1.5 overflow-hidden rounded-lg py-1 pl-2 pr-1.5 text-left",
+          "relative flex w-full cursor-pointer items-center gap-1.5 overflow-hidden rounded-card py-1 pl-2 pr-1.5 text-left",
           "transition-colors duration-150 ease-[var(--ds-ease-out)] hover:bg-shell-row-hover",
           running && "ai-running-row",
         )}
       >
-        <span className="flex-none text-[14px] leading-none" aria-hidden="true">{toolIcon(card.tool)}</span>
-        <span className="flex-none text-[13px] font-medium text-shell-label-primary">{card.label}</span>
+        <span className="flex-none text-lead leading-none" aria-hidden="true">{toolIcon(card.tool)}</span>
+        <span className="flex-none text-ui font-medium text-shell-label-primary">{card.label}</span>
         <span className="h-0.5 w-0.5 flex-none rounded-full bg-shell-label-caption" />
         <span
           className={cn(
-            "min-w-0 flex-1 truncate text-[12px] leading-5",
+            "min-w-0 flex-1 truncate text-ui-sm leading-5",
             failed ? "text-destructive" : "text-shell-label-tertiary",
           )}
         >
@@ -58,14 +58,14 @@ export function ToolCard({ card }: { card: ToolCardState }) {
         )}
       </button>
       {open && (
-        <div className="mx-2 mb-1.5 flex max-h-64 flex-col gap-2 overflow-auto rounded-lg border-[0.5px] border-shell-border bg-[color-mix(in_srgb,var(--foreground)_4%,transparent)] p-2.5">
+        <div className="mx-2 mb-1.5 flex max-h-64 flex-col gap-2 overflow-auto rounded-card hairline border-shell-border bg-[color-mix(in_srgb,var(--foreground)_4%,transparent)] p-2.5">
           {card.argsText && (
-            <pre className="whitespace-pre-wrap break-words font-mono text-[12px] leading-5 text-shell-label-secondary">{card.argsText}</pre>
+            <pre className="whitespace-pre-wrap break-words font-mono text-ui-sm leading-5 text-shell-label-secondary">{card.argsText}</pre>
           )}
           {failed && card.error && (
-            <div className="rounded-md bg-destructive/10 px-2 py-1.5">
-              <p className="mb-0.5 text-[11px] font-medium text-destructive">错误</p>
-              <pre className="whitespace-pre-wrap break-words font-mono text-[12px] leading-5 text-destructive">{card.error}</pre>
+            <div className="rounded-card bg-destructive/10 px-2 py-1.5">
+              <p className="mb-0.5 text-caption font-medium text-destructive">错误</p>
+              <pre className="whitespace-pre-wrap break-words font-mono text-ui-sm leading-5 text-destructive">{card.error}</pre>
             </div>
           )}
         </div>

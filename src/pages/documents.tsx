@@ -33,13 +33,13 @@ const DocumentsPage = () => {
 
   return (
     <div className="flex h-full flex-col items-center justify-center px-6">
-      <div className="flex h-20 w-20 items-center justify-center rounded-[20px] bg-secondary text-shell-label-tertiary shadow-[var(--shadow-sm)]">
+      <div className="flex h-20 w-20 items-center justify-center rounded-sheet bg-secondary text-shell-label-tertiary shadow-[var(--shadow-sm)]">
         <FileText className="h-9 w-9" strokeWidth={1.5} />
       </div>
-      <h2 className="mt-6 text-[22px] font-semibold tracking-[-0.02em]">
+      <h2 className="mt-6 text-title font-semibold tracking-[-0.02em]">
         欢迎回来，{user.email?.split("@")[0]}
       </h2>
-      <p className="mt-2 max-w-[320px] text-center text-[13px] leading-[1.5] text-muted-foreground">
+      <p className="mt-2 max-w-[320px] text-center text-ui leading-[1.5] text-muted-foreground">
         创建你的第一篇笔记，或让 AI 助手帮你起草。
       </p>
       <Button onClick={onCreate} disabled={creating} size="lg" className="mt-6">

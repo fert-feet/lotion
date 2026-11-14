@@ -26,10 +26,10 @@ const LandingText = () => {
     return (
         <section className="mx-auto w-full max-w-[1000px] py-6 md:py-10">
             <div className="mx-auto max-w-[680px] text-center">
-                <h2 className="text-balance text-[32px] font-bold leading-[1.1] tracking-[-0.025em] md:text-[40px]">
+                <h2 className="text-balance text-display font-bold leading-[1.1] tracking-[-0.025em] md:text-hero">
                     Built for the way you think.
                 </h2>
-                <p className="mt-4 text-[17px] leading-[1.5] text-muted-foreground">
+                <p className="mt-4 text-body leading-[1.5] text-muted-foreground">
                     Notes, pages and an AI assistant — one calm, connected workspace.
                 </p>
             </div>
@@ -38,15 +38,15 @@ const LandingText = () => {
                 {features.map((f) => (
                     <div
                         key={f.title}
-                        className="rounded-[14px] border-[0.5px] border-border bg-card p-6 shadow-[var(--shadow-sm)] transition-shadow duration-150 hover:shadow-[var(--shadow-md)]"
+                        className="rounded-panel hairline border-border bg-card p-6 shadow-[var(--shadow-sm)] transition-shadow duration-150 hover:shadow-[var(--shadow-md)]"
                     >
-                        <div className="mb-4 flex h-9 w-9 items-center justify-center rounded-[9px] bg-primary/10 text-primary">
+                        <div className="mb-4 flex h-9 w-9 items-center justify-center rounded-card bg-primary/10 text-primary">
                             <f.icon className="h-4 w-4" strokeWidth={2} />
                         </div>
-                        <h3 className="text-[17px] font-semibold tracking-[-0.01em]">
+                        <h3 className="text-body font-semibold tracking-[-0.01em]">
                             {f.title}
                         </h3>
-                        <p className="mt-1.5 text-[15px] leading-[1.5] text-muted-foreground">
+                        <p className="mt-1.5 text-lead leading-[1.5] text-muted-foreground">
                             {f.description}
                         </p>
                     </div>
@@ -54,16 +54,16 @@ const LandingText = () => {
             </div>
 
             {/* 收尾 CTA */}
-            <div className="mx-auto mt-16 max-w-[680px] rounded-[16px] border-[0.5px] border-border bg-card px-8 py-14 text-center shadow-[var(--shadow-sm)] md:py-20">
-                <h2 className="text-balance text-[32px] font-bold leading-[1.1] tracking-[-0.025em] md:text-[40px]">
+            <div className="mx-auto mt-16 max-w-[680px] rounded-sheet hairline border-border bg-card px-8 py-14 text-center shadow-[var(--shadow-sm)] md:py-20">
+                <h2 className="text-balance text-display font-bold leading-[1.1] tracking-[-0.025em] md:text-hero">
                     Start writing with <span className="text-primary">your AI</span>.
                 </h2>
-                <p className="mt-4 text-[17px] leading-[1.5] text-muted-foreground">
+                <p className="mt-4 text-body leading-[1.5] text-muted-foreground">
                     Free to start. No credit card required.
                 </p>
                 <div className="mt-8">
                     <Link to="/register">
-                        <Button className="h-11 rounded-[10px] px-6 text-[15px] font-medium active:scale-[0.98]">
+                        <Button className="h-11 rounded-card px-6 text-lead font-medium active:scale-[0.98]">
                             Get Lotion Free!
                         </Button>
                     </Link>

@@ -121,6 +121,6 @@ describe("AlertDialog 按钮", () => {
     // 取消 = 灰色次按钮，确认 = 系统蓝主按钮
     expect(cancel.className).toContain("bg-secondary");
     expect(confirm.className).toContain("bg-primary");
-    expect(confirm.className).toContain("rounded-[7px]");
+    expect(confirm.className).toContain("rounded-control");
   });
 });

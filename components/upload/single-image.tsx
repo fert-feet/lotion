@@ -14,7 +14,7 @@ import { formatFileSize, useUploader } from './uploader-provider';
 import { Spinner } from '../ui/spinner';
 
 const DROPZONE_VARIANTS = {
-  base: 'relative flex min-h-[150px] min-w-[200px] cursor-pointer flex-col items-center justify-center rounded-[12px] border-[1.5px] border-dashed border-shell-border-l2 bg-[color-mix(in_srgb,var(--foreground)_3%,transparent)] p-4 transition-colors duration-200 ease-[var(--ds-ease-out)] hover:bg-[color-mix(in_srgb,var(--foreground)_5%,transparent)]',
+  base: 'relative flex min-h-[150px] min-w-[200px] cursor-pointer flex-col items-center justify-center rounded-panel border-[1.5px] border-dashed border-shell-border-l2 bg-[color-mix(in_srgb,var(--foreground)_3%,transparent)] p-4 transition-colors duration-200 ease-[var(--ds-ease-out)] hover:bg-[color-mix(in_srgb,var(--foreground)_5%,transparent)]',
   image: 'border-0 p-0 min-h-0 min-w-0 relative bg-muted shadow-md',
   active: 'border-primary',
   disabled:
@@ -183,7 +183,7 @@ const SingleImageDropzone = React.forwardRef<
 
         {displayUrl ? (
           <img
-            className="h-full w-full rounded-[10px] object-cover"
+            className="h-full w-full rounded-card object-cover"
             src={displayUrl}
             alt={fileState?.file.name ?? 'uploaded image'}
           />
@@ -196,18 +196,18 @@ const SingleImageDropzone = React.forwardRef<
             )}
           >
             <UploadCloudIcon className="mb-1 h-6 w-6 text-shell-label-tertiary" />
-            <div className="text-[13px] font-medium text-shell-label-secondary">
+            <div className="text-ui font-medium text-shell-label-secondary">
               拖入图片，或点击选择
             </div>
             {maxSize && (
-              <div className="text-[11px] text-shell-label-tertiary">最大 {formatFileSize(maxSize)}</div>
+              <div className="text-caption text-shell-label-tertiary">最大 {formatFileSize(maxSize)}</div>
             )}
           </div>
         )}
 
         {/* Upload progress overlay */}
         {displayUrl && fileState?.status === 'UPLOADING' && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center rounded-[12px] bg-black/60 backdrop-blur-[2px]">
+          <div className="absolute inset-0 flex flex-col items-center justify-center rounded-panel bg-black/60 backdrop-blur-[2px]">
             <ProgressCircle progress={fileState.progress} />
           </div>
         )}

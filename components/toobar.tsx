@@ -112,7 +112,7 @@ const Toolbar = ({
             {!!initialData.icon && !preview && (
                 <div className="flex items-center gap-x-2 group/icon pt-6">
                     <IconPicker onChange={onSelectIcon}>
-                        <p className="text-[44px] leading-none transition-opacity hover:opacity-70 cursor-pointer">
+                        <p className="text-hero leading-none transition-opacity hover:opacity-70 cursor-pointer">
                             {initialData.icon}
                         </p>
                     </IconPicker>
@@ -127,7 +127,7 @@ const Toolbar = ({
                 </div>
             )}
             {!!initialData.icon && preview && (
-                <p className="text-[44px] leading-none pt-6">
+                <p className="text-hero leading-none pt-6">
                     {initialData.icon}
                 </p>
             )}
@@ -166,12 +166,12 @@ const Toolbar = ({
                     onKeyDown={onKeyDown}
                     value={value}
                     onChange={(e) => onInput(e.target.value)}
-                    className="w-full resize-none break-words bg-transparent text-[32px] font-bold leading-[1.15] tracking-[-0.022em] text-shell-label-primary outline-none"
+                    className="w-full resize-none break-words bg-transparent text-display font-bold leading-[1.15] tracking-[-0.022em] text-shell-label-primary outline-none"
                 />
             ) : (
                 <div
                     onClick={enableInput}
-                    className="cursor-text pb-1 text-[32px] font-bold leading-[1.15] tracking-[-0.022em] break-words text-shell-label-primary outline-none"
+                    className="cursor-text pb-1 text-display font-bold leading-[1.15] tracking-[-0.022em] break-words text-shell-label-primary outline-none"
                 >
                     {displayValue}
                 </div>

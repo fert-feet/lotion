@@ -72,14 +72,14 @@ describe("AI 面板遵守设计系统", () => {
     }
     expect(
       offenders,
-      "圆角应取 token：--radius-xs/sm/md/lg/xl/2xl（4/6/8/10/14/20px），对应 rounded-xs/sm/md/lg/xl/2xl",
+      "圆角应取 token：--radius-control/card/panel/sheet（6/10/14/16px），对应 rounded-control/card/panel/sheet",
     ).toEqual([]);
   });
 
   it("用户气泡用 systemBlue（primary），不用 AI 品牌色 —— 否则说话人语义是反的", () => {
     const turn = fs.readFileSync(path.join(AI_DIR, "turn.tsx"), "utf8");
     expect(turn, "用户气泡应当是 primary 实底 + primary-foreground 文字").toMatch(
-      /rounded-2xl bg-primary[^"]*text-primary-foreground/,
+      /rounded-(?:sheet|2xl) bg-primary[^"]*text-primary-foreground/,
     );
     expect(turn, "用户气泡不该再用 bg-ai-muted（AI 品牌黄属于助手身份，不属于用户）").not.toContain(
       "bg-ai-muted",

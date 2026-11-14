@@ -8,7 +8,7 @@ function Avatar({ className, children, ...props }: HTMLAttributes<HTMLDivElement
   return (
     <div
       className={cn(
-        "relative flex size-7 shrink-0 select-none items-center justify-center overflow-hidden rounded-full bg-secondary text-[11px] font-semibold text-shell-label-secondary",
+        "relative flex size-7 shrink-0 select-none items-center justify-center overflow-hidden rounded-full bg-secondary text-caption font-semibold text-shell-label-secondary",
         className
       )}
       {...props}

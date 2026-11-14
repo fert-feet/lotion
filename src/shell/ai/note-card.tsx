@@ -37,7 +37,7 @@ function ResolvedRow({ text }: { text: string }) {
   return (
     <div className="flex items-center gap-2 px-0.5 py-0.5">
       <Check className="h-3.5 w-3.5 flex-none text-shell-label-tertiary" />
-      <span className="min-w-0 truncate text-[12px] leading-5 text-shell-label-tertiary">{text}</span>
+      <span className="min-w-0 truncate text-ui-sm leading-5 text-shell-label-tertiary">{text}</span>
     </div>
   );
 }
@@ -74,10 +74,10 @@ export function NoteCard({
         <div className="flex items-start gap-2.5">
           <AiOrb size={22} icon={<PenLine className="h-3 w-3" />} />
           <div className="min-w-0 flex-1">
-            <p className="truncate text-[13px] font-medium leading-5 text-shell-label-primary">
+            <p className="truncate text-ui font-medium leading-5 text-shell-label-primary">
               已创建草稿「{title}」
             </p>
-            <p className="mt-0.5 text-[12px] leading-4 text-shell-label-tertiary">
+            <p className="mt-0.5 text-ui-sm leading-4 text-shell-label-tertiary">
               位置：{location} · 确认后才会正式保存进笔记列表
             </p>
           </div>
@@ -119,13 +119,13 @@ export function NoteCard({
     return (
       <div className="flex items-center gap-2 px-0.5 py-0.5">
         <FileText className="h-3.5 w-3.5 flex-none text-shell-label-tertiary" />
-        <span className="min-w-0 truncate text-[12px] leading-5 text-shell-label-tertiary">
+        <span className="min-w-0 truncate text-ui-sm leading-5 text-shell-label-tertiary">
           已更新「{note.title || "笔记"}」
         </span>
         <button
           type="button"
           onClick={() => onOpen(note.noteId)}
-          className="flex-none cursor-pointer text-[12px] text-shell-accent hover:underline"
+          className="flex-none cursor-pointer text-ui-sm text-shell-accent hover:underline"
         >
           查看
         </button>
@@ -142,10 +142,10 @@ export function NoteCard({
         <div className="flex items-start gap-2.5">
           <ArrowRight className="mt-0.5 h-4 w-4 flex-none text-shell-accent" />
           <div className="min-w-0 flex-1">
-            <p className="text-[13px] font-medium leading-5 text-shell-label-primary">
+            <p className="text-ui font-medium leading-5 text-shell-label-primary">
               确认将「{note.title}」移动到{target}？
             </p>
-            <p className="mt-0.5 text-[12px] leading-4 text-shell-label-tertiary">移动会改变笔记的嵌套位置</p>
+            <p className="mt-0.5 text-ui-sm leading-4 text-shell-label-tertiary">移动会改变笔记的嵌套位置</p>
           </div>
         </div>
         <CardActions>
@@ -176,8 +176,8 @@ export function NoteCard({
       <div className="flex items-start gap-2.5">
         <AlertTriangle className="mt-0.5 h-4 w-4 flex-none text-destructive" />
         <div className="min-w-0 flex-1">
-          <p className="text-[13px] font-medium leading-5 text-destructive">确认永久删除「{note.title}」？</p>
-          <p className="mt-0.5 text-[12px] leading-4 text-destructive/80">此操作不可撤销</p>
+          <p className="text-ui font-medium leading-5 text-destructive">确认永久删除「{note.title}」？</p>
+          <p className="mt-0.5 text-ui-sm leading-4 text-destructive/80">此操作不可撤销</p>
         </div>
       </div>
       <CardActions>

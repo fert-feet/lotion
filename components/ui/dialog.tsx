@@ -46,11 +46,11 @@ function DialogContent({ className, children, showCloseButton = true, ...props }
   if (!open) return null;
   if (typeof document === "undefined") return null;
   return createPortal(
-    <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-modal flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/25 backdrop-blur-[2px] dark:bg-black/45" onClick={() => setOpen(false)} />
       <div
         className={cn(
-          "material-popover relative z-10 w-full max-w-lg rounded-[16px] border-[0.5px] border-shell-border-l2 p-6 shadow-[var(--shadow-lg)]",
+          "material-popover relative z-10 w-full max-w-lg rounded-sheet hairline border-shell-border-l2 p-6 shadow-[var(--shadow-lg)]",
           className,
         )}
         {...props}
@@ -75,9 +75,9 @@ function DialogContent({ className, children, showCloseButton = true, ...props }
 
 const DialogHeader = ({ className, children }: { className?: string; children: ReactNode }) => <div className={cn("mb-4 flex flex-col gap-1 text-center", className)}>{children}</div>;
 const DialogFooter = ({ className, children }: { className?: string; children: ReactNode }) => <div className={cn("mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end", className)}>{children}</div>;
-const DialogTitle = ({ className, children }: { className?: string; children: ReactNode }) => <h2 className={cn("text-[15px] font-semibold leading-6 tracking-[-0.01em] text-shell-label-primary", className)}>{children}</h2>;
-const DialogDescription = ({ className, children }: { className?: string; children: ReactNode }) => <p className={cn("text-[13px] leading-5 text-shell-label-tertiary", className)}>{children}</p>;
-const DialogOverlay = ({ className }: { className?: string }) => <div className={cn("fixed inset-0 z-[99999] bg-black/25 backdrop-blur-[2px] dark:bg-black/45", className)} />;
+const DialogTitle = ({ className, children }: { className?: string; children: ReactNode }) => <h2 className={cn("text-lead font-semibold leading-6 tracking-[-0.01em] text-shell-label-primary", className)}>{children}</h2>;
+const DialogDescription = ({ className, children }: { className?: string; children: ReactNode }) => <p className={cn("text-ui leading-5 text-shell-label-tertiary", className)}>{children}</p>;
+const DialogOverlay = ({ className }: { className?: string }) => <div className={cn("fixed inset-0 z-modal bg-black/25 backdrop-blur-[2px] dark:bg-black/45", className)} />;
 const DialogPortal = ({ children }: { children: ReactNode }) => <>{children}</>;
 
 export { Dialog, DialogTrigger, DialogClose, DialogContent, DialogHeader, DialogFooter, DialogTitle, DialogDescription, DialogOverlay, DialogPortal };
