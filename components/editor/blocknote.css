@@ -40,44 +40,23 @@
   overflow-wrap: anywhere;
 }
 
-/* 块与块的呼吸：BlockNote 给 `.bn-block-content` 的是 `padding: 3px 0`，所以相邻两块
-   之间只有 6px 的缝；而 hover/focus 的块高亮靠 `box-shadow: 0 0 0 6px` 向外扩 6px——
-   正好把这 6px 填满，两块的高亮边缘直接贴在一起（看起来像高亮「压」在下一块上，
-   分不出块边界）。这里给外层补 3px 纵向内边距：块间距 6px → 12px，
-   高亮外扩 6px 之后每侧仍留 6px 净空。
+/* 块与块的呼吸：BlockNote 给 `.bn-block-content` 的是 `padding: 3px 0`，
+   相邻两块之间只有 6px 的缝，多段连续文字会挤成一片。这里给外层补 3px 纵向内边距
+   → 块间距 12px。
    ⚠️ 用 padding 不用 margin：`.bn-block-group` 没设 display:flex（块级盒），
-   相邻 margin 会折叠成 3px 而不是叠加成 6px。
-   守卫见 test/components/editor/block-highlight.test.ts「块间距」用例 */
+   相邻 margin 会折叠成 3px 而不是叠加成 6px。 */
 .lotion-editor .bn-block-outer {
   line-height: 1.5;
   padding-block: 3px;
 }
 
-/* 块 hover / 选中：浅色圆角高亮（Notion 语义）。
-   ⚠️ 必须排除「自带底色」的块（代码块的深色代码面、Callout 的填充卡）：
-   `background` 是简写，会**整体替换**块自身的 background-color，而本规则特异性 (0,8,0)
-   远高于 BlockNote 的 `.bn-block-content[data-content-type=codeBlock]` (0,2,0)。
-   不排除的话，编辑代码块时 #161616 会变成 rgba(0,0,0,.045)——透出页面白底 →
-   「编辑时变亮、静止时又变暗」。守卫见 test/components/editor/code-block-surface.test.ts
-
-   高亮底色要给文字留呼吸：BlockNote 给 `.bn-block-content` 的是 `padding: 3px 0`
-   （横向为 0），所以底色会紧贴文字（截图里「你好」距灰底左边缘约 1px）。
-   这里用 box-shadow 的 spread 把底色向外扩 6px：不占布局、不改换行宽度、
-   也不产生横向滚动条（阴影不计入可滚动溢出，比 padding + 负 margin 安全）。
-   守卫见 test/components/editor/block-highlight.test.ts */
-.lotion-editor .bn-editor
-  .bn-block-outer:hover
-  > .bn-block
-  > .bn-block-content:not([data-content-type="codeBlock"]):not([data-content-type="callout"]),
-.lotion-editor .bn-editor
-  .bn-block-outer:focus-within
-  > .bn-block
-  > .bn-block-content:not([data-content-type="codeBlock"]):not([data-content-type="callout"]) {
-  background: var(--shell-row-hover);
-  border-radius: 6px;
-  /* 同色实底阴影 = 底色外扩（不再是紧贴文字的一条灰条） */
-  box-shadow: 0 0 0 6px var(--shell-row-hover);
-}
+/* 块 hover / focus 不再上底色（2026-11 按用户要求去掉整套特性）。
+   这里曾是一条 Notion 语义的浅灰圆角高亮 + `box-shadow: 0 0 0 6px` 外扩；
+   外扩会把块间那点缝隙吃掉（相邻两块的高亮边缘贴在一起、像阴影压在下一块上），
+   于是连同底色一起删除：hover / 编辑中的块与静止态完全一致。
+   ⚠️ 不要给 `.bn-block-content` 加 hover/focus 的 `background`：`background` 是简写，
+   会整体顶掉代码块的 #161616 深色代码面 / Callout 填充卡 →「编辑时变亮、静止时又变暗」。
+   守卫见 test/components/editor/code-block-surface.test.ts */
 
 /* ---- 标题：字号对齐 app 排版基线 ---- */
 .lotion-editor .bn-editor [data-content-type="heading"] h1 {

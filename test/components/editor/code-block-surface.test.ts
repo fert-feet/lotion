@@ -14,6 +14,10 @@
 // 保住的契约：① 带自有底色的块（codeBlock / callout）只由自己的规则决定背景，行高亮不得覆盖；
 // ② 代码块 `> pre` 顶部必须留出语言选择器的净空——BlockNote 的 `padding:24px` 正是在做这件事，
 // 我们为了紧凑压到 14px，结果悬停/编辑时选择器的「Java」直接压在代码首行上（m00912 报障）。
+//
+// 2026-11 变更：那条「块 hover / 选中浅灰高亮」按用户要求整套删除了（含 box-shadow 外扩），
+// 所以契约 ① 现在以「项目 CSS 不得给块内容挂 hover/focus 底色」的形式守卫；
+// 将来若恢复行高亮，必须重新带上 :not([data-content-type=codeBlock|callout]) 排除项。
 // 检查方式是读 CSS 源码做选择器/声明断言（同 test/components/ai/design-tokens.test.ts）。
 import { describe, it, expect } from "vitest";
 import fs from "node:fs";
@@ -144,23 +148,14 @@ describe("编辑器代码块：深色代码面与语言选择器净空", () => {
     ).toEqual([]);
   });
 
-  it("行 hover / focus 高亮排除代码块与 Callout（否则编辑时透出白底变亮）", () => {
-    const css = fs.readFileSync(CSS_PATH, "utf8");
-    const rules = hoverHighlightRules(css);
+  it("块内容上没有项目自带的 hover / focus 底色（代码面与 Callout 填充卡不会被顶掉）", () => {
+    const rules = hoverHighlightRules(fs.readFileSync(CSS_PATH, "utf8"));
 
-    // 非空转：这条 Notion 语义的行高亮必须还在（别用"删掉规则"来通过本用例）
-    expect(rules.length, "行 hover / focus 高亮规则不见了？它是 Notion 语义的一部分").toBeGreaterThan(0);
+    // 2026-11 用户明确要求去掉「块 hover 高亮」：hover / 编辑中的块与静止态一致。
+    // 这条用例也顺带保证 #161616 深色代码面不可能被行高亮的 `background` 简写顶掉。
     expect(
-      rules.some((rule) => rule.body.includes("--shell-row-hover")),
-      "行高亮仍应用 --shell-row-hover 底色",
-    ).toBe(true);
-
-    const missing = rules
-      .filter((rule) => !CARVE_OUT.test(rule.selector))
-      .map((rule) => rule.selector);
-    expect(
-      missing,
-      "行高亮规则缺 :not([data-content-type=...])：代码块编辑时 #161616 会被换成半透明黑 → 透出页面白底",
+      rules.map((rule) => rule.selector),
+      "块 hover/focus 底色已按要求移除；若要恢复，必须带 :not([data-content-type=codeBlock|callout]) 排除项",
     ).toEqual([]);
   });
 });
