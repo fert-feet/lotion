@@ -69,15 +69,9 @@ const SettingsModal = () => {
                   <h2 className="text-lead font-semibold tracking-[-0.01em] text-shell-label-primary">
                     外观
                   </h2>
-                  <p className="mt-0.5 text-ui-sm leading-[17px] text-shell-label-tertiary">
-                    选择 Lotion 的显示主题。
-                  </p>
                 </div>
                 <div className="flex items-center justify-between rounded-card hairline border-shell-border px-3 py-2.5">
-                  <div className="flex flex-col gap-y-0.5">
-                    <Label>主题</Label>
-                    <span className="text-ui-sm text-muted-foreground">跟随系统或手动选择明暗</span>
-                  </div>
+                  <Label>主题</Label>
                   <ModeToggle />
                 </div>
               </div>

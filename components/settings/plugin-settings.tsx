@@ -158,7 +158,6 @@ function PluginRow({
 
 function Section({
   title,
-  description,
   plugins,
   busyId,
   onToggle,
@@ -170,7 +169,6 @@ function Section({
   onExport,
 }: {
   title: string;
-  description?: string;
   plugins: PluginInfo[];
   busyId: string | null;
   onToggle: (plugin: PluginInfo, enabled: boolean) => void;
@@ -184,12 +182,9 @@ function Section({
   if (plugins.length === 0) return null;
   return (
     <section className="flex flex-col gap-2">
-      <div>
-        <h3 className="text-ui-sm font-semibold uppercase tracking-[0.04em] text-shell-label-secondary">
-          {title}
-        </h3>
-        {description ? <p className="text-caption text-shell-label-tertiary">{description}</p> : null}
-      </div>
+      <h3 className="text-ui-sm font-semibold uppercase tracking-[0.04em] text-shell-label-secondary">
+        {title}
+      </h3>
       <div className="flex flex-col gap-1.5">
         {plugins.map((plugin) => (
           <PluginRow
@@ -371,9 +366,6 @@ export function PluginSettings() {
       <div className="flex items-start justify-between gap-3">
         <div>
           <h2 className="text-lead font-semibold tracking-[-0.01em] text-shell-label-primary">插件</h2>
-          <p className="mt-0.5 text-ui-sm leading-[17px] text-shell-label-tertiary">
-            内置能力也按插件装配；静态插件的改动需要重启或刷新。
-          </p>
         </div>
         <Button variant="ghost" size="sm" onClick={() => void load()} disabled={loading}>
           刷新列表
@@ -398,10 +390,10 @@ export function PluginSettings() {
           </div>
         ) : (
           <>
-            <Section title="核心" description="禁用会导致应用不可用，因此固定开启。" plugins={grouped.core} {...handlers} />
-            <Section title="内置插件" description="路由、动态通道与 UI 面板。" plugins={grouped.builtin} {...handlers} />
-            <Section title="已安装" description="从市场安装的第三方插件。" plugins={grouped.installed} {...handlers} />
-            <Section title="AI 动态插件" description="模型在运行时定义；客户端半边需要人工批准。" plugins={grouped.dynamic} {...handlers} />
+            <Section title="核心" plugins={grouped.core} {...handlers} />
+            <Section title="内置插件" plugins={grouped.builtin} {...handlers} />
+            <Section title="已安装" plugins={grouped.installed} {...handlers} />
+            <Section title="AI 动态插件" plugins={grouped.dynamic} {...handlers} />
             {plugins.length === 0 && !loading ? (
               <EmptyState variant="inline" title="没有可管理的插件。" />
             ) : null}

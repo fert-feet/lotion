@@ -880,12 +880,6 @@ const AiPanel = () => {
                   <p className="text-title font-semibold leading-7 tracking-[-0.02em] text-shell-label-primary">
                     你好，我是你的文档助手
                   </p>
-                  <p className="text-ui leading-5 text-shell-label-tertiary">
-                    搜索、撰写、改写、整理笔记都可以交给我。
-                  </p>
-                  <p className="text-ui-sm leading-4 text-shell-label-caption">
-                    新建的笔记先以草稿出现在这里，删除这类操作也会先问你。
-                  </p>
                 </div>
               </div>
             )}

@@ -14,7 +14,6 @@ import { EmptyState } from "@/components/ui/empty-state";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -135,9 +134,6 @@ export function VersionHistoryDialog({
             <History className="h-4 w-4 text-shell-label-secondary" />
             版本历史
           </DialogTitle>
-          <DialogDescription className="text-ui-sm text-shell-label-secondary">
-            每次改动前自动留档（60 秒一份，保留最近 50 份）。回滚本身也会留档。
-          </DialogDescription>
         </DialogHeader>
 
         {versions === null ? (

@@ -84,9 +84,6 @@ export function PluginConfigDialog({ plugin, open, onOpenChange, onSave }: Plugi
       <DialogContent className="max-w-[460px]">
         <DialogHeader className="hairline-b border-shell-border pb-3 text-left">
           <DialogTitle>配置 · {plugin?.title ?? "插件"}</DialogTitle>
-          <p className="text-ui-sm text-shell-label-tertiary">
-            配置写入后需要重启 / 刷新才会生效（静态插件）。
-          </p>
         </DialogHeader>
 
         <div className="flex flex-col gap-3 pt-1">

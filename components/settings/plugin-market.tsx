@@ -263,9 +263,6 @@ export function PluginMarket() {
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h2 className="text-lead font-semibold tracking-[-0.01em] text-shell-label-primary">插件市场</h2>
-          <p className="mt-0.5 text-ui-sm leading-[17px] text-shell-label-tertiary">
-            本地精选 + 可选远端 registry。安装后默认停用；客户端半边还需人工批准。
-          </p>
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
           <input

@@ -113,7 +113,6 @@ const DocumentIdPage = () => {
                 <FileQuestion className="h-12 w-12 text-muted-foreground" />
                 <div>
                     <p className="text-base font-medium">文档不存在或已删除</p>
-                    <p className="text-sm text-muted-foreground mt-1">它可能已被删除，或链接已失效</p>
                 </div>
                 <Button
                     variant="outline"

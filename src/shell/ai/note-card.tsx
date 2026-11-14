@@ -78,7 +78,7 @@ export function NoteCard({
               已创建草稿「{title}」
             </p>
             <p className="mt-0.5 text-ui-sm leading-4 text-shell-label-tertiary">
-              位置：{location} · 确认后才会正式保存进笔记列表
+              位置：{location}
             </p>
           </div>
         </div>
@@ -145,7 +145,6 @@ export function NoteCard({
             <p className="text-ui font-medium leading-5 text-shell-label-primary">
               确认将「{note.title}」移动到{target}？
             </p>
-            <p className="mt-0.5 text-ui-sm leading-4 text-shell-label-tertiary">移动会改变笔记的嵌套位置</p>
           </div>
         </div>
         <CardActions>
