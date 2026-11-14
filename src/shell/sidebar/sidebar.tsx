@@ -206,7 +206,11 @@ export function Sidebar({ wide, onExpand }: SidebarProps) {
       {batchMode ? (
         <div className="flex shrink-0 items-center gap-2 border-t border-shell-border px-3 py-2">
           <span className="flex-1 truncate text-xs text-shell-label-secondary">已选 {selected.size} 篇</span>
-          <ConfirmModal onConfirm={batchDelete}>
+          <ConfirmModal
+            onConfirm={batchDelete}
+            title={`删除这 ${selected.size} 篇笔记？`}
+            description="删除后无法恢复。"
+          >
             <Button size="sm" variant="destructive" disabled={selected.size === 0} className="h-7 cursor-pointer text-xs">
               删除
             </Button>

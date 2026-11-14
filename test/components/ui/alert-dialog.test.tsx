@@ -6,9 +6,10 @@
 // 判断，遇到字符串子节点直接 `return null` —— 按钮**静默消失**，确认框只剩标题与描述。
 // 现在 Slot 会兜底渲染原生 button，并带上 Apple 按钮样式。
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { act } from "react";
+import { act, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { Slot } from "@/components/ui/_primitives";
+import ConfirmModal from "@/components/modals/confirm-modal";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -122,5 +123,59 @@ describe("AlertDialog 按钮", () => {
     expect(cancel.className).toContain("bg-secondary");
     expect(confirm.className).toContain("bg-primary");
     expect(confirm.className).toContain("rounded-control");
+  });
+});
+
+describe("ConfirmModal（销毁类确认）", () => {
+  const open = (node: ReactNode) => {
+    act(() => root.render(node));
+    act(() => {
+      container.querySelector("button")!.click();
+    });
+  };
+
+  it("默认文案是中文，主按钮是 destructive 而不是系统蓝", () => {
+    open(
+      <ConfirmModal onConfirm={() => {}}>
+        <button type="button">永久删除</button>
+      </ConfirmModal>,
+    );
+
+    // 事故背景：全站唯一的"永久删除"确认框是英文（Are you absolutely sure? / Cancel / Confirm），
+    // 主按钮还是 systemBlue —— 危险动作看起来像普通保存。
+    const text = document.body.textContent ?? "";
+    expect(text).toContain("确定要删除吗？");
+    expect(text).toContain("此操作无法撤销。");
+    expect(text).not.toContain("Are you absolutely sure?");
+    expect(text).not.toContain("Confirm");
+
+    const buttons = [...document.querySelectorAll("button")];
+    const confirm = buttons.find((b) => b.textContent?.trim() === "删除");
+    expect(confirm, "删除键应存在").not.toBeUndefined();
+    expect(confirm!.className).toContain("bg-destructive");
+    expect(confirm!.className).not.toContain("bg-primary");
+    expect(buttons.some((b) => b.textContent?.trim() === "取消")).toBe(true);
+  });
+
+  it("调用方可点名对象并改写后果说明", () => {
+    open(
+      <ConfirmModal
+        onConfirm={() => {}}
+        title="永久删除「周报」？"
+        description="不会进入回收站，删除后无法恢复。"
+        confirmText="永久删除"
+      >
+        <button type="button">永久删除</button>
+      </ConfirmModal>,
+    );
+
+    const text = document.body.textContent ?? "";
+    expect(text).toContain("永久删除「周报」？");
+    expect(text).toContain("不会进入回收站，删除后无法恢复。");
+    const matches = [...document.querySelectorAll("button")].filter((b) => b.textContent?.trim() === "永久删除");
+    // 触发器和确认键同名：触发器在容器内，弹窗经 portal 挂在 body 末尾 → 取最后一个
+    const action = matches[matches.length - 1]!;
+    expect(matches.length).toBe(2);
+    expect(action.className).toContain("bg-destructive");
   });
 });

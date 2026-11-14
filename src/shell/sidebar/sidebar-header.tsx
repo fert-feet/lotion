@@ -79,7 +79,7 @@ export function SidebarHeader({
           <button
             type="button"
             aria-label="搜索笔记"
-            title="搜索笔记（Cmd/Ctrl+J）"
+            title="搜索笔记（⌘K）"
             onClick={(e) => {
               e.stopPropagation();
               if (!expanded) { onExpandedChange(true); inputRef.current?.focus(); }

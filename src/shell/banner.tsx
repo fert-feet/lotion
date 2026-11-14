@@ -66,7 +66,11 @@ const Banner = ({
                     <Undo2 className="h-3.5 w-3.5 mr-1" />
                     恢复
                 </Button>
-                <ConfirmModal onConfirm={onRemove}>
+                <ConfirmModal
+                    onConfirm={onRemove}
+                    title="永久删除这篇笔记？"
+                    description="不会进入回收站，删除后无法恢复。"
+                >
                     <Button
                         size="sm"
                         variant="ghost"

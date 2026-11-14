@@ -1,6 +1,6 @@
 "use client";
 
-// 自研全局搜索命令面板（Cmd/Ctrl+J）：
+// 自研全局搜索命令面板（⌘K / Ctrl+K）：
 // 替代原 cmdk 方案——Dialog 遮罩 + 输入框过滤文档列表 + 键盘 ↑↓/Enter/Esc。
 import { useUser } from "@/hooks/use-user";
 import { useNavigate } from "react-router";
@@ -48,7 +48,7 @@ const SearchCommand = () => {
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
-      if (e.key === "j" && (e.metaKey || e.ctrlKey)) {
+      if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
         e.preventDefault();
         toggle();
       }

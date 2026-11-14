@@ -119,6 +119,8 @@ const TrashBox = () => {
                             </div>
                             <ConfirmModal
                                 onConfirm={() => onRemove(document.id)}
+                                title={`永久删除「${document.title || "未命名"}」？`}
+                                description="不会进入回收站，删除后无法恢复。"
                             >
                                 <div
                                     role="button"

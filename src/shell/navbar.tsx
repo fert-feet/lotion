@@ -40,8 +40,9 @@ const Navbar = ({
     }, [documentId, refreshKey, docStore, actor]);
 
     if (document === undefined) {
+        // 骨架态与就绪态必须同一套盒模型/背景：换材质或换内边距会让首屏顶栏跳 10px
         return (
-            <nav className="material-toolbar flex w-full shrink-0 items-center gap-x-2 hairline-b border-shell-border px-2 py-1.5">
+            <nav className="flex w-full shrink-0 items-center gap-x-2 px-3 py-2">
                 <div className="flex items-center justify-between w-full">
                     <Title.Skeleton />
                     <div className="flex gap-x-2 items-center">

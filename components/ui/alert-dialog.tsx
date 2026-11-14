@@ -20,9 +20,12 @@ function AlertDialog({ open, onOpenChange, children }: { open?: boolean; onOpenC
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 
-function AlertDialogTrigger({ asChild = true, children, className, ...props }: HTMLAttributes<HTMLButtonElement> & { asChild?: boolean; children: ReactNode }) {
+function AlertDialogTrigger({ asChild = true, children, className, onClick, ...props }: HTMLAttributes<HTMLButtonElement> & { asChild?: boolean; children: ReactNode }) {
   const { setOpen } = useContext(Ctx);
-  const p = { type: "button" as const, className, onClick: (e: React.MouseEvent) => { e.stopPropagation(); setOpen(true); }, ...props };
+  // ⚠️ onClick 必须**组合**而不是被 props 覆盖：调用方（ConfirmModal 等）总会传
+  // `onClick={(e) => e.stopPropagation()}`，旧写法 `{ ..., onClick: 开弹窗, ...props }`
+  // 让 props 里的 onClick 把开弹窗顶掉 —— 确认弹窗永远不弹出（历史 bug）。
+  const p = { type: "button" as const, className, ...props, onClick: (e: React.MouseEvent<HTMLButtonElement>) => { onClick?.(e); e.stopPropagation(); setOpen(true); } };
   if (asChild) return <Slot {...p}>{children}</Slot>;
   return <button {...p}>{children}</button>;
 }
@@ -59,16 +62,20 @@ const AlertDialogFooter = ({ className, children }: { className?: string; childr
 const AlertDialogTitle = ({ className, children }: { className?: string; children: ReactNode }) => <h2 className={cn("text-lead font-semibold leading-6 tracking-[-0.01em] text-shell-label-primary", className)}>{children}</h2>;
 const AlertDialogDescription = ({ className, children }: { className?: string; children: ReactNode }) => <p className={cn("text-ui leading-5 text-shell-label-tertiary", className)}>{children}</p>;
 
-function AlertDialogAction({ asChild = true, children, className, ...props }: HTMLAttributes<HTMLButtonElement> & { asChild?: boolean; children: ReactNode }) {
+function AlertDialogAction({ asChild = true, children, className, variant = "default", onClick, ...props }: HTMLAttributes<HTMLButtonElement> & { asChild?: boolean; variant?: "default" | "destructive"; children: ReactNode }) {
   const { setOpen } = useContext(Ctx);
-  const p = { type: "button" as const, className: cn(btnBase, "bg-primary text-primary-foreground hover:bg-[color-mix(in_srgb,var(--primary)_88%,black)]", className), onClick: (e: React.MouseEvent) => { e.stopPropagation(); setOpen(false); }, ...props };
+  const tone = variant === "destructive"
+    ? "bg-destructive text-white hover:bg-[color-mix(in_srgb,var(--destructive)_88%,black)]"
+    : "bg-primary text-primary-foreground hover:bg-[color-mix(in_srgb,var(--primary)_88%,black)]";
+  // 同 Trigger：确认回调与关弹窗都要跑，不能让 onClick 把关弹窗顶掉
+  const p = { type: "button" as const, className: cn(btnBase, tone, className), ...props, onClick: (e: React.MouseEvent<HTMLButtonElement>) => { onClick?.(e); e.stopPropagation(); setOpen(false); } };
   if (asChild) return <Slot {...p}>{children}</Slot>;
   return <button {...p}>{children}</button>;
 }
 
-function AlertDialogCancel({ asChild = true, children, className, ...props }: HTMLAttributes<HTMLButtonElement> & { asChild?: boolean; children: ReactNode }) {
+function AlertDialogCancel({ asChild = true, children, className, onClick, ...props }: HTMLAttributes<HTMLButtonElement> & { asChild?: boolean; children: ReactNode }) {
   const { setOpen } = useContext(Ctx);
-  const p = { type: "button" as const, className: cn(btnBase, "bg-secondary text-secondary-foreground hover:bg-[color-mix(in_srgb,var(--secondary)_80%,var(--foreground))]", className), onClick: (e: React.MouseEvent) => { e.stopPropagation(); setOpen(false); }, ...props };
+  const p = { type: "button" as const, className: cn(btnBase, "bg-secondary text-secondary-foreground hover:bg-[color-mix(in_srgb,var(--secondary)_80%,var(--foreground))]", className), ...props, onClick: (e: React.MouseEvent<HTMLButtonElement>) => { onClick?.(e); e.stopPropagation(); setOpen(false); } };
   if (asChild) return <Slot {...p}>{children}</Slot>;
   return <button {...p}>{children}</button>;
 }
