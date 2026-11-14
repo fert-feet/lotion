@@ -12,13 +12,9 @@ import { VersionHistoryDialog } from "./modals/version-history-dialog";
 
 interface ToolbarProps {
     initialData: Document | undefined;
-    preview?: boolean;
 }
 
-const Toolbar = ({
-    initialData,
-    preview
-}: ToolbarProps) => {
+const Toolbar = ({ initialData }: ToolbarProps) => {
     const docStore = useDocStore();
     const actor = useActor();
     const coverImage = useCoverImage();
@@ -26,7 +22,7 @@ const Toolbar = ({
     const triggerSidebar = useRefresh((s) => s.triggerSidebar);
     const inputRef = useRef<HTMLTextAreaElement>(null);
     const [isEditing, setIsEditing] = useState<boolean>(false);
-    // 版本历史：从工具栏的 History 按钮打开（预览模式不出现）
+    // 版本历史：从工具栏的 History 按钮打开
     const [historyOpen, setHistoryOpen] = useState(false);
     const [value, setValue] = useState(initialData?.title || "");
     const [displayValue, setDisplayValue] = useState(initialData?.title || "");
@@ -48,10 +44,6 @@ const Toolbar = ({
     }
 
     const enableInput = () => {
-        if (preview) {
-            return;
-        }
-
         setIsEditing(true);
 
         setTimeout(() => {
@@ -113,7 +105,7 @@ const Toolbar = ({
     return (
         <>
         <div className="pl-[54px] group relative">
-            {Boolean(initialData.icon) && !preview && (
+            {Boolean(initialData.icon) && (
                 <div className="flex items-center gap-x-2 group/icon pt-6">
                     <IconPicker onChange={onSelectIcon}>
                         <p className="text-hero leading-none transition-opacity hover:opacity-70 cursor-pointer">
@@ -132,13 +124,8 @@ const Toolbar = ({
                     </Button>
                 </div>
             )}
-            {Boolean(initialData.icon) && preview && (
-                <p className="text-hero leading-none pt-6">
-                    {initialData.icon}
-                </p>
-            )}
             <div className="flex items-center gap-1 py-3 opacity-0 transition-opacity group-hover:opacity-100 max-md:opacity-100">
-                {!initialData.icon && !preview && (
+                {!initialData.icon && (
                     <IconPicker onChange={onSelectIcon}>
                         <Button
                             asChild
@@ -153,18 +140,16 @@ const Toolbar = ({
                         </Button>
                     </IconPicker>
                 )}
-                {!preview && (
-                    <Button
-                        onClick={() => setHistoryOpen(true)}
+                <Button
+                    onClick={() => setHistoryOpen(true)}
                         className="cursor-pointer text-shell-label-secondary"
                         variant={"outline"}
                         size={"sm"}
                     >
-                        <History className="h-4 w-4 mr-2" />
-                        历史
-                    </Button>
-                )}
-                {!initialData.coverImage && !preview && (
+                    <History className="h-4 w-4 mr-2" />
+                    历史
+                </Button>
+                {!initialData.coverImage && (
                     <Button
                         onClick={coverImage.onOpen}
                         className="cursor-pointer text-shell-label-secondary"
@@ -176,7 +161,7 @@ const Toolbar = ({
                     </Button>
                 )}
             </div>
-            {isEditing && !preview ? (
+            {isEditing ? (
                 <TextareaAutosize
                     ref={inputRef}
                     onBlur={disableInput}
@@ -195,7 +180,7 @@ const Toolbar = ({
             )}
         </div>
         <VersionHistoryDialog
-            documentId={preview ? null : initialData.id}
+            documentId={initialData.id}
             open={historyOpen}
             onOpenChange={setHistoryOpen}
             onRestored={() => triggerDocument(initialData.id)}

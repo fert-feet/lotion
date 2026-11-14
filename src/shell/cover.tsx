@@ -10,14 +10,10 @@ import { useRefresh } from "@/hooks/use-refresh";
 import { Skeleton } from "@/components/ui/skeleton";
 
 interface CoverProps {
-    url?: string,
-    preview?: boolean;
+    url?: string;
 }
 
-const Cover = ({
-    url,
-    preview
-}: CoverProps) => {
+const Cover = ({ url }: CoverProps) => {
     const docStore = useDocStore();
     const actor = useActor();
     const params = useParams();
@@ -57,7 +53,7 @@ const Cover = ({
                 // 封面来自本地上传（/api/uploads/），无远程图源，故不再需要 next/image 的优化管线。
                 <img src={url} alt="封面" className="absolute inset-0 h-full w-full object-cover" />
             )}
-            {url && !preview && (
+            {url && (
                 <div className="opacity-0 transition group-hover:opacity-100 max-md:opacity-100 absolute bottom-2 right-3 flex items-center gap-x-2">
                     <Button
                         onClick={() => coverImage.onReplace(url)}
