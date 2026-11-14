@@ -3,7 +3,7 @@ import type { Document } from "@/lib/seams/doc-store";
 import { useActor, useDocStore } from "@/src/kernel/react";
 import IconPicker from "./icon-picker";
 import { Button } from "./ui/button";
-import { ElementRef, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { useRefresh } from "@/hooks/use-refresh";
 import TextareaAutosize from "react-textarea-autosize";
@@ -24,7 +24,7 @@ const Toolbar = ({
     const coverImage = useCoverImage();
     const triggerDocument = useRefresh((s) => s.triggerDocument);
     const triggerSidebar = useRefresh((s) => s.triggerSidebar);
-    const inputRef = useRef<ElementRef<"textarea">>(null);
+    const inputRef = useRef<HTMLTextAreaElement>(null);
     const [isEditing, setIsEditing] = useState<boolean>(false);
     // 版本历史：从工具栏的 History 按钮打开（预览模式不出现）
     const [historyOpen, setHistoryOpen] = useState(false);

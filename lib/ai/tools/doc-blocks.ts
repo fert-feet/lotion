@@ -23,7 +23,9 @@ export function createGetDocBlocksTool(db: Database.Database, userId: string) {
       }
 
       // 规范存储为 BlockNote JSON；存量 Markdown 惰性转换并写回（块 ID 持久化）
-      const { blocks } = (await ensureDocBlocks(db, userId, noteId))!;
+      const normalized = await ensureDocBlocks(db, userId, noteId);
+      if (!normalized) return `笔记「${doc.title}」的正文无法解析。`;
+      const { blocks } = normalized;
       const flat = flattenBlocks(blocks);
       if (flat.length === 0 || (flat.length === 1 && !blockText(flat[0].block))) {
         return `笔记「${doc.title}」是空文档。`;

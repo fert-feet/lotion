@@ -198,7 +198,7 @@ export async function runNoteAgent(
     userId,
     prompt: prompt.slice(0, 100),
     historyCount: history.length,
-    hasSummary: !!options?.summary,
+    hasSummary: Boolean(options?.summary),
     model: ai.model,
     hasApiKey: ai.apiKey !== "",
   });
@@ -372,6 +372,10 @@ export async function runNoteAgent(
           references.push({ noteId: e.noteId, title: e.title });
           snapshot.references.push({ noteId: e.noteId, title: e.title });
         }
+        break;
+      default:
+        // 新增工具事件类型时，这里不静默丢弃：记一条 warn，便于发现"事件发出去了但没人处理"
+        logger.agent.warn("未处理的工作事件类型", { type: (e as { type: string }).type });
         break;
     }
   };

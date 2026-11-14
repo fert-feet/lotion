@@ -83,8 +83,11 @@ export function createUpdateBlockTool(
       onEvent({ type: "note_modified", noteId, title });
       onEvent({ type: "reference", noteId, title });
       logger.tools.info("[updateBlock] 已更新", { noteId, targetIndex, blockId: blockId ?? null });
-      const snippet = blockText(target).replace(/\n/g, " ").slice(0, 30);
-      return `已更新笔记「${title}」第 ${targetIndex} 块${snippet ? `（原「${snippet}${blockText(target).length > 30 ? "..." : ""}」）` : ""}。`;
+      const fullText = blockText(target).replace(/\n/g, " ");
+      const snippet = fullText.slice(0, 30);
+      const ellipsis = fullText.length > 30 ? "..." : "";
+      const preview = snippet ? `（原「${snippet}${ellipsis}」）` : "";
+      return `已更新笔记「${title}」第 ${targetIndex} 块${preview}。`;
     },
   });
 }

@@ -12,8 +12,9 @@ export interface TodoItem {
 }
 
 export function createTodoWriteTool(
-  db: Database.Database,
-  userId: string,
+  // 待办清单只上报事件，不落库；形参位与其它工具工厂保持一致
+  _db: Database.Database,
+  _userId: string,
   onEvent: (event: ToolEvent) => void = () => {},
 ) {
   return tool({

@@ -5,7 +5,7 @@
 // 每次组装都会：跑守卫（拒绝即短路）→ 发 tool_start/tool_end 事件 → 记日志 → doom loop 统计。
 import type Database from "better-sqlite3";
 import { jsonSchema } from "ai";
-import type { ToolSet } from "ai";
+import type { FlexibleSchema, ToolSet } from "ai";
 import { logger } from "@/lib/logger";
 import {
   createToolRegistry,
@@ -88,6 +88,9 @@ export function buildToolSet(registry: HostToolRegistry, options: BuildToolSetOp
     );
   }
 
+  // SAFETY: 上面逐个包装时保留了每个工具原本的 inputSchema/execute 形状，
+  // 但 TS 无法证明"逐项替换后仍是合法 ToolSet"（键集合在运行期才齐全）。
+  // 这一步只做类型层面的收口，不改变运行期对象。
   return wrapped as unknown as ToolSet;
 }
 
@@ -102,14 +105,25 @@ export function buildToolSet(registry: HostToolRegistry, options: BuildToolSetOp
  * 整轮对话就立刻失败（前端表现为一条「schema is not a function」的错误卡）。
  * 所以在这里统一包一层，而不是要求每个插件作者都记得写 `jsonSchema()`。
  */
-export function normalizeToolSchema(schema: unknown): unknown {
+/** 收口后可交给 AI SDK 的形状：标准 schema，或「返回 schema 的工厂函数」 */
+export type NormalizedToolSchema = FlexibleSchema | (() => unknown);
+
+export function normalizeToolSchema(schema: unknown): NormalizedToolSchema {
   const empty = { type: "object" as const, properties: {} };
   if (schema === null || schema === undefined) return jsonSchema(empty);
-  if (typeof schema === "function") return schema; // AI SDK 也接受「返回 schema 的函数」
+  if (typeof schema === "function") {
+    // SAFETY: AI SDK 的 LazySchema 就是"无参、返回 schema"的函数；这里只把
+    // `Function` 收窄成该签名，不检查它实际返回什么（AI SDK 在调用时才校验）。
+    return schema as () => unknown;
+  }
   if (typeof schema !== "object") return jsonSchema(empty);
   const record = schema as Record<string, unknown>;
   // zod / Standard Schema，或已经用 jsonSchema() 包过（它的产物带 validate 键）
-  if ("~standard" in record || "validate" in record) return schema;
+  if ("~standard" in record || "validate" in record) {
+    // SAFETY: 这两个键是 Standard Schema / AI SDK Schema 的**唯一判别标记**；
+    // 完整形状校验由 AI SDK 在 asSchema() 内部完成，这里不复制那套泛型。
+    return schema as unknown as FlexibleSchema;
+  }
   return jsonSchema(record as never);
 }
 

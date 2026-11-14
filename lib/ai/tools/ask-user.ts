@@ -8,8 +8,9 @@ import type { ToolEvent } from "./index";
 const MAX_ASK_PER_REQUEST = 1;
 
 export function createAskUserTool(
-  db: Database.Database,
-  userId: string,
+  // 提问工具不读写库；保留形参是为了与其它工具工厂签名一致（注册表按位置传参）
+  _db: Database.Database,
+  _userId: string,
   onEvent: (event: ToolEvent) => void = () => {},
 ) {
   // 幂等防重（对齐 createNote 模式）：一次请求只问一轮，避免连环提问阻塞对话

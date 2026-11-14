@@ -1,6 +1,5 @@
 "use client"
 
-import * as React from "react"
 import { Moon, Sun } from "@/components/icons"
 import { useTheme } from "next-themes"
 

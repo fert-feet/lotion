@@ -51,12 +51,18 @@ export const useLayout = create<LayoutState>((set) => ({
   setDetails: (px) => set({ details: clampWidth(px, DETAILS_MIN, DETAILS_MAX) }),
   setDetailsMode: (mode) => set({ detailsMode: mode }),
   cycleDetailsMode: () =>
-    set((s) => ({
-      detailsMode: DETAILS_MODES[(DETAILS_MODES.indexOf(s.detailsMode) + 1) % DETAILS_MODES.length]!,
-    })),
+    set((s) => {
+      // 不用非空断言：类型上数组下标可能越界，这里显式兜底回 docked
+      const next = DETAILS_MODES[(DETAILS_MODES.indexOf(s.detailsMode) + 1) % DETAILS_MODES.length];
+      return { detailsMode: next ?? "docked" };
+    }),
   // 窄屏 toggle 只翻转覆盖位：宽度偏好原样保留，变宽后恢复挤压前布局。
   toggleSidebar: () =>
-    set((s) => (s.narrow ? { narrowExpanded: !s.narrowExpanded } : { sidebar: s.sidebar === 0 ? SIDEBAR_DEFAULT : 0 })),
+    set((s) => {
+      // 窄屏只翻转覆盖位（偏好保持不变），宽屏才真正开关
+      if (s.narrow) return { narrowExpanded: !s.narrowExpanded };
+      return { sidebar: s.sidebar === 0 ? SIDEBAR_DEFAULT : 0 };
+    }),
   toggleDetails: () => set((s) => ({ details: s.details === 0 ? DETAILS_DEFAULT : 0 })),
   openDetails: () => set((s) => ({ details: s.details === 0 ? DETAILS_DEFAULT : s.details })),
   closeDetails: () => set({ details: 0 }),

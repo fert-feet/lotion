@@ -59,20 +59,38 @@ export type ToolEvent =
 /** 工具执行超时（毫秒）：防止 execute 卡死导致 Agent 挂起 */
 export const TOOL_TIMEOUT_MS = 30_000;
 
-/** 日志/异常参数截断，避免刷屏 */
-export function truncate(value: unknown, max = 200): unknown {
+/**
+ * 截断后的值：JSON 风格的边界数据（日志/异常参数）。
+ * 显式给出形状而不是 `unknown`——调用方据此知道"能安全序列化进日志"，
+ * 非 JSON 值（函数/symbol）在实现里统一降级为字符串。
+ */
+export type TruncatedValue =
+  | string
+  | number
+  | boolean
+  | null
+  | undefined
+  | TruncatedValue[]
+  | { [key: string]: TruncatedValue };
+
+/** 日志/异常参数截断，避免刷屏（与输入同构，只把长字符串折叠） */
+export function truncate(value: unknown, max = 200): TruncatedValue {
   if (typeof value === "string") {
     return value.length > max ? `${value.slice(0, max)}…(+${value.length - max}字)` : value;
   }
   if (Array.isArray(value)) return value.map((item) => truncate(item, max));
   if (value && typeof value === "object") {
-    const out: Record<string, unknown> = {};
+    const out: Record<string, TruncatedValue> = {};
     for (const [key, item] of Object.entries(value as Record<string, unknown>)) {
       out[key] = truncate(item, max);
     }
     return out;
   }
-  return value;
+  // 非 JSON 标量（函数 / symbol / bigint）：日志里只需要一个可读表示
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+    return value;
+  }
+  return value === null || value === undefined ? value : String(value);
 }
 
 /** 参数展示文本：JSON 序列化 + 截断（tool_start 的 argsText） */
@@ -130,16 +148,19 @@ export const DOOM_LOOP_STOP_THRESHOLD = 5;
 
 /** 参数签名：JSON 序列化 + 键排序（键序不同的等价参数视为同签名） */
 function doomSignature(name: ToolName, args: unknown): string {
-  const sortDeep = (value: unknown): unknown => {
+  const sortDeep = (value: unknown): TruncatedValue => {
     if (Array.isArray(value)) return value.map(sortDeep);
     if (value && typeof value === "object") {
-      const out: Record<string, unknown> = {};
-      for (const key of Object.keys(value as Record<string, unknown>).sort()) {
+      const out: Record<string, TruncatedValue> = {};
+      for (const key of Object.keys(value as Record<string, unknown>).sort((a, b) => a.localeCompare(b))) {
         out[key] = sortDeep((value as Record<string, unknown>)[key]);
       }
       return out;
     }
-    return value;
+    if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+      return value;
+    }
+    return value === null || value === undefined ? value : String(value);
   };
   try {
     return `${name}|${JSON.stringify(sortDeep(args))}`;

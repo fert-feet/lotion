@@ -24,7 +24,7 @@ import { createGetDocOutlineTool } from "./doc-outline";
 import { createGetDocBlocksTool } from "./doc-blocks";
 import { createUpdateBlockTool } from "./update-block";
 import { buildToolSet, createHostToolRegistry, type AnyTool, type HostToolRegistry } from "./registry";
-import { createDoomLoopTracker, summariseFallback, type DoomLoopTracker, type ToolEvent, type ToolName } from "./runtime";
+import { createDoomLoopTracker, type DoomLoopTracker, type ToolEvent, type ToolName } from "./runtime";
 import { TOOL_META } from "@/lib/tool-meta";
 
 // 公共件住在 ./runtime（注册表也用它）；这里按旧路径再导出，保持向后兼容
@@ -34,7 +34,6 @@ export {
   DOOM_LOOP_STOP_THRESHOLD,
   DOOM_LOOP_WARN_THRESHOLD,
   looksLikeFailure,
-  summariseFallback,
   TOOL_TIMEOUT_MS,
   truncate,
   wrapToolOutput,
@@ -97,7 +96,12 @@ function summarizeResult(tool: ToolName, result: string): string {
       const t = pick(/「([^」]+)」已从回收站恢复/);
       return t ? "已恢复「" + t + "」" : "已恢复";
     }
-    case "archiveNote": return "已归档到回收站";
+    case "manageTrash": {
+      if (result.includes("回收站中有")) return "已查看回收站";
+      if (result.includes("已归档")) return "已归档到回收站";
+      if (result.includes("已从回收站恢复")) return "已从回收站恢复";
+      return "回收站操作完成";
+    }
     case "deleteNote": return "等待用户确认删除";
     case "askUser": {
       const n = pick(/已向用户提出结构化问题/);
@@ -123,8 +127,10 @@ function summarizeResult(tool: ToolName, result: string): string {
       const m = result.match(/已更新笔记「([^」]+)」第 (\d+) 块/);
       return m ? "已更新「" + m[1] + "」第 " + m[2] + " 块" : "已更新块";
     }
+    // 插件贡献的工具没有内置摘要规则：退化为截断原文
+    default:
+      return result.length > 60 ? result.slice(0, 60) + "…" : result;
   }
-  return summariseFallback(result);
 }
 /**
  * 注册内置工具。插件也可以往同一个注册表加自己的工具：

@@ -89,8 +89,13 @@ export async function ensureDocBlocks(
     try {
       // 规范化历史遗留块（旧版 `[ ]` bulletListItem → checkListItem），AI 工具结构正确
       const parsed = (JSON.parse(doc.content ?? "[]") as AnyBlock[]) ?? [];
+      // SAFETY: 这里的两处 as unknown as 是"同一份 BlockNote JSON 的两种视图"：
+      // 编辑器侧的 EditorBlockLike 只声明了 content/children 等宽松形状，服务端 AnyBlock
+      // 是其超集。normalizeChecklistBlocks 只读写 content/type/children，不会越界。
       return {
-        blocks: normalizeChecklistBlocks(parsed as unknown as import("@/lib/content").EditorBlockLike[]) as AnyBlock[],
+        blocks: normalizeChecklistBlocks(
+          parsed as unknown as import("@/lib/content").EditorBlockLike[],
+        ) as AnyBlock[],
         title: doc.title,
       };
     } catch {
