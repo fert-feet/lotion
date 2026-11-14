@@ -287,3 +287,33 @@ describe("documents API —— 归属隔离（PATCH/DELETE 横向越权回归）
     expect(getDocumentById(state.db!, docId, owner.userId)).toBeNull();
   });
 });
+
+describe("GET /api/documents/:id/export（Markdown 导出）", () => {
+  it("已登录可导出 md：Content-Disposition 带 UTF-8 文件名，正文含标题", async () => {
+    const { cookie } = await authCookie("exp@x.com");
+    const created = await call("/api/documents", "POST", cookie, { title: "会议/纪要 2026" });
+    const { id } = (await created.json()) as { id: string };
+    await call(`/api/documents/${id}`, "PATCH", cookie, { content: "正文内容" });
+
+    const res = await call(`/api/documents/${id}/export?format=md`, "GET", cookie);
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toContain("text/markdown");
+    const disposition = res.headers.get("content-disposition") ?? "";
+    expect(disposition).toContain("attachment");
+    // 文件名里的 / 被替换，且带 RFC 5987 的 filename*
+    expect(disposition).toMatch(/filename\*=UTF-8''/);
+    const body = await res.text();
+    expect(body.startsWith("# 会议/纪要 2026")).toBe(true);
+    expect(body).toContain("正文内容");
+  });
+
+  it("未登录 401；不存在的文档 404；非 md 格式 400", async () => {
+    const { cookie } = await authCookie("exp2@x.com");
+    const created = await call("/api/documents", "POST", cookie, { title: "x" });
+    const { id } = (await created.json()) as { id: string };
+
+    expect((await call(`/api/documents/${id}/export`, "GET")).status).toBe(401);
+    expect((await call(`/api/documents/nope/export`, "GET", cookie)).status).toBe(404);
+    expect((await call(`/api/documents/${id}/export?format=pdf`, "GET", cookie)).status).toBe(400);
+  });
+});

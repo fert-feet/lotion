@@ -14,11 +14,13 @@ import {
   AuthError,
 } from "@/lib/local/auth";
 import { readJson, type AppEnv } from "../http";
+import { AUTH_RATE_LIMIT, rateLimit } from "../middleware";
 
 export const authRoutes = new Hono<AppEnv>();
 
 /** POST /api/auth/register —— 注册并直接建立会话（返回用户 + 种 cookie） */
-authRoutes.post("/register", async (c) => {
+// 注册/登录都吃限流：scrypt 是 CPU 密集操作，裸奔等于免费放大器
+authRoutes.post("/register", rateLimit(AUTH_RATE_LIMIT), async (c) => {
   const parsed = await readJson<{ email?: string; password?: string; name?: string }>(c);
   if (!parsed.ok) return c.json({ error: "请求体不是合法 JSON" }, 400);
   const { email = "", password = "", name } = parsed.data;
@@ -38,7 +40,7 @@ authRoutes.post("/register", async (c) => {
 });
 
 /** POST /api/auth/login —— 校验密码并建立会话（返回用户 + 种 cookie） */
-authRoutes.post("/login", async (c) => {
+authRoutes.post("/login", rateLimit(AUTH_RATE_LIMIT), async (c) => {
   const parsed = await readJson<{ email?: string; password?: string }>(c);
   if (!parsed.ok) return c.json({ error: "请求体不是合法 JSON" }, 400);
   const { email = "", password = "" } = parsed.data;

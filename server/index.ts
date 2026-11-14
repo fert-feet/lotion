@@ -17,6 +17,30 @@ const { bootHostKernel } = await import("./kernel");
 // 宿主内核装配（组合根）：settings / docStore 提供方在此挂载。
 // PORT 等配置改由内核的配置层读取（env > data/settings.json > 组合默认）。
 const kernel = await bootHostKernel();
+
+// 启动期维护：过期会话清理 + 数据库快照（都失败不阻断启动）
+const { getDb } = await import("@/lib/local/sqlite");
+const { purgeExpiredSessions } = await import("@/lib/local/auth");
+const { backupDatabase } = await import("@/lib/local/backup");
+try {
+  const purged = purgeExpiredSessions(getDb());
+  if (purged > 0) console.log(`[server] 清理过期会话 ${purged} 条`);
+} catch (e) {
+  console.warn("[server] 过期会话清理失败：", e);
+}
+const backup = backupDatabase(getDb(), { dir: path.join(process.cwd(), "data", "backups") });
+if (backup.created) console.log(`[server] 数据库快照：${backup.file}（清理 ${backup.pruned} 份旧备份）`);
+
+// 每日维护：不 unref 会阻止进程退出，unref 后随主进程生命周期结束
+const maintenanceTimer = setInterval(() => {
+  try {
+    purgeExpiredSessions(getDb());
+    backupDatabase(getDb(), { dir: path.join(process.cwd(), "data", "backups") });
+  } catch (e) {
+    console.warn("[server] 每日维护失败：", e);
+  }
+}, 24 * 60 * 60 * 1000);
+maintenanceTimer.unref();
 const PORT = kernel.settings.server.get().port;
 const distDir = path.join(process.cwd(), "dist");
 const indexPath = path.join(distDir, "index.html");

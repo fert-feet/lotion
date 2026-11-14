@@ -1,9 +1,12 @@
 // 本地 Auth 核心单测（scrypt 哈希 / 用户 / 会话生命周期）
 import { describe, it, expect, beforeEach } from "vitest";
+import { randomBytes, scryptSync } from "node:crypto";
 import type Database from "better-sqlite3";
 import { openTestDb } from "@/lib/local/sqlite";
 import {
   hashPassword,
+  needsRehash,
+  purgeExpiredSessions,
   verifyPassword,
   isValidEmail,
   parseCookies,
@@ -28,7 +31,7 @@ describe("lib/local/auth parseCookies", () => {
 describe("lib/local/auth 密码哈希", () => {
   it("哈希可验证，错误密码/畸形存储返回 false", () => {
     const stored = hashPassword("correct horse");
-    expect(stored.startsWith("s1$")).toBe(true);
+    expect(stored.startsWith("s2$")).toBe(true);
     expect(verifyPassword("correct horse", stored)).toBe(true);
     expect(verifyPassword("wrong", stored)).toBe(false);
     expect(verifyPassword("x", "not-a-valid-format")).toBe(false);
@@ -37,6 +40,25 @@ describe("lib/local/auth 密码哈希", () => {
 
   it("同一密码两次哈希盐不同（存储不可预测）", () => {
     expect(hashPassword("same")).not.toBe(hashPassword("same"));
+  });
+
+  it("旧参数哈希（s1）仍可验证，并标记为需要升级 —— 参数升级不能把存量用户锁在门外", () => {
+    // 手工构造旧版本哈希（N=2^14），模拟升级前注册的账号
+    const salt = randomBytes(16);
+    const legacy = `s1$${salt.toString("base64")}$${scryptSync("old-pass", salt, 64, {
+      N: 16384,
+      r: 8,
+      p: 1,
+      maxmem: 64 * 1024 * 1024,
+    }).toString("base64")}`;
+    expect(verifyPassword("old-pass", legacy)).toBe(true);
+    expect(verifyPassword("wrong", legacy)).toBe(false);
+    expect(needsRehash(legacy)).toBe(true);
+    expect(needsRehash(hashPassword("new-pass"))).toBe(false);
+  });
+
+  it("未知版本前缀拒绝（未来算法回滚不会被误判为通过）", () => {
+    expect(verifyPassword("x", "s9$AAAA$BBBB")).toBe(false);
   });
 
   it("邮箱格式校验", () => {
@@ -67,10 +89,10 @@ describe("lib/local/auth 用户与会话", () => {
   });
 
   it("createUser 校验：非法邮箱/短密码抛 INVALID_INPUT，重复邮箱抛 EMAIL_EXISTS（大小写不敏感）", () => {
-    expect(() => createUser(db, "bad", "password123")).toThrowError(AuthError);
-    expect(() => createUser(db, "a@b.com", "short")).toThrowError(AuthError);
+    expect(() => createUser(db, "bad", "password123")).toThrow(AuthError);
+    expect(() => createUser(db, "a@b.com", "short")).toThrow(AuthError);
     createUser(db, "dup@x.com", "password123");
-    expect(() => createUser(db, "DUP@x.com", "password123")).toThrowError(
+    expect(() => createUser(db, "DUP@x.com", "password123")).toThrow(
       /已注册/,
     );
   });
@@ -120,6 +142,22 @@ describe("lib/local/auth 用户与会话", () => {
     );
     expect(getSessionUser(db, token)).toBeNull();
     expect(db.prepare("SELECT COUNT(*) AS n FROM sessions").get() as { n: number }).toStrictEqual({ n: 0 });
+  });
+
+  it("purgeExpiredSessions 全局清理（不依赖某个用户登录）", () => {
+    const a = createUser(db, "pa@x.com", "password123");
+    const b = createUser(db, "pb@x.com", "password123");
+    const ta = createSession(db, a.id);
+    const tb = createSession(db, b.id);
+    db.prepare("UPDATE sessions SET expiresAt = ? WHERE id = ?").run(
+      "2000-01-01T00:00:00.000Z",
+      ta,
+    );
+    // 只有 ta 过期；tb 仍有效
+    expect(purgeExpiredSessions(db)).toBe(1);
+    const left = db.prepare("SELECT id FROM sessions").all() as { id: string }[];
+    expect(left.map((r) => r.id)).toEqual([tb]);
+    expect(purgeExpiredSessions(db)).toBe(0);
   });
 
   it("createSession 顺手清理同用户过期会话", () => {

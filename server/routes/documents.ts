@@ -17,7 +17,7 @@ import {
 } from "@/lib/local/db";
 import { readJson, type AppEnv } from "../http";
 import { requireAuth } from "../middleware";
-import { appendMarkdownToDocument } from "@/lib/content-server";
+import { appendMarkdownToDocument, toMarkdown } from "@/lib/content-server";
 
 const UPDATEABLE_FIELDS = [
   "title",
@@ -61,6 +61,30 @@ documentsRoutes.get("/:documentId", (c) => {
   const doc = getDocumentById(getDb(), c.req.param("documentId"), user.id);
   if (!doc) return c.json({ error: "Not found" }, 404);
   return c.json(doc);
+});
+
+/**
+ * GET /api/documents/:documentId/export?format=md —— 导出 Markdown
+ * 数据可迁移是笔记类产品的基本承诺（toMarkdown 已有，导出几乎零成本）。
+ * 文件名用 RFC 6266 的 filename* 传 UTF-8，中文标题不会乱码。
+ */
+documentsRoutes.get("/:documentId/export", async (c) => {
+  const user = c.get("user");
+  const doc = getDocumentById(getDb(), c.req.param("documentId"), user.id);
+  if (!doc) return c.json({ error: "Not found" }, 404);
+
+  const format = c.req.query("format") ?? "md";
+  if (format !== "md") return c.json({ error: "仅支持 format=md" }, 400);
+
+  const body = await toMarkdown(doc.content);
+  const title = doc.title || "无标题";
+  const filename = `${title.replace(/[\\/:*?"<>|]/g, "-")}.md`;
+  c.header("Content-Type", "text/markdown; charset=utf-8");
+  c.header(
+    "Content-Disposition",
+    `attachment; filename="${encodeURIComponent(filename)}"; filename*=UTF-8''${encodeURIComponent(filename)}`,
+  );
+  return c.body(`# ${title}\n\n${body}`);
 });
 
 /** PATCH /api/documents/:documentId —— 更新（字段白名单） */

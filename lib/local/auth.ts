@@ -10,11 +10,21 @@ export const SESSION_COOKIE = "lotion_session";
 export const SESSION_TTL_DAYS = 30; // 会话有效期（天）
 export const MIN_PASSWORD_LENGTH = 8;
 
-// scrypt 参数（与 OWASP 推荐同量级；maxmem 显式放宽，防 Node 默认 32MB 限制抛错）
-const SCRYPT = { N: 16384, r: 8, p: 1 } as const;
+// scrypt 参数：OWASP 现行建议 N=2^17（旧版是 2009 年的交互档 2^14）。
+// maxmem 必须显式放宽，否则 Node 默认 32MB 上限会直接抛错（2^17 × 8 × 128 ≈ 134MB）。
+const SCRYPT = { N: 131072, r: 8, p: 1 } as const;
+// 历史版本参数：仍要能校验旧哈希（用户下次登录时自动升级，见 verifyPassword 的 needsRehash）
+const SCRYPT_LEGACY = { N: 16384, r: 8, p: 1 } as const;
 const KEY_LEN = 64;
-const SCRYPT_OPTS = { ...SCRYPT, maxmem: 64 * 1024 * 1024 } as const;
-const HASH_VERSION = "s1";
+const SCRYPT_OPTS = { ...SCRYPT, maxmem: 256 * 1024 * 1024 } as const;
+const SCRYPT_OPTS_LEGACY = { ...SCRYPT_LEGACY, maxmem: 64 * 1024 * 1024 } as const;
+/** 当前写入版本；s1 = 旧参数（N=2^14），s2 = 现行参数（N=2^17） */
+const HASH_VERSION = "s2";
+const LEGACY_VERSION = "s1";
+const PARAMS_BY_VERSION: Record<string, { N: number; r: number; p: number; maxmem: number }> = {
+  [HASH_VERSION]: SCRYPT_OPTS,
+  [LEGACY_VERSION]: SCRYPT_OPTS_LEGACY,
+};
 
 /** 本地用户（前端可见形状：与 Supabase User 的 id/email 字段对齐，组件改造面最小） */
 export type LocalUser = {
@@ -57,21 +67,31 @@ export function parseCookies(header: string | null): Record<string, string> {
 
 // ---- 密码哈希 ----
 
-/** scrypt 哈希，格式 s1$<saltB64>$<hashB64>（带版本前缀便于未来迁移算法） */
+/** scrypt 哈希，格式 s2$<saltB64>$<hashB64>（版本前缀让参数升级可以不破坏存量密码） */
 export function hashPassword(password: string): string {
   const salt = randomBytes(16);
   const hash = scryptSync(password, salt, KEY_LEN, SCRYPT_OPTS);
   return `${HASH_VERSION}$${salt.toString("base64")}$${hash.toString("base64")}`;
 }
 
-/** 常量时间比较（含格式校验；畸形存储直接返回 false） */
+/**
+ * 常量时间比较（含格式校验；畸形存储直接返回 false）。
+ * 同时接受旧版本参数（s1）：参数升级不能让存量用户登不进来。
+ */
 export function verifyPassword(password: string, stored: string): boolean {
   const parts = stored.split("$");
-  if (parts.length !== 3 || parts[0] !== HASH_VERSION) return false;
-  const salt = Buffer.from(parts[1], "base64");
-  const expected = Buffer.from(parts[2], "base64");
-  const actual = scryptSync(password, salt, expected.length, SCRYPT_OPTS);
+  if (parts.length !== 3) return false;
+  const opts = PARAMS_BY_VERSION[parts[0] ?? ""];
+  if (!opts) return false;
+  const salt = Buffer.from(parts[1] ?? "", "base64");
+  const expected = Buffer.from(parts[2] ?? "", "base64");
+  const actual = scryptSync(password, salt, expected.length, opts);
   return actual.length === expected.length && timingSafeEqual(actual, expected);
+}
+
+/** 该哈希是否用了旧参数（登录成功后据此原地升级，无需用户改密码） */
+export function needsRehash(stored: string): boolean {
+  return stored.split("$")[0] !== HASH_VERSION;
 }
 
 // 用户不存在时用于"假验证"的固定哈希：抹平用户存在与否的响应时间差，防枚举
@@ -116,7 +136,25 @@ export function loginUser(db: Database.Database, email: string, password: string
   if (!verifyPassword(password, row.passwordHash)) {
     throw new AuthError("INVALID_CREDENTIALS", "邮箱或密码错误");
   }
+  // 参数已升级：拿到明文密码的这一刻是唯一能重算哈希的机会
+  if (needsRehash(row.passwordHash)) {
+    db.prepare("UPDATE users SET passwordHash = ?, updatedAt = ? WHERE id = ?").run(
+      hashPassword(password),
+      isoNow(),
+      row.id,
+    );
+  }
   return { id: row.id, email: row.email, name: row.name };
+}
+
+/**
+ * 全局清理过期会话（启动 + 每日调用）。
+ * 此前只在某人登录时删**他自己**的过期会话，不登录的账号会永久堆积。
+ * @returns 清理条数
+ */
+export function purgeExpiredSessions(db: Database.Database): number {
+  const result = db.prepare("DELETE FROM sessions WHERE expiresAt <= ?").run(isoNow());
+  return result.changes;
 }
 
 /** 创建会话：返回随机 token（同时作为 cookie 值），过期时间 30 天 */
