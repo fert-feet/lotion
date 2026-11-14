@@ -131,7 +131,7 @@ lib/
 ├── agent.ts                # Agent 核心：streamText + doom loop 检测 + SSE 事件流包装 + 回合快照/改动前快照
 ├── chat-snapshot.ts        # 回合快照类型 + 宽容解析（客户端/服务端共享，⚠️ 环境无关）
 ├── tool-meta.ts            # 工具标签/图标单一真相源（客户端 AI 面板也导入）
-├── ai/tools/               # 19 个 Tool（search/list/read/create/update/rename/move/icon/publish/archive/restore/trash/delete/askUser/todoWrite/docInfo/docOutline/docBlocks/updateBlock）+ registry.ts（注册表/守卫）+ blocks-util.ts
+├── ai/tools/               # 17 个 Tool（search/list/read/create/update/rename/move/icon/publish/manageTrash/delete/askUser/todoWrite/docInfo/docOutline/docBlocks/updateBlock）+ registry.ts（注册表/守卫）+ blocks-util.ts
 ├── ai/runtime-config.ts    # 每次请求解析模型/Key（走配置层，不读模块顶层 env）
 ├── ai-prompts.ts           # AI 系统提示词（领域概念/使用模式/规范/安全）
 ├── blocknote-schema.ts     # 自定义 schema（callout / mention），客户端服务端共享
@@ -148,9 +148,9 @@ templates/plugin/           # 第三方插件最小模板（复制到 data/plugi
 test/                       # Vitest 单测（lib/ / api/ / components/ / seams/ 同构）
 ```
 
-- 数据库 6 张表：users / sessions / documents / chat_sessions / chat_messages / ai_changes
+- 数据库 7 张表：users / sessions / documents / chat_sessions / chat_messages / ai_changes / document_versions
   （另有 FTS5 虚拟表 `documents_fts`：trigram 分词，触发器同步，供 AI searchNotes 用；`<3` 字回落 LIKE）
-  （每次启动自动迁移，当前 5 个迁移；chat_messages.metadata=回合快照，chat_sessions.documentId=会话绑定文档）
+  （每次启动自动迁移，当前 6 个迁移；chat_messages.metadata=回合快照，chat_sessions.documentId=会话绑定文档）
 - `documents` 自引用（`parentDocument`）支持嵌套；多用户隔离靠**应用层显式 userId 过滤**（无 RLS）
 - AI 面板在 `src/shell/ai-panel.tsx`（纯逻辑在 `src/shell/ai/turn-reducer.ts`，有单测），
   流式渲染；**三种呈现模式** `docked`（占列，默认）/ `overlay`（浮层，点遮罩关闭）/

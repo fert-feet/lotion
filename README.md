@@ -8,7 +8,7 @@
 >
 > 架构是**插件化**的（内核 + 8 条接缝 + 内置插件）：内核用 `@deepseek-ai/cordis`，全仓库只有 `lib/kernel/cordis.ts` 一处 import 它。见 [docs/插件化架构.md](docs/插件化架构.md)，第三方插件格式见 [docs/插件开发.md](docs/插件开发.md)。
 
-全栈 AI 笔记应用：**Vite 8 + React 19** 前端 SPA（react-router 7），**Hono 4** 单进程提供 REST API 与静态资源，**SQLite 本地数据库**存储，**BlockNote 0.54** 负责富文本编辑，**DeepSeek Agent**（19 个工具）帮你搜索、创建、修改和整理笔记。界面遵循 **Apple / macOS 视觉语言**：系统色板、半透明材质、SF 字体栈与克制的圆角阴影，明暗双主题完整适配。
+全栈 AI 笔记应用：**Vite 8 + React 19** 前端 SPA（react-router 7），**Hono 4** 单进程提供 REST API 与静态资源，**SQLite 本地数据库**存储，**BlockNote 0.54** 负责富文本编辑，**DeepSeek Agent**（17 个工具）帮你搜索、创建、修改和整理笔记。界面遵循 **Apple / macOS 视觉语言**：系统色板、半透明材质、SF 字体栈与克制的圆角阴影，明暗双主题完整适配。
 
 ## 特性
 
@@ -33,10 +33,14 @@
 
 **AI Agent**
 
-- **19 个工具自主决策** — 检索 / 写入 / 组织 / 交互四类（见下），SSE 事件流实时推送每一步进度
+- **17 个工具自主决策** — 检索 / 写入 / 组织 / 交互四类（见下），SSE 事件流实时推送每一步进度
 - **流式事件协议** — 14 种事件类型，前端按事件行解析（非拼接文本 + 正则提取）
 - **Doom loop 检测** — 相同工具 + 参数连续失败 3 次警告、5 次中止（对齐 SiYuan）
 - **上下文压缩** — 滑动窗口保留最近 100 条消息原文（注入最近 N 条），滑出部分由模型重写式摘要（`lib/compress.ts`）
+- **版本历史** — 每次改动前自动留档（60s 节流、每篇 50 份），可预览与一键回滚；
+  回滚本身也留档，回滚错了能再滚回来
+- **PWA** — 可安装；`/assets/*` 缓存优先、导航网络优先 + 外壳回退、**/api 永不缓存**
+- **上传图片优化** — sharp 缩到长边 2048 并转 webp（更小才替换；GIF 原样保留）
 - **导出 / 快照** — `GET /api/documents/:id/export?format=md`（RFC 5987 文件名）；
   启动与每日维护会 `VACUUM INTO` 做一次数据库快照（保留 7 份，24h 节流）
 - **全文搜索** — FTS5 + trigram（中文 ≥3 字走索引，更短回落 LIKE），触发器与文档表同步
@@ -88,7 +92,7 @@
 用户输入经过 `/api/ai/chat` 进入 Agent 循环：`streamText` 驱动 DeepSeek 自主调用工具，工具副作用经 `onEvent` 回调上报事件队列，再以 SSE 事件流逐条推送给前端：
 
 ```
-用户 prompt → POST /api/ai/chat → streamText({ model: AI_MODEL, tools: 19 个, stopWhen: stepCountIs(5) })
+用户 prompt → POST /api/ai/chat → streamText({ model: AI_MODEL, tools: 17 个, stopWhen: stepCountIs(5) })
   → AI 调用 Tool（search/list/read/create/update/rename/move/icon/publish/archive/restore/trash/delete/
                   askUser/todoWrite/docInfo/docOutline/docBlocks/updateBlock）
   → onEvent 上报副作用（创建 / 修改 / 删除确认 / 移动确认 / 提问 / 待办 / 引用）
@@ -113,13 +117,13 @@
 | `turn_end` | 一轮结束（耗时 + token 统计） |
 | `error` | 生成中途出错（模型 API 异常等） |
 
-### Agent 工具（19 个）
+### Agent 工具（17 个）
 
 | 类别 | 工具 |
 |------|------|
 | 检索 | `searchNotes` `listNotes` `readNote` `getDocInfo` `getDocOutline` `getDocBlocks` |
 | 写入 | `createNote` `updateNote` `renameNote` `moveNote` `setNoteIcon` `updateBlock` |
-| 组织 | `publishNote` `archiveNote` `restoreNote` `listTrash` `deleteNote` |
+| 组织 | `publishNote` `manageTrash`（list/archive/restore 三合一） `deleteNote` |
 | 交互 | `askUser` `todoWrite` |
 
 ## 快速开始
@@ -222,7 +226,7 @@ lib/
 ├── content-server.ts             # ⚠️ 服务端专用：JSON ↔ Markdown（@blocknote/server-util）
 ├── blocknote-schema.ts           # 自定义 schema（callout / mention），客户端服务端共享
 ├── agent.ts                      # Agent 核心：streamText + doom loop + 回合快照 + 改动前快照（撤销）
-├── ai/tools/                     # 19 个 Agent Tool + registry.ts（注册表/守卫）+ blocks-util.ts
+├── ai/tools/                     # 17 个 Agent Tool + registry.ts（注册表/守卫）+ blocks-util.ts
 ├── ai/runtime-config.ts          # 每次请求解析模型/Key（走配置层）
 ├── chat-snapshot.ts              # 回合快照类型与宽容解析（客户端/服务端共享）
 ├── tool-meta.ts                  # 工具标签/图标单一真相源（客户端也导入）
@@ -231,12 +235,12 @@ lib/
 public/plugin-market/             # 本地市场 registry + 示例 bundle
 templates/plugin/                 # 第三方插件最小模板
 docs/                             # 插件化架构 / 本地数据库版 / 插件开发
-test/                             # Vitest 单测（与 lib/、server/ 同构，771 个用例）
+test/                             # Vitest 单测（与 lib/、server/ 同构，793 个用例）
 ```
 
 ## 数据模型（SQLite 6 张表）
 
-`users` / `sessions` / `documents` / `chat_sessions` / `chat_messages` / `ai_changes`，每次启动自动迁移（`lib/local/migrations.ts` 内嵌 DDL + `_migrations` 记录表，当前 5 个迁移）。
+`users` / `sessions` / `documents` / `chat_sessions` / `chat_messages` / `ai_changes`，每次启动自动迁移（`lib/local/migrations.ts` 内嵌 DDL + `_migrations` 记录表，当前 6 个迁移）。
 
 - `chat_messages.metadata`：assistant 消息的**回合快照**（工具卡/副作用卡/引用/待办/提问/警告/耗时/requestId）与 user 消息的**附件清单**
 - `chat_sessions.documentId`：会话绑定的文档（可空 = 全局会话；文档删除时置空）
@@ -265,7 +269,7 @@ pnpm build        # vite 构建客户端到 dist/
 pnpm start        # 运行 Hono（托管 dist/ + API，单机自托管）
 pnpm typecheck    # tsc --noEmit
 pnpm lint         # ESLint
-pnpm test         # Vitest 单测（771 个用例，内存 SQLite + Hono app.request）
+pnpm test         # Vitest 单测（793 个用例，内存 SQLite + Hono app.request）
 pnpm test:watch   # Vitest 监听模式
 ```
 
