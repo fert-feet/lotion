@@ -19,7 +19,7 @@ const Navbar = () => {
     return (
         <header
             className={cn(
-                "fixed top-0 z-50 flex h-[52px] w-full items-center px-5 md:px-8",
+                "fixed top-0 z-chrome flex h-[52px] w-full items-center px-5 md:px-8",
                 "material-toolbar hairline-b border-border",
                 "transition-colors duration-150",
                 scrolled && "shadow-elevation-1",
@@ -31,17 +31,17 @@ const Navbar = () => {
                 {!isAuthenticated && !loading && (
                     <>
                         <Link to="/login">
-                            <Button variant="ghost" className="cursor-pointer">Login</Button>
+                            <Button variant="ghost" className="cursor-pointer">登录</Button>
                         </Link>
                         <Link to="/register">
-                            <Button className="cursor-pointer">Get Lotion free!</Button>
+                            <Button className="cursor-pointer">免费开始使用</Button>
                         </Link>
                     </>
                 )}
                 {isAuthenticated && !loading && (
                     <Button asChild>
                         <Link to="/documents">
-                            Enter Lotion
+                            进入 Lotion
                         </Link>
                     </Button>
                 )}

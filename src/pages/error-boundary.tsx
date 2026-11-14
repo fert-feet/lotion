@@ -12,14 +12,14 @@ const ErrorBoundary = () => {
   return (
     <div className="flex h-full flex-col items-center justify-center gap-3">
       <div className="flex">
-        <img alt="error" src="/logo.svg" width={300} height={300} />
+        <img alt="出错了" src="/logo.svg" width={300} height={300} />
       </div>
       <h2 className="text-title font-semibold tracking-[-0.02em]">出了点问题</h2>
       <Button
         onClick={() => navigate("/documents")}
         className="mt-1"
       >
-        Go back
+        返回
         <ArrowRight className="h-4 w-4" />
       </Button>
     </div>

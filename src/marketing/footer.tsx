@@ -8,10 +8,10 @@ const Footer = () => {
             <Logo />
             <div className="ml-auto flex items-center gap-x-1">
                 <Button variant="ghost" size="sm" className="cursor-pointer text-muted-foreground">
-                    Privacy Policy
+                    隐私政策
                 </Button>
                 <Button variant="ghost" size="sm" className="cursor-pointer text-muted-foreground">
-                    Terms &amp; Conditions
+                    服务条款
                 </Button>
             </div>
         </footer>

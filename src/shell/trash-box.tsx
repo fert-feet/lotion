@@ -45,9 +45,9 @@ const TrashBox = () => {
         });
 
         toast.promise(promise, {
-            loading: "Removing note...",
-            success: "Note removed",
-            error: "Failed to remove"
+            loading: "正在删除...",
+            success: "已删除",
+            error: "删除失败"
         });
     };
 
@@ -64,9 +64,9 @@ const TrashBox = () => {
         });
 
         toast.promise(promise, {
-            loading: "Restoring note...",
-            success: "Note restored",
-            error: "Failed to restore"
+            loading: "正在恢复...",
+            success: "已恢复",
+            error: "恢复失败"
         });
     };
 
@@ -81,20 +81,20 @@ const TrashBox = () => {
     return (
         // 高度上限由父级 PopoverContent 的 max-h 决定：搜索框固定、列表区独立滚动，
         // 回收站文档很多时不会把浮层撑出视口
-        <div className="flex max-h-[inherit] flex-col text-sm">
+        <div className="flex max-h-[inherit] flex-col text-ui">
             <div className="gap-x-1 flex shrink-0 items-center p-2">
                 <Search className="h-4 w-4 mr-1" />
                 <Input
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     className="h-7 px-2 text-ui-sm"
-                    placeholder="Filter by page title..."
+                    placeholder="按标题筛选..."
                 />
 
             </div>
             <div className="mt-2 min-h-0 flex-1 overflow-y-auto px-1 pb-1">
                 <p className="hidden pb-2 text-center text-ui-sm text-muted-foreground last:block">
-                    No document Found
+                    没有匹配的笔记
                 </p>
                 {filterDocuments?.map((document) => (
                     <div

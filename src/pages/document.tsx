@@ -6,6 +6,7 @@ import type { Document } from "@/lib/seams/doc-store";
 import { useActor, useDocStore } from "@/src/kernel/react";
 import { useRefresh } from "@/hooks/use-refresh";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Button } from "@/components/ui/button";
 import { FileQuestion } from "@/components/icons";
 import Toolbar from "@/components/toobar";
@@ -109,19 +110,16 @@ const DocumentIdPage = () => {
 
     if (document === null) {
         return (
-            <div className="h-full flex flex-col items-center justify-center gap-3 text-center px-4">
-                <FileQuestion className="h-12 w-12 text-muted-foreground" />
-                <div>
-                    <p className="text-base font-medium">文档不存在或已删除</p>
-                </div>
-                <Button
-                    variant="outline"
-                    size="sm"
-                    className="mt-2 cursor-pointer"
-                    onClick={() => navigate("/documents")}
-                >
-                    返回文档列表
-                </Button>
+            <div className="flex h-full items-center justify-center">
+                <EmptyState
+                    icon={<FileQuestion className="h-5 w-5" strokeWidth={1.5} />}
+                    title="文档不存在或已删除"
+                    action={
+                        <Button variant="outline" size="sm" className="cursor-pointer" onClick={() => navigate("/documents")}>
+                            返回文档列表
+                        </Button>
+                    }
+                />
             </div>
         );
     }

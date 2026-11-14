@@ -30,9 +30,9 @@ const Banner = ({
         });
 
         toast.promise(promise, {
-            loading: "Removing note...",
-            success: "Note removed",
-            error: "Failed to remove"
+            loading: "正在删除...",
+            success: "已删除",
+            error: "删除失败"
         });
     };
 
@@ -44,9 +44,9 @@ const Banner = ({
         });
 
         toast.promise(promise, {
-            loading: "Restoring note...",
-            success: "Note restored",
-            error: "Failed to restore"
+            loading: "正在恢复...",
+            success: "已恢复",
+            error: "恢复失败"
         });
     };
 
@@ -61,7 +61,7 @@ const Banner = ({
                     size="sm"
                     variant="outline"
                     onClick={onRestore}
-                    className="h-7 text-xs"
+                    className="h-7 text-ui-sm"
                 >
                     <Undo2 className="h-3.5 w-3.5 mr-1" />
                     恢复
@@ -74,7 +74,7 @@ const Banner = ({
                     <Button
                         size="sm"
                         variant="ghost"
-                        className="h-7 text-xs text-muted-foreground hover:text-destructive"
+                        className="h-7 text-ui-sm text-muted-foreground hover:text-destructive"
                     >
                         <Trash2 className="h-3.5 w-3.5 mr-1" />
                         永久删除

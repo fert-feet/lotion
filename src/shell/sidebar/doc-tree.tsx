@@ -219,15 +219,15 @@ export function DocTree({
         const onExpand = () => onExpandChange?.(doc.id);
         const onCreateChild = () => {
           if (!user) return;
-          const promise = docStore.create({ userId: user.id }, "Untitled", doc.id).then((documentId) => {
+          const promise = docStore.create({ userId: user.id }, "未命名", doc.id).then((documentId) => {
             if (!isExpanded) onExpandChange?.(doc.id);
             triggerSidebar();
             navigate("/documents/" + documentId);
           });
           toast.promise(promise, {
-            loading: "Creating a new note...",
-            success: "New note created",
-            error: "Failed to create a new note.",
+            loading: "正在新建笔记...",
+            success: "已新建笔记",
+            error: "新建笔记失败，请稍后重试",
           });
         };
         const onArchive = () => {
@@ -237,9 +237,9 @@ export function DocTree({
             if (params.documentId === doc.id) navigate("/documents");
           });
           toast.promise(promise, {
-            loading: "Moving to trash...",
-            success: "Note moved to trash",
-            error: "Failed to archive note",
+            loading: "正在移入回收站...",
+            success: "已移入回收站",
+            error: "移入回收站失败",
           });
         };
         return (
@@ -296,14 +296,14 @@ export function DocSearchResults({ docs, query }: {
           role="button"
           onClick={() => { navigate("/documents/" + doc.id); }}
           className={cn(
-            "flex h-8 cursor-pointer select-none items-center gap-1.5 rounded-card px-2 text-shell-label-primary",
+            "flex h-8 cursor-pointer select-none items-center gap-1.5 rounded-control px-1.5 text-ui text-shell-label-primary",
             params.documentId === doc.id ? "bg-shell-row-active" : "hover:bg-shell-row-hover"
           )}
         >
           <span className="flex h-5 w-4 flex-none items-center justify-center">
             {doc.icon ? <span className="text-lead leading-none">{doc.icon}</span> : <FileIcon className="h-4 w-4 text-shell-label-tertiary" strokeWidth={1.75} />}
           </span>
-          <span className="min-w-0 flex-1 truncate text-sm leading-5">{doc.title || "无标题"}</span>
+          <span className="min-w-0 flex-1 truncate text-ui leading-5">{doc.title || "无标题"}</span>
         </div>
       ))}
     </div>

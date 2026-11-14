@@ -37,8 +37,8 @@ const CoverImageModal = () => {
         <Dialog open={coverImage.isOpen} onOpenChange={coverImage.onClose}>
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle className="text-center text-lg font-semibold">
-                        Cover Image
+                    <DialogTitle className="text-center text-lead font-semibold">
+                        封面图片
                     </DialogTitle>
                 </DialogHeader>
                 <UploaderProvider uploadFn={uploadFn} autoUpload>

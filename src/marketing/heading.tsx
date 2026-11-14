@@ -16,14 +16,13 @@ const Heading = () => {
         <section className="mx-auto w-full max-w-[680px] py-6 text-center md:py-10">
             <div className="inline-flex items-center gap-1.5 rounded-full bg-secondary px-3 py-1 text-ui font-medium text-muted-foreground">
                 <Sparkles className="h-3.5 w-3.5 text-primary" strokeWidth={2} />
-                An AI assistant lives inside every note
+                每篇笔记里都住着一个 AI 助手
             </div>
             <h1 className="mt-6 text-balance text-hero font-bold leading-[1.05] tracking-[-0.03em] md:text-hero">
-                The notebook that <span className="text-primary">thinks</span> with you.
+                会<span className="text-primary">思考</span>的笔记
             </h1>
             <p className="mx-auto mt-5 max-w-[560px] text-body leading-[1.5] text-muted-foreground md:text-title">
-                Lotion is the connected workspace where an AI assistant writes,
-                summarizes and organizes your notes — in your language.
+                Lotion 是一个连通的工作空间：AI 助手帮你写、总结、整理笔记——用你自己的语言。
             </p>
             {loading && (
                 <div className="mt-8 flex justify-center">
@@ -34,12 +33,12 @@ const Heading = () => {
                 <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
                     <Link to="/register">
                         <Button className="h-11 rounded-card px-6 text-lead font-medium active:scale-[0.98]">
-                            Get Lotion Free!
+                            免费开始使用
                         </Button>
                     </Link>
                     <Link to="/login">
                         <Button variant="secondary" className="h-11 rounded-card px-6 text-lead font-medium active:scale-[0.98]">
-                            Login
+                            登录
                         </Button>
                     </Link>
                 </div>
@@ -48,7 +47,7 @@ const Heading = () => {
                 <div className="mt-8">
                     <Button asChild className="h-11 rounded-card px-6 text-lead font-medium active:scale-[0.98]">
                         <Link to="/documents">
-                            Enter Lotion
+                            进入 Lotion
                             <ArrowRight className="ml-1 h-4 w-4" strokeWidth={2} />
                         </Link>
                     </Button>

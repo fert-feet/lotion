@@ -22,9 +22,9 @@ const Title = ({
     const triggerDocument = useRefresh((s) => s.triggerDocument);
 
     const [isEditing, setIsEditing] = useState<boolean>(false);
-    const [title, setTitle] = useState(initialData.title || "Untitled");
+    const [title, setTitle] = useState(initialData.title || "未命名");
     // 本地显示的标题：编辑中用自己的 state，失焦立即同步避免闪烁
-    const [displayTitle, setDisplayTitle] = useState(initialData.title || "Untitled");
+    const [displayTitle, setDisplayTitle] = useState(initialData.title || "未命名");
     // 标题写库防抖：击键期间只更新本地 state，停顿 400ms 才落库
     const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
@@ -48,7 +48,7 @@ const Title = ({
     };
 
     const disableInput = () => {
-        const newTitle = title || "Untitled";
+        const newTitle = title || "未命名";
         // 取消未落库的防抖定时器，blur 时立即写入（避免与防抖重复写）
         if (saveTimer.current) {
             clearTimeout(saveTimer.current);
@@ -74,7 +74,7 @@ const Title = ({
         saveTimer.current = setTimeout(() => {
             saveTimer.current = undefined;
             docStore.update(actor, initialData.id, {
-                title: value || "Untitled"
+                title: value || "未命名"
             });
         }, 400);
     };

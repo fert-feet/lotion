@@ -55,27 +55,27 @@ const Cover = ({
             {!!url && (
                 // 迁移自 next/image 的 fill：绝对定位铺满父容器。
                 // 封面来自本地上传（/api/uploads/），无远程图源，故不再需要 next/image 的优化管线。
-                <img src={url} alt="Cover" className="absolute inset-0 h-full w-full object-cover" />
+                <img src={url} alt="封面" className="absolute inset-0 h-full w-full object-cover" />
             )}
             {url && !preview && (
                 <div className="opacity-0 transition group-hover:opacity-100 max-md:opacity-100 absolute bottom-2 right-3 flex items-center gap-x-2">
                     <Button
                         onClick={() => coverImage.onReplace(url)}
-                        className="text-muted-foreground text-xs cursor-pointer"
+                        className="text-muted-foreground text-ui-sm cursor-pointer"
                         variant={"outline"}
                         size={"sm"}
                     >
                         <ImageIcon className="h-4 w-4 mr-2" />
-                        Change cover
+                        更换封面
                     </Button>
                     <Button
                         onClick={onRemove}
-                        className="text-muted-foreground text-xs cursor-pointer"
+                        className="text-muted-foreground text-ui-sm cursor-pointer"
                         variant={"outline"}
                         size={"sm"}
                     >
                         <X className="h-4 w-4 mr-2" />
-                        Remove cover
+                        移除封面
                     </Button>
                 </div>
             )}

@@ -86,7 +86,7 @@ export function SidebarHeader({
             }}
             className={cn(iconBtn, expanded && "ml-0.5")}
           >
-            <Search className="h-3.5 w-3.5" />
+            <Search className="h-4 w-4" />
           </button>
           <input
             ref={inputRef}
@@ -132,7 +132,7 @@ export function SidebarHeader({
             marketActive && "bg-shell-row-active text-shell-label-primary hover:text-shell-label-primary",
           )}
         >
-          <Store className="h-3.5 w-3.5" />
+          <Store className="h-4 w-4" />
         </button>
         {hasAiPanel && (
           <button
@@ -142,7 +142,7 @@ export function SidebarHeader({
             onClick={toggleDetails}
             className={cn(iconBtn, detailsOpen && "bg-ai text-ai-foreground hover:bg-ai hover:text-ai-foreground")}
           >
-            <Sparkles className="h-3.5 w-3.5" />
+            <Sparkles className="h-4 w-4" />
           </button>
         )}
         <button
@@ -152,7 +152,7 @@ export function SidebarHeader({
           onClick={onCreate}
           className={iconBtn}
         >
-          <Plus className="h-3.5 w-3.5" />
+          <Plus className="h-4 w-4" />
         </button>
       </div>
     </div>

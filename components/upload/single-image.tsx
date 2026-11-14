@@ -121,12 +121,12 @@ const SingleImageDropzone = React.forwardRef<
 
             // User-friendly error messages
             const messages: Record<string, string> = {
-              'file-too-large': `The file is too large. Max size is ${formatFileSize(
+              'file-too-large': `文件太大，最大 ${formatFileSize(
                 maxSize ?? 0,
-              )}.`,
-              'file-invalid-type': 'Invalid file type.',
-              'too-many-files': 'You can only upload one file.',
-              default: 'The file is not supported.',
+              )}。`,
+              'file-invalid-type': '文件类型不支持。',
+              'too-many-files': '一次只能上传一个文件。',
+              default: '不支持该文件。',
             };
 
             setError(messages[code] ?? messages.default);
@@ -166,7 +166,7 @@ const SingleImageDropzone = React.forwardRef<
   return (
     <div className="flex flex-col items-center relative">
       {disabled && (
-        <div className="flex items-center justify-center absolute inset-y-0 h-full w-full bg-background/80 z-50">
+        <div className="flex items-center justify-center absolute inset-y-0 z-10 h-full w-full bg-background/80">
           <Spinner className="size-7" />
         </div>
       )}
@@ -191,7 +191,7 @@ const SingleImageDropzone = React.forwardRef<
           // Placeholder content shown when no image is selected
           <div
             className={cn(
-              'flex flex-col items-center justify-center gap-2 text-center text-xs text-muted-foreground',
+              'flex flex-col items-center justify-center gap-2 text-center text-ui-sm text-muted-foreground',
               isDisabled && 'opacity-50',
             )}
           >
@@ -241,7 +241,7 @@ const SingleImageDropzone = React.forwardRef<
 
       {/* Error message display */}
       {errorMessage && (
-        <div className="mt-2 flex items-center text-xs text-destructive">
+        <div className="mt-2 flex items-center text-ui-sm text-destructive">
           <AlertCircleIcon className="mr-1 h-4 w-4" />
           <span>{errorMessage}</span>
         </div>

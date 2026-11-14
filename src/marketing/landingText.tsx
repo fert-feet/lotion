@@ -7,18 +7,18 @@ import { Button } from "@/components/ui/button";
 const features = [
     {
         icon: PenLine,
-        title: "Write freely",
-        description: "Nested pages, covers and icons keep your notes structured the way you think.",
+        title: "自由书写",
+        description: "嵌套页面、封面与图标，让笔记按你思考的方式组织。",
     },
     {
         icon: Sparkles,
-        title: "Ask your notes",
-        description: "Chat with an AI assistant that reads your documents and answers with references.",
+        title: "向笔记提问",
+        description: "和读过你全部文档的 AI 助手对话，回答都带引用。",
     },
     {
         icon: FolderTree,
-        title: "Stay organized",
-        description: "Search, archive and batch-manage — everything lives in one connected space.",
+        title: "保持有序",
+        description: "搜索、归档、批量管理，一切都在同一个连通的空间里。",
     },
 ];
 
@@ -27,10 +27,10 @@ const LandingText = () => {
         <section className="mx-auto w-full max-w-[1000px] py-6 md:py-10">
             <div className="mx-auto max-w-[680px] text-center">
                 <h2 className="text-balance text-display font-bold leading-[1.1] tracking-[-0.025em] md:text-hero">
-                    Built for the way you think.
+                    为你思考的方式而生
                 </h2>
                 <p className="mt-4 text-body leading-[1.5] text-muted-foreground">
-                    Notes, pages and an AI assistant — one calm, connected workspace.
+                    笔记、页面与 AI 助手，一个安静而连通的工作空间。
                 </p>
             </div>
 
@@ -56,15 +56,15 @@ const LandingText = () => {
             {/* 收尾 CTA */}
             <div className="mx-auto mt-16 max-w-[680px] rounded-sheet hairline border-border bg-card px-8 py-14 text-center shadow-elevation-1 md:py-20">
                 <h2 className="text-balance text-display font-bold leading-[1.1] tracking-[-0.025em] md:text-hero">
-                    Start writing with <span className="text-primary">your AI</span>.
+                    和<span className="text-primary">你的 AI</span>一起写作。
                 </h2>
                 <p className="mt-4 text-body leading-[1.5] text-muted-foreground">
-                    Free to start. No credit card required.
+                    免费开始，无需信用卡。
                 </p>
                 <div className="mt-8">
                     <Link to="/register">
                         <Button className="h-11 rounded-card px-6 text-lead font-medium active:scale-[0.98]">
-                            Get Lotion Free!
+                            免费开始使用
                         </Button>
                     </Link>
                 </div>

@@ -33,9 +33,9 @@ const Publish = ({
             .finally(() => setIsSubmitting(false));
 
         toast.promise(promise, {
-            loading: "Publishing...",
-            success: "Note published",
-            error: "Failed to publish note"
+            loading: "正在发布...",
+            success: "已发布",
+            error: "发布失败"
         });
     };
 
@@ -46,9 +46,9 @@ const Publish = ({
             .finally(() => setIsSubmitting(false));
 
         toast.promise(promise, {
-            loading: "UnPublishing...",
-            success: "Note Unpublished",
-            error: "Failed to unpublish note"
+            loading: "正在取消发布...",
+            success: "已取消发布",
+            error: "取消发布失败"
         });
     };
 
@@ -58,7 +58,7 @@ const Publish = ({
             .writeText(url)
             .then(() => {
                 setCopied(true);
-                toast.info("Copied");
+                toast.info("已复制");
             })
             .catch(() => toast.error("复制失败，请手动复制"));
         setTimeout(() => {
@@ -70,7 +70,7 @@ const Publish = ({
         <Popover>
             <PopoverTrigger asChild>
                 <Button size={"sm"} variant={"ghost"}>
-                    Publish
+                    发布
                     {initialData.isPublished && (
                         <Globe
                             className="text-sky-500 w-4 h-4 ml-2"
@@ -90,15 +90,15 @@ const Publish = ({
                             <Globe
                                 className="h-4 w-4 animate-pulse text-sky-500"
                             />
-                            <p className="text-xs text-sky-500 font-medium">
-                                This note is live on web.
+                            <p className="text-ui-sm text-sky-500 font-medium">
+                                这篇笔记已公开到网络。
                             </p>
                         </div>
                         <div className="flex items-center">
                             <input
                                 value={url}
                                 disabled
-                                className="flex-1 px-2 text-xs border rounded-l-md h-8 bg-muted"
+                                className="h-8 flex-1 rounded-l-control hairline border-shell-border-l2 bg-secondary px-2 text-ui-sm text-shell-label-secondary"
                             />
                             <Button
                                 onClick={onCopy}
@@ -115,10 +115,10 @@ const Publish = ({
                         <Button
                             disabled={isSubmitting}
                             onClick={onUnpublish}
-                            className="w-full text-xs"
+                            className="w-full text-ui-sm"
                             size={"sm"}
                         >
-                            Unpublish
+                            取消发布
                         </Button>
                     </div>
                 ) : (
@@ -126,19 +126,19 @@ const Publish = ({
                         <Globe
                             className="h-8 w-8 text-muted-foreground"
                         />
-                        <p className="text-sm font-medium">
-                            Publish this note
+                        <p className="text-ui font-medium">
+                            发布这篇笔记
                         </p>
-                        <span className="text-xs text-muted-foreground mb-1">
-                            Share your work with others
+                        <span className="text-ui-sm text-muted-foreground mb-1">
+                            把这篇笔记分享出去
                         </span>
                         <Button
                             disabled={isSubmitting}
                             onClick={onPublish}
-                            className="w-full text-xs"
+                            className="w-full text-ui-sm"
                             size={"sm"}
                         >
-                            Publish
+                            发布
                         </Button>
                     </div>
                 )}

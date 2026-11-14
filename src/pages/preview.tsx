@@ -5,8 +5,9 @@ import { useNavigate, useParams } from "react-router";
 import type { Document } from "@/lib/seams/doc-store";
 import { useActor, useDocStore } from "@/src/kernel/react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Button } from "@/components/ui/button";
-import { ArrowRight } from "@/components/icons";
+import { ArrowRight, FileQuestion } from "@/components/icons";
 import Toolbar from "@/components/toobar";
 import Cover from "@/src/shell/cover";
 
@@ -55,25 +56,35 @@ const DocumentIdPage = () => {
     }
 
     if (document === null) {
-        return <div>Not found</div>;
+        return (
+            <div className="flex h-full items-center justify-center">
+                <EmptyState
+                    icon={<FileQuestion className="h-5 w-5" strokeWidth={1.5} />}
+                    title="页面不存在"
+                    action={
+                        <Button variant="outline" size="sm" onClick={() => navigate("/")}>
+                            返回
+                        </Button>
+                    }
+                />
+            </div>
+        );
     }
 
     if (!document.isPublished) {
         return (
-            <div className="h-full flex flex-col items-center justify-center space-y-4 px-6">
-                <div className="graph-paper flex h-40 w-40 items-center justify-center rounded-panel border border-border bg-card shadow-elevation-2 shadow-ink/5">
-                    <img alt="error" src="/logo.svg" width={80} height={80} />
-                </div>
-                <h2 className="font-display text-2xl font-semibold tracking-tight pt-4 text-center">
-                    Only the author can view it!
-                </h2>
-                <p className="text-sm text-muted-foreground text-center max-w-xs">
-                    这篇笔记尚未公开，作者发布后才能预览
-                </p>
-                <Button onClick={() => navigate("/")} className="text-md font-medium cursor-pointer bg-ai text-ai-foreground hover:bg-ai/90">
-                    Go back
-                    <ArrowRight className="h-5 w-5 ml-2" />
-                </Button>
+            <div className="flex h-full items-center justify-center">
+                <EmptyState
+                    icon={<img alt="" src="/logo.svg" width={20} height={20} />}
+                    title="只有作者能查看全文"
+                    description="这篇笔记尚未公开，作者发布后才能预览"
+                    action={
+                        <Button onClick={() => navigate("/")} className="cursor-pointer">
+                            返回
+                            <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+                        </Button>
+                    }
+                />
             </div>
         );
     }

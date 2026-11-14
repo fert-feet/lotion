@@ -50,9 +50,9 @@ export function SidebarFooter({ rail, onBatchMode }: SidebarFooterProps) {
         aria-label="设置"
         title="设置"
         onClick={settingsOnOpen}
-        className={cn("flex flex-none items-center justify-center rounded-full bg-transparent p-0 text-shell-label-secondary hover:bg-shell-row-hover", btn)}
+        className={cn("flex flex-none items-center justify-center rounded-control bg-transparent p-0 text-shell-label-secondary hover:bg-shell-row-hover", btn)}
       >
-        <Settings className={rail ? "h-[18px] w-[18px]" : "h-4 w-4"} />
+        <Settings className="h-4 w-4" />
       </button>
 
       <Popover open={trashOpen} onOpenChange={setTrashOpen}>
@@ -61,9 +61,9 @@ export function SidebarFooter({ rail, onBatchMode }: SidebarFooterProps) {
             type="button"
             aria-label="回收站"
             title="回收站"
-            className={cn("flex flex-none items-center justify-center rounded-full bg-transparent p-0 text-shell-label-secondary hover:bg-shell-row-hover", btn)}
+            className={cn("flex flex-none items-center justify-center rounded-control bg-transparent p-0 text-shell-label-secondary hover:bg-shell-row-hover", btn)}
           >
-            <Trash className={rail ? "h-[18px] w-[18px]" : "h-4 w-4"} />
+            <Trash className="h-4 w-4" />
           </button>
         </PopoverTrigger>
         {/* max-h 限制浮层高度：TrashBox 内部按 flex 布局让列表区独立滚动 */}
@@ -81,9 +81,9 @@ export function SidebarFooter({ rail, onBatchMode }: SidebarFooterProps) {
         aria-label="批量删除"
         title="批量删除"
         onClick={onBatchMode}
-        className={cn("flex flex-none items-center justify-center rounded-full bg-transparent p-0 text-shell-label-secondary hover:bg-shell-row-hover", btn)}
+        className={cn("flex flex-none items-center justify-center rounded-control bg-transparent p-0 text-shell-label-secondary hover:bg-shell-row-hover", btn)}
       >
-        <ListChecks className={rail ? "h-[18px] w-[18px]" : "h-4 w-4"} />
+        <ListChecks className="h-4 w-4" />
       </button>
 
       {footerActions.map((action, index) => (
@@ -98,7 +98,7 @@ export function SidebarFooter({ rail, onBatchMode }: SidebarFooterProps) {
             type="button"
             aria-label="用户菜单"
             title={displayName}
-            className={cn("flex flex-none cursor-pointer items-center justify-center rounded-full bg-transparent p-0 hover:bg-shell-row-hover", btn)}
+            className={cn("flex flex-none cursor-pointer items-center justify-center rounded-control bg-transparent p-0 hover:bg-shell-row-hover", btn)}
           >
             <Avatar className="h-6 w-6 shrink-0" />
           </button>
@@ -107,13 +107,13 @@ export function SidebarFooter({ rail, onBatchMode }: SidebarFooterProps) {
           <div className="flex items-center gap-3 p-3">
             <Avatar className="h-9 w-9" />
             <div className="min-w-0">
-              <p className="truncate text-sm font-medium">{displayName}</p>
-              <p className="truncate text-xs text-muted-foreground">{user?.email}</p>
+              <p className="truncate text-ui font-medium">{displayName}</p>
+              <p className="truncate text-ui-sm text-muted-foreground">{user?.email}</p>
             </div>
           </div>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={handleSignOut} className="w-full cursor-pointer text-muted-foreground">
-            Sign out
+            退出登录
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

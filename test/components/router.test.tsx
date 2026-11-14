@@ -86,8 +86,8 @@ describe("路由表", () => {
     mockAnonymous();
     await mountAt("/");
     expect(container.textContent).toContain("Lotion");
-    // 着陆页有登录/注册入口（文案为英文）
-    expect(container.textContent).toMatch(/Login|Sign up/);
+    // 着陆页有登录/注册入口
+    expect(container.textContent).toMatch(/登录|免费开始使用/);
   });
 
   it("未登录访问 /documents 被守卫重定向到 /login", async () => {

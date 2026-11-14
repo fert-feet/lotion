@@ -61,7 +61,7 @@ const Toolbar = ({
     };
 
     const disableInput = () => {
-        const newValue = value || "Untitled";
+        const newValue = value || "未命名";
         // 取消未落库的防抖定时器，blur 时立即写入（避免与防抖重复写）
         if (saveTimer.current) {
             clearTimeout(saveTimer.current);
@@ -83,7 +83,7 @@ const Toolbar = ({
         if (saveTimer.current) clearTimeout(saveTimer.current);
         saveTimer.current = setTimeout(() => {
             saveTimer.current = undefined;
-            docStore.update(actor, initialData.id, { title: value || "Untitled" });
+            docStore.update(actor, initialData.id, { title: value || "未命名" });
         }, 400);
     };
 
@@ -122,7 +122,7 @@ const Toolbar = ({
                     </IconPicker>
                     <Button
                         onClick={onRemoveIcon}
-                        className="rounded-full opacity-0 transition-opacity group-hover/icon:opacity-100 max-md:opacity-100 text-shell-label-secondary"
+                        className="opacity-0 transition-opacity group-hover/icon:opacity-100 max-md:opacity-100 text-shell-label-secondary"
                         variant={"outline"}
                         size={"icon"}
                     >
@@ -146,7 +146,7 @@ const Toolbar = ({
                         >
                             <div>
                                 <Smile className="h-4 w-4 mr-2" />
-                                Add icon
+                                添加图标
                             </div>
                         </Button>
                     </IconPicker>
@@ -170,7 +170,7 @@ const Toolbar = ({
                         size={"sm"}
                     >
                         <ImageIcon className="h-4 w-4 mr-2" />
-                        Add Cover
+                        添加封面
                     </Button>
                 )}
             </div>

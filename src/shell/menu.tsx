@@ -37,9 +37,9 @@ const Menu = ({
             })
 
         toast.promise(promise, {
-            loading: "Moving to trash...",
-            success: "Note moved to trash",
-            error: "Failed to archive note"
+            loading: "正在移入回收站...",
+            success: "已移入回收站",
+            error: "移入回收站失败"
         });
     };
 
@@ -59,11 +59,11 @@ const Menu = ({
                 >
                     <DropdownMenuItem onClick={onArchive} disabled={isArchive} className="cursor-pointer">
                         <Trash className="h-4 w-4 mr-2" />
-                        Delete
+                        删除
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
-                    <div className="text-xs text-muted-foreground p-2 font-medium">
-                        Last edited by: {user.email}
+                    <div className="text-ui-sm text-muted-foreground p-2 font-medium">
+                        最后编辑：{user.email}
                     </div>
                 </DropdownMenuContent>
             </DropdownMenu>

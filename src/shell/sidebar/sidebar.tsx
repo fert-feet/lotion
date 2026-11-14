@@ -57,14 +57,14 @@ export function Sidebar({ wide, onExpand }: SidebarProps) {
 
   const onCreate = () => {
     if (!user) return;
-    const promise = docStore.create({ userId: user.id }, "Untitled").then((documentId) => {
+    const promise = docStore.create({ userId: user.id }, "未命名").then((documentId) => {
       triggerSidebar();
       navigate("/documents/" + documentId);
     });
     toast.promise(promise, {
-      loading: "Creating a new note...",
-      success: "New note created",
-      error: "Failed to create a new note.",
+      loading: "正在新建笔记...",
+      success: "已新建笔记",
+      error: "新建笔记失败，请稍后重试",
     });
   };
 
@@ -113,18 +113,18 @@ export function Sidebar({ wide, onExpand }: SidebarProps) {
             setSearchExpanded(true);
             onExpand();
           }}
-          className="flex h-9 w-9 items-center justify-center rounded-full text-shell-label-primary hover:bg-shell-row-hover"
+          className="flex h-9 w-9 items-center justify-center rounded-card text-shell-label-primary hover:bg-shell-row-hover"
         >
-          <Search className="h-[18px] w-[18px]" />
+          <Search className="h-4 w-4" />
         </button>
         <button
           type="button"
           aria-label="新建笔记"
           title="新建笔记"
           onClick={onCreate}
-          className="flex h-9 w-9 items-center justify-center rounded-full text-shell-label-primary hover:bg-shell-row-hover"
+          className="flex h-9 w-9 items-center justify-center rounded-card text-shell-label-primary hover:bg-shell-row-hover"
         >
-          <Plus className="h-[18px] w-[18px]" />
+          <Plus className="h-4 w-4" />
         </button>
         {hasAiPanel && (
           <button
@@ -133,11 +133,11 @@ export function Sidebar({ wide, onExpand }: SidebarProps) {
             title="AI 助手"
             onClick={toggleDetails}
             className={cn(
-              "flex h-9 w-9 items-center justify-center rounded-full text-shell-label-primary hover:bg-shell-row-hover",
+              "flex h-9 w-9 items-center justify-center rounded-card text-shell-label-primary hover:bg-shell-row-hover",
               detailsOpen && "bg-ai text-ai-foreground hover:bg-ai"
             )}
           >
-            <Sparkles className="h-[18px] w-[18px]" />
+            <Sparkles className="h-4 w-4" />
           </button>
         )}
         <button
@@ -146,11 +146,11 @@ export function Sidebar({ wide, onExpand }: SidebarProps) {
           title="插件市场"
           onClick={() => navigate("/market")}
           className={cn(
-            "flex h-9 w-9 items-center justify-center rounded-full text-shell-label-primary hover:bg-shell-row-hover",
+            "flex h-9 w-9 items-center justify-center rounded-card text-shell-label-primary hover:bg-shell-row-hover",
             marketActive && "bg-shell-row-active",
           )}
         >
-          <Store className="h-[18px] w-[18px]" />
+          <Store className="h-4 w-4" />
         </button>
         <div className="mt-auto" />
         <SidebarFooter rail onBatchMode={() => { setBatchMode(true); onExpand(); }} />
@@ -204,18 +204,18 @@ export function Sidebar({ wide, onExpand }: SidebarProps) {
 
       {/* 批量删除操作条 */}
       {batchMode ? (
-        <div className="flex shrink-0 items-center gap-2 border-t border-shell-border px-3 py-2">
-          <span className="flex-1 truncate text-xs text-shell-label-secondary">已选 {selected.size} 篇</span>
+        <div className="flex shrink-0 items-center gap-2 hairline-t border-shell-border px-3 py-2">
+          <span className="flex-1 truncate text-ui-sm text-shell-label-secondary">已选 {selected.size} 篇</span>
           <ConfirmModal
             onConfirm={batchDelete}
             title={`删除这 ${selected.size} 篇笔记？`}
             description="删除后无法恢复。"
           >
-            <Button size="sm" variant="destructive" disabled={selected.size === 0} className="h-7 cursor-pointer text-xs">
+            <Button size="sm" variant="destructive" disabled={selected.size === 0} className="h-7 cursor-pointer text-ui-sm">
               删除
             </Button>
           </ConfirmModal>
-          <Button size="sm" variant="ghost" className="h-7 cursor-pointer text-xs" onClick={exitBatchMode}>
+          <Button size="sm" variant="ghost" className="h-7 cursor-pointer text-ui-sm" onClick={exitBatchMode}>
             取消
           </Button>
         </div>

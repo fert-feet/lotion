@@ -21,14 +21,14 @@ const DocumentsPage = () => {
   const onCreate = () => {
     if (creating) return;
     setCreating(true);
-    const promise = docStore.create({ userId: user.id }, "Untitled")
+    const promise = docStore.create({ userId: user.id }, "未命名")
       .then((documentId) => { navigate(`/documents/${documentId}`); })
       .finally(() => setCreating(false));
 
     toast.promise(promise, {
-      loading: "Creating a new note...",
-      success: "New note created",
-      error: "Failed to create a new note."
+      loading: "正在新建笔记...",
+      success: "已新建笔记",
+      error: "新建笔记失败，请稍后重试"
     });
   };
 

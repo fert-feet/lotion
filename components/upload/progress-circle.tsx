@@ -84,7 +84,7 @@ const ProgressCircle = React.forwardRef<HTMLDivElement, ProgressCircleProps>(
           />
         </svg>
         {/* Progress Percentage Text (centered visually) */}
-        <div className="z-10 text-xs font-medium">{Math.round(progress)}%</div>
+        <div className="z-10 text-caption font-medium">{Math.round(progress)}%</div>
       </div>
     );
   },
