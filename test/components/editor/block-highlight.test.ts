@@ -7,7 +7,12 @@
 //
 // 修法选了 box-shadow spread 而不是「padding + 负 margin + width 补回」：
 // 阴影不计入可滚动溢出，不会在窄屏上凭空多出一条横向滚动条，也不改换行宽度。
-// 守卫见下方三条断言。
+//
+// 2026-11 追补（同一处后续报障）：高亮外扩 6px 之后，相邻两块的高亮边缘贴在一起了——
+// BlockNote 的 `.bn-block-content { padding: 3px 0 }` 只给相邻块留 6px，外扩 6px 正好填满。
+// 于是块间距也进守卫：`.lotion-editor .bn-block-outer` 必须再补 padding-block，
+// 且「块间距 − 外扩」要留下可辨的净空。
+// 守卫见下方四条断言。
 import { describe, it, expect } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
@@ -43,8 +48,7 @@ const HIGHLIGHT_RULES = parseRules(CSS).filter(
     /background:\s*var\(--shell-row-hover\)/.test(rule.body),
 );
 
-describe("编辑器块高亮：底色给文字留呼吸", () => {
-  it("检测器自身有效：找得到 hover 与 focus-within 那条规则", () => {
+describe("编辑器块高亮：底色给文字留呼吸", () => {  it("检测器自身有效：找得到 hover 与 focus-within 那条规则", () => {
     expect(HIGHLIGHT_RULES.length, "找不到块高亮规则（改名后请同步本守卫）").toBeGreaterThan(0);
     expect(HIGHLIGHT_RULES.some((rule) => rule.selector.includes(":hover"))).toBe(true);
     expect(HIGHLIGHT_RULES.some((rule) => rule.selector.includes(":focus-within"))).toBe(true);
@@ -76,5 +80,43 @@ describe("编辑器块高亮：底色给文字留呼吸", () => {
       expect(rule.selector, "代码块必须继续排除").toContain(':not([data-content-type="codeBlock"])');
       expect(rule.selector, "Callout 必须继续排除").toContain(':not([data-content-type="callout"])');
     }
+  });
+});
+
+// ---------------------------------------------------------------- 块间距
+
+/** BlockNote 自带：`.bn-block-content { padding: 3px 0 }`（node_modules/@blocknote/core/dist/style.css） */
+const BLOCKNOTE_CONTENT_PAD = 3;
+
+/** 高亮的外扩半径（取第一条高亮规则的 spread） */
+function highlightSpread(): number {
+  const shadow = /box-shadow\s*:\s*([^;]+)/.exec(HIGHLIGHT_RULES[0]?.body ?? "")?.[1] ?? "";
+  return Number.parseFloat(/0\s+0\s+0\s+(\d+(?:\.\d+)?)px/.exec(shadow)?.[1] ?? "0");
+}
+
+/** `.lotion-editor .bn-block-outer` 补的纵向内边距（块间距的另一半来自这里） */
+function outerBlockPad(): { rule: Rule | undefined; value: number } {
+  const rule = parseRules(CSS).find((item) => item.selector === ".lotion-editor .bn-block-outer");
+  const raw = /padding-block\s*:\s*(\d+(?:\.\d+)?)px/.exec(rule?.body ?? "")?.[1];
+  return { rule, value: raw === undefined ? Number.NaN : Number.parseFloat(raw) };
+}
+
+describe("编辑器块间距：高亮外扩之后不能贴到邻居", () => {
+  it("外层补了纵向内边距（块间距 = 2 × (BlockNote 3px + 本值)）", () => {
+    const { value } = outerBlockPad();
+    expect(Number.isNaN(value), "缺 `.lotion-editor .bn-block-outer { padding-block }`").toBe(false);
+    expect(value, "外层内边距太小，高亮会重新贴住邻居").toBeGreaterThanOrEqual(3);
+  });
+
+  it("块间距留出净空：gap − 高亮外扩 ≥ 4px", () => {
+    const gap = 2 * (BLOCKNOTE_CONTENT_PAD + outerBlockPad().value);
+    expect(gap - highlightSpread()).toBeGreaterThanOrEqual(4);
+  });
+
+  it("块间距只许用 padding：margin 在块级 .bn-block-group 里会折叠", () => {
+    const { rule } = outerBlockPad();
+    expect(rule?.body ?? "", "相邻 margin 会折叠成 3px，块间距就白加了").not.toMatch(
+      /(?:^|[;\s])margin(?:-block|-block-start|-block-end|-top|-bottom)?\s*:/,
+    );
   });
 });
