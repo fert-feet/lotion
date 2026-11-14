@@ -49,7 +49,13 @@
    `background` 是简写，会**整体替换**块自身的 background-color，而本规则特异性 (0,8,0)
    远高于 BlockNote 的 `.bn-block-content[data-content-type=codeBlock]` (0,2,0)。
    不排除的话，编辑代码块时 #161616 会变成 rgba(0,0,0,.045)——透出页面白底 →
-   「编辑时变亮、静止时又变暗」。守卫见 test/components/editor/code-block-surface.test.ts */
+   「编辑时变亮、静止时又变暗」。守卫见 test/components/editor/code-block-surface.test.ts
+
+   高亮底色要给文字留呼吸：BlockNote 给 `.bn-block-content` 的是 `padding: 3px 0`
+   （横向为 0），所以底色会紧贴文字（截图里「你好」距灰底左边缘约 1px）。
+   这里用 box-shadow 的 spread 把底色向外扩 6px：不占布局、不改换行宽度、
+   也不产生横向滚动条（阴影不计入可滚动溢出，比 padding + 负 margin 安全）。
+   守卫见 test/components/editor/block-highlight.test.ts */
 .lotion-editor .bn-editor
   .bn-block-outer:hover
   > .bn-block
@@ -60,6 +66,8 @@
   > .bn-block-content:not([data-content-type="codeBlock"]):not([data-content-type="callout"]) {
   background: var(--shell-row-hover);
   border-radius: 6px;
+  /* 同色实底阴影 = 底色外扩（不再是紧贴文字的一条灰条） */
+  box-shadow: 0 0 0 6px var(--shell-row-hover);
 }
 
 /* ---- 标题：字号对齐 app 排版基线 ---- */
