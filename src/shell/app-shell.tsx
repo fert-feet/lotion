@@ -12,7 +12,7 @@ import { computeColumns, SIDEBAR_AUTO_COLLAPSE, SIDEBAR_DEFAULT } from "@/lib/la
 import { useLayout, DETAILS_MODES, type DetailsMode } from "@/hooks/use-layout";
 import Sidebar from "./sidebar/sidebar";
 import Navbar from "./navbar";
-import { useSlot } from "@/src/kernel/react";
+import { useHasSlot, useSlot } from "@/src/kernel/react";
 import { SLOT_DETAILS_PANEL } from "./ui-plugins";
 
 /** 中心列 grid item（会话主体构建块）。
@@ -211,7 +211,10 @@ export function AppShell({ children }: { children: ReactNode }) {
   colsRef.current = cols;
   const detailsMode = useLayout((s) => s.detailsMode);
   const cycleDetailsMode = useLayout((s) => s.cycleDetailsMode);
-  const detailsOpen = details > 0;
+  // 详情列是否存在由插件决定：ui-ai-panel 被用户在设置里禁用时槽位无贡献者，
+  // 此时"打开/切模式"一律不成立——否则详情列会作为一块空白壳挂在右边（入口能点、打开没内容）。
+  const hasDetailsPanel = useHasSlot(SLOT_DETAILS_PANEL);
+  const detailsOpen = hasDetailsPanel && details > 0;
   /** 全屏：details 铺满正文区，中心列压成 0（"读" 与 "聊" 两种模式，而非被迫挤压） */
   const detailsFullscreen = detailsOpen && detailsMode === "fullscreen";
   /** 浮层：用户显式选了浮层，或让步链把 details 压成 0（窗口放不下三栏） */
@@ -245,6 +248,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   // ⌘J / Ctrl+J：开合右侧 AI 面板（对齐 DSH 的 details 列快捷键）
   // ⌘⇧J：循环呈现模式（停靠 → 浮层 → 全屏）
   useEffect(() => {
+    // 没有详情列插件时快捷键不接管：⌘J 不应"打开一列空的"
+    if (!hasDetailsPanel) return;
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "j") {
         e.preventDefault();
@@ -254,7 +259,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [toggleDetails, cycleDetailsMode]);
+  }, [toggleDetails, cycleDetailsMode, hasDetailsPanel]);
 
   // 拖拽基准：抓取时定格当前渲染宽，整个手势期间冻结，dx 不叠加。
   const sidebarBase = useRef(0);
@@ -306,10 +311,13 @@ export function AppShell({ children }: { children: ReactNode }) {
         />
       )}
 
-      <DetailsColumn overlay={detailsOverlay}>
-        {/* 详情列内容由 UI 插件贡献（当前是 ui-ai-panel）；0 宽时仅视觉关闭、不卸载 */}
-        <DetailsPanel />
-      </DetailsColumn>
+      {/* 没有详情列插件时连列壳都不渲染：mode 切换器属于列壳，留着就是一块空白的控件条 */}
+      {hasDetailsPanel && (
+        <DetailsColumn overlay={detailsOverlay}>
+          {/* 详情列内容由 UI 插件贡献（当前是 ui-ai-panel）；0 宽时仅视觉关闭、不卸载 */}
+          <DetailsPanel />
+        </DetailsColumn>
+      )}
 
       {/* 折叠 rail 是固定宽：关闭时不渲染拖拽手柄。全屏时 details 不可拖（宽度铺满）。 */}
       {!sidebarCollapsed && (

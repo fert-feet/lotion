@@ -8,7 +8,7 @@
 // 因此测试里可以在 Provider 外层替换内核（extraPlugins），不需要重新发明 DI。
 import { createContext, useContext, useMemo, useSyncExternalStore, type ReactNode, useState, useEffect } from "react";
 import { readService, type Context as KernelContext } from "@/lib/kernel";
-import { requireUiSlots, type UiSlots } from "@/lib/seams/ui-slots";
+import { findUiSlots, requireUiSlots, type UiSlots } from "@/lib/seams/ui-slots";
 import { requireUiDocStore, type Actor, type UiDocStore } from "@/lib/seams/doc-store";
 import { requirePluginAdmin, type PluginAdminService } from "@/lib/seams/plugins";
 import { useUser } from "@/hooks/use-user";
@@ -109,3 +109,18 @@ export function useSlotList(slot: string): ReactNode[] {
   useSyncExternalStore(slots.subscribe, slots.version);
   return slots.list(slot);
 }
+
+/**
+ * 槽位是否有贡献者（布尔）。
+ * 宿主渲染入口按钮与容器列之前先问它：插件被禁用时不留下“能点但打开是空白”的壳。
+ *
+ * 取不到注册表时（内核尚未激活、或组件被单独渲染）回退为 true：此时无法判定，
+ * 宁可保持入口可见，也不要让外壳因缺服务而崩溃；真实门控生效于内核就绪后。
+ */
+export function useHasSlot(slot: string): boolean {
+  const slots = findUiSlots<ReactNode>(useKernelContext());
+  useSyncExternalStore(slots?.subscribe ?? noopSubscribe, () => slots?.has(slot) ?? true);
+  return slots?.has(slot) ?? true;
+}
+
+const noopSubscribe = () => () => {};

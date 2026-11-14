@@ -56,6 +56,18 @@ describe("lib/seams/ui-slots 注册表", () => {
     expect(slots.list("toolbar")).toEqual(["A", "B", "C"]);
   });
 
+  it("has()：槽位有贡献者才为 true（与 kind 无关，没人的槽为 false）", async () => {
+    const slots = createUiSlots<C>();
+    expect(slots.has("details.panel")).toBe(false);
+
+    slots.register({ id: "p", slot: "details.panel", kind: "single", component: "PANEL" });
+    slots.register({ id: "t", slot: "toolbar", kind: "list", component: "BTN" });
+
+    expect(slots.has("details.panel")).toBe(true);
+    expect(slots.has("toolbar")).toBe(true);
+    expect(slots.has("nope")).toBe(false);
+  });
+
   it("list 槽只返回该槽的贡献（与 single 槽互不干扰）", async () => {
     const slots = createUiSlots<C>();
     slots.register({ id: "s", slot: "details.panel", kind: "single", component: "PANEL" });

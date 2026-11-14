@@ -11,11 +11,12 @@ import { useUser } from "@/hooks/use-user";
 import { useRefresh } from "@/hooks/use-refresh";
 import { useLayout } from "@/hooks/use-layout";
 import type { SidebarDocument } from "@/lib/seams/doc-store";
-import { useActor, useDocStore } from "@/src/kernel/react";
+import { useHasSlot, useActor, useDocStore } from "@/src/kernel/react";
 import { cn } from "@/lib/utils";
 import { SidebarHeader } from "./sidebar-header";
 import { DocTree, DocSearchResults } from "./doc-tree";
 import { SidebarFooter } from "./sidebar-footer";
+import { SLOT_DETAILS_PANEL } from "../ui-plugins";
 import { Button } from "@/components/ui/button";
 import ConfirmModal from "@/components/modals/confirm-modal";
 
@@ -35,6 +36,8 @@ export function Sidebar({ wide, onExpand }: SidebarProps) {
   const triggerSidebar = useRefresh((s) => s.triggerSidebar);
   const detailsOpen = useLayout((s) => s.details > 0);
   const toggleDetails = useLayout((s) => s.toggleDetails);
+  // AI 入口跟着插件走：ui-ai-panel 被禁用后按钮不能还在（点了只会开出一列空白）
+  const hasAiPanel = useHasSlot(SLOT_DETAILS_PANEL);
 
   const [allDocs, setAllDocs] = useState<SidebarDocument[] | undefined>(undefined);
   const initialLoaded = useRef(false);
@@ -123,18 +126,20 @@ export function Sidebar({ wide, onExpand }: SidebarProps) {
         >
           <Plus className="h-[18px] w-[18px]" />
         </button>
-        <button
-          type="button"
-          aria-label="AI 助手"
-          title="AI 助手"
-          onClick={toggleDetails}
-          className={cn(
-            "flex h-9 w-9 items-center justify-center rounded-full text-shell-label-primary hover:bg-shell-row-hover",
-            detailsOpen && "bg-ai text-ai-foreground hover:bg-ai"
-          )}
-        >
-          <Sparkles className="h-[18px] w-[18px]" />
-        </button>
+        {hasAiPanel && (
+          <button
+            type="button"
+            aria-label="AI 助手"
+            title="AI 助手"
+            onClick={toggleDetails}
+            className={cn(
+              "flex h-9 w-9 items-center justify-center rounded-full text-shell-label-primary hover:bg-shell-row-hover",
+              detailsOpen && "bg-ai text-ai-foreground hover:bg-ai"
+            )}
+          >
+            <Sparkles className="h-[18px] w-[18px]" />
+          </button>
+        )}
         <button
           type="button"
           aria-label="插件市场"
@@ -177,7 +182,7 @@ export function Sidebar({ wide, onExpand }: SidebarProps) {
             </div>
           ) : allDocs.length === 0 ? (
             <div className="px-2 py-3 text-ui-sm leading-[18px] text-shell-label-tertiary">
-              还没有笔记，点 + 新建一篇，或让 AI 帮你写
+              还没有笔记
             </div>
           ) : searching ? (
             <DocSearchResults docs={allDocs} query={query} />

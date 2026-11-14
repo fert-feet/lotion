@@ -48,6 +48,12 @@ export interface UiSlots<TComponent = unknown> {
   get(slot: SlotName): TComponent | undefined;
   /** 取 list 槽内容（已按 order 排序） */
   list(slot: SlotName): TComponent[];
+  /**
+   * 槽位上是否有贡献者（不取内容）。
+   * 用于“入口与容器跟着插件走”：面板插件被用户禁用后，宿主不得再渲染它的入口按钮
+   * 与空壳列（否则点开只是一块空白，用户以为坏了）。
+   */
+  has(slot: SlotName): boolean;
   /** 全部贡献（审计/调试） */
   entries(): ReadonlyArray<SlotContribution<TComponent>>;
   /** 订阅贡献变化（React useSyncExternalStore 用） */
@@ -93,6 +99,9 @@ export function createUiSlots<TComponent>(): UiSlots<TComponent> {
         )
         .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
         .map((item) => item.component);
+    },
+    has(slot) {
+      return contributions.some((item) => item.slot === slot);
     },
     entries: () => [...contributions],
     subscribe(listener) {

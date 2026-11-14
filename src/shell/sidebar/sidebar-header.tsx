@@ -9,6 +9,8 @@
 import { useEffect, useRef } from "react";
 import { Plus, Search, Sparkles, Store, X } from "@/components/icons";
 import { useLayout } from "@/hooks/use-layout";
+import { useHasSlot } from "@/src/kernel/react";
+import { SLOT_DETAILS_PANEL } from "../ui-plugins";
 import { cn } from "@/lib/utils";
 
 interface SidebarHeaderProps {
@@ -39,6 +41,8 @@ export function SidebarHeader({
   const inputRef = useRef<HTMLInputElement | null>(null);
   const detailsOpen = useLayout((s) => s.details > 0);
   const toggleDetails = useLayout((s) => s.toggleDetails);
+  // 入口跟着插件走：ui-ai-panel 被禁用时这里不能还留一个能点的 AI 按钮
+  const hasAiPanel = useHasSlot(SLOT_DETAILS_PANEL);
 
   useEffect(() => {
     if (expanded) inputRef.current?.focus({ preventScroll: true });
@@ -130,15 +134,17 @@ export function SidebarHeader({
         >
           <Store className="h-3.5 w-3.5" />
         </button>
-        <button
-          type="button"
-          aria-label="AI 助手"
-          title="AI 助手"
-          onClick={toggleDetails}
-          className={cn(iconBtn, detailsOpen && "bg-ai text-ai-foreground hover:bg-ai hover:text-ai-foreground")}
-        >
-          <Sparkles className="h-3.5 w-3.5" />
-        </button>
+        {hasAiPanel && (
+          <button
+            type="button"
+            aria-label="AI 助手"
+            title="AI 助手"
+            onClick={toggleDetails}
+            className={cn(iconBtn, detailsOpen && "bg-ai text-ai-foreground hover:bg-ai hover:text-ai-foreground")}
+          >
+            <Sparkles className="h-3.5 w-3.5" />
+          </button>
+        )}
         <button
           type="button"
           aria-label="新建笔记"

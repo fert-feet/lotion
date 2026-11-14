@@ -219,7 +219,9 @@ AI 面板的语义色另由 `test/components/ai/design-tokens.test.ts` 守卫。
 - **插件化约定**：新增能力 = 写本体 +（要贡献接口才）在 `lib/seams/` 加契约
   + 在 `server/composition.ts`（宿主）或 `src/shell/ui-plugins.tsx`（UI）加**一行带稳定 id 的清单**
   + 补单测。路由走 `server/routes/index.ts`，AI 工具走 `registerTool(ctx, requireTools(ctx), {...})`，
-  UI 走 `requireUiSlots(ctx).register({ id, slot, kind: "single" | "list", component })`
+  UI 走 `requireUiSlots(ctx).register({ id, slot, kind: "single" | "list", component })`；
+  **入口/容器归插件所有**：shell 里的按钮、快捷键、列容器要用 `useHasSlot(slot)` 门控，
+  否则“禁用插件”只会变成“内容为空”（AI 面板曾因此留下一个空白详情列）
 - **插件管理**：管理写操作走 `pluginAdmin` 接缝（`usePluginAdmin()`），不要在组件里直接 fetch；
   新增路由贡献用 `registerRoute`（`ctx.effect` 配对注销），否则热切换会留下孤儿路由；
   插件权限对所有登录账号一致（`isOwner` 仅展示，不再参与鉴权）
