@@ -223,6 +223,33 @@ describe("lib/local/db Agent 搜索与组织", () => {
     expect(all.map((d) => d.id)).toEqual([b]);
   });
 
+  it("searchDocuments 中文长查询走 FTS5 trigram（≥3 字，按索引而非全表扫）", () => {
+    const hit = seedDoc(db, userId, "会议纪要");
+    updateDocument(db, userId, hit, { content: "讨论了产品路线图与排期" });
+    seedDoc(db, userId, "无关笔记");
+
+    const hits = searchDocuments(db, userId, "产品路线");
+    expect(hits.map((d) => d.id)).toEqual([hit]);
+    // 标题也能命中
+    expect(searchDocuments(db, userId, "会议纪要").map((d) => d.id)).toEqual([hit]);
+  });
+
+  it("searchDocuments 短查询（<3 字）回落 LIKE：两个字的中文也能搜到", () => {
+    const hit = seedDoc(db, userId, "周报");
+    expect(searchDocuments(db, userId, "周报").map((d) => d.id)).toEqual([hit]);
+  });
+
+  it("FTS 索引随更新与删除同步（触发器）", () => {
+    const doc = seedDoc(db, userId, "旧标题");
+    updateDocument(db, userId, doc, { title: "全新标题", content: "新的正文内容在这里" });
+    // 新内容命中
+    expect(searchDocuments(db, userId, "新的正文").map((d) => d.id)).toEqual([doc]);
+    // 旧内容不再命中
+    expect(searchDocuments(db, userId, "旧标题")).toEqual([]);
+    deleteDocument(db, userId, doc);
+    expect(searchDocuments(db, userId, "新的正文")).toEqual([]);
+  });
+
   it("searchDocuments 通配符转义：% _ 不扩大匹配", () => {
     seedDoc(db, userId, "100%_完成");
     seedDoc(db, userId, "100X完成");

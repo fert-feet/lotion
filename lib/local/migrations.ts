@@ -130,4 +130,39 @@ ALTER TABLE chat_sessions ADD COLUMN "documentId" TEXT REFERENCES documents("id"
 CREATE INDEX IF NOT EXISTS idx_chat_sessions_document ON chat_sessions ("userId", "documentId", "updatedAt" DESC);
 `,
   },
+  {
+    // 005：全文索引（FTS5 + trigram）。此前 AI 的 searchNotes 走 LIKE '%q%' 全表扫，
+    // 文档一多就是 O(n)；trigram 分词器对中文可用（≥3 字），短查询在应用层回落 LIKE。
+    // 用 external content 表（content='documents'）避免正文存两份，靠触发器同步。
+    name: "005_documents_fts",
+    sql: `
+CREATE VIRTUAL TABLE IF NOT EXISTS documents_fts USING fts5(
+  title,
+  content,
+  content='documents',
+  content_rowid='rowid',
+  tokenize='trigram'
+);
+
+CREATE TRIGGER IF NOT EXISTS documents_fts_ai AFTER INSERT ON documents BEGIN
+  INSERT INTO documents_fts(rowid, title, content)
+  VALUES (new.rowid, new.title, COALESCE(new.content, ''));
+END;
+
+CREATE TRIGGER IF NOT EXISTS documents_fts_ad AFTER DELETE ON documents BEGIN
+  INSERT INTO documents_fts(documents_fts, rowid, title, content)
+  VALUES ('delete', old.rowid, old.title, COALESCE(old.content, ''));
+END;
+
+CREATE TRIGGER IF NOT EXISTS documents_fts_au AFTER UPDATE OF title, content ON documents BEGIN
+  INSERT INTO documents_fts(documents_fts, rowid, title, content)
+  VALUES ('delete', old.rowid, old.title, COALESCE(old.content, ''));
+  INSERT INTO documents_fts(rowid, title, content)
+  VALUES (new.rowid, new.title, COALESCE(new.content, ''));
+END;
+
+-- 存量回填（external content 表的 rebuild）
+INSERT INTO documents_fts(documents_fts) VALUES('rebuild');
+`,
+  },
 ];

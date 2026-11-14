@@ -433,9 +433,16 @@ export function listSearch(db: Database.Database, userId: string): SidebarDocume
   return listSidebarAll(db, userId);
 }
 
+/** FTS5 trigram 至少需要 3 个字符才能切出三元组；更短的查询回落 LIKE。 */
+const FTS_MIN_QUERY_LENGTH = 3;
+
 /**
- * AI 全文搜索（searchNotes 工具用）：标题 + 正文 LIKE 过滤（ASCII 大小写不敏感，通配符已转义）。
- * query 为空时列出全部未归档笔记（按最近更新倒序），支撑"查看我的所有笔记"类请求。
+ * AI 全文搜索（searchNotes 工具用）。
+ *
+ * 三级策略：
+ * 1. 空查询 → 列出全部未归档笔记（支撑"看看我的所有笔记"）；
+ * 2. ≥3 字符 → FTS5 trigram 索引（中文可用，O(索引) 而非全表扫）；
+ * 3. 更短 / FTS 无命中 / 旧库无 FTS 表 → LIKE 兜底（转义 \ % _）。
  */
 export function searchDocuments(
   db: Database.Database,
@@ -443,28 +450,45 @@ export function searchDocuments(
   query: string,
   limit = 20,
 ): { id: string; title: string; content: string | null; updatedAt: string }[] {
-  if (!query.trim()) {
+  const q = query.trim();
+  type Row = { id: string; title: string; content: string | null; updatedAt: string };
+
+  if (!q) {
     return db
       .prepare(
         `SELECT id, title, content, updatedAt FROM documents
          WHERE userId = ? AND isArchived = 0
          ORDER BY updatedAt DESC, rowid DESC LIMIT ?`,
       )
-      .all(userId, limit) as { id: string; title: string; content: string | null; updatedAt: string }[];
+      .all(userId, limit) as Row[];
   }
-  const escaped = query.replace(/[\\%_]/g, (m) => `\\${m}`);
+
+  if ([...q].length >= FTS_MIN_QUERY_LENGTH) {
+    // 短语查询：FTS5 语法里双引号 = 短语，内部双引号需成对转义
+    const match = `"${q.replace(/"/g, '""')}"`;
+    try {
+      const rows = db
+        .prepare(
+          `SELECT d.id, d.title, d.content, d.updatedAt
+           FROM documents_fts JOIN documents d ON d.rowid = documents_fts.rowid
+           WHERE documents_fts MATCH ? AND d.userId = ? AND d.isArchived = 0
+           ORDER BY d.updatedAt DESC, d.rowid DESC LIMIT ?`,
+        )
+        .all(match, userId, limit) as Row[];
+      if (rows.length > 0) return rows;
+    } catch {
+      // FTS 表不存在（未迁移的旧库）或查询语法异常 → 走 LIKE，绝不因索引问题让搜索失败
+    }
+  }
+
+  const escaped = q.replace(/[\\%_]/g, (m) => `\\${m}`);
   return db
     .prepare(
       `SELECT id, title, content, updatedAt FROM documents
        WHERE userId = ? AND isArchived = 0 AND (title LIKE ? ESCAPE '\\' OR content LIKE ? ESCAPE '\\')
        ORDER BY updatedAt DESC, rowid DESC LIMIT ?`,
     )
-    .all(userId, `%${escaped}%`, `%${escaped}%`, limit) as {
-    id: string;
-    title: string;
-    content: string | null;
-    updatedAt: string;
-  }[];
+    .all(userId, `%${escaped}%`, `%${escaped}%`, limit) as Row[];
 }
 
 /** 笔记目录浏览（listNotes 工具用）：未归档文档 + 直接子文档数，按最近更新倒序 */

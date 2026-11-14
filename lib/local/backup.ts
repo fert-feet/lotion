@@ -46,9 +46,8 @@ export function listBackups(dir: string): string[] {
   return fs
     .readdirSync(dir)
     .filter((name) => name.startsWith(PREFIX) && name.endsWith(SUFFIX))
-    .sort()
-    // 文件名按时间可排序（lotion-YYYYMMDD-HHMMSS.db），取新→旧
-    .reverse()
+    // 文件名按时间可排序（lotion-YYYYMMDD-HHMMSS.db）：显式降序，取新→旧
+    .toSorted((a, b) => b.localeCompare(a))
     .map((name) => path.join(dir, name));
 }
 

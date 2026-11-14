@@ -27,6 +27,8 @@ describe("lib/local/sqlite", () => {
         "chat_sessions",
         "chat_messages",
         "ai_changes",
+        // FTS5 虚拟表随 005 迁移创建（外部 content 表，不重复存正文）
+        "documents_fts",
       ]),
     );
     const applied = db.prepare("SELECT name FROM _migrations").all() as { name: string }[];
@@ -35,6 +37,7 @@ describe("lib/local/sqlite", () => {
       "002_chat_message_metadata",
       "003_ai_changes",
       "004_chat_session_document",
+      "005_documents_fts",
     ]);
   });
 
@@ -42,7 +45,7 @@ describe("lib/local/sqlite", () => {
     initDatabase(db);
     initDatabase(db);
     const rows = db.prepare("SELECT name FROM _migrations").all() as { name: string }[];
-    expect(rows).toHaveLength(4);
+    expect(rows).toHaveLength(5);
   });
 
   it("WAL 与 foreign_keys PRAGMA 生效", () => {
