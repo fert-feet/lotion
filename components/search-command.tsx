@@ -9,7 +9,7 @@ import useSearch from "@/hooks/use-search";
 import type { SidebarDocument } from "@/lib/seams/doc-store";
 import { useDocStore } from "@/src/kernel/react";
 import { File, Search } from "@/components/icons";
-import { Dialog, DialogContent } from "./ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "./ui/dialog";
 import { cn } from "@/lib/utils";
 
 const SearchCommand = () => {
@@ -102,6 +102,9 @@ const SearchCommand = () => {
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent showCloseButton={false} className="max-w-[560px] overflow-hidden rounded-panel p-0">
+        {/* 视觉上隐藏的标题：DialogContent 用 aria-labelledby 指向它，
+            否则读屏软件只会念一个没有名字的「对话框」。 */}
+        <DialogTitle className="sr-only">搜索笔记</DialogTitle>
         {/* 搜索输入行 */}
         <div className="flex items-center gap-2.5 hairline-b border-shell-border px-3.5">
           <Search className="h-[18px] w-[18px] shrink-0 text-shell-label-tertiary" />
@@ -111,6 +114,7 @@ const SearchCommand = () => {
             value={query}
             onChange={(e) => { setQuery(e.target.value); setHighlight(0); }}
             onKeyDown={onKeyDown}
+            aria-label="搜索笔记"
             placeholder={"搜索 " + (user?.email?.split("@")[0] || "你的") + " 的笔记…"}
             className="h-12 min-w-0 flex-1 border-none bg-transparent text-lead text-shell-label-primary outline-none placeholder:text-shell-label-caption"
           />

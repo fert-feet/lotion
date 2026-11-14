@@ -61,11 +61,15 @@ const Navbar = ({
         <>
             <nav className="flex h-11 w-full shrink-0 items-center gap-x-2 px-3">
                 {isCollapsed && (
-                    <MenuIcon
-                        role="button"
+                    <button
+                        type="button"
                         onClick={onResetWidth}
-                        className="h-4 w-4 text-shell-label-secondary"
-                    />
+                        aria-label="展开侧边栏"
+                        title="展开侧边栏"
+                        className="flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-control bg-transparent p-0 text-shell-label-secondary transition-colors hover:bg-shell-row-hover hover:text-shell-label-primary"
+                    >
+                        <MenuIcon className="h-4 w-4" aria-hidden="true" />
+                    </button>
                 )}
                 <div className="flex items-center justify-between w-full">
                     <Title initialData={document} />

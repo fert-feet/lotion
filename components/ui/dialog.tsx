@@ -2,41 +2,49 @@
 
 // Dialog —— macOS 工作表（sheet）语言：
 // 遮罩压暗 + 轻微模糊，卡片 16px 连续圆角、发丝描边、柔和多层阴影。
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { HTMLAttributes, ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { X } from "@/components/icons";
 import { Slot } from "./_primitives";
+import { useDialogFocus } from "./_focus";
 
-interface DialogCtx { open: boolean; setOpen: (v: boolean) => void; }
-const Ctx = createContext<DialogCtx>({ open: false, setOpen: () => {} });
+// titleId 由 Dialog 生成：DialogTitle 挂 id，DialogContent 用 aria-labelledby 指回来
+// —— 否则读屏软件只会念「对话框」，不念它是什么对话框。
+interface DialogCtx { open: boolean; setOpen: (v: boolean) => void; titleId: string; }
+const Ctx = createContext<DialogCtx>({ open: false, setOpen: () => {}, titleId: "" });
 
 function Dialog({ open, onOpenChange, children }: { open?: boolean; onOpenChange?: (v: boolean) => void; children: ReactNode }) {
   const [inner, setInner] = useState(false);
+  const titleId = useId();
   const value = useMemo<DialogCtx>(() => ({
     open: open ?? inner,
     setOpen: (v) => { if (open === undefined) setInner(v); onOpenChange?.(v); },
-  }), [open, inner, onOpenChange]);
+    titleId,
+  }), [open, inner, onOpenChange, titleId]);
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 
-function DialogTrigger({ asChild = true, children, className, ...props }: HTMLAttributes<HTMLButtonElement> & { asChild?: boolean; children: ReactNode }) {
+function DialogTrigger({ asChild = true, children, className, onClick, ...props }: HTMLAttributes<HTMLButtonElement> & { asChild?: boolean; children: ReactNode }) {
   const { setOpen } = useContext(Ctx);
-  const p = { type: "button" as const, className, onClick: (e: React.MouseEvent) => { e.stopPropagation(); setOpen(true); }, ...props };
+  // onClick 必须组合：调用方传的 onClick 不能把「打开」顶掉
+  const p = { type: "button" as const, className, ...props, onClick: (e: React.MouseEvent<HTMLButtonElement>) => { onClick?.(e); e.stopPropagation(); setOpen(true); } };
   if (asChild) return <Slot {...p}>{children}</Slot>;
   return <button {...p}>{children}</button>;
 }
 
-function DialogClose({ asChild = true, children, className, ...props }: HTMLAttributes<HTMLButtonElement> & { asChild?: boolean; children: ReactNode }) {
+function DialogClose({ asChild = true, children, className, onClick, ...props }: HTMLAttributes<HTMLButtonElement> & { asChild?: boolean; children: ReactNode }) {
   const { setOpen } = useContext(Ctx);
-  const p = { type: "button" as const, className, onClick: (e: React.MouseEvent) => { e.stopPropagation(); setOpen(false); }, ...props };
+  const p = { type: "button" as const, className, ...props, onClick: (e: React.MouseEvent<HTMLButtonElement>) => { onClick?.(e); e.stopPropagation(); setOpen(false); } };
   if (asChild) return <Slot {...p}>{children}</Slot>;
   return <button {...p}>{children}</button>;
 }
 
 function DialogContent({ className, children, showCloseButton = true, ...props }: HTMLAttributes<HTMLDivElement> & { showCloseButton?: boolean; children: ReactNode }) {
-  const { open, setOpen } = useContext(Ctx);
+  const { open, setOpen, titleId } = useContext(Ctx);
+  const panelRef = useRef<HTMLDivElement | null>(null);
+  useDialogFocus(open, panelRef);
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
@@ -49,8 +57,13 @@ function DialogContent({ className, children, showCloseButton = true, ...props }
     <div className="fixed inset-0 z-modal flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/25 backdrop-blur-[2px] dark:bg-black/45" onClick={() => setOpen(false)} />
       <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId || undefined}
+        tabIndex={-1}
         className={cn(
-          "material-popover relative z-10 w-full max-w-lg rounded-sheet hairline border-shell-border-l2 p-6 shadow-elevation-3",
+          "material-popover relative z-10 w-full max-w-lg rounded-sheet hairline border-shell-border-l2 p-6 shadow-elevation-3 outline-none",
           className,
         )}
         {...props}
@@ -75,7 +88,10 @@ function DialogContent({ className, children, showCloseButton = true, ...props }
 
 const DialogHeader = ({ className, children }: { className?: string; children: ReactNode }) => <div className={cn("mb-4 flex flex-col gap-1 text-center", className)}>{children}</div>;
 const DialogFooter = ({ className, children }: { className?: string; children: ReactNode }) => <div className={cn("mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end", className)}>{children}</div>;
-const DialogTitle = ({ className, children }: { className?: string; children: ReactNode }) => <h2 className={cn("text-lead font-semibold leading-6 tracking-[-0.01em] text-shell-label-primary", className)}>{children}</h2>;
+function DialogTitle({ className, children }: { className?: string; children: ReactNode }) {
+  const { titleId } = useContext(Ctx);
+  return <h2 id={titleId} className={cn("text-lead font-semibold leading-6 tracking-[-0.01em] text-shell-label-primary", className)}>{children}</h2>;
+}
 const DialogDescription = ({ className, children }: { className?: string; children: ReactNode }) => <p className={cn("text-ui leading-5 text-shell-label-tertiary", className)}>{children}</p>;
 const DialogOverlay = ({ className }: { className?: string }) => <div className={cn("fixed inset-0 z-modal bg-black/25 backdrop-blur-[2px] dark:bg-black/45", className)} />;
 const DialogPortal = ({ children }: { children: ReactNode }) => <>{children}</>;

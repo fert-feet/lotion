@@ -52,7 +52,7 @@ const TrashBox = () => {
     };
 
     const onRestore = (
-        event: React.MouseEvent<HTMLDivElement, MouseEvent>,
+        event: React.MouseEvent<HTMLElement, MouseEvent>,
         documentId: string
     ) => {
         event.stopPropagation();
@@ -100,20 +100,30 @@ const TrashBox = () => {
                     <div
                         key={document.id}
                         role="button"
-                        className="group flex w-full cursor-pointer items-center justify-between rounded-control px-1.5 py-1 text-ui text-shell-label-primary hover:bg-shell-row-hover"
+                        tabIndex={0}
+                        // 行内含「恢复 / 永久删除」两个真按钮，因此整行不能用 <button>（不能嵌套）；
+                        // 用 tabIndex + 键盘处理让它可达
+                        onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                handleClick(document.id);
+                            }
+                        }}
+                        className="group flex w-full cursor-pointer items-center justify-between rounded-control px-1.5 py-1 text-ui text-shell-label-primary hover:bg-shell-row-hover focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-shell-accent"
                         onClick={() => handleClick(document.id)}
                     >
                         <span className="truncate">
                             {document.title}
                         </span>
                         <div className="flex items-center group-hover:opacity-100 opacity-0 max-md:opacity-100">
-                            <div
-                                role="button"
-                                className="flex h-6 w-6 items-center justify-center rounded-control text-shell-label-tertiary hover:bg-shell-row-active hover:text-shell-label-primary"
+                            <button
+                                type="button"
+                                aria-label={`恢复「${document.title || "未命名"}」`}
+                                className="flex size-7 cursor-pointer items-center justify-center rounded-control bg-transparent p-0 text-shell-label-tertiary hover:bg-shell-row-active hover:text-shell-label-primary"
                                 onClick={(e) => onRestore(e, document.id)}
                             >
-                                <Undo className="h-3.5 w-3.5" />
-                            </div>
+                                <Undo className="h-3.5 w-3.5" aria-hidden="true" />
+                            </button>
                             <div>
 
                             </div>
@@ -122,12 +132,13 @@ const TrashBox = () => {
                                 title={`永久删除「${document.title || "未命名"}」？`}
                                 description="不会进入回收站，删除后无法恢复。"
                             >
-                                <div
-                                    role="button"
-                                    className="rounded-control p-2 hover:bg-secondary"
+                                <button
+                                    type="button"
+                                    aria-label={`永久删除「${document.title || "未命名"}」`}
+                                    className="flex size-7 cursor-pointer items-center justify-center rounded-control border-0 bg-transparent p-0 text-shell-label-tertiary hover:bg-secondary hover:text-destructive"
                                 >
-                                    <Trash className="h-3.5 w-3.5" />
-                                </div>
+                                    <Trash className="h-3.5 w-3.5" aria-hidden="true" />
+                                </button>
                             </ConfirmModal>
                         </div>
                     </div>

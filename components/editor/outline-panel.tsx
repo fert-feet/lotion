@@ -84,6 +84,7 @@ export default function OutlinePanel({
         {headings.map((h) => (
           <button
             key={h.id}
+            type="button"
             onClick={() => editor.setTextCursorPosition(h.id, "start")}
             style={{ paddingLeft: 4 + (h.level - 1) * 12 }}
             className="block w-full truncate rounded-control px-2 py-1 text-left text-ui-sm leading-[18px] text-shell-label-secondary transition-colors hover:bg-shell-row-hover hover:text-shell-label-primary"

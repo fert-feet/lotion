@@ -53,8 +53,9 @@ export default function LoginPage() {
         </div>
         <form onSubmit={handleLogin} className="space-y-3.5">
           <div className="space-y-1.5">
-            <label className="block text-ui-sm font-medium text-shell-label-secondary">邮箱</label>
+            <label htmlFor="login-email" className="block text-ui-sm font-medium text-shell-label-secondary">邮箱</label>
             <Input
+              id="login-email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -63,8 +64,9 @@ export default function LoginPage() {
             />
           </div>
           <div className="space-y-1.5">
-            <label className="block text-ui-sm font-medium text-shell-label-secondary">密码</label>
+            <label htmlFor="login-password" className="block text-ui-sm font-medium text-shell-label-secondary">密码</label>
             <Input
+              id="login-password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}

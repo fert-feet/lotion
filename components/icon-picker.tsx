@@ -29,7 +29,7 @@ const IconPicker = ({ onChange, children }: IconPickerProps) => {
   return (
     <Popover>
       <PopoverTrigger>{children}</PopoverTrigger>
-      <PopoverContent className="w-72 p-0">
+      <PopoverContent aria-label="选择图标" className="w-72 p-0">
         <div className="flex items-center gap-1.5 hairline-b border-shell-border px-2 py-1.5">
           <Search className="h-3.5 w-3.5 flex-none text-shell-label-tertiary" />
           <input

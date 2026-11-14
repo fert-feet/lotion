@@ -112,6 +112,7 @@ const DocRow = memo(function DocRow({
           checked={checked}
           onChange={() => onToggleCheck(doc.id)}
           onClick={(e) => e.stopPropagation()}
+          aria-label={`选择「${doc.title || "未命名"}」`}
           className="h-3.5 w-3.5 shrink-0 cursor-pointer accent-shell-accent"
         />
       )}
@@ -149,9 +150,9 @@ const DocRow = memo(function DocRow({
           aria-label="新建子笔记"
           title="新建子笔记"
           onClick={(e) => { e.stopPropagation(); onCreateChild(); }}
-          className="flex h-5 w-5 cursor-pointer items-center justify-center rounded-control bg-transparent p-0 text-shell-label-tertiary hover:bg-shell-row-active hover:text-shell-label-primary"
+          className="flex size-7 cursor-pointer items-center justify-center rounded-control bg-transparent p-0 text-shell-label-tertiary hover:bg-shell-row-active hover:text-shell-label-primary"
         >
-          <Plus className="h-3.5 w-3.5" />
+          <Plus className="h-3.5 w-3.5" aria-hidden="true" />
         </button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -159,9 +160,9 @@ const DocRow = memo(function DocRow({
               type="button"
               aria-label="更多操作"
               onClick={(e) => e.stopPropagation()}
-              className="flex h-5 w-5 cursor-pointer items-center justify-center rounded-control bg-transparent p-0 text-shell-label-tertiary hover:bg-shell-row-active hover:text-shell-label-primary"
+              className="flex size-7 cursor-pointer items-center justify-center rounded-control bg-transparent p-0 text-shell-label-tertiary hover:bg-shell-row-active hover:text-shell-label-primary"
             >
-              <MoreHorizontal className="h-3.5 w-3.5" />
+              <MoreHorizontal className="h-3.5 w-3.5" aria-hidden="true" />
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" side="right" forceMount className="w-52">

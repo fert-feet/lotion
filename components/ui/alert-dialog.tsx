@@ -1,22 +1,25 @@
 "use client";
 
 // AlertDialog —— 与 Dialog 同一套 macOS sheet 语言（危险操作确认）
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { HTMLAttributes, ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { Slot } from "./_primitives";
+import { useDialogFocus } from "./_focus";
 
-interface Ctx { open: boolean; setOpen: (v: boolean) => void; }
+// titleId：AlertDialogTitle 挂 id，Content 用 aria-labelledby 指回来（读屏要念出「删除什么」）
+interface Ctx { open: boolean; setOpen: (v: boolean) => void; titleId: string; }
 
 /** 对话框按钮基础样式（与 components/ui/button.tsx 的 Apple 按钮语言一致） */
 const btnBase =
   "inline-flex h-8 shrink-0 cursor-pointer select-none items-center justify-center gap-1.5 whitespace-nowrap rounded-control px-3.5 text-ui font-medium leading-none transition-[background-color,box-shadow,transform] duration-150 ease-[var(--ds-ease-out)] outline-none active:scale-[0.97] focus-visible:ring-[3px] focus-visible:ring-ring";
-const Ctx = createContext<Ctx>({ open: false, setOpen: () => {} });
+const Ctx = createContext<Ctx>({ open: false, setOpen: () => {}, titleId: "" });
 
 function AlertDialog({ open, onOpenChange, children }: { open?: boolean; onOpenChange?: (v: boolean) => void; children: ReactNode }) {
   const [inner, setInner] = useState(false);
-  const value = useMemo<Ctx>(() => ({ open: open ?? inner, setOpen: (v) => { if (open === undefined) setInner(v); onOpenChange?.(v); } }), [open, inner, onOpenChange]);
+  const titleId = useId();
+  const value = useMemo<Ctx>(() => ({ open: open ?? inner, setOpen: (v) => { if (open === undefined) setInner(v); onOpenChange?.(v); }, titleId }), [open, inner, onOpenChange, titleId]);
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 
@@ -31,7 +34,9 @@ function AlertDialogTrigger({ asChild = true, children, className, onClick, ...p
 }
 
 function AlertDialogContent({ className, children, ...props }: HTMLAttributes<HTMLDivElement> & { children: ReactNode }) {
-  const { open, setOpen } = useContext(Ctx);
+  const { open, setOpen, titleId } = useContext(Ctx);
+  const panelRef = useRef<HTMLDivElement | null>(null);
+  useDialogFocus(open, panelRef);
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
@@ -44,8 +49,13 @@ function AlertDialogContent({ className, children, ...props }: HTMLAttributes<HT
     <div className="fixed inset-0 z-modal flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/25 backdrop-blur-[2px] dark:bg-black/45" onClick={() => setOpen(false)} />
       <div
+        ref={panelRef}
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby={titleId || undefined}
+        tabIndex={-1}
         className={cn(
-          "material-popover relative z-10 w-full max-w-md rounded-sheet hairline border-shell-border-l2 p-6 shadow-elevation-3",
+          "material-popover relative z-10 w-full max-w-md rounded-sheet hairline border-shell-border-l2 p-6 shadow-elevation-3 outline-none",
           className,
         )}
         {...props}
@@ -59,7 +69,10 @@ function AlertDialogContent({ className, children, ...props }: HTMLAttributes<HT
 
 const AlertDialogHeader = ({ className, children }: { className?: string; children: ReactNode }) => <div className={cn("mb-4 flex flex-col gap-1 text-center", className)}>{children}</div>;
 const AlertDialogFooter = ({ className, children }: { className?: string; children: ReactNode }) => <div className={cn("mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end", className)}>{children}</div>;
-const AlertDialogTitle = ({ className, children }: { className?: string; children: ReactNode }) => <h2 className={cn("text-lead font-semibold leading-6 tracking-[-0.01em] text-shell-label-primary", className)}>{children}</h2>;
+function AlertDialogTitle({ className, children }: { className?: string; children: ReactNode }) {
+  const { titleId } = useContext(Ctx);
+  return <h2 id={titleId} className={cn("text-lead font-semibold leading-6 tracking-[-0.01em] text-shell-label-primary", className)}>{children}</h2>;
+}
 const AlertDialogDescription = ({ className, children }: { className?: string; children: ReactNode }) => <p className={cn("text-ui leading-5 text-shell-label-tertiary", className)}>{children}</p>;
 
 function AlertDialogAction({ asChild = true, children, className, variant = "default", onClick, ...props }: HTMLAttributes<HTMLButtonElement> & { asChild?: boolean; variant?: "default" | "destructive"; children: ReactNode }) {

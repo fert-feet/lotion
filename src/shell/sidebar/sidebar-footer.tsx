@@ -68,6 +68,7 @@ export function SidebarFooter({ rail, onBatchMode }: SidebarFooterProps) {
         </PopoverTrigger>
         {/* max-h 限制浮层高度：TrashBox 内部按 flex 布局让列表区独立滚动 */}
         <PopoverContent
+          aria-label="回收站"
           className="w-72 max-h-[60vh] p-0"
           side={rail ? "right" : "top"}
           align={rail ? "start" : "end"}

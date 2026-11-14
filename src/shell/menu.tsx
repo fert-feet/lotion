@@ -47,9 +47,14 @@ const Menu = ({
         <div>
             <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                    <div role="button" onClick={(e) => e.stopPropagation()} className="cursor-pointer h-full ml-auto rounded-control hover:bg-secondary">
-                        <MoreHorizontal className="h-4 w-4" />
-                    </div>
+                    <button
+                        type="button"
+                        aria-label="更多操作"
+                        onClick={(e) => e.stopPropagation()}
+                        className="ml-auto flex h-full w-7 cursor-pointer items-center justify-center rounded-control bg-transparent p-0 text-shell-label-secondary hover:bg-secondary hover:text-shell-label-primary"
+                    >
+                        <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
+                    </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent
                     align="start"

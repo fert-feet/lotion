@@ -121,8 +121,17 @@ export function SessionMenu({
         return (
           <div
             key={session.id}
+            role="button"
+            tabIndex={0}
+            // 行内含「⋯」真按钮，整行不能用 <button>（不能嵌套）
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onSelect(session.id);
+              }
+            }}
             className={cn(
-              "group/session flex cursor-pointer items-center gap-2 rounded-control px-2 py-1.5 text-ui",
+              "group/session flex cursor-pointer items-center gap-2 rounded-control px-2 py-1.5 text-ui focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-shell-accent",
               active ? "bg-shell-row-active text-shell-label-primary" : "hover:bg-shell-row-hover",
             )}
             onClick={() => onSelect(session.id)}
@@ -130,7 +139,7 @@ export function SessionMenu({
             <MessageSquare className="h-3.5 w-3.5 shrink-0 text-shell-label-tertiary" />
             <span className="min-w-0 flex-1 truncate">{session.title}</span>
             {session.documentId && (
-              <FileText className="h-3 w-3 shrink-0 text-shell-label-caption" aria-label="已绑定文档" />
+              <FileText className="h-3 w-3 shrink-0 text-shell-label-caption" role="img" aria-label="已绑定文档" />
             )}
             <span className="shrink-0 text-caption tabular-nums text-shell-label-caption">
               {formatRelativeTime(session.updatedAt)}

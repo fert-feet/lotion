@@ -52,8 +52,9 @@ export default function RegisterPage() {
         </div>
         <form onSubmit={handleRegister} className="space-y-3.5">
           <div className="space-y-1.5">
-            <label className="block text-ui-sm font-medium text-shell-label-secondary">邮箱</label>
+            <label htmlFor="register-email" className="block text-ui-sm font-medium text-shell-label-secondary">邮箱</label>
             <Input
+              id="register-email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -62,8 +63,9 @@ export default function RegisterPage() {
             />
           </div>
           <div className="space-y-1.5">
-            <label className="block text-ui-sm font-medium text-shell-label-secondary">密码</label>
+            <label htmlFor="register-password" className="block text-ui-sm font-medium text-shell-label-secondary">密码</label>
             <Input
+              id="register-password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}

@@ -121,12 +121,14 @@ const Toolbar = ({
                         </p>
                     </IconPicker>
                     <Button
+                        type="button"
                         onClick={onRemoveIcon}
-                        className="opacity-0 transition-opacity group-hover/icon:opacity-100 max-md:opacity-100 text-shell-label-secondary"
+                        aria-label="移除图标"
+                        className="size-8 opacity-0 transition-opacity group-hover/icon:opacity-100 max-md:opacity-100 text-shell-label-secondary"
                         variant={"outline"}
                         size={"icon"}
                     >
-                        <X className="h-4 w-4" />
+                        <X className="h-4 w-4" aria-hidden="true" />
                     </Button>
                 </div>
             )}

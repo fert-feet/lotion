@@ -79,6 +79,7 @@ const Publish = ({
                 </Button>
             </PopoverTrigger>
             <PopoverContent
+                aria-label="发布设置"
                 className="w-72"
                 align="end"
                 alignOffset={8}
@@ -101,14 +102,16 @@ const Publish = ({
                                 className="h-8 flex-1 rounded-l-control hairline border-shell-border-l2 bg-secondary px-2 text-ui-sm text-shell-label-secondary"
                             />
                             <Button
+                                type="button"
                                 onClick={onCopy}
                                 disabled={copied}
+                                aria-label={copied ? "已复制链接" : "复制链接"}
                                 className="h-8 rounded-l-none"
                             >
                                 {copied ? (
-                                    <Check className="h-4 w-4" />
+                                    <Check className="h-4 w-4" aria-hidden="true" />
                                 ) : (
-                                    <Copy className="h-4 w-4" />
+                                    <Copy className="h-4 w-4" aria-hidden="true" />
                                 )}
                             </Button>
                         </div>
