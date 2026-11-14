@@ -10,8 +10,11 @@ import {
 import { logger } from "./logger";
 
 /**
- * 会话上下文压缩（滑动窗口 + 摘要）：
- * - 窗口：最近 WINDOW_SIZE 条未压缩消息保留原文，滑出窗口的最旧部分压进摘要
+ * 会话上下文压缩（token 预算窗口 + 摘要）：
+ * - 窗口：最近 WINDOW_TOKEN_BUDGET 个 token（且不超过 WINDOW_SIZE 条）的消息保留原文，
+ *   滑出窗口的最旧部分压进摘要。纯按条数算会失真——100 条里只要有几条长文档读取结果，
+ *   单请求就能推到十几万 token，而且每轮重发一遍。
+ * - 至少保留 WINDOW_MIN_MESSAGES 条原文：防止单条巨型消息把窗口挤空（否则一直压不完）
  * - 决策：确定性窗口，不交给模型挑选（移除 keep 机制）；模型只负责把窗口外消息总结成摘要
  * - 摘要：重写式——旧摘要 + 本轮滑出的消息 → 新摘要（不增量拼接），先写摘要再标记消息
  * - 降级：摘要输出无效 / 模型异常 → 本轮不压缩，下次落库后重试；永不损坏对话
@@ -20,7 +23,12 @@ import { logger } from "./logger";
  */
 
 // ---- 参数 ----
-export const WINDOW_SIZE = 100; // 滑动窗口：最近 100 条消息（50 轮）保留原文
+/** 窗口条数上限（与旧行为一致；token 预算更早命中时以预算为准） */
+export const WINDOW_SIZE = 100;
+/** 窗口 token 预算：保留原文的最近消息总预算（DeepSeek 128k 上下文留足摘要与工具定义余量） */
+export const WINDOW_TOKEN_BUDGET = 40_000;
+/** 至少保留的最近消息条数（防止巨型消息把窗口挤空，导致永远压不完） */
+export const WINDOW_MIN_MESSAGES = 10;
 const COMPRESS_BATCH_MAX = 500; // 单次最多压多少条（防极端暴涨，被截掉的最旧部分不参与也不标记）
 const SUMMARY_MAX_CHARS = 800; // 摘要长度上限
 
@@ -29,6 +37,56 @@ const COMPRESS_SYSTEM = `你是对话记忆压缩器。把一段对话压缩成�
 - 用中文，按时间顺序组织，提炼事实与决策，不要寒暄和过程细节。
 - 必须保留：用户的目标、偏好、明确要求；AI 的承诺；所有涉及笔记操作的文档标题与 id（格式 [标题](id)），后续可能要用 readNote 精确定位。
 - 只输出摘要正文，不要输出其他任何内容。`;
+
+/**
+ * 粗估文本 token 数（用于窗口决策，不必与具体 tokenizer 精确一致）：
+ * CJK 按 1 字 ≈ 1 token，其余按 4 字符 ≈ 1 token。保守取整，宁可早压缩。
+ */
+export function estimateTokens(text: string): number {
+  let cjk = 0;
+  for (const ch of text) {
+    const code = ch.codePointAt(0) ?? 0;
+    if (code >= 0x3000 && code <= 0x9fff) cjk += 1;
+    else if (code >= 0xff00 && code <= 0xffef) cjk += 1;
+  }
+  const rest = text.length - cjk;
+  return cjk + Math.ceil(rest / 4);
+}
+
+/** 窗口切分结果：`overflow` 参与压缩，`kept` 保留原文。 */
+export interface WindowSplit {
+  overflow: CompressMessage[];
+  kept: CompressMessage[];
+  /** 保留部分的 token 估算（日志与排障用） */
+  keptTokens: number;
+}
+
+/**
+ * 按 token 预算切分窗口（纯函数）。
+ * 从最新往回累计，直到超过预算或条数上限（且至少保留 WINDOW_MIN_MESSAGES 条）。
+ */
+export function splitWindow(
+  messages: readonly CompressMessage[],
+  options: { budget?: number; maxMessages?: number; minKeep?: number } = {},
+): WindowSplit {
+  const budget = options.budget ?? WINDOW_TOKEN_BUDGET;
+  const maxMessages = options.maxMessages ?? WINDOW_SIZE;
+  const minKeep = options.minKeep ?? WINDOW_MIN_MESSAGES;
+
+  let keptTokens = 0;
+  let cut = messages.length;
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const message = messages[i];
+    if (message === undefined) break;
+    const keptCount = messages.length - i;
+    const cost = estimateTokens(message.content);
+    const exceeds = keptTokens + cost > budget || keptCount > maxMessages;
+    if (exceeds && keptCount > minKeep) break;
+    keptTokens += cost;
+    cut = i;
+  }
+  return { overflow: messages.slice(0, cut), kept: messages.slice(cut), keptTokens };
+}
 
 /** 参与压缩的单条消息 */
 export interface CompressMessage {
@@ -111,19 +169,19 @@ async function runCompress(
       content: m.content,
     }));
 
-    // 窗口判定：未压缩消息仍在窗口内（含恰好等于窗口）时不压缩
-    if (messages.length <= WINDOW_SIZE) {
+    // 窗口判定：token 预算与条数上限都没超时不压缩
+    const window = splitWindow(messages);
+    const overflow = window.overflow;
+    if (overflow.length === 0) {
       logger.compress.info("未超过滑动窗口，跳过", {
         sessionId,
         count: messages.length,
         windowSize: WINDOW_SIZE,
-        remaining: WINDOW_SIZE - messages.length,
+        tokenBudget: WINDOW_TOKEN_BUDGET,
+        keptTokens: window.keptTokens,
       });
       return;
     }
-
-    // 滑出窗口的部分：最旧 (length - WINDOW_SIZE) 条参与压缩（最近窗口内保留原文）
-    const overflow = messages.slice(0, messages.length - WINDOW_SIZE);
 
     // 输入预算兜底：溢出消息极端暴涨时只保留最近的一部分参与压缩，
     // 被截掉的最旧部分本次不参与（不标记，下次重试；日志告警）
@@ -159,6 +217,8 @@ async function runCompress(
       sessionId,
       count: messages.length,
       windowSize: WINDOW_SIZE,
+      tokenBudget: WINDOW_TOKEN_BUDGET,
+      keptTokens: window.keptTokens,
       overflowCount: input.length,
       summaryChars: summary.length,
       withOldSummary: !!oldSummary,

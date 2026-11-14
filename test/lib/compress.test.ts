@@ -1,8 +1,11 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import {
   buildSummaryPrompt,
+  estimateTokens,
   extractSummary,
   maybeCompressSession,
+  splitWindow,
+  WINDOW_MIN_MESSAGES,
   WINDOW_SIZE,
   type CompressMessage,
 } from "@/lib/compress";
@@ -105,6 +108,54 @@ describe("extractSummary", () => {
   });
 });
 
+// ---- 纯函数：token 预算窗口 ----
+
+describe("estimateTokens", () => {
+  it("CJK 按字计，ASCII 按 4 字符计", () => {
+    expect(estimateTokens("你好世界")).toBe(4);
+    expect(estimateTokens("abcd")).toBe(1);
+    expect(estimateTokens("")).toBe(0);
+    expect(estimateTokens("你好abcd")).toBe(3); // 2 + ceil(4/4)
+  });
+
+  it("全角标点按 CJK 计（否则长中文标点会低估）", () => {
+    expect(estimateTokens("，。！")).toBe(3);
+  });
+});
+
+describe("splitWindow", () => {
+  it("token 未超预算且条数未超上限 → 不压缩", () => {
+    const msgs = makeMessages(5, "短消息");
+    const { overflow, kept, keptTokens } = splitWindow(msgs);
+    expect(overflow).toHaveLength(0);
+    expect(kept).toHaveLength(5);
+    expect(keptTokens).toBeGreaterThan(0);
+  });
+
+  it("token 预算先命中：长消息只保留到预算内，其余进 overflow", () => {
+    // 每条 4000 个汉字 ≈ 4000 token，预算 10000 → 只保留最近 2 条
+    const msgs = makeMessages(6, "字".repeat(4000));
+    const { overflow, kept } = splitWindow(msgs, { budget: 10_000, maxMessages: 100, minKeep: 1 });
+    expect(kept).toHaveLength(2);
+    expect(overflow).toHaveLength(4);
+    expect(overflow[0]!.id).toBe("m0");
+    expect(kept[kept.length - 1]!.id).toBe("m5");
+  });
+
+  it("条数上限仍然生效（短消息场景与旧行为一致）", () => {
+    const msgs = makeMessages(WINDOW_SIZE + 20, "短");
+    const { overflow, kept } = splitWindow(msgs);
+    expect(kept).toHaveLength(WINDOW_SIZE);
+    expect(overflow).toHaveLength(20);
+  });
+
+  it("至少保留 WINDOW_MIN_MESSAGES 条：单条巨型消息不会把窗口挤空", () => {
+    const msgs = makeMessages(WINDOW_MIN_MESSAGES + 2, "字".repeat(200_000));
+    const { kept } = splitWindow(msgs);
+    expect(kept.length).toBeGreaterThanOrEqual(WINDOW_MIN_MESSAGES);
+  });
+});
+
 // ---- 集成：maybeCompressSession ----
 
 describe("maybeCompressSession", () => {
@@ -178,6 +229,21 @@ describe("maybeCompressSession", () => {
     expect(marked[499]).toBe("m699");
     expect(marked).not.toContain("m0"); // 被截掉的最旧部分不标记，下次重试
     expect(marked).not.toContain("m199");
+  });
+
+  it("长消息触发 token 预算：不需要等到 100 条就会压缩", async () => {
+    // 30 条 × 4000 token ≈ 120k token，远超预算；窗口内只保留预算允许的最近几条
+    const msgs = makeMessages(30, "字".repeat(4000));
+    (listChatHistory as ReturnType<typeof vi.fn>).mockResolvedValue(asDbMessages(msgs));
+
+    await maybeCompressSession("user-1", "s1");
+
+    expect(mockGenerateText).toHaveBeenCalledTimes(1);
+    const marked = (markMessagesCompressed as ReturnType<typeof vi.fn>).mock.calls[0][2] as string[];
+    // 至少压掉一部分，且最近一条永远保留原文
+    expect(marked.length).toBeGreaterThan(0);
+    expect(marked.length).toBeLessThan(30);
+    expect(marked).not.toContain("m29");
   });
 
   it("同一会话并发调用串行执行（后到的等待先到的完成）", async () => {
