@@ -37,6 +37,10 @@
 - **流式事件协议** — 14 种事件类型，前端按事件行解析（非拼接文本 + 正则提取）
 - **Doom loop 检测** — 相同工具 + 参数连续失败 3 次警告、5 次中止（对齐 SiYuan）
 - **上下文压缩** — 滑动窗口保留最近 100 条消息原文（注入最近 N 条），滑出部分由模型重写式摘要（`lib/compress.ts`）
+- **导出 / 快照** — `GET /api/documents/:id/export?format=md`（RFC 5987 文件名）；
+  启动与每日维护会 `VACUUM INTO` 做一次数据库快照（保留 7 份，24h 节流）
+- **全文搜索** — FTS5 + trigram（中文 ≥3 字走索引，更短回落 LIKE），触发器与文档表同步
+- **加固** — 登录/注册每 IP 每分钟 10 次限流；scrypt N=2^17（s2 前缀，旧哈希登录时自动升级）
 - **常驻 AI 面板** — 关闭不丢状态；三种呈现模式：停靠（占列）/ 浮层（不挤压正文）/ 全屏（专注对话），列头切换器或 ⌘⇧J 循环，⌘J / Ctrl+J 开合
 - **回合快照** — 每轮的工具卡 / 副作用卡 / 引用 / 待办 / 提问 / 耗时随 assistant 消息落库
   （`chat_messages.metadata`），刷新或切换会话后时间线完整重建（不再只剩一段纯文本）
@@ -227,12 +231,12 @@ lib/
 public/plugin-market/             # 本地市场 registry + 示例 bundle
 templates/plugin/                 # 第三方插件最小模板
 docs/                             # 插件化架构 / 本地数据库版 / 插件开发
-test/                             # Vitest 单测（与 lib/、server/ 同构，750 个用例）
+test/                             # Vitest 单测（与 lib/、server/ 同构，771 个用例）
 ```
 
 ## 数据模型（SQLite 6 张表）
 
-`users` / `sessions` / `documents` / `chat_sessions` / `chat_messages` / `ai_changes`，每次启动自动迁移（`lib/local/migrations.ts` 内嵌 DDL + `_migrations` 记录表，当前 4 个迁移）。
+`users` / `sessions` / `documents` / `chat_sessions` / `chat_messages` / `ai_changes`，每次启动自动迁移（`lib/local/migrations.ts` 内嵌 DDL + `_migrations` 记录表，当前 5 个迁移）。
 
 - `chat_messages.metadata`：assistant 消息的**回合快照**（工具卡/副作用卡/引用/待办/提问/警告/耗时/requestId）与 user 消息的**附件清单**
 - `chat_sessions.documentId`：会话绑定的文档（可空 = 全局会话；文档删除时置空）
@@ -261,7 +265,7 @@ pnpm build        # vite 构建客户端到 dist/
 pnpm start        # 运行 Hono（托管 dist/ + API，单机自托管）
 pnpm typecheck    # tsc --noEmit
 pnpm lint         # ESLint
-pnpm test         # Vitest 单测（750 个用例，内存 SQLite + Hono app.request）
+pnpm test         # Vitest 单测（771 个用例，内存 SQLite + Hono app.request）
 pnpm test:watch   # Vitest 监听模式
 ```
 

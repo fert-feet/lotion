@@ -149,7 +149,8 @@ test/                       # Vitest 单测（lib/ / api/ / components/ / seams/
 ```
 
 - 数据库 6 张表：users / sessions / documents / chat_sessions / chat_messages / ai_changes
-  （每次启动自动迁移，当前 4 个迁移；chat_messages.metadata=回合快照，chat_sessions.documentId=会话绑定文档）
+  （另有 FTS5 虚拟表 `documents_fts`：trigram 分词，触发器同步，供 AI searchNotes 用；`<3` 字回落 LIKE）
+  （每次启动自动迁移，当前 5 个迁移；chat_messages.metadata=回合快照，chat_sessions.documentId=会话绑定文档）
 - `documents` 自引用（`parentDocument`）支持嵌套；多用户隔离靠**应用层显式 userId 过滤**（无 RLS）
 - AI 面板在 `src/shell/ai-panel.tsx`（纯逻辑在 `src/shell/ai/turn-reducer.ts`，有单测），
   流式渲染；**三种呈现模式** `docked`（占列，默认）/ `overlay`（浮层，点遮罩关闭）/
