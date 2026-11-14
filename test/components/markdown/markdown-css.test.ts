@@ -158,4 +158,29 @@ describe("AI 正文样式遵守设计 token", () => {
       "MarkdownText 外层不要写 text-lead / leading-[1.6]（字号由 .md-content 决定）",
     ).not.toMatch(/text-lead[^"]*"\s*>\s*<MarkdownText/);
   });
+
+  it("语法高亮走双主题 CSS 变量（light 默认 + .dark 覆盖）", () => {
+    expect(bodyOf(".md-code-block pre span"), "缺浅色主题的 token 颜色规则").toContain(
+      "var(--shiki-light",
+    );
+    expect(bodyOf(".dark .md-code-block pre span"), "缺深色主题覆盖（切主题时高亮不会变）").toContain(
+      "var(--shiki-dark",
+    );
+  });
+
+  it("表格横滚提示三态齐全（overflow 方向来自 render.tsx 的 data-fade）", () => {
+    for (const state of ["start", "end", "both"]) {
+      expect(
+        bodyOf(`.md-table-scroll[data-fade="${state}"]`),
+        `缺 data-fade=${state} 的渐隐规则（mac 默认隐藏滚动条，溢出等于内容被裁）`,
+      ).toMatch(/mask-image\s*:/);
+    }
+  });
+
+  it("流式光标：有闪烁动画，且尊重 prefers-reduced-motion", () => {
+    expect(bodyOf(".md-caret"), "光标本体缺动画").toMatch(/animation\s*:/);
+    expect(CSS, "缺 prefers-reduced-motion 降级（前庭敏感用户）").toMatch(
+      /@media\s*\(prefers-reduced-motion:\s*reduce\)\s*\{\s*\.md-caret\s*\{[^}]*animation:\s*none/,
+    );
+  });
 });

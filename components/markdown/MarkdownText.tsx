@@ -127,5 +127,11 @@ export const MarkdownText = memo(function MarkdownText({
     }
     return streamRef.current.render(text, openRef.current);
   }, [text, streaming]);
-  return <div className="md-content">{children}</div>;
+  return (
+    <div className="md-content">
+      {children}
+      {/* 流式末尾的打字光标：纯视觉，aria-hidden（读屏不该念出它） */}
+      {streaming ? <span className="md-caret" aria-hidden="true" /> : null}
+    </div>
+  );
 });

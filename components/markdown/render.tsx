@@ -4,12 +4,13 @@
 //
 // 不可信输出策略（与 DSH 一致）：链接/图片目标过协议白名单，图片额外要求绝对
 // HTTP(S)，raw HTML 以字面文本渲染（不进入 DOM）。Lotion 裁剪：无数学公式、
-// 无脚注、无文件提及、无代码高亮；额外支持 [@标题](文档id) 提及胶囊（onOpenDocument）。
+// 无脚注、无文件提及；代码高亮由 CodeBlock 自己懒加载 shiki（本文件不碰）。
+// 额外支持 [@标题](文档id) 提及胶囊（onOpenDocument）。
 //
 // 合并可扩展节点联合落入文档化 default（渲染为空），而非 assertNever 结束：
 // 别处注册的语法可能产生本渲染器没有映射的节点类型。
 
-import { Fragment, createElement } from "react";
+import { Fragment, createElement, useEffect, useRef, useState } from "react";
 import type { Key, ReactNode } from "react";
 import type * as Md from "mdast";
 import { normalizeUri } from "micromark-util-sanitize-uri";
@@ -69,7 +70,7 @@ export function collectReferenceTargets(
 
 /** 一轮渲染的状态：不可变选项与引用目标。 */
 export interface MarkdownRenderContext {
-  /** 流式臂：围栏代码不高亮（Lotion 无高亮，保持语义一致性）。 */
+  /** 流式臂：围栏代码不传 lang（半截代码高亮出来会闪；定稿后由整份重渲染自愈）。 */
   readonly streaming: boolean;
   /** 本轮可见的引用目标。 */
   readonly targets: ReferenceTargets;
@@ -321,7 +322,7 @@ function renderTable(node: Md.Table, key: Key, context: MarkdownRenderContext): 
   const align = node.align ?? null;
   const [headRow, ...bodyRows] = node.children;
   return (
-    <div key={key} className="md-table-scroll">
+    <TableScroll key={key}>
       <table>
         {headRow !== undefined && <thead>{renderTableRow(headRow, "th", align, 0, context)}</thead>}
         {bodyRows.length > 0 && (
@@ -330,9 +331,48 @@ function renderTable(node: Md.Table, key: Key, context: MarkdownRenderContext): 
           </tbody>
         )}
       </table>
+    </TableScroll>
+  );
+}
+
+/** 横向滚动容器放在可继续滚的那一侧做渐隐提示（此前窄栏里横滚是完全无提示的）。
+ * 三列以上的表格在 docked 面板里必然溢出，而原生滚动条在 mac 上默认隐藏。 */
+function TableScroll({ children }: { children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [fade, setFade] = useState<TableFade>("none");
+
+  useEffect(() => {
+    const element = ref.current;
+    if (element === null) return;
+    const update = () => {
+      const overflow = element.scrollWidth - element.clientWidth;
+      if (overflow <= 1) {
+        setFade("none");
+        return;
+      }
+      const atStart = element.scrollLeft <= 1;
+      const atEnd = element.scrollLeft >= overflow - 1;
+      setFade(atStart ? "end" : atEnd ? "start" : "both");
+    };
+    update();
+    element.addEventListener("scroll", update, { passive: true });
+    const observer = new ResizeObserver(update);
+    observer.observe(element);
+    return () => {
+      element.removeEventListener("scroll", update);
+      observer.disconnect();
+    };
+  }, []);
+
+  return (
+    <div ref={ref} className="md-table-scroll" data-fade={fade}>
+      {children}
     </div>
   );
 }
+
+/** 渐隐方向：none=不溢出 / start=左侧还能滚 / end=右侧还能滚 / both=两侧都能滚 */
+type TableFade = "none" | "start" | "end" | "both";
 
 function renderTableRow(
   row: Md.TableRow,

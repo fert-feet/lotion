@@ -135,6 +135,9 @@ lib/
 ├── ai/runtime-config.ts    # 每次请求解析模型/Key（走配置层，不读模块顶层 env）
 ├── ai-prompts.ts           # AI 系统提示词（领域概念/使用模式/规范/安全）
 ├── blocknote-schema.ts     # 自定义 schema（callout / mention），客户端服务端共享
+├── highlight-langs.ts      # 高亮语言单一真相源（零依赖：白名单 + 别名归一，渲染层也导入）
+├── highlight-shared.ts     # shiki 高亮器工厂（编辑器与 AI 正文共用 loader/主题表）
+├── markdown-highlight.ts   # AI 正文代码块高亮（懒加载 shiki，返回 token 而非 HTML）
 ├── content.ts              # 文档内容适配层·客户端安全部分（isBlockNoteJson/toEditorBlocks/标题提取）
 ├── content-server.ts       # ⚠️ 服务端专用（禁止客户端导入）：toMarkdown / toBlocks
 ├── compress.ts             # 上下文压缩（滑动窗口 100 条 + 模型重写式摘要）

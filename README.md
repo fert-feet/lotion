@@ -210,7 +210,7 @@ components/
 ├── settings/                     # 设置弹窗插件页 / 配置弹窗 / 源码预览
 │                                 # 市场页组件（src/pages/market.tsx 承载）
 ├── editor/                       # blocknote.css / lotion-suggestion-menu.tsx / outline-panel.tsx
-├── markdown/                     # AI 回复的流式 Markdown 渲染
+├── markdown/                     # AI 回复的流式 Markdown 渲染（增量解析 / 语法高亮 / 表格横滚提示）
 ├── ui/ + icons/ + modals/ + upload/ + search-command.tsx
 hooks/                            # use-layout / use-user / use-refresh / ...
 lib/
@@ -225,6 +225,9 @@ lib/
 ├── content.ts                    # 客户端安全的内容适配（isBlockNoteJson / toEditorBlocks）
 ├── content-server.ts             # ⚠️ 服务端专用：JSON ↔ Markdown（@blocknote/server-util）
 ├── blocknote-schema.ts           # 自定义 schema（callout / mention），客户端服务端共享
+├── highlight-langs.ts            # 高亮语言白名单 + 别名归一（零依赖，渲染层也用）
+├── highlight-shared.ts           # shiki 高亮器工厂（编辑器与 AI 正文共用）
+├── markdown-highlight.ts         # AI 正文代码块高亮（懒加载 shiki，输出 token）
 ├── agent.ts                      # Agent 核心：streamText + doom loop + 回合快照 + 改动前快照（撤销）
 ├── ai/tools/                     # 17 个 Agent Tool + registry.ts（注册表/守卫）+ blocks-util.ts
 ├── ai/runtime-config.ts          # 每次请求解析模型/Key（走配置层）
@@ -235,7 +238,7 @@ lib/
 public/plugin-market/             # 本地市场 registry + 示例 bundle
 templates/plugin/                 # 第三方插件最小模板
 docs/                             # 插件化架构 / 本地数据库版 / 插件开发
-test/                             # Vitest 单测（与 lib/、server/ 同构，805 个用例）
+test/                             # Vitest 单测（与 lib/、server/ 同构，830 个用例）
 ```
 
 ## 数据模型（SQLite 6 张表）
@@ -269,7 +272,7 @@ pnpm build        # vite 构建客户端到 dist/
 pnpm start        # 运行 Hono（托管 dist/ + API，单机自托管）
 pnpm typecheck    # tsc --noEmit
 pnpm lint         # ESLint
-pnpm test         # Vitest 单测（805 个用例，内存 SQLite + Hono app.request）
+pnpm test         # Vitest 单测（830 个用例，内存 SQLite + Hono app.request）
 pnpm test:watch   # Vitest 监听模式
 ```
 

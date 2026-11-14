@@ -132,11 +132,14 @@ describe("markdown 渲染（对齐 DSH）", () => {
     expect(html).toContain('<a href="https://example.com/x"');
   });
 
-  it("流式渲染与定稿渲染对已定型文本输出一致", () => {
+  it("流式渲染与定稿渲染对已定型文本输出一致（流式只多一个打字光标）", () => {
     const text = "**加粗** 与 [链接](https://example.com)\n\n| a | b |\n| --- | --- |\n| 1 | 2 |";
     const settled = renderToStaticMarkup(createElement(MarkdownText, { text, streaming: false }));
     const streaming = renderToStaticMarkup(createElement(MarkdownText, { text, streaming: true }));
-    expect(streaming).toBe(settled);
+    const caret = '<span class="md-caret" aria-hidden="true"></span>';
+    expect(streaming).toBe(settled.replace(/<\/div>$/, `${caret}</div>`));
+    // 定稿后光标必须消失（否则每条历史回答尾部都挂一根闪烁的竖线）
+    expect(settled).not.toContain("md-caret");
   });
 
   it("markdown 渲染不泄漏 mdast 结构（纯文本安全）", () => {
