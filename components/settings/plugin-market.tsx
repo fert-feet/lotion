@@ -12,6 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import type { MarketEntry, MarketSourceInfo, PluginInfo } from "@/lib/seams/plugins";
 import { usePluginAdmin } from "@/src/kernel/react";
+import { EmptyState } from "@/components/ui/empty-state";
 
 type SortKey = "recommended" | "downloads" | "rating" | "recent" | "name";
 
@@ -356,9 +357,10 @@ export function PluginMarket() {
         {loading ? (
           [0, 1, 2].map((index) => <Skeleton key={index} className="h-[104px] w-full rounded-card" />)
         ) : visible.length === 0 ? (
-          <p className="rounded-card hairline border-dashed border-shell-border px-3 py-6 text-center text-ui-sm text-shell-label-tertiary">
-            {entries.length === 0 ? "市场里还没有插件。" : "没有匹配的插件。"}
-          </p>
+          <EmptyState
+            variant="inline"
+            title={entries.length === 0 ? "市场里还没有插件。" : "没有匹配的插件。"}
+          />
         ) : (
           visible.map((entry) => {
             const action = actionFor(entry);

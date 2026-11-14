@@ -2,6 +2,7 @@
 
 import { useUser } from "@/hooks/use-user";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import { FileText } from "@/components/icons";
 import { useDocStore } from "@/src/kernel/react";
 import { toast } from "sonner";
@@ -33,19 +34,17 @@ const DocumentsPage = () => {
 
   return (
     <div className="flex h-full flex-col items-center justify-center px-6">
-      <div className="flex h-20 w-20 items-center justify-center rounded-sheet bg-secondary text-shell-label-tertiary shadow-[var(--shadow-sm)]">
-        <FileText className="h-9 w-9" strokeWidth={1.5} />
-      </div>
-      <h2 className="mt-6 text-title font-semibold tracking-[-0.02em]">
-        欢迎回来，{user.email?.split("@")[0]}
-      </h2>
-      <p className="mt-2 max-w-[320px] text-center text-ui leading-[1.5] text-muted-foreground">
-        创建你的第一篇笔记，或让 AI 助手帮你起草。
-      </p>
-      <Button onClick={onCreate} disabled={creating} size="lg" className="mt-6">
-        <FileText className="h-4 w-4" />
-        新建笔记
-      </Button>
+      <EmptyState
+        icon={<FileText className="h-5 w-5" strokeWidth={1.5} />}
+        title={`欢迎回来，${user.email?.split("@")[0]}`}
+        description="创建你的第一篇笔记，或让 AI 助手帮你起草。"
+        action={
+          <Button onClick={onCreate} disabled={creating} size="lg">
+            <FileText className="h-4 w-4" />
+            新建笔记
+          </Button>
+        }
+      />
     </div>
   );
 };

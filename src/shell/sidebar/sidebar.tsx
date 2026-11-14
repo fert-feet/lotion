@@ -182,14 +182,16 @@ export function Sidebar({ wide, onExpand }: SidebarProps) {
           ) : searching ? (
             <DocSearchResults docs={allDocs} query={query} />
           ) : (
-            <DocTree
-              docs={allDocs}
-              expanded={expanded}
-              onExpandChange={(id) => setExpanded((prev) => ({ ...prev, [id]: !prev[id] }))}
-              batchMode={batchMode}
-              selected={selected}
-              onToggleCheck={toggleCheck}
-            />
+            <div role="tree" aria-label="笔记">
+              <DocTree
+                docs={allDocs}
+                expanded={expanded}
+                onExpandChange={(id) => setExpanded((prev) => ({ ...prev, [id]: !prev[id] }))}
+                batchMode={batchMode}
+                selected={selected}
+                onToggleCheck={toggleCheck}
+              />
+            </div>
           )}
         </div>
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-6 bg-gradient-to-t from-shell-sidebar to-transparent" />

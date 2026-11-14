@@ -23,6 +23,7 @@ import type { PluginInfo, PluginSourceCode } from "@/lib/seams/plugins";
 import { usePluginAdmin } from "@/src/kernel/react";
 import { PluginConfigDialog } from "./plugin-config-dialog";
 import { PluginSourceDialog } from "./plugin-source-dialog";
+import { EmptyState } from "@/components/ui/empty-state";
 
 function statusLabel(plugin: PluginInfo): { text: string; className: string } {
   switch (plugin.status) {
@@ -402,9 +403,7 @@ export function PluginSettings() {
             <Section title="已安装" description="从市场安装的第三方插件。" plugins={grouped.installed} {...handlers} />
             <Section title="AI 动态插件" description="模型在运行时定义；客户端半边需要人工批准。" plugins={grouped.dynamic} {...handlers} />
             {plugins.length === 0 && !loading ? (
-              <p className="rounded-card hairline border-dashed border-shell-border px-3 py-6 text-center text-ui-sm text-shell-label-tertiary">
-                没有可管理的插件。
-              </p>
+              <EmptyState variant="inline" title="没有可管理的插件。" />
             ) : null}
           </>
         )}

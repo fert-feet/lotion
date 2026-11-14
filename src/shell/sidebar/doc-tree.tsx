@@ -72,16 +72,37 @@ const DocRow = memo(function DocRow({
 
   return (
     <div
-      role="button"
-      tabIndex={-1}
+      role="treeitem"
+      // 行内还有「＋子笔记 / ⋯菜单」两个真按钮，因此本行不能用 <button>（不能嵌套按钮）。
+      // 用 tabIndex=0 + 键盘处理让它可达：此前是 role="button" tabIndex={-1}，
+      // 等于把文档树从键盘/读屏用户手里整个拿走。
+      tabIndex={0}
+      aria-level={level + 1}
+      aria-selected={active}
+      aria-expanded={hasChildren ? expanded : undefined}
       onClick={() => {
         if (batchMode) { onToggleCheck(doc.id); return; }
         onOpen();
       }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          if (batchMode) { onToggleCheck(doc.id); return; }
+          onOpen();
+        } else if (e.key === "ArrowRight" && hasChildren && !expanded) {
+          e.preventDefault();
+          onExpand();
+        } else if (e.key === "ArrowLeft" && hasChildren && expanded) {
+          e.preventDefault();
+          onExpand();
+        }
+      }}
       onMouseEnter={() => { docStore.prefetch?.(actor, doc.id); }}
-      style={{ paddingLeft: level * 16 + 4 }}
+      style={{ paddingLeft: level * 22 + 4 }}
       className={cn(
-        "group relative flex h-7 cursor-pointer select-none items-center gap-1.5 rounded-control px-1.5 text-ui leading-5 text-shell-label-primary animate-[row-in_150ms_ease]",
+        // h-8 = 32px（注释与设计稿一直是 32px，类名此前误写成 h-7）
+        "group relative flex h-8 cursor-pointer select-none items-center gap-1.5 rounded-control px-1.5 text-ui leading-5 text-shell-label-primary animate-[row-in_150ms_ease]",
+        "focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-shell-accent",
         active ? "bg-shell-row-active-accent font-medium" : "hover:bg-shell-row-hover"
       )}
     >
@@ -112,13 +133,17 @@ const DocRow = memo(function DocRow({
         )}
       </span>
 
-      <span className="min-w-0 flex-1 truncate text-ui leading-5">{doc.title || "无标题"}</span>
+      {/* 尾部固定占位 52px：时间戳与操作按钮叠在同一位，只做透明度切换。
+          此前用互斥的 hover 显隐类互相顶替（一个 display:none、另一个 display:flex），悬停时标题右边界
+          会被挤动约 44px——侧边栏是鼠标最频繁的区域，这会被误读成「选错行」。 */}
+      <span className="min-w-0 flex-1 truncate pr-[52px] text-ui leading-5">{doc.title || "无标题"}</span>
 
-      <span className="flex-none text-caption leading-5 text-shell-label-tertiary group-hover:hidden">
-        {relativeTime(doc.updatedAt, now)}
-      </span>
+      <span className="absolute inset-y-0 right-1.5 flex w-[52px] items-center justify-end">
+        <span className="pointer-events-none absolute inset-0 flex items-center justify-end text-caption leading-5 text-shell-label-tertiary transition-opacity duration-150 group-hover:opacity-0">
+          {relativeTime(doc.updatedAt, now)}
+        </span>
 
-      <span className="hidden flex-none items-center gap-3 group-hover:flex">
+        <span className="relative flex items-center gap-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100">
         <button
           type="button"
           aria-label="新建子笔记"
@@ -146,6 +171,7 @@ const DocRow = memo(function DocRow({
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+        </span>
       </span>
     </div>
   );
