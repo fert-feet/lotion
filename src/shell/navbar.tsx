@@ -42,7 +42,7 @@ const Navbar = ({
     if (document === undefined) {
         // 骨架态与就绪态必须同一套盒模型/背景：换材质或换内边距会让首屏顶栏跳 10px
         return (
-            <nav className="flex w-full shrink-0 items-center gap-x-2 px-3 py-2">
+            <nav className="flex h-11 w-full shrink-0 items-center gap-x-2 px-3">
                 <div className="flex items-center justify-between w-full">
                     <Title.Skeleton />
                     <div className="flex gap-x-2 items-center">
@@ -59,7 +59,7 @@ const Navbar = ({
 
     return (
         <>
-            <nav className="flex w-full shrink-0 items-center gap-x-4 bg-background px-3 py-2">
+            <nav className="flex h-11 w-full shrink-0 items-center gap-x-2 px-3">
                 {isCollapsed && (
                     <MenuIcon
                         role="button"

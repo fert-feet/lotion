@@ -67,7 +67,7 @@ export function SessionMenu({
           onKeyDown={(e) => e.stopPropagation()}
           placeholder="搜索会话"
           aria-label="搜索历史会话"
-          className="h-6 min-w-0 flex-1 bg-transparent text-xs text-shell-label-primary outline-none placeholder:text-shell-label-caption"
+          className="h-6 min-w-0 flex-1 bg-transparent text-ui-sm text-shell-label-primary outline-none placeholder:text-shell-label-caption"
         />
       </div>
 
@@ -92,7 +92,7 @@ export function SessionMenu({
       )}
 
       {visible.length === 0 && (
-        <div className="px-2 py-2 text-xs text-shell-label-tertiary">
+        <div className="px-2 py-2 text-ui-sm text-shell-label-tertiary">
           {sessions.length === 0 ? "暂无历史会话" : "没有匹配的会话"}
         </div>
       )}
@@ -113,7 +113,7 @@ export function SessionMenu({
                   if (e.key === "Escape") setRenamingId(null);
                 }}
                 onBlur={() => commitRename(session.id)}
-                className="h-6 min-w-0 flex-1 rounded-control hairline border-shell-border-l2 bg-card px-2 text-xs text-shell-label-primary outline-none focus:border-shell-accent/50"
+                className="h-6 min-w-0 flex-1 rounded-control hairline border-shell-border-l2 bg-card px-2 text-ui-sm text-shell-label-primary outline-none focus:border-shell-accent/50"
               />
             </div>
           );

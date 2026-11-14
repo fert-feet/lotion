@@ -80,7 +80,7 @@ const Editor = ({ onChange, initialContent, editable = true }: EditorProps) => {
         subtext: "提示框",
         aliases: ["callout", "提示", "备注", "quote"],
         group: "基础",
-        icon: <span className="text-base">💡</span>,
+        icon: <span className="text-lead">💡</span>,
         onItemClick: () => {
           const { block } = editor.getTextCursorPosition();
           const newBlock = editor.insertBlocks(
@@ -134,7 +134,7 @@ const Editor = ({ onChange, initialContent, editable = true }: EditorProps) => {
         title: d.title,
         subtext: d.parentDocument ? "子页面" : "页面",
         group: "提及",
-        icon: d.icon ? <span className="text-base">{d.icon}</span> : undefined,
+        icon: d.icon ? <span className="text-lead">{d.icon}</span> : undefined,
         onItemClick: () => {
           editor.insertInlineContent([{ type: "mention", props: { id: d.id, title: d.title } }]);
           editor.focus();
@@ -260,7 +260,7 @@ const Editor = ({ onChange, initialContent, editable = true }: EditorProps) => {
       {syncState.pending && (
         <div
           role="status"
-          className="material-popover absolute right-6 top-2 z-30 flex items-center gap-2 rounded-card hairline border-shell-border-l2 px-3 py-1.5 text-xs text-shell-label-primary shadow-elevation-2"
+          className="material-popover absolute right-6 top-2 z-popover flex items-center gap-2 rounded-card hairline border-shell-border-l2 px-3 py-1.5 text-ui-sm text-shell-label-primary shadow-elevation-2"
         >
           <span>文档已被 AI 更新，你正在编辑</span>
           <button

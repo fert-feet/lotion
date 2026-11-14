@@ -798,7 +798,9 @@ const AiPanel = () => {
     <aside className="flex h-full min-w-0 flex-col overflow-hidden" aria-label="AI 文档助手">
       {/* 头部：AI 身份 = Apple Intelligence 渐变 orb（与草稿卡、思考指示同一个标识）；
           操作按钮走 <Button> 原语，拿回按压缩放与 3px 聚焦环 */}
-      <div className="flex shrink-0 items-center justify-between gap-2 hairline-b border-shell-border px-2 py-1.5">
+      {/* 头部不再画第二条 hairline-b：详情列的 DetailsModeSwitch 工具条已有一道下边线，
+          两道线相隔 32px 看起来像表格边框 */}
+      <div className="flex shrink-0 items-center justify-between gap-2 px-3 py-1.5">
         <div className="flex min-w-0 items-center gap-2 pl-0.5">
           <AiOrb size={20} icon={<Sparkles className="h-3 w-3" />} />
           <span className="truncate text-ui font-semibold leading-5 tracking-[-0.01em] text-shell-label-primary">
@@ -863,7 +865,7 @@ const AiPanel = () => {
           aria-label="与文档助手的对话"
           className="h-full min-h-0 overflow-y-auto"
         >
-          <div className="flex min-h-full flex-col gap-4 px-3.5 py-4">
+          <div className="flex min-h-full flex-col gap-4 px-3 py-4">
             {hasMoreHistory && turns.length > 0 && (
               <button
                 type="button"
@@ -914,7 +916,7 @@ const AiPanel = () => {
           <button
             type="button"
             onClick={() => scrollToBottom(true)}
-            className="material-popover absolute bottom-3 left-1/2 z-10 flex h-7 -translate-x-1/2 cursor-pointer items-center gap-1 rounded-full hairline border-shell-border-l2 px-3 text-xs font-medium text-shell-label-secondary shadow-elevation-2 transition-colors hover:text-shell-label-primary"
+            className="material-popover absolute bottom-3 left-1/2 z-popover flex h-7 -translate-x-1/2 cursor-pointer items-center gap-1 rounded-control hairline border-shell-border-l2 px-3 text-ui-sm font-medium text-shell-label-secondary shadow-elevation-2 transition-colors hover:text-shell-label-primary"
           >
             回到底部
           </button>
@@ -1042,7 +1044,6 @@ const AiPanel = () => {
             </div>
             <Button
               size="icon-sm"
-              className="rounded-full"
               title={loading ? "停止生成" : "发送"}
               aria-label={loading ? "停止生成" : "发送"}
               onClick={loading ? handleStop : () => mentionRef.current?.submit()}

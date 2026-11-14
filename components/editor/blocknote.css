@@ -273,12 +273,12 @@
   background: var(--shell-row-hover);
 }
 
-/* 拖拽预览 */
+/* 拖拽预览：浮起的卡片 → 用同一套圆角/发丝线/投影 token（8px 不在刻度上，别写死） */
 .lotion-editor .bn-drag-preview {
-  border-radius: 8px;
+  border-radius: var(--radius-card);
   background: var(--shell-bg-base);
-  border: 1px solid var(--shell-border);
-  box-shadow: 0 4px 16px rgb(0 0 0 / 0.12);
+  border: var(--hairline) solid var(--shell-border);
+  box-shadow: var(--shadow-md);
 }
 
 /* 表格手柄 */

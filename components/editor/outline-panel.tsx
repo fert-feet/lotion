@@ -75,7 +75,7 @@ export default function OutlinePanel({
   return (
     <aside
       className={cn(
-        "absolute right-6 top-1/2 w-52 max-h-[55vh] -translate-y-1/2 overflow-y-auto border-l border-shell-border py-2 pl-2 pr-3",
+        "absolute right-6 top-1/2 w-52 max-h-[55vh] -translate-y-1/2 overflow-y-auto hairline-l border-shell-border py-2 pl-2 pr-3",
         VISIBILITY_CLASS,
       )}
     >

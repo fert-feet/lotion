@@ -43,7 +43,7 @@ function DetailsColumn(props: { children?: ReactNode; overlay?: boolean }) {
       data-details-overlay={props.overlay || undefined}
       className={
         props.overlay
-          ? "material-sidebar fixed inset-y-0 right-0 z-40 w-[min(440px,100vw)] min-w-0 overflow-hidden hairline-l border-shell-border shadow-elevation-3"
+          ? "material-sidebar fixed inset-y-0 right-0 z-chrome w-[min(440px,100vw)] min-w-0 overflow-hidden hairline-l border-shell-border shadow-elevation-3"
           : "material-sidebar min-w-0 overflow-hidden hairline-l border-shell-border"
       }
     >
@@ -163,16 +163,17 @@ function DragHandle(props: {
   );
 }
 
-/** 非文档页顶栏：折叠时提供展开按钮。 */
+/** 非文档页顶栏：折叠时提供展开按钮。高度与文档页 Navbar 一致（h-11 = 44px）——
+ *  页面切换时顶栏不能跳高度，这是全站唯一一条“顶栏”刻度。 */
 function SlimTopBar(props: { collapsed: boolean; onExpand: () => void }) {
   return (
-    <nav className="material-toolbar flex h-13 shrink-0 items-center hairline-b border-shell-border px-3">
+    <nav className="material-toolbar flex h-11 shrink-0 items-center hairline-b border-shell-border px-3">
       {props.collapsed && (
         <button
           type="button"
           onClick={props.onExpand}
           aria-label="展开侧边栏"
-          className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full text-shell-label-secondary hover:bg-shell-row-hover"
+          className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-control text-shell-label-secondary hover:bg-shell-row-hover"
         >
           <MenuIcon className="h-5 w-5" />
         </button>
@@ -305,7 +306,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           面板仍在同一 React 位置 → 不重挂载，流式状态与草稿都保留。 */}
       {detailsOverlay && (
         <div
-          className="fixed inset-0 z-30 bg-black/20"
+          className="fixed inset-0 z-chrome bg-black/20 dark:bg-black/40"
           onClick={closeDetails}
           aria-hidden="true"
         />

@@ -130,7 +130,7 @@ function DropdownMenuItem({ className, children, ...props }: HTMLAttributes<HTML
     <div
       role="menuitem"
       tabIndex={-1}
-      className={cn("flex cursor-default select-none items-center gap-2 rounded-control px-2 py-[5px] text-ui leading-[18px] text-shell-label-primary outline-none transition-colors hover:bg-primary hover:text-primary-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-40 [&_svg]:size-3.5 [&_svg]:shrink-0", className)}
+      className={cn("flex cursor-default select-none items-center gap-2 rounded-control px-2 py-[5px] text-ui leading-[18px] text-shell-label-primary outline-none transition-colors hover:bg-shell-row-hover data-[disabled]:pointer-events-none data-[disabled]:opacity-40 [&_svg]:size-3.5 [&_svg]:shrink-0", className)}
       {...props}
     >
       {children}

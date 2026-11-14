@@ -118,7 +118,7 @@ const SearchCommand = () => {
         {/* 结果列表 */}
         <div className="max-h-[360px] overflow-y-auto p-1.5">
           {filtered.length === 0 ? (
-            <div className="px-3 py-6 text-center text-sm text-shell-label-tertiary">没有匹配的笔记</div>
+            <div className="px-3 py-6 text-center text-ui text-shell-label-tertiary">没有匹配的笔记</div>
           ) : (
             <div className="flex flex-col gap-0.5">
               <div className="px-2.5 py-1 text-caption font-semibold text-shell-label-tertiary">文档</div>
@@ -129,7 +129,7 @@ const SearchCommand = () => {
                   onClick={() => onSelect(doc.id)}
                   onMouseEnter={() => setHighlight(i)}
                   className={cn(
-                    "flex w-full cursor-pointer items-center gap-2.5 rounded-card px-2.5 py-2 text-left text-sm text-shell-label-primary",
+                    "flex w-full cursor-pointer items-center gap-2.5 rounded-control px-2 py-1.5 text-left text-ui text-shell-label-primary",
                     i === highlight ? "bg-shell-row-active" : "hover:bg-shell-row-hover"
                   )}
                 >

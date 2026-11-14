@@ -307,7 +307,7 @@ export function PluginMarket() {
           aria-label="分类"
           value={category}
           onChange={(event) => setCategory(event.target.value)}
-          className="h-8 rounded-control hairline border-shell-border-l2 bg-card px-2 text-ui-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
+          className="h-8 rounded-control hairline border-shell-border-l2 bg-secondary px-2 text-ui-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
         >
           {categories.map((item) => (
             <option key={item} value={item}>
@@ -319,7 +319,7 @@ export function PluginMarket() {
           aria-label="排序"
           value={sort}
           onChange={(event) => setSort(event.target.value as SortKey)}
-          className="h-8 rounded-control hairline border-shell-border-l2 bg-card px-2 text-ui-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
+          className="h-8 rounded-control hairline border-shell-border-l2 bg-secondary px-2 text-ui-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
         >
           {SORT_OPTIONS.map((option) => (
             <option key={option.value} value={option.value}>
@@ -522,7 +522,7 @@ export function PluginMarket() {
               onChange={(event) => setRatingComment(event.target.value.slice(0, 500))}
               placeholder="写一句评论（可选）"
               aria-label="评论"
-              className="min-h-[80px] w-full resize-y rounded-card hairline border-shell-border-l2 bg-card p-2.5 text-ui leading-5 outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
+              className="min-h-[80px] w-full resize-y rounded-card hairline border-shell-border-l2 bg-secondary p-2.5 text-ui leading-5 outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
             />
             {(ratingEntry?.comments ?? []).length > 0 ? (
               <div className="max-h-32 overflow-y-auto rounded-card hairline border-shell-border p-2">

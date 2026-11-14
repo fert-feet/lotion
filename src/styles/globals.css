@@ -395,11 +395,14 @@ body,
   -webkit-backdrop-filter: blur(30px) saturate(180%);
 }
 
-/* 卡片 / 分组容器 */
+/* 卡片 / 分组容器。
+   ⚠️ 圆角用语义 token --radius-card(10px)，不要用 Tailwind 默认刻度的 --radius-lg(8px)：
+   8px 不在 6/10/14/16 的刻度上，且 --radius-lg 是 Tailwind 默认值、随时会被主题改掉。
+   边框用 --hairline（含 1x 屏回退），不要手写 0.5px。 */
 .surface-card {
   background: var(--card);
-  border: 0.5px solid var(--border);
-  border-radius: var(--radius-lg);
+  border: var(--hairline) solid var(--border);
+  border-radius: var(--radius-card);
   box-shadow: var(--shadow-sm);
 }
 
@@ -408,16 +411,16 @@ body,
    优先级高于 Tailwind 的 utilities 层，用 border-destructive/25 去覆盖不会生效。 */
 .surface-card-danger {
   background: color-mix(in srgb, var(--destructive) 5%, var(--card));
-  border: 0.5px solid color-mix(in srgb, var(--destructive) 25%, transparent);
-  border-radius: var(--radius-lg);
+  border: var(--hairline) solid color-mix(in srgb, var(--destructive) 25%, transparent);
+  border-radius: var(--radius-card);
   box-shadow: var(--shadow-sm);
 }
 
 /* 警告语义的卡片（doom loop 警告等）：同构，换成 systemOrange 语汇 */
 .surface-card-warning {
   background: color-mix(in srgb, var(--warning) 6%, var(--card));
-  border: 0.5px solid color-mix(in srgb, var(--warning) 28%, transparent);
-  border-radius: var(--radius-lg);
+  border: var(--hairline) solid color-mix(in srgb, var(--warning) 28%, transparent);
+  border-radius: var(--radius-card);
   box-shadow: var(--shadow-sm);
 }
 
@@ -519,21 +522,6 @@ body,
     linear-gradient(to right, var(--grid-line-strong) 1px, transparent 1px),
     linear-gradient(to bottom, var(--grid-line-strong) 1px, transparent 1px);
   background-size: 100% 100%, 28px 28px, 28px 28px;
-}
-
-/* 荧光笔高亮（AI 划重点）：Apple Notes 的黄色马克笔 */
-.hl-mark {
-  background: linear-gradient(
-    104deg,
-    transparent 0.9%,
-    var(--hl) 2.4%,
-    var(--hl) 97.6%,
-    transparent 99%
-  );
-  border-radius: 0.18em 0.3em 0.18em 0.3em;
-  padding: 0.04em 0.16em;
-  box-decoration-break: clone;
-  -webkit-box-decoration-break: clone;
 }
 
 /* @提及胶囊输入框的 placeholder（contentEditable 无原生 placeholder） */
