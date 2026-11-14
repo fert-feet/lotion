@@ -41,9 +41,9 @@ export default function LoginPage() {
   return (
     // Apple 的登录面板：浅灰底 + 居中白色卡片，卡片靠发丝边与柔和阴影分层
     <div className="flex min-h-screen items-center justify-center bg-[color-mix(in_srgb,var(--foreground)_4%,var(--background))] px-4">
-      <div className="w-full max-w-[380px] rounded-sheet hairline border-shell-border-l2 bg-card p-7 shadow-[var(--shadow-lg)]">
+      <div className="w-full max-w-[380px] rounded-sheet hairline border-shell-border-l2 bg-card p-7 shadow-elevation-3">
         <div className="mb-6 flex flex-col items-center gap-3 text-center">
-          <div className="flex h-12 w-12 items-center justify-center rounded-panel bg-primary text-primary-foreground shadow-[var(--shadow-sm)]">
+          <div className="flex h-12 w-12 items-center justify-center rounded-panel bg-primary text-primary-foreground shadow-elevation-1">
             <PenLine className="h-6 w-6" strokeWidth={2} />
           </div>
           <div>

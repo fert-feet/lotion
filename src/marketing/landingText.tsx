@@ -38,7 +38,7 @@ const LandingText = () => {
                 {features.map((f) => (
                     <div
                         key={f.title}
-                        className="rounded-panel hairline border-border bg-card p-6 shadow-[var(--shadow-sm)] transition-shadow duration-150 hover:shadow-[var(--shadow-md)]"
+                        className="rounded-panel hairline border-border bg-card p-6 shadow-elevation-1 transition-shadow duration-150 hover:shadow-elevation-2"
                     >
                         <div className="mb-4 flex h-9 w-9 items-center justify-center rounded-card bg-primary/10 text-primary">
                             <f.icon className="h-4 w-4" strokeWidth={2} />
@@ -54,7 +54,7 @@ const LandingText = () => {
             </div>
 
             {/* 收尾 CTA */}
-            <div className="mx-auto mt-16 max-w-[680px] rounded-sheet hairline border-border bg-card px-8 py-14 text-center shadow-[var(--shadow-sm)] md:py-20">
+            <div className="mx-auto mt-16 max-w-[680px] rounded-sheet hairline border-border bg-card px-8 py-14 text-center shadow-elevation-1 md:py-20">
                 <h2 className="text-balance text-display font-bold leading-[1.1] tracking-[-0.025em] md:text-hero">
                     Start writing with <span className="text-primary">your AI</span>.
                 </h2>

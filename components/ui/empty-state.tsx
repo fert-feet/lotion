@@ -45,7 +45,7 @@ export function EmptyState({
   return (
     <div className={cn("flex flex-col items-center justify-center px-6 text-center", className)}>
       {icon !== undefined && (
-        <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-card bg-secondary text-shell-label-tertiary shadow-[var(--shadow-sm)]">
+        <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-card bg-secondary text-shell-label-tertiary shadow-elevation-1">
           <span className="flex h-5 w-5 items-center justify-center text-lead">{icon}</span>
         </div>
       )}

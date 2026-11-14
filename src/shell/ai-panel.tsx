@@ -920,7 +920,7 @@ const AiPanel = () => {
           <button
             type="button"
             onClick={() => scrollToBottom(true)}
-            className="material-popover absolute bottom-3 left-1/2 z-10 flex h-7 -translate-x-1/2 cursor-pointer items-center gap-1 rounded-full hairline border-shell-border-l2 px-3 text-xs font-medium text-shell-label-secondary shadow-[var(--shadow-md)] transition-colors hover:text-shell-label-primary"
+            className="material-popover absolute bottom-3 left-1/2 z-10 flex h-7 -translate-x-1/2 cursor-pointer items-center gap-1 rounded-full hairline border-shell-border-l2 px-3 text-xs font-medium text-shell-label-secondary shadow-elevation-2 transition-colors hover:text-shell-label-primary"
           >
             回到底部
           </button>
@@ -1007,7 +1007,7 @@ const AiPanel = () => {
           </div>
         )}
         {/* 输入卡：Apple 的填充式输入区（14px 圆角 + 发丝描边 + 聚焦时加深阴影） */}
-        <div className="rounded-panel hairline border-shell-border-l2 bg-card shadow-[var(--shadow-sm)] transition-shadow duration-200 ease-[var(--ds-ease-out)] focus-within:shadow-[var(--shadow-md)]">
+        <div className="rounded-panel hairline border-shell-border-l2 bg-card shadow-elevation-1 transition-shadow duration-200 ease-[var(--ds-ease-out)] focus-within:shadow-elevation-2">
           <MentionInput
             ref={mentionRef}
             onSubmit={handleSend}

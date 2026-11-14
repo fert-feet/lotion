@@ -110,6 +110,13 @@
   --text-hero: 44px;
   --text-hero--line-height: 1.1;
   --text-hero--letter-spacing: -0.024em;
+
+  /* 阴影改为 elevation 语义（原先三条路写同一个效果：--shadow-apple-* 没人用、
+     shadow-[var(--shadow-sm)] 25 处、裸 shadow-md 走 Tailwind 默认值）。
+     值仍取 --shadow-sm/md/lg（明暗各自一套），只是换成语义名。 */
+  --shadow-elevation-1: var(--shadow-sm);
+  --shadow-elevation-2: var(--shadow-md);
+  --shadow-elevation-3: var(--shadow-lg);
 }
 
 :root {

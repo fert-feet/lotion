@@ -15,7 +15,7 @@ import { Spinner } from '../ui/spinner';
 
 const DROPZONE_VARIANTS = {
   base: 'relative flex min-h-[150px] min-w-[200px] cursor-pointer flex-col items-center justify-center rounded-panel border-[1.5px] border-dashed border-shell-border-l2 bg-[color-mix(in_srgb,var(--foreground)_3%,transparent)] p-4 transition-colors duration-200 ease-[var(--ds-ease-out)] hover:bg-[color-mix(in_srgb,var(--foreground)_5%,transparent)]',
-  image: 'border-0 p-0 min-h-0 min-w-0 relative bg-muted shadow-md',
+  image: 'border-0 p-0 min-h-0 min-w-0 relative bg-muted shadow-elevation-2',
   active: 'border-primary',
   disabled:
     'bg-muted/50 border-muted-foreground/50 cursor-default pointer-events-none',
@@ -219,7 +219,7 @@ const SingleImageDropzone = React.forwardRef<
           fileState.status !== 'COMPLETE' && (
             <button
               type="button"
-              className="group pointer-events-auto absolute right-1.5 top-1.5 z-10 flex size-6 items-center justify-center rounded-full bg-card shadow-[var(--shadow-sm)] transition-transform hover:scale-105"
+              className="group pointer-events-auto absolute right-1.5 top-1.5 z-10 flex size-6 items-center justify-center rounded-full bg-card shadow-elevation-1 transition-transform hover:scale-105"
               onClick={(e) => {
                 e.stopPropagation(); // Prevent triggering dropzone click
                 if (fileState.status === 'UPLOADING') {

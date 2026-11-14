@@ -260,7 +260,7 @@ const Editor = ({ onChange, initialContent, editable = true }: EditorProps) => {
       {syncState.pending && (
         <div
           role="status"
-          className="material-popover absolute right-6 top-2 z-30 flex items-center gap-2 rounded-card hairline border-shell-border-l2 px-3 py-1.5 text-xs text-shell-label-primary shadow-[var(--shadow-md)]"
+          className="material-popover absolute right-6 top-2 z-30 flex items-center gap-2 rounded-card hairline border-shell-border-l2 px-3 py-1.5 text-xs text-shell-label-primary shadow-elevation-2"
         >
           <span>文档已被 AI 更新，你正在编辑</span>
           <button

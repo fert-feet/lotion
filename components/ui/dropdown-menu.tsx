@@ -116,7 +116,7 @@ function DropdownMenuContent({ className, align = "start", side = "bottom", forc
     <div
       ref={contentRef}
       style={{ position: "fixed", top: pos?.top ?? 0, left: pos?.left ?? 0, zIndex: "var(--z-popover)", visibility: pos ? "visible" : "hidden" }}
-      className={cn("material-popover max-h-80 min-w-[9rem] overflow-y-auto rounded-card hairline border-shell-border-l2 p-1 shadow-[var(--shadow-md)]", className)}
+      className={cn("material-popover max-h-80 min-w-[9rem] overflow-y-auto rounded-card hairline border-shell-border-l2 p-1 shadow-elevation-2", className)}
       {...props}
     >
       {children}

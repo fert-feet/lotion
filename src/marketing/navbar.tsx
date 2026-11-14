@@ -22,7 +22,7 @@ const Navbar = () => {
                 "fixed top-0 z-50 flex h-[52px] w-full items-center px-5 md:px-8",
                 "material-toolbar hairline-b border-border",
                 "transition-colors duration-150",
-                scrolled && "shadow-[var(--shadow-sm)]",
+                scrolled && "shadow-elevation-1",
             )}
         >
             <Logo />

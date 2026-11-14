@@ -29,7 +29,7 @@ function TabButton({
       className={cn(
         "w-full rounded-control px-2 py-1.5 text-left text-ui transition-colors duration-150",
         active
-          ? "bg-card font-medium text-shell-label-primary shadow-[var(--shadow-sm)]"
+          ? "bg-card font-medium text-shell-label-primary shadow-elevation-1"
           : "text-shell-label-secondary hover:bg-shell-row-hover",
       )}
     >

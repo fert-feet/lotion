@@ -50,7 +50,7 @@ function DialogContent({ className, children, showCloseButton = true, ...props }
       <div className="absolute inset-0 bg-black/25 backdrop-blur-[2px] dark:bg-black/45" onClick={() => setOpen(false)} />
       <div
         className={cn(
-          "material-popover relative z-10 w-full max-w-lg rounded-sheet hairline border-shell-border-l2 p-6 shadow-[var(--shadow-lg)]",
+          "material-popover relative z-10 w-full max-w-lg rounded-sheet hairline border-shell-border-l2 p-6 shadow-elevation-3",
           className,
         )}
         {...props}

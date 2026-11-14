@@ -43,7 +43,7 @@ function DetailsColumn(props: { children?: ReactNode; overlay?: boolean }) {
       data-details-overlay={props.overlay || undefined}
       className={
         props.overlay
-          ? "material-sidebar fixed inset-y-0 right-0 z-40 w-[min(440px,100vw)] min-w-0 overflow-hidden hairline-l border-shell-border shadow-[var(--shadow-lg)]"
+          ? "material-sidebar fixed inset-y-0 right-0 z-40 w-[min(440px,100vw)] min-w-0 overflow-hidden hairline-l border-shell-border shadow-elevation-3"
           : "material-sidebar min-w-0 overflow-hidden hairline-l border-shell-border"
       }
     >

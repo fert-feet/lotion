@@ -5,7 +5,7 @@ import { PenLine } from "@/components/icons";
 const Logo = () => {
     return (
         <div className="flex items-center gap-x-2.5">
-            <div className="flex h-7 w-7 items-center justify-center rounded-control bg-primary text-primary-foreground shadow-[var(--shadow-sm)]">
+            <div className="flex h-7 w-7 items-center justify-center rounded-control bg-primary text-primary-foreground shadow-elevation-1">
                 <PenLine className="h-4 w-4" strokeWidth={2} />
             </div>
             <p className="text-lead font-semibold tracking-[-0.02em]">Lotion</p>

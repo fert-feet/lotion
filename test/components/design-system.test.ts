@@ -72,6 +72,16 @@ describe("全仓遵守设计 token 纪律", () => {
     ).toEqual([]);
   });
 
+  it("阴影只用 elevation 语义类（不写 shadow-[var(--shadow-sm)] / 裸 shadow-md）", () => {
+    expect(
+      scan(/shadow-\[\s*var\(--shadow-(?:sm|md|lg)\)\s*\]/g),
+      "阴影应取 shadow-elevation-1/2/3（裸 shadow-md 走的是 Tailwind 默认值，不在设计系统里）",
+    ).toEqual([]);
+    expect(scan(/(?<![\w-])shadow-(?:sm|md|lg|xl)(?![\w-])/g), "阴影应取 shadow-elevation-1/2/3").toEqual(
+      [],
+    );
+  });
+
   it("globals.css 真的定义了这些 token 与工具类（删了会让组件静默降级）", () => {
     const css = fs.readFileSync(path.join(ROOT, "src/styles/globals.css"), "utf8");
     for (const token of [
@@ -91,6 +101,9 @@ describe("全仓遵守设计 token 纪律", () => {
       "--z-modal",
       "--z-popover",
       "--z-toast",
+      "--shadow-elevation-1",
+      "--shadow-elevation-2",
+      "--shadow-elevation-3",
     ]) {
       expect(css, `globals.css 缺少 ${token}`).toContain(token);
     }

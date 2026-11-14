@@ -77,7 +77,7 @@ function PopoverContent({ className, align = "center", side = "bottom", sideOffs
   if (!open) return null;
   if (typeof document === "undefined") return null;
   return createPortal(
-    <div ref={contentRef} style={{ position: "fixed", top: pos?.top ?? 0, left: pos?.left ?? 0, zIndex: "var(--z-popover)", visibility: pos ? "visible" : "hidden" }} className={cn("material-popover w-72 rounded-panel hairline border-shell-border-l2 shadow-[var(--shadow-md)]", className)} {...props}>
+    <div ref={contentRef} style={{ position: "fixed", top: pos?.top ?? 0, left: pos?.left ?? 0, zIndex: "var(--z-popover)", visibility: pos ? "visible" : "hidden" }} className={cn("material-popover w-72 rounded-panel hairline border-shell-border-l2 shadow-elevation-2", className)} {...props}>
       {children}
     </div>,
     document.body,

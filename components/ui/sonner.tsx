@@ -13,7 +13,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
       toastOptions={{
         classNames: {
           toast:
-            "!rounded-panel !hairline !border-shell-border-l2 !shadow-[var(--shadow-md)] !text-ui",
+            "!rounded-panel !hairline !border-shell-border-l2 !shadow-elevation-2 !text-ui",
           description: "!text-shell-label-secondary",
         },
       }}

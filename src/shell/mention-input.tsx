@@ -265,7 +265,7 @@ export default function MentionInput({
         className="mention-editor max-h-32 flex-1 overflow-y-auto whitespace-pre-wrap break-words px-3 pt-2 text-lead leading-[1.5] focus:outline-none"
       />
       {mentionOpen && (
-        <div className="material-popover absolute bottom-full left-0 z-50 mb-1 max-h-56 w-72 overflow-y-auto rounded-card hairline border-shell-border-l2 p-1 shadow-[var(--shadow-md)]">
+        <div className="material-popover absolute bottom-full left-0 z-50 mb-1 max-h-56 w-72 overflow-y-auto rounded-card hairline border-shell-border-l2 p-1 shadow-elevation-2">
           {filtered.length === 0 && (
             <div className="px-2.5 py-2 text-xs text-muted-foreground">没有匹配的文档</div>
           )}

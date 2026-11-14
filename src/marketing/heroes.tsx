@@ -18,7 +18,7 @@ const summary = [
 const Heroes = () => {
     return (
         <section className="mx-auto w-full max-w-[1000px] py-6 md:py-10">
-            <div className="overflow-hidden rounded-panel hairline border-border bg-card shadow-[var(--shadow-md)]">
+            <div className="overflow-hidden rounded-panel hairline border-border bg-card shadow-elevation-2">
                 {/* 窗口标题栏 */}
                 <div className="flex h-10 items-center gap-2 hairline-b border-border bg-[color-mix(in_srgb,var(--foreground)_4%,var(--background))] px-4">
                     <span className="h-[10px] w-[10px] rounded-full bg-destructive/75" />
@@ -61,7 +61,7 @@ const Heroes = () => {
                         <div className="ml-auto max-w-[88%] rounded-panel rounded-br-control bg-primary px-3.5 py-2 text-ui leading-[1.5] text-primary-foreground">
                             Summarize this note in 3 bullets
                         </div>
-                        <div className="max-w-[94%] rounded-panel rounded-bl-control hairline border-border bg-card px-3.5 py-3 shadow-[var(--shadow-sm)]">
+                        <div className="max-w-[94%] rounded-panel rounded-bl-control hairline border-border bg-card px-3.5 py-3 shadow-elevation-1">
                             <div className="mb-2 flex items-center gap-1.5">
                                 <Sparkles className="h-3 w-3 text-primary" strokeWidth={2} />
                                 <span className="text-caption font-medium text-shell-label-tertiary">
