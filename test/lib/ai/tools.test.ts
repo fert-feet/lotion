@@ -13,12 +13,10 @@ import { createReadNoteTool } from "@/lib/ai/tools/read-note";
 import { createUpdateNoteTool } from "@/lib/ai/tools/update-note";
 import { createRenameNoteTool } from "@/lib/ai/tools/rename-note";
 import { createDeleteNoteTool } from "@/lib/ai/tools/delete-note";
-import { createArchiveNoteTool } from "@/lib/ai/tools/archive-note";
 import { createSearchNotesTool } from "@/lib/ai/tools/search-notes";
 import { createListNotesTool } from "@/lib/ai/tools/list-notes";
 import { createMoveNoteTool } from "@/lib/ai/tools/move-note";
-import { createRestoreNoteTool } from "@/lib/ai/tools/restore-note";
-import { createListTrashTool } from "@/lib/ai/tools/list-trash";
+import { createManageTrashTool } from "@/lib/ai/tools/manage-trash";
 import { createPublishNoteTool } from "@/lib/ai/tools/publish-note";
 import { createSetNoteIconTool } from "@/lib/ai/tools/set-note-icon";
 import { createAskUserTool } from "@/lib/ai/tools/ask-user";
@@ -105,8 +103,8 @@ describe("createNote 工具", () => {
 
     // 父文档已归档
     const archivedParent = seedDoc("归档父", "");
-    const archiver = createArchiveNoteTool(db, "u1");
-    await archiver.execute({ noteId: archivedParent } as never, {} as never);
+    const archiver = createManageTrashTool(db, "u1");
+    await archiver.execute({ action: "archive", noteId: archivedParent } as never, {} as never);
     const t3 = createCreateNoteTool(db, "u1");
     const bad2 = await t3.execute({ title: "x", content: "y", parentDocumentId: archivedParent } as never, {} as never);
     expect(bad2).toContain("父笔记");
@@ -251,12 +249,12 @@ describe("deleteNote 工具", () => {
 
 // ---- archiveNote ----
 
-describe("archiveNote 工具", () => {
+describe("manageTrash 工具 · archive", () => {
   it("归档成功：isArchived 置 1（只影响单条，不递归）", async () => {
     const parent = seedDoc("父笔记", "");
     const child = createDocument(db, "u1", "子笔记", parent);
-    const t = createArchiveNoteTool(db, "u1");
-    const result = await t.execute({ noteId: parent } as never, {} as never);
+    const t = createManageTrashTool(db, "u1");
+    const result = await t.execute({ action: "archive", noteId: parent } as never, {} as never);
 
     expect(result).toContain("已归档");
     expect(getDocumentById(db, parent, "u1")!.isArchived).toBe(true);
@@ -264,10 +262,15 @@ describe("archiveNote 工具", () => {
   });
 
   it("归档失败（不存在/跨用户）返回错误文案", async () => {
-    const t = createArchiveNoteTool(db, "u1");
-    const result = await t.execute({ noteId: newId() } as never, {} as never);
+    const t = createManageTrashTool(db, "u1");
+    const result = await t.execute({ action: "archive", noteId: newId() } as never, {} as never);
 
     expect(result).toContain("归档失败");
+  });
+
+  it("缺 noteId 时提示先 list", async () => {
+    const t = createManageTrashTool(db, "u1");
+    expect(await t.execute({ action: "archive" } as never, {} as never)).toContain("需要提供 noteId");
   });
 });
 
@@ -429,8 +432,8 @@ describe("moveNote 工具（确认模式）", () => {
     const moving = seedDoc("要移动的", "");
     const foreign = seedDoc("别人的父", "", "u2");
     const archived = seedDoc("归档父", "");
-    const archiver = createArchiveNoteTool(db, "u1");
-    await archiver.execute({ noteId: archived } as never, {} as never);
+    const archiver = createManageTrashTool(db, "u1");
+    await archiver.execute({ action: "archive", noteId: archived } as never, {} as never);
 
     const { events, onEvent } = collectEvents();
     const t = createMoveNoteTool(db, "u1", onEvent);
@@ -444,16 +447,16 @@ describe("moveNote 工具（确认模式）", () => {
 
 // ---- restoreNote / listTrash ----
 
-describe("restoreNote 工具", () => {
+describe("manageTrash 工具 · restore", () => {
   it("从回收站恢复，上报 note_modified + reference 事件", async () => {
     const id = seedDoc("要恢复的", "");
-    const archiver = createArchiveNoteTool(db, "u1");
-    await archiver.execute({ noteId: id } as never, {} as never);
+    const archiver = createManageTrashTool(db, "u1");
+    await archiver.execute({ action: "archive", noteId: id } as never, {} as never);
     expect(getDocumentById(db, id, "u1")!.isArchived).toBe(true);
 
     const { events, onEvent } = collectEvents();
-    const t = createRestoreNoteTool(db, "u1", onEvent);
-    const result = await t.execute({ noteId: id } as never, {} as never);
+    const t = createManageTrashTool(db, "u1", onEvent);
+    const result = await t.execute({ action: "restore", noteId: id } as never, {} as never);
 
     expect(result).toContain("已从回收站恢复");
     expect(getDocumentById(db, id, "u1")!.isArchived).toBe(false);
@@ -463,23 +466,27 @@ describe("restoreNote 工具", () => {
   it("不在回收站/不存在时给出提示且不上报事件", async () => {
     const active = seedDoc("正常笔记", "");
     const { events, onEvent } = collectEvents();
-    const t = createRestoreNoteTool(db, "u1", onEvent);
+    const t = createManageTrashTool(db, "u1", onEvent);
 
-    expect(await t.execute({ noteId: active } as never, {} as never)).toContain("不在回收站");
-    expect(await t.execute({ noteId: newId() } as never, {} as never)).toContain("不存在");
+    expect(await t.execute({ action: "restore", noteId: active } as never, {} as never)).toContain(
+      "不在回收站",
+    );
+    expect(await t.execute({ action: "restore", noteId: newId() } as never, {} as never)).toContain(
+      "不存在",
+    );
     expect(events).toHaveLength(0);
   });
 });
 
-describe("listTrash 工具", () => {
+describe("manageTrash 工具 · list", () => {
   it("列出回收站中的笔记", async () => {
     const a = seedDoc("回收的 A", "");
     seedDoc("正常的 B", "");
-    const archiver = createArchiveNoteTool(db, "u1");
-    await archiver.execute({ noteId: a } as never, {} as never);
+    const archiver = createManageTrashTool(db, "u1");
+    await archiver.execute({ action: "archive", noteId: a } as never, {} as never);
 
-    const t = createListTrashTool(db, "u1");
-    const result = await t.execute({} as never, {} as never);
+    const t = createManageTrashTool(db, "u1");
+    const result = await t.execute({ action: "list" } as never, {} as never);
 
     expect(result).toContain("回收站中有 1 篇笔记");
     expect(result).toContain("回收的 A");
@@ -487,8 +494,8 @@ describe("listTrash 工具", () => {
   });
 
   it("回收站为空时返回提示", async () => {
-    const t = createListTrashTool(db, "u1");
-    const result = await t.execute({} as never, {} as never);
+    const t = createManageTrashTool(db, "u1");
+    const result = await t.execute({ action: "list" } as never, {} as never);
     expect(result).toContain("回收站是空的");
   });
 });

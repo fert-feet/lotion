@@ -123,8 +123,7 @@ const MUTATING_TOOLS = new Set([
   "renameNote",
   "setNoteIcon",
   "publishNote",
-  "archiveNote",
-  "restoreNote",
+  "manageTrash",
 ]);
 
 /** 从工具入参里取文档 id（改写入参名时这里会失效 —— 有单测钉住） */

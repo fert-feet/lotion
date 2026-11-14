@@ -2,7 +2,7 @@
 //
 // 事故背景：客户端 AI 面板手抄了一份 7 条图标映射（它不能 import @/lib/ai/*，
 // 见 test/boundary.test.ts），服务端 TOOL_META 有 19 条 —— 12 个工具退化成 ⚙️，
-// deleteNote/archiveNote 的图标还与服务端不一致。
+// deleteNote/manageTrash 的图标还与服务端不一致。
 // 现在两侧同源（lib/tool-meta.ts），这条测试保证"注册了工具但忘了写元数据"会红。
 import { describe, it, expect } from "vitest";
 import { FALLBACK_TOOL_ICON, TOOL_META, toolIcon, toolLabel } from "@/lib/tool-meta";
@@ -37,7 +37,7 @@ describe("lib/tool-meta 单一真相源", () => {
 
   it("客户端此前手抄错的图标以服务端元数据为准", () => {
     expect(toolIcon("deleteNote")).toBe(TOOL_META.deleteNote.icon);
-    expect(toolIcon("archiveNote")).toBe(TOOL_META.archiveNote.icon);
-    expect(TOOL_META.deleteNote.icon).not.toBe(TOOL_META.archiveNote.icon);
+    expect(toolIcon("manageTrash")).toBe(TOOL_META.manageTrash.icon);
+    expect(TOOL_META.deleteNote.icon).not.toBe(TOOL_META.manageTrash.icon);
   });
 });

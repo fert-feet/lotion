@@ -14,10 +14,8 @@ import { createRenameNoteTool } from "./rename-note";
 import { createMoveNoteTool } from "./move-note";
 import { createSetNoteIconTool } from "./set-note-icon";
 import { createPublishNoteTool } from "./publish-note";
-import { createArchiveNoteTool } from "./archive-note";
-import { createRestoreNoteTool } from "./restore-note";
-import { createListTrashTool } from "./list-trash";
 import { createDeleteNoteTool } from "./delete-note";
+import { createManageTrashTool } from "./manage-trash";
 import { createListNotesTool } from "./list-notes";
 import { createAskUserTool } from "./ask-user";
 import { createTodoWriteTool } from "./todo-write";
@@ -147,9 +145,7 @@ export function registerBuiltinTools(registry: HostToolRegistry): void {
     { name: "moveNote", create: (db, userId, onEvent) => createMoveNoteTool(db, userId, onEvent) },
     { name: "setNoteIcon", create: (db, userId, onEvent) => createSetNoteIconTool(db, userId, onEvent) },
     { name: "publishNote", create: (db, userId, onEvent) => createPublishNoteTool(db, userId, onEvent) },
-    { name: "archiveNote", create: (db, userId) => createArchiveNoteTool(db, userId) },
-    { name: "restoreNote", create: (db, userId, onEvent) => createRestoreNoteTool(db, userId, onEvent) },
-    { name: "listTrash", create: (db, userId) => createListTrashTool(db, userId) },
+    { name: "manageTrash", create: (db, userId, onEvent) => createManageTrashTool(db, userId, onEvent) },
     { name: "deleteNote", create: (db, userId, onEvent) => createDeleteNoteTool(db, userId, onEvent) },
     { name: "askUser", create: (db, userId, onEvent) => createAskUserTool(db, userId, onEvent) },
     { name: "todoWrite", create: (db, userId, onEvent) => createTodoWriteTool(db, userId, onEvent) },

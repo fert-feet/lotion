@@ -65,9 +65,6 @@ importers:
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
-      emoji-picker-react:
-        specifier: ^4.14.1
-        version: 4.14.1(react@19.1.0)
       hono:
         specifier: ^4.13.7
         version: 4.13.7
@@ -1447,12 +1444,6 @@ packages:
   emoji-mart@5.6.0:
     resolution: {integrity: sha512-eJp3QRe79pjwa+duv+n7+5YsNhRcMl812EcFVwrnRvYKoNPoQb5qxU8DG6Bgwji0akHdp6D4Ln6tYLG58MFSow==}
 
-  emoji-picker-react@4.14.1:
-    resolution: {integrity: sha512-4N6dCHr8Z5P52ICdncSxrY0ZcgUtb9Y3o4eBsy6HLpOMhka9AoiWMZ4/hJK0SQNYMIb7MQ+/NT5dqotpo9OXVA==}
-    engines: {node: '>=10'}
-    peerDependencies:
-      react: '>=16'
-
   emoji-regex@10.6.0:
     resolution: {integrity: sha512-toUI84YS5YmxW219erniWD0CIVOo46xGKColeNQRgOzDorgBi1v4D71/OFzgD9GO2UGKIv1C3Sp8DAn0+j5w7A==}
 
@@ -1580,9 +1571,6 @@ packages:
   find-up@5.0.0:
     resolution: {integrity: sha512-78/PXT1wlLLDgTzDs7sjq9hzz0vXD+zn+7wypEe4fXQxCmdmqfGsEPQxmiCSQI3ajFV91bVSsvNtrJRiW6nGng==}
     engines: {node: '>=10'}
-
-  flairup@1.0.0:
-    resolution: {integrity: sha512-IKlE+pNvL2R+kVL1kEhUYqRxVqeFnjiIvHWDMLFXNaqyUdFXQM2wte44EfMYJNHkW16X991t2Zg8apKkhv7OBA==}
 
   flat-cache@4.0.1:
     resolution: {integrity: sha512-f7ccFPK3SXFHpx15UIGyRJ/FJQctuKZ0zVuN3frBo4HnK3cay9VEW0R6yPYFHC0AgqhukPzKjq22t5DmAyqGyw==}
@@ -3859,11 +3847,6 @@ snapshots:
 
   emoji-mart@5.6.0: {}
 
-  emoji-picker-react@4.14.1(react@19.1.0):
-    dependencies:
-      flairup: 1.0.0
-      react: 19.1.0
-
   emoji-regex@10.6.0: {}
 
   enhanced-resolve@5.18.3:
@@ -4021,8 +4004,6 @@ snapshots:
     dependencies:
       locate-path: 6.0.0
       path-exists: 4.0.0
-
-  flairup@1.0.0: {}
 
   flat-cache@4.0.1:
     dependencies:

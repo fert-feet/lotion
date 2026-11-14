@@ -17,7 +17,7 @@ export interface ToolMeta {
   description: string;
 }
 
-/** 内置工具目录（19 个）。键即工具名，与 registry 注册名一一对应 */
+/** 内置工具目录（17 个）。键即工具名，与 registry 注册名一一对应 */
 export const TOOL_META: Record<string, ToolMeta> = {
   searchNotes: { label: "搜索笔记", icon: "🔍", description: "按标题和正文关键词搜索笔记" },
   listNotes: { label: "浏览笔记", icon: "📂", description: "浏览笔记目录（全部或指定父笔记的子文档）" },
@@ -28,9 +28,7 @@ export const TOOL_META: Record<string, ToolMeta> = {
   moveNote: { label: "移动笔记", icon: "📦", description: "移动笔记到其他父笔记下（需确认）" },
   setNoteIcon: { label: "设置图标", icon: "🎨", description: "设置或清除笔记的 emoji 图标" },
   publishNote: { label: "发布笔记", icon: "🌐", description: "发布或取消发布笔记（公开预览）" },
-  archiveNote: { label: "归档笔记", icon: "🗄️", description: "归档到回收站（可恢复）" },
-  restoreNote: { label: "恢复笔记", icon: "♻️", description: "从回收站恢复笔记" },
-  listTrash: { label: "查看回收站", icon: "🗑️", description: "列出回收站中的笔记" },
+  manageTrash: { label: "回收站", icon: "🗑️", description: "查看回收站 / 归档 / 恢复笔记" },
   deleteNote: { label: "删除笔记", icon: "💥", description: "永久删除（需用户确认）" },
   askUser: { label: "询问用户", icon: "❓", description: "向用户提出结构化问题" },
   todoWrite: { label: "任务清单", icon: "✅", description: "维护会话多步任务清单" },
