@@ -165,4 +165,24 @@ END;
 INSERT INTO documents_fts(documents_fts) VALUES('rebuild');
 `,
   },
+  {
+    // 006：文档版本历史。每次 title/content 变化前把**改动前**的快照存一份，
+    // 支持预览与一键回滚（用户改坏了、AI 改错了都能回到过去）。
+    // 与 ai_changes 的分工：ai_changes 是"一轮 AI 请求"的撤销栈（可整轮撤销、可 undoneAt 标记）；
+    // document_versions 是按文档的时间线（含用户自己的编辑），保留最近 50 份。
+    name: "006_document_versions",
+    sql: `
+CREATE TABLE IF NOT EXISTS document_versions (
+  "id"         TEXT PRIMARY KEY,
+  "documentId" TEXT NOT NULL REFERENCES documents("id") ON DELETE CASCADE,
+  "userId"     TEXT NOT NULL REFERENCES users("id") ON DELETE CASCADE,
+  "title"      TEXT NOT NULL,
+  "content"    TEXT,
+  "source"     TEXT NOT NULL DEFAULT 'user',
+  "createdAt"  TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_document_versions_doc
+  ON document_versions ("documentId", "userId", "createdAt" DESC);
+`,
+  },
 ];

@@ -317,3 +317,47 @@ describe("GET /api/documents/:id/export（Markdown 导出）", () => {
     expect((await call(`/api/documents/${id}/export?format=pdf`, "GET", cookie)).status).toBe(400);
   });
 });
+
+describe("/api/documents/:id/versions（版本历史）", () => {
+  it("列表 / 单个版本 / 回滚 全链路；跨用户 404", async () => {
+    const { cookie } = await authCookie("ver@x.com");
+    const created = await call("/api/documents", "POST", cookie, { title: "原始" });
+    const { id } = (await created.json()) as { id: string };
+    await call(`/api/documents/${id}`, "PATCH", cookie, { title: "改过" });
+
+    const listRes = await call(`/api/documents/${id}/versions`, "GET", cookie);
+    expect(listRes.status).toBe(200);
+    const { versions } = (await listRes.json()) as {
+      versions: { id: string; title: string; contentLength: number }[];
+    };
+    expect(versions.length).toBeGreaterThan(0);
+    expect(versions[0]!.title).toBe("原始");
+
+    const oneRes = await call(`/api/documents/${id}/versions/${versions[0]!.id}`, "GET", cookie);
+    expect(oneRes.status).toBe(200);
+    expect(((await oneRes.json()) as { title: string }).title).toBe("原始");
+
+    const restoreRes = await call(
+      `/api/documents/${id}/versions/${versions[0]!.id}/restore`,
+      "POST",
+      cookie,
+    );
+    expect(restoreRes.status).toBe(200);
+    const doc = (await (await call(`/api/documents/${id}`, "GET", cookie)).json()) as {
+      title: string;
+    };
+    expect(doc.title).toBe("原始");
+  });
+
+  it("未登录 401；不存在的版本 404", async () => {
+    const { cookie } = await authCookie("ver2@x.com");
+    const created = await call("/api/documents", "POST", cookie, { title: "x" });
+    const { id } = (await created.json()) as { id: string };
+
+    expect((await call(`/api/documents/${id}/versions`, "GET")).status).toBe(401);
+    expect((await call(`/api/documents/${id}/versions/nope`, "GET", cookie)).status).toBe(404);
+    expect(
+      (await call(`/api/documents/${id}/versions/nope/restore`, "POST", cookie)).status,
+    ).toBe(404);
+  });
+});

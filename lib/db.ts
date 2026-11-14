@@ -208,6 +208,42 @@ export async function previewAiChanges(requestId: string) {
   }>("/api/ai/undo/" + encodeURIComponent(requestId) + "/preview");
 }
 
+/** 版本时间线条目（不含正文） */
+export interface DocumentVersionSummary {
+  id: string;
+  title: string;
+  source: "user" | "ai";
+  createdAt: string;
+  contentLength: number;
+}
+
+/** 单个版本（含正文） */
+export interface DocumentVersion extends DocumentVersionSummary {
+  content: string | null;
+}
+
+/** 某文档的版本时间线（新→旧） */
+export async function listDocumentVersions(id: string): Promise<DocumentVersionSummary[]> {
+  const { versions } = await api<{ versions: DocumentVersionSummary[] }>(
+    `/api/documents/${encodeURIComponent(id)}/versions`,
+  );
+  return versions;
+}
+
+/** 单个版本全文（预览用） */
+export async function getDocumentVersion(id: string, versionId: string): Promise<DocumentVersion | null> {
+  return api<DocumentVersion>(
+    `/api/documents/${encodeURIComponent(id)}/versions/${encodeURIComponent(versionId)}`,
+  ).catch(() => null);
+}
+
+/** 回滚到某个版本 */
+export async function restoreDocumentVersion(id: string, versionId: string): Promise<void> {
+  await api(`/api/documents/${encodeURIComponent(id)}/versions/${encodeURIComponent(versionId)}/restore`, {
+    method: "POST",
+  });
+}
+
 /**
  * 追加一段 Markdown 到文档末尾（AI 面板「插入到当前文档」）。
  * 转换（Markdown → BlockNote 块）在服务端做，客户端只发原文。

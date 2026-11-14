@@ -8,6 +8,9 @@ import {
   deleteDocument,
   getDescendantIds,
   getDocumentById,
+  listDocumentVersions,
+  getDocumentVersion,
+  restoreDocumentVersion,
   listSearch,
   listSidebarAll,
   listTrash,
@@ -167,6 +170,44 @@ documentsRoutes.patch("/:documentId/archive", (c) => {
 documentsRoutes.patch("/:documentId/restore", (c) => {
   const user = c.get("user");
   restoreDocument(getDb(), user.id, c.req.param("documentId"));
+  return c.json({ ok: true });
+});
+
+/**
+ * GET /api/documents/:documentId/versions —— 版本时间线（新→旧，不含正文）
+ */
+documentsRoutes.get("/:documentId/versions", (c) => {
+  const user = c.get("user");
+  const documentId = c.req.param("documentId");
+  const doc = getDocumentById(getDb(), documentId, user.id);
+  if (!doc) return c.json({ error: "Not found" }, 404);
+  return c.json({ versions: listDocumentVersions(getDb(), user.id, documentId) });
+});
+
+/**
+ * GET /api/documents/:documentId/versions/:versionId —— 单个版本全文（预览用）
+ */
+documentsRoutes.get("/:documentId/versions/:versionId", (c) => {
+  const user = c.get("user");
+  const version = getDocumentVersion(
+    getDb(),
+    user.id,
+    c.req.param("documentId"),
+    c.req.param("versionId"),
+  );
+  if (!version) return c.json({ error: "Not found" }, 404);
+  return c.json(version);
+});
+
+/**
+ * POST /api/documents/:documentId/versions/:versionId/restore —— 回滚到该版本
+ * 回滚也是一次编辑：当前状态会先被记成一份新版本，回滚错了可以再滚回来。
+ */
+documentsRoutes.post("/:documentId/versions/:versionId/restore", (c) => {
+  const user = c.get("user");
+  const documentId = c.req.param("documentId");
+  const ok = restoreDocumentVersion(getDb(), user.id, documentId, c.req.param("versionId"));
+  if (!ok) return c.json({ error: "版本不存在或回滚失败" }, 404);
   return c.json({ ok: true });
 });
 

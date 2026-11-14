@@ -95,6 +95,20 @@ export type DocumentOverviewItem = {
  * docStore 契约：所有方法都以 `Actor` 显式标识操作主体。
  * （宿主侧据此做 SQL 过滤；浏览器侧 cookie 已承载身份，实现里忽略该参数即可。）
  */
+/** 版本时间线条目（不含正文） */
+export interface DocumentVersionSummary {
+  id: string;
+  title: string;
+  source: "user" | "ai";
+  createdAt: string;
+  contentLength: number;
+}
+
+/** 单个版本（含正文） */
+export interface DocumentVersion extends DocumentVersionSummary {
+  content: string | null;
+}
+
 export interface DocStore {
   // ---- 文档读取 ----
   /** 全部未归档文档（侧边栏/搜索候选） */
@@ -130,6 +144,14 @@ export interface DocStore {
     actor: Actor,
     requestId: string,
   ): Promise<{ restored: string[]; skipped: number }>;
+  // ---- 文档版本历史 ----
+  /** 某文档的版本时间线（新→旧，不含正文） */
+  listVersions(actor: Actor, id: string): Promise<DocumentVersionSummary[]>;
+  /** 单个版本全文（预览用） */
+  getVersion(actor: Actor, id: string, versionId: string): Promise<DocumentVersion | null>;
+  /** 回滚到该版本（回滚本身也会记录一份新版本） */
+  restoreVersion(actor: Actor, id: string, versionId: string): Promise<void>;
+
   /** 某一轮 AI 改动的"改动前后"对照（Markdown 文本，用于预览"AI 改了什么"） */
   previewAiChanges(actor: Actor, requestId: string): Promise<AiChangePreview[]>;
   listChatSessions(actor: Actor, limit?: number): Promise<ChatSession[]>;
@@ -161,6 +183,9 @@ const DOC_STORE_METHODS = [
   "removeCoverImage",
   "undoAiChanges",
   "previewAiChanges",
+  "listVersions",
+  "getVersion",
+  "restoreVersion",
   "listChatSessions",
   "createChatSession",
   "deleteChatSession",
@@ -200,13 +225,16 @@ export const DOC_STORE_SERVICE = "docStore";
  * @throws 缺少方法时抛错（错误信息列出全部缺失方法名）
  */
 export function provideDocStore(ctx: Context, store: DocStore): void {
-  assertShape(store, DOC_STORE_METHODS);
+  // SAFETY: 接口类型没有索引签名，形状校验需要按方法名逐个探测；探测只做
+  // `typeof === "function"`，不读取任何值，因此收窄为 Record 是安全的。
+  assertShape(store as unknown as Record<string, unknown>, DOC_STORE_METHODS);
   provideService(ctx, DOC_STORE_SERVICE, store);
 }
 
 /** 装配 docStore 实现（浏览器侧）：只要求 UI 子集完整 */
 export function provideUiDocStore(ctx: Context, store: UiDocStore): void {
-  assertShape(store, UI_DOC_STORE_METHODS);
+  // SAFETY: 同上——形状探测按方法名做存在性检查，不会以 Record 语义读取实现的值。
+  assertShape(store as unknown as Record<string, unknown>, UI_DOC_STORE_METHODS);
   provideService(ctx, DOC_STORE_SERVICE, store);
 }
 
@@ -241,10 +269,10 @@ function require_<T>(ctx: Context): T {
 }
 
 /** 校验实现是否具备清单里的全部方法（就地失败，不留半个服务） */
-function assertShape(store: object, methods: readonly string[]): void {
-  const missing = methods.filter(
-    (name) => typeof (store as unknown as Record<string, unknown>)[name] !== "function",
-  );
+function assertShape(store: Record<string, unknown>, methods: readonly string[]): void {
+  // SAFETY: 本函数是"装配期形状校验"的最后一环——入参本就是任意实现对象（未通过
+  // 类型检查），这里只按方法名做 `typeof === "function"` 的存在性探测，不读取值。
+  const missing = methods.filter((name) => typeof store[name] !== "function");
   if (missing.length > 0) {
     throw new Error(`docStore 实现不完整，缺少方法：${missing.join("、")}`);
   }

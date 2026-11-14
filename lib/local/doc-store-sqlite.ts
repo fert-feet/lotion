@@ -21,6 +21,9 @@ import {
   listChatHistory,
   listChatSessions,
   previewAiChanges,
+  listDocumentVersions,
+  getDocumentVersion,
+  restoreDocumentVersion,
   undoAiChanges,
   listDocumentsOverview,
   listSearch,
@@ -111,6 +114,15 @@ export function createSqliteDocStore(db?: Database.Database): DocStore {
     // ---- AI 会话 ----
     async undoAiChanges(actor: Actor, requestId: string) {
       return undoAiChanges(conn(), actor.userId, requestId);
+    },
+    async listVersions(actor: Actor, id: string) {
+      return listDocumentVersions(conn(), actor.userId, id);
+    },
+    async getVersion(actor: Actor, id: string, versionId: string) {
+      return getDocumentVersion(conn(), actor.userId, id, versionId);
+    },
+    async restoreVersion(actor: Actor, id: string, versionId: string) {
+      restoreDocumentVersion(conn(), actor.userId, id, versionId);
     },
     async previewAiChanges(actor: Actor, requestId: string) {
       return previewAiChanges(conn(), actor.userId, requestId);

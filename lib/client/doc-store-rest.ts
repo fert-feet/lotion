@@ -9,6 +9,9 @@ import type { PluginObject } from "@/lib/kernel";
 import {
   appendMarkdown,
   previewAiChanges,
+  listDocumentVersions,
+  getDocumentVersion,
+  restoreDocumentVersion,
   archive,
   create,
   createChatSession,
@@ -126,6 +129,15 @@ export function createRestDocStore(): UiDocStore {
     async previewAiChanges(_actor, requestId: string) {
       const { changes } = await previewAiChanges(requestId);
       return changes;
+    },
+    async listVersions(_actor, id: string) {
+      return listDocumentVersions(id);
+    },
+    async getVersion(_actor, id: string, versionId: string) {
+      return getDocumentVersion(id, versionId);
+    },
+    async restoreVersion(_actor, id: string, versionId: string) {
+      await restoreDocumentVersion(id, versionId);
     },
     async undoAiChanges(_actor, requestId: string) {
       const { restored, skipped } = await undoAiChanges(requestId);

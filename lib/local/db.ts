@@ -71,10 +71,18 @@ function rowToDocument(r: DocumentRow): Document {
   return { ...r, isArchived: !!r.isArchived, isDraft: !!r.isDraft, isPublished: !!r.isPublished };
 }
 
-const DOCUMENT_COLUMNS =
-  `id, title, userId, isArchived, isDraft, parentDocument, content, coverImage, icon, isPublished, createdAt, updatedAt`;
-const SIDEBAR_COLUMNS =
-  `id, title, userId, isArchived, isDraft, parentDocument, icon, isPublished, createdAt, updatedAt`;
+// 查询语句写成完整字面量常量（不在 prepare 里拼列名）：
+// 列清单是编译期常量，但拼接会让静态检查与人工审查都无法确认"SQL 里没有外部输入"。
+const Q_DOCUMENT = `id, title, userId, isArchived, isDraft, parentDocument, content, coverImage, icon, isPublished, createdAt, updatedAt`;
+const Q_SIDEBAR = `id, title, userId, isArchived, isDraft, parentDocument, icon, isPublished, createdAt, updatedAt`;
+
+const SQL_SIDEBAR_ALL = `SELECT ${Q_SIDEBAR} FROM documents WHERE userId = ? AND isArchived = 0 ORDER BY createdAt DESC, rowid DESC`;
+const SQL_TRASH_ALL = `SELECT ${Q_SIDEBAR} FROM documents WHERE userId = ? AND isArchived = 1 ORDER BY createdAt DESC, rowid DESC`;
+const SQL_CHILDREN_BY_PARENT = `SELECT ${Q_DOCUMENT} FROM documents WHERE userId = ? AND isArchived = 0 AND parentDocument = ? ORDER BY createdAt DESC, rowid DESC`;
+const SQL_ROOT_CHILDREN = `SELECT ${Q_DOCUMENT} FROM documents WHERE userId = ? AND isArchived = 0 AND parentDocument IS NULL ORDER BY createdAt DESC, rowid DESC`;
+const SQL_DOCUMENT_BY_ID = `SELECT ${Q_DOCUMENT} FROM documents WHERE id = ?`;
+const SQL_DOCUMENT_BY_ID_USER = `SELECT ${Q_DOCUMENT} FROM documents WHERE id = ? AND userId = ?`;
+const SQL_UPDATE_DOCUMENT = `UPDATE documents SET title = ?, content = ?, coverImage = ?, icon = ?, isPublished = ?, isDraft = ?, updatedAt = ? WHERE id = ? AND userId = ?`;
 
 // ---- AI 会话 ----
 
@@ -384,8 +392,7 @@ function toSidebar(d: Document): SidebarDocument {
 export function listSidebarAll(db: Database.Database, userId: string): SidebarDocument[] {
   const rows = db
     .prepare(
-      `SELECT ${SIDEBAR_COLUMNS} FROM documents
-       WHERE userId = ? AND isArchived = 0 ORDER BY createdAt DESC, rowid DESC`,
+      SQL_SIDEBAR_ALL,
     )
     .all(userId) as DocumentRow[];
   return rows.map(rowToDocument).map(toSidebar);
@@ -401,8 +408,7 @@ export function listSidebar(
     return (
       db
         .prepare(
-          `SELECT ${DOCUMENT_COLUMNS} FROM documents
-           WHERE userId = ? AND isArchived = 0 AND parentDocument = ? ORDER BY createdAt DESC, rowid DESC`,
+          SQL_CHILDREN_BY_PARENT,
         )
         .all(userId, parentDocument) as DocumentRow[]
     ).map(rowToDocument);
@@ -410,8 +416,7 @@ export function listSidebar(
   return (
     db
       .prepare(
-        `SELECT ${DOCUMENT_COLUMNS} FROM documents
-         WHERE userId = ? AND isArchived = 0 AND parentDocument IS NULL ORDER BY createdAt DESC, rowid DESC`,
+        SQL_ROOT_CHILDREN,
       )
       .all(userId) as DocumentRow[]
   ).map(rowToDocument);
@@ -421,8 +426,7 @@ export function listSidebar(
 export function listTrash(db: Database.Database, userId: string): SidebarDocument[] {
   const rows = db
     .prepare(
-      `SELECT ${SIDEBAR_COLUMNS} FROM documents
-       WHERE userId = ? AND isArchived = 1 ORDER BY createdAt DESC, rowid DESC`,
+      SQL_TRASH_ALL,
     )
     .all(userId) as DocumentRow[];
   return rows.map(rowToDocument).map(toSidebar);
@@ -594,11 +598,9 @@ export function getDocumentById(
 ): Document | null {
   const row = userId
     ? (db
-        .prepare(`SELECT ${DOCUMENT_COLUMNS} FROM documents WHERE id = ? AND userId = ?`)
+        .prepare(SQL_DOCUMENT_BY_ID_USER)
         .get(documentId, userId) as DocumentRow | undefined)
-    : (db.prepare(`SELECT ${DOCUMENT_COLUMNS} FROM documents WHERE id = ?`).get(documentId) as
-        | DocumentRow
-        | undefined);
+    : (db.prepare(SQL_DOCUMENT_BY_ID).get(documentId) as DocumentRow | undefined);
   return row ? rowToDocument(row) : null;
 }
 
@@ -632,20 +634,45 @@ export function updateDocument(
   fields: Partial<
     Pick<Document, "title" | "content" | "coverImage" | "icon" | "isPublished" | "isDraft">
   >,
+  options: { source?: DocumentVersionSource } = {},
 ): boolean {
-  const sets: string[] = [];
-  const params: unknown[] = [];
-  for (const [k, v] of Object.entries(fields)) {
-    sets.push(`"${k}" = ?`);
-    // SQLite INTEGER 列不能绑定 JS boolean，显式转 0/1
-    params.push(typeof v === "boolean" ? (v ? 1 : 0) : v);
+  // 没有任何可更新字段时返回 false（不误报成功，也不写版本快照）
+  if (Object.keys(fields).length === 0) return false;
+
+  const current = db.prepare(SQL_DOCUMENT_BY_ID_USER).get(id, userId) as DocumentRow | undefined;
+  if (!current) return false;
+
+  // 版本历史：标题/正文**确实发生变化**前，把改动前的状态快照存一份（节流 + 去重）
+  const titleChanged = fields.title !== undefined && fields.title !== current.title;
+  const contentChanged =
+    fields.content !== undefined && (fields.content ?? null) !== (current.content ?? null);
+  if (titleChanged || contentChanged) {
+    recordDocumentVersion(db, userId, id, options.source ?? "user");
   }
-  if (sets.length === 0) return false;
-  sets.push(`"updatedAt" = ?`);
-  params.push(isoNow(), id, userId);
+
+  // 固定 UPDATE：先合并再整行写回。动态 SET 拼串（即使列名来自白名单）会让
+  // "SQL 里没有外部输入" 这件事无法静态确认，收益不值这个风险。
+  const merged = {
+    title: fields.title ?? current.title,
+    content: fields.content === undefined ? current.content : fields.content,
+    coverImage: fields.coverImage === undefined ? current.coverImage : fields.coverImage,
+    icon: fields.icon === undefined ? current.icon : fields.icon,
+    isPublished: fields.isPublished === undefined ? current.isPublished === 1 : fields.isPublished,
+    isDraft: fields.isDraft === undefined ? current.isDraft === 1 : fields.isDraft,
+  };
   const res = db
-    .prepare(`UPDATE documents SET ${sets.join(", ")} WHERE id = ? AND userId = ?`)
-    .run(...params);
+    .prepare(SQL_UPDATE_DOCUMENT)
+    .run(
+      merged.title,
+      merged.content,
+      merged.coverImage,
+      merged.icon,
+      merged.isPublished ? 1 : 0,
+      merged.isDraft ? 1 : 0,
+      isoNow(),
+      id,
+      userId,
+    );
   return res.changes > 0;
 }
 
@@ -739,4 +766,168 @@ export function clearDocumentCoverImage(
     .prepare(`UPDATE documents SET coverImage = NULL, updatedAt = ? WHERE id = ? AND userId = ?`)
     .run(isoNow(), id, userId);
   return res.changes > 0;
+}
+
+// ---------------------------------------------------------------------------
+// 文档版本历史
+//
+// 每次标题/正文发生变化前，把**改动前**的快照存一份，供时间线预览与一键回滚。
+// 写入是节流的：同类改动 60s 内只留一份，内容完全相同时直接跳过；每篇文档保留
+// 最近 VERSION_KEEP 份（备份语义是"回到最近的一次"，不是审计日志）。
+// ---------------------------------------------------------------------------
+
+/** 版本来源：用户编辑 / AI 写入 */
+export type DocumentVersionSource = "user" | "ai";
+
+/** 单个文档保留的历史份数 */
+export const VERSION_KEEP = 50;
+/** 版本写入节流（同一文档 60s 内最多留一份，避免自动保存把时间线刷爆） */
+export const VERSION_MIN_INTERVAL_MS = 60_000;
+
+/** 版本摘要（列表用，不含正文） */
+export interface DocumentVersionSummary {
+  id: string;
+  title: string;
+  source: DocumentVersionSource;
+  createdAt: string;
+  contentLength: number;
+}
+
+/** 完整版本（含正文） */
+export interface DocumentVersion extends DocumentVersionSummary {
+  content: string | null;
+}
+
+function rowToVersionSummary(row: {
+  id: string;
+  title: string;
+  source: string;
+  createdAt: string;
+  content: string | null;
+}): DocumentVersionSummary {
+  return {
+    id: row.id,
+    title: row.title,
+    source: row.source === "ai" ? "ai" : "user",
+    createdAt: row.createdAt,
+    contentLength: row.content?.length ?? 0,
+  };
+}
+
+/**
+ * 记录一次改动前快照（节流 + 去重 + 保留份数），返回是否真的写入。
+ * 由 updateDocument 自动调用，一般不需要显式使用。
+ */
+export function recordDocumentVersion(
+  db: Database.Database,
+  userId: string,
+  documentId: string,
+  source: DocumentVersionSource,
+  options: { now?: string; force?: boolean } = {},
+): boolean {
+  const now = options.now ?? isoNow();
+  const current = db
+    .prepare('SELECT title, content FROM documents WHERE id = ? AND userId = ?')
+    .get(documentId, userId) as { title: string; content: string | null } | undefined;
+  if (!current) return false;
+
+  const last = db
+    .prepare(
+      `SELECT id, title, content, createdAt FROM document_versions
+       WHERE documentId = ? AND userId = ? ORDER BY createdAt DESC, rowid DESC LIMIT 1`,
+    )
+    .get(documentId, userId) as
+    | { id: string; title: string; content: string | null; createdAt: string }
+    | undefined;
+
+  // 内容没变 → 不记（自动保存/重复 PATCH 不产生噪声）
+  if (last && last.title === current.title && (last.content ?? "") === (current.content ?? "")) {
+    return false;
+  }
+  // 节流：距上一份不足 60s 且不是第一次 → 跳过（最坏情况下一次编辑会话只留首尾）
+  // force（显式回滚）不受节流限制：用户点"恢复"必须真的留档，否则回滚不可逆。
+  if (last && !options.force) {
+    const elapsed = Date.parse(now) - Date.parse(last.createdAt);
+    if (Number.isFinite(elapsed) && elapsed < VERSION_MIN_INTERVAL_MS) return false;
+  }
+
+  db.prepare(
+    `INSERT INTO document_versions (id, documentId, userId, title, content, source, createdAt)
+     VALUES (?,?,?,?,?,?,?)`,
+  ).run(newId(), documentId, userId, current.title, current.content, source, now);
+
+  // 只保留最近 VERSION_KEEP 份
+  db.prepare(
+    `DELETE FROM document_versions
+     WHERE documentId = ? AND userId = ? AND id NOT IN (
+       SELECT id FROM document_versions
+       WHERE documentId = ? AND userId = ? ORDER BY createdAt DESC, rowid DESC LIMIT ?
+     )`,
+  ).run(documentId, userId, documentId, userId, VERSION_KEEP);
+  return true;
+}
+
+/** 某文档的版本时间线（新→旧，不含正文） */
+export function listDocumentVersions(
+  db: Database.Database,
+  userId: string,
+  documentId: string,
+  limit = VERSION_KEEP,
+): DocumentVersionSummary[] {
+  const rows = db
+    .prepare(
+      `SELECT id, title, source, createdAt, content FROM document_versions
+       WHERE documentId = ? AND userId = ? ORDER BY createdAt DESC, rowid DESC LIMIT ?`,
+    )
+    .all(documentId, userId, limit) as {
+    id: string;
+    title: string;
+    source: string;
+    createdAt: string;
+    content: string | null;
+  }[];
+  return rows.map(rowToVersionSummary);
+}
+
+/** 取单个版本全文（预览用） */
+export function getDocumentVersion(
+  db: Database.Database,
+  userId: string,
+  documentId: string,
+  versionId: string,
+): DocumentVersion | null {
+  const row = db
+    .prepare(
+      `SELECT id, title, source, createdAt, content FROM document_versions
+       WHERE id = ? AND documentId = ? AND userId = ?`,
+    )
+    .get(versionId, documentId, userId) as
+    | { id: string; title: string; source: string; createdAt: string; content: string | null }
+    | undefined;
+  if (!row) return null;
+  return { ...rowToVersionSummary(row), content: row.content };
+}
+
+/**
+ * 回滚到某个版本。回滚本身也是一次编辑，因此**当前状态会先被记成一份新版本**
+ * （回滚错了可以再滚回来）。
+ */
+export function restoreDocumentVersion(
+  db: Database.Database,
+  userId: string,
+  documentId: string,
+  versionId: string,
+): boolean {
+  const version = getDocumentVersion(db, userId, documentId, versionId);
+  if (!version) return false;
+  // 回滚必须留档（否则"回滚错了"就再也回不去），因此先强制记一份当前状态，
+  // 再走常规更新（常规更新自己也会再尝试记一份，若内容未变则被去重跳过）。
+  recordDocumentVersion(db, userId, documentId, "user", { force: true });
+  return updateDocument(
+    db,
+    userId,
+    documentId,
+    { title: version.title, content: version.content },
+    { source: "user" },
+  );
 }

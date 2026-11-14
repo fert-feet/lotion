@@ -26,6 +26,10 @@ import {
   markMessagesCompressed,
   insertChatMessage,
   searchDocuments,
+  listDocumentVersions,
+  getDocumentVersion,
+  restoreDocumentVersion,
+  VERSION_KEEP,
   listDocumentsOverview,
   getDescendantIds,
   moveDocument,
@@ -537,5 +541,87 @@ describe("AI 改动快照与撤销", () => {
 
     undoAiChanges(db, userId, "req-parent");
     expect(getDocumentById(db, childId, userId)!.parentDocument).toBeNull();
+  });
+});
+
+describe("文档版本历史", () => {
+  let db: Database.Database;
+  let userId: string;
+
+  beforeEach(() => {
+    db = openTestDb();
+    userId = seedUser(db);
+  });
+
+  it("标题/正文改动前留档：可直接恢复到改动前", () => {
+    const id = seedDoc(db, userId, "原始标题");
+    updateDocument(db, userId, id, { title: "新标题" });
+
+    const versions = listDocumentVersions(db, userId, id);
+    expect(versions).toHaveLength(1);
+    expect(versions[0]!.title).toBe("原始标题");
+
+    const full = getDocumentVersion(db, userId, id, versions[0]!.id)!;
+    expect(full.title).toBe("原始标题");
+
+    expect(restoreDocumentVersion(db, userId, id, versions[0]!.id)).toBe(true);
+    expect(getDocumentById(db, id, userId)!.title).toBe("原始标题");
+  });
+
+  it("内容没变不产生版本；60 秒内只留一份（节流）", () => {
+    const id = seedDoc(db, userId, "t");
+    updateDocument(db, userId, id, { title: "t" }); // 同标题 → 无版本
+    expect(listDocumentVersions(db, userId, id)).toHaveLength(0);
+
+    updateDocument(db, userId, id, { title: "t2" });
+    updateDocument(db, userId, id, { title: "t3" }); // 60s 内 → 被节流
+    expect(listDocumentVersions(db, userId, id)).toHaveLength(1);
+  });
+
+  it("保留份数上限：超过 VERSION_KEEP 的旧版本被清理", () => {
+    const id = seedDoc(db, userId, "v0");
+    // 直接用数据层播种，绕过节流（每次间隔 61s）
+    const base = Date.now();
+    for (let i = 0; i < VERSION_KEEP + 5; i++) {
+      // 时间戳放在过去（每份间隔 61s），否则节流会跳过最新写入、prune 不会执行
+      db.prepare(
+        `INSERT INTO document_versions (id, documentId, userId, title, content, source, createdAt)
+         VALUES (?,?,?,?,?,?,?)`,
+      ).run(
+        `ver-${i}`,
+        id,
+        userId,
+        `v${i}`,
+        null,
+        "user",
+        new Date(base - (VERSION_KEEP + 5 - i) * 61_000).toISOString(),
+      );
+    }
+    // 再写一次触发 prune
+    updateDocument(db, userId, id, { title: "触发清理" });
+    expect(listDocumentVersions(db, userId, id, 1000).length).toBeLessThanOrEqual(VERSION_KEEP);
+  });
+
+  it("回滚本身也留档：可以再滚回来", () => {
+    const id = seedDoc(db, userId, "A");
+    updateDocument(db, userId, id, { title: "B" });
+    const v1 = listDocumentVersions(db, userId, id)[0]!;
+    expect(restoreDocumentVersion(db, userId, id, v1.id)).toBe(true);
+    expect(getDocumentById(db, id, userId)!.title).toBe("A");
+    // 回滚前是 B，所以现在时间线里有 B 的快照
+    const titles = listDocumentVersions(db, userId, id).map((v) => v.title);
+    expect(titles).toContain("B");
+  });
+
+  it("AI 写入标注 source=ai；跨用户不可读", () => {
+    const id = seedDoc(db, userId, "x");
+    updateDocument(db, userId, id, { content: "AI 写的" }, { source: "ai" });
+    const [v] = listDocumentVersions(db, userId, id);
+    expect(v!.source).toBe("ai");
+
+    const other = seedUser(db, "v@x.com");
+    expect(listDocumentVersions(db, other, id)).toEqual([]);
+    expect(getDocumentVersion(db, other, id, v!.id)).toBeNull();
+    expect(restoreDocumentVersion(db, other, id, v!.id)).toBe(false);
   });
 });
