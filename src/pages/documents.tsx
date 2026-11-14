@@ -37,7 +37,6 @@ const DocumentsPage = () => {
       <EmptyState
         icon={<FileText className="h-5 w-5" strokeWidth={1.5} />}
         title={`欢迎回来，${user.email?.split("@")[0]}`}
-        description="创建你的第一篇笔记，或让 AI 助手帮你起草。"
         action={
           <Button onClick={onCreate} disabled={creating} size="lg">
             <FileText className="h-4 w-4" />

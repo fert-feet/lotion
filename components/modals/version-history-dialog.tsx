@@ -145,7 +145,6 @@ export function VersionHistoryDialog({
           <EmptyState
             icon={<History className="h-5 w-5" />}
             title="还没有历史版本"
-            description="改一次标题或正文后，这里就会出现可回滚的快照。"
           />
         ) : (
           <div className="grid max-h-[60vh] grid-cols-[220px_1fr] gap-3 overflow-hidden">

@@ -465,10 +465,6 @@ export function PluginMarket() {
             <DialogTitle>
               {installed.get(confirmEntry?.id ?? "")?.updateAvailable ? "更新" : "安装"} · {confirmEntry?.name}
             </DialogTitle>
-            <p className="text-ui-sm text-shell-label-tertiary">
-              {confirmEntry?.source === "remote" ? "来源：远端 registry" : "来源：本地市场"} · v
-              {confirmEntry?.version}
-            </p>
           </DialogHeader>
           <div className="flex flex-col gap-2 pt-1 text-ui-sm text-shell-label-secondary">
             <div>

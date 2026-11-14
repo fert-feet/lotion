@@ -102,7 +102,6 @@ function PluginRow({
           {restartText ? <Badge tone="amber">{restartText}</Badge> : null}
           <span className={cn("text-caption font-medium", status.className)}>{status.text}</span>
         </div>
-        <p className="mt-0.5 text-ui-sm leading-[17px] text-shell-label-tertiary">{plugin.description}</p>
         {plugin.error ? (
           <p className="mt-1 text-caption leading-4 text-destructive">{plugin.error}</p>
         ) : null}
