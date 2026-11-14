@@ -27,6 +27,7 @@ import {
   undoAiChanges,
   listDocumentsOverview,
   listSearch,
+  searchDocuments,
   listSidebar,
   listSidebarAll,
   listTrash,
@@ -62,7 +63,22 @@ export function createSqliteDocStore(db?: Database.Database): DocStore {
     async listTrash(actor: Actor) {
       return listTrash(conn(), actor.userId);
     },
-    async listSearch(actor: Actor) {
+    async listSearch(actor: Actor, query?: string) {
+      // 宿主侧带 query 时走上文同样的 FTS 策略（searchDocuments），保证两端语义一致
+      if (query?.trim()) {
+        return searchDocuments(conn(), actor.userId, query, 20).map((d) => ({
+          id: d.id,
+          title: d.title,
+          userId: actor.userId,
+          isArchived: false,
+          isDraft: false,
+          parentDocument: null,
+          icon: null,
+          isPublished: false,
+          createdAt: d.updatedAt,
+          updatedAt: d.updatedAt,
+        }));
+      }
       return listSearch(conn(), actor.userId);
     },
     async getById(actor: Actor, id: string) {

@@ -117,8 +117,8 @@ export interface DocStore {
   listSidebar(actor: Actor, parentDocument: string | null): Promise<SidebarDocument[]>;
   /** 回收站（已归档）文档 */
   listTrash(actor: Actor): Promise<SidebarDocument[]>;
-  /** 搜索候选（全部未归档文档，标题匹配在消费方做） */
-  listSearch(actor: Actor): Promise<SidebarDocument[]>;
+  /** 搜索候选；带 `query` 时服务端全文检索（FTS5），不带则返回全部候选由消费方过滤 */
+  listSearch(actor: Actor, query?: string): Promise<SidebarDocument[]>;
   /** 单文档（含 content）；`fresh` 表示绕过缓存 */
   getById(actor: Actor, id: string, options?: { fresh?: boolean }): Promise<Document | null>;
   /** 公开预览读取：不带 Actor（只返回 isPublished 文档，未发布返回 null） */

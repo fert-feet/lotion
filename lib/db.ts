@@ -110,8 +110,14 @@ export async function getTrash(_userId: string): Promise<SidebarDocument[]> {
 }
 
 /** 全局搜索候选（关键字过滤在客户端 search-command 完成） */
-export async function getSearch(_userId: string): Promise<SidebarDocument[]> {
-  return api<SidebarDocument[]>("/api/documents?scope=search");
+/** 搜索候选：带 q 时服务端走 FTS5，返回精简项；不带 q 返回全部（客户端过滤） */
+export async function getSearch(
+  _userId: string,
+  query?: string,
+): Promise<SidebarDocument[]> {
+  const q = query?.trim();
+  const suffix = q ? `&q=${encodeURIComponent(q)}` : "";
+  return api<SidebarDocument[]>(`/api/documents?scope=search${suffix}`);
 }
 
 // 请求去重：Navbar 和 Page 同时请求同一个文档时共用同一个 promise

@@ -109,3 +109,48 @@ describe("upload API", () => {
     expect((await app.request(`/api/uploads/${filename}`, { method: "DELETE" })).status).toBe(200);
   });
 });
+
+describe("图片优化（sharp：长边缩到 2048 / 转 webp）", () => {
+  it("超大 PNG 会被缩到长边 2048 并转 webp（体积显著变小）", async () => {
+    const { default: sharp } = await import("sharp");
+    // 3000×100 的纯色图：解码快、文件小，但宽度超限
+    const png = await sharp({
+      create: { width: 3000, height: 100, channels: 3, background: { r: 200, g: 30, b: 30 } },
+    })
+      .png()
+      .toBuffer();
+
+    const cookie = await authCookie();
+    const res = await multipartRequest(cookie, new Blob([png], { type: "image/png" }));
+    expect(res.status).toBe(200);
+    const { url } = (await res.json()) as { url: string };
+    expect(url.endsWith(".webp")).toBe(true);
+
+    const file = path.join(uploadDir, url.split("/").pop()!);
+    const meta = await sharp(file).metadata();
+    expect(Math.max(meta.width ?? 0, meta.height ?? 0)).toBeLessThanOrEqual(2048);
+    expect(meta.format).toBe("webp");
+  });
+
+  it("小图不放大；已是 webp 且未超限则原样保存", async () => {
+    const { default: sharp } = await import("sharp");
+    const webp = await sharp({
+      create: { width: 64, height: 64, channels: 3, background: { r: 10, g: 10, b: 10 } },
+    })
+      .webp()
+      .toBuffer();
+
+    const cookie = await authCookie();
+    const res = await multipartRequest(
+      cookie,
+      new Blob([webp], { type: "image/webp" }),
+      "t.webp",
+      "image/webp",
+    );
+    expect(res.status).toBe(200);
+    const { url } = (await res.json()) as { url: string };
+    const file = path.join(uploadDir, url.split("/").pop()!);
+    const bytes = fs.readFileSync(file);
+    expect(Buffer.compare(bytes, webp)).toBe(0); // 字节完全一致，没有二次编码
+  });
+});

@@ -8,6 +8,7 @@ import {
   deleteDocument,
   getDescendantIds,
   getDocumentById,
+  searchDocuments,
   listDocumentVersions,
   getDocumentVersion,
   restoreDocumentVersion,
@@ -36,13 +37,27 @@ export const documentsRoutes = new Hono<AppEnv>();
 // 全部文档端点都需要登录会话
 documentsRoutes.use("*", requireAuth);
 
-/** GET /api/documents?scope=sidebar|trash|search —— 列表 */
+/**
+ * GET /api/documents?scope=sidebar|trash|search —— 列表
+ * scope=search 且带 q 时走 FTS5 全文检索（标题+正文，中文 ≥3 字走索引），
+ * 返回 `{ id, title, updatedAt }` 精简项；不带 q 时保持旧行为（返回全部候选，客户端过滤）。
+ */
 documentsRoutes.get("/", (c) => {
   const user = c.get("user");
   const scope = c.req.query("scope") ?? "sidebar";
   const db = getDb();
   if (scope === "trash") return c.json(listTrash(db, user.id));
-  if (scope === "search") return c.json(listSearch(db, user.id));
+  if (scope === "search") {
+    const q = (c.req.query("q") ?? "").trim();
+    if (!q) return c.json(listSearch(db, user.id));
+    return c.json(
+      searchDocuments(db, user.id, q, 20).map((d) => ({
+        id: d.id,
+        title: d.title,
+        updatedAt: d.updatedAt,
+      })),
+    );
+  }
   return c.json(listSidebarAll(db, user.id));
 });
 

@@ -57,8 +57,8 @@ export function createRestDocStore(): UiDocStore {
     async listTrash() {
       return getTrash("");
     },
-    async listSearch() {
-      return getSearch("");
+    async listSearch(_actor, query?: string) {
+      return getSearch("", query);
     },
     async getById(_actor, id: string, options?: { fresh?: boolean }) {
       return options?.fresh ? getByIdFresh(id) : getById(id);

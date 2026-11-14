@@ -1,0 +1,25 @@
+{
+  "name": "Lotion",
+  "short_name": "Lotion",
+  "description": "本地优先的笔记空间，可离线阅读最近访问的文档",
+  "start_url": "/documents",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#007aff",
+  "lang": "zh-CN",
+  "icons": [
+    {
+      "src": "/logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}

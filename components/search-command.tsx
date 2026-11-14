@@ -18,6 +18,8 @@ const SearchCommand = () => {
   const { user } = useUser();
   const navigate = useNavigate();
   const [documents, setDocuments] = useState<SidebarDocument[]>([]);
+  // 服务端全文检索结果：输入停顿 200ms 才发请求（FTS5 走索引，但没必要每个键都打一次）
+  const [remote, setRemote] = useState<SidebarDocument[] | null>(null);
   const [isMounted, setIsMounted] = useState(false);
   const [query, setQuery] = useState("");
   const [highlight, setHighlight] = useState(0);
@@ -37,6 +39,7 @@ const SearchCommand = () => {
         .then((data) => { if (alive) setDocuments(data); })
         .catch(() => { if (alive) setDocuments([]); });
       setQuery("");
+      setRemote(null);
       setHighlight(0);
       setTimeout(() => inputRef.current?.focus(), 30);
       return () => { alive = false; };
@@ -54,8 +57,34 @@ const SearchCommand = () => {
     return () => document.removeEventListener("keydown", down);
   }, [toggle]);
 
+  // 全文检索：≥2 个字符时问服务端（标题/正文都能命中），同时保留本地标题过滤作为兜底
+  useEffect(() => {
+    const q = query.trim();
+    if (!isOpen || !user || q.length < 2) {
+      setRemote(null);
+      return;
+    }
+    let alive = true;
+    const timer = setTimeout(() => {
+      docStore
+        .listSearch({ userId: user.id }, q)
+        .then((data) => {
+          if (alive) setRemote(data);
+        })
+        .catch(() => {
+          if (alive) setRemote(null); // 检索失败退回本地过滤，不让面板空掉
+        });
+    }, 200);
+    return () => {
+      alive = false;
+      clearTimeout(timer);
+    };
+  }, [query, isOpen, user, docStore]);
+
   const q = query.trim().toLowerCase();
-  const filtered = documents.filter((d) => d.title.toLowerCase().includes(q));
+  // 服务端结果优先（含正文命中）；未返回时先用本地标题过滤，避免输入瞬间闪空
+  const localFiltered = documents.filter((d) => d.title.toLowerCase().includes(q));
+  const filtered = remote && q.length >= 2 ? remote : localFiltered;
 
   const onSelect = (id: string) => {
     navigate("/documents/" + id);
