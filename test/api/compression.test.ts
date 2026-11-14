@@ -8,11 +8,12 @@ import { Hono } from "hono";
 import { createApp } from "@/server/app";
 import { createHttpRouteRegistry } from "@/lib/seams/http-routes";
 import type { ApiSubApp } from "@/server/routes";
+import type { AppEnv } from "@/server/http";
 
 /** 构造一个只返回给定 body 的注册表；返回 createApp 装配好的应用 */
 function appWith(body: string) {
   const routes = createHttpRouteRegistry<ApiSubApp>(() => "test");
-  const sub = new Hono();
+  const sub = new Hono<AppEnv>();
   // 子应用挂在 /api/big 下，dispatcher 请求的是子应用的 "/"
   sub.get("/", (c) => c.json({ payload: body }));
   routes.route("/big", sub);
