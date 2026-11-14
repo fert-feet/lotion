@@ -152,7 +152,9 @@ test/                       # Vitest 单测（lib/ / api/ / components/ / seams/
   （每次启动自动迁移，当前 4 个迁移；chat_messages.metadata=回合快照，chat_sessions.documentId=会话绑定文档）
 - `documents` 自引用（`parentDocument`）支持嵌套；多用户隔离靠**应用层显式 userId 过滤**（无 RLS）
 - AI 面板在 `src/shell/ai-panel.tsx`（纯逻辑在 `src/shell/ai/turn-reducer.ts`，有单测），
-  details 列常驻、流式渲染；⌘J 开合，窄屏由 shell 渲染成右侧浮层
+  流式渲染；**三种呈现模式** `docked`（占列，默认）/ `overlay`（浮层，点遮罩关闭）/
+  `fullscreen`（铺满正文区，正文压 0 宽但不卸载），列头切换器或 ⌘⇧J 循环，⌘J 只开合；
+  模式与开合正交，宽度只是 docked 模式下的偏好（`useLayout.detailsMode`）
 - AI 回合的三条持久化通道：assistant 消息正文（纯文本回放）、`chat_messages.metadata`
   回合快照（工具卡/副作用卡/引用/待办/提问/耗时/requestId/附件清单）、`ai_changes` 改动前快照（撤销）
 - **AI 草稿流程**：建完自动跳转到新文档让用户**查看**（内容在创建时就已写入，不必先保存；
@@ -178,13 +180,19 @@ test/                       # Vitest 单测（lib/ / api/ / components/ / seams/
 | 颜色 | `background` / `card` / `popover` / `secondary` / `muted` | 取 macOS 系统色板，明暗两套独立取值（浅色窗口 `#fff`，深色 `#1e1e1e`、抬升面 `#2c2c2e`） |
 | 文本 | `foreground` / `muted-foreground` / `shell-label-secondary` / `shell-label-tertiary` | 对应 macOS 的 label / secondaryLabel / tertiaryLabel |
 | 主色 | `primary`（systemBlue `#007AFF` / 暗色 `#0A84FF`） | 交互与选中；AI 品牌黄 `ai` 只用于 AI 元素与荧光笔高亮 `hl` |
-| 圆角 | `rounded-[6px]` 控件 / `[10px]` 卡片 / `[14px]` 面板 / `[16px]` 弹窗 | 连续圆角，不用胶囊按钮 |
-| 阴影 | `shadow-[var(--shadow-sm)]` / `shadow-[var(--shadow-md)]` / `shadow-[var(--shadow-lg)]` | 多层柔和投影，禁止重投影 |
+| 字级 | `text-caption` 11 / `text-ui-sm` 12 / `text-ui` 13 / `text-lead` 15 / `text-body` 17 / `text-title` 22 / `text-display` 32 / `text-hero` 44 | 8 档阶梯，相邻至少差 2px；层级靠字号 + 字重共同表达。**禁止 `text-[13px]`** |
+| 圆角 | `rounded-control` 6 / `rounded-card` 10 / `rounded-panel` 14 / `rounded-sheet` 16 | 只增不复用；**不要再覆盖** Tailwind 的 `--radius-sm/md/lg`（覆盖过会导致 shadcn 派生组件圆角漂移）。不用胶囊按钮 |
+| 阴影 | `shadow-elevation-1` / `-2` / `-3` | 三层柔和投影（值取 `--shadow-sm/md/lg`，明暗各自一套），禁止重投影与裸 `shadow-md` |
+| 发丝线 | `hairline` / `hairline-t` / `-b` / `-l` / `-r` | 0.5px 在 1x 屏会被舍入成 0 或 1px，token 内已含 `max-resolution` 回退。**禁止手写 `border-[0.5px]`** |
+| 层级 | `z-chrome` 20 / `z-modal` 9980 / `z-popover` 9990 / `z-toast` 9999 | popover 高于 modal 是故意的：浮层要能盖在弹窗之上。**禁止 `z-[99999]`** |
 | 材质 | `.material-sidebar` / `.material-toolbar` / `.material-popover` | backdrop-blur + 饱和，用于侧边栏/顶栏/浮层 |
 | 动效 | `ease-[var(--ds-ease-out)]`、150–200ms | Apple 减速曲线；`active:scale-[0.97]` 给按压反馈 |
 
-排版基线：UI 13px、正文 17px/1.5（编辑器）、大标题 28–32px 且 `tracking-[-0.02em]`；
+排版基线：UI `text-ui`（13px）、正文 `text-body`（17px/1.5，编辑器）、大标题 `text-display`/`text-hero` 且 `tracking-[-0.02em]`；
 字体栈优先系统 SF Pro（`--font-ui`），非 Apple 平台回退 Geist。**不要引入衬线展示体。**
+
+以上纪律由 `test/components/design-system.test.ts` 静态守卫：任意值、裸 `shadow-md`、`z-[99999]` 一律报错；
+AI 面板的语义色另由 `test/components/ai/design-tokens.test.ts` 守卫。
 
 ## 约定
 
