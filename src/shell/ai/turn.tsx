@@ -513,7 +513,9 @@ function TurnViewInner({ turn, onOpenDocument, onConfirmDelete, onCancelDelete, 
           switch (part.kind) {
             case "text":
               return (
-                <div key={i} className="text-lead leading-[1.6] text-shell-label-primary">
+                // 正文的字号/行高/颜色由 .md-content 一处决定（components/markdown/markdown.css），
+                // 这里再挂 text-lead / leading 会形成两套真相源
+                <div key={i}>
                   <MarkdownText
                     text={part.text}
                     streaming={running && i === lastPartIndex}

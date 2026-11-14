@@ -1,119 +1,187 @@
-/* 对齐 DSH MarkdownText.module.css（deepsuite markdown.css 基线）：
-   token 映射到 Lotion shell 变量；表格/代码块/列表样式语义与 DSH 一致。
-   作用域：.md-content（AI 叙述文本容器） */
+/* AI 叙述正文样式（唯一作用域 .md-content）
+   ------------------------------------------------------------------
+   定位：AI 面板里的**阅读正文**——窄栏（docked 约 400px）的连续叙述，
+   所以层级靠字号 + 字重 + 留白，不靠分隔线与色块。
+
+   与设计系统对齐（2026-11 收口）。此前这里是一份自建刻度（正文 14px、
+   h1 26px、h3 19px、圆角 4/6/8px、动效 0.15s ease），而
+   test/components/design-system.test.ts 只扫 .ts/.tsx，.css 不在扫描范围，
+   于是它整份悄悄脱离了 globals.css 的刻度表：
+   · 正文 = --text-lead(15px) / 行高 1.6（24px，落在 8px 栅格上）
+   · 标题只用 --text-title(22) / --text-body(17) / --text-lead(15) / --text-ui-sm(12)
+   · 圆角只用 --radius-control(6) / --radius-card(10)
+   · 动效 = --ds-ease-out + --ds-transition-duration-slow（Apple 减速曲线）
+   · 颜色一律 --shell-* 语义色，明暗两套 token 自己翻转，这里不写第二套色板
+   守卫：test/components/markdown/markdown-css.test.ts（字号/圆角/动效/骨架） */
 
 .md-content {
   min-width: 0;
-  overflow-wrap: anywhere;
-  font-size: 14px;
-  line-height: 24px;
+  /* 断词策略：容器用 break-word（保留 min-content 计算，表格列不会被压成 1 字宽），
+     只有行内代码与表格单元格需要 anywhere——它们确实会出现无空格长串。 */
+  overflow-wrap: break-word;
+  font-size: var(--text-lead);
+  line-height: 1.6;
   color: var(--shell-label-primary);
+}
+
+/* ---- 行内语义 ---- */
+
+.md-content :is(p, li) {
+  text-wrap: pretty;
 }
 
 .md-content strong {
   font-weight: 600;
 }
 
-.md-content h1 {
-  font-size: 26px;
-  line-height: 34px;
+.md-content del {
+  color: var(--shell-label-secondary);
+  text-decoration-thickness: 1px;
+}
+
+.md-content mark {
+  background: var(--hl);
+  color: inherit;
+  border-radius: 0.25em;
+  padding: 0 0.15em;
+}
+
+/* ---- 标题：8 档刻度内的四段层级（22 / 17 / 15 / 12 + 颜色降级） ---- */
+
+.md-content :is(h1, h2, h3, h4, h5, h6) {
   font-weight: 600;
-  margin: 32px 0 16px;
+  text-wrap: balance;
+  /* 标题与后文固定 8px：兄弟外边距取 max()，所以必须把标题的 bottom 归零，
+     再由下一条的 top 决定——否则段落自己的 12px 永远压过 8px。 */
+  margin-bottom: 0;
 }
 
-.md-content h2 {
-  font-size: 22px;
-  line-height: 30px;
-  font-weight: 600;
-  margin: 32px 0 16px;
-}
-
-.md-content h3 {
-  font-size: 19px;
-  line-height: 26px;
-  font-weight: 600;
-  margin: 32px 0 16px;
-}
-
-.md-content h4 {
-  font-size: 16px;
-  line-height: 24px;
-  font-weight: 600;
-  margin: 16px 0;
-}
-
-.md-content :where(h5, h6) {
-  font-size: 15px;
-  line-height: 24px;
-  font-weight: 600;
-  margin: 16px 0;
-}
-
-.md-content :where(h1, h2, h3, h4, h5, h6) strong {
-  font-weight: inherit;
-}
-
-.md-content p {
-  margin: 16px 0;
-}
-
-/* h4–h6 后跟列表收紧（设计：8px 间隙，对齐 DSH） */
-.md-content :where(h4, h5, h6) + :where(ul, ol) {
+/* 注意 :is() 的特异度取列表里最强的那一项：这里带上 .md-code-block（类选择器），
+   整条规则才压得过 `.md-content p { margin: 12px 0 }`，否则 8px 会被 12px 覆盖。 */
+.md-content :is(h1, h2, h3, h4, h5, h6) + :is(p, ul, ol, pre, blockquote, table, img, hr, .md-code-block, .md-table-scroll) {
   margin-top: 8px;
 }
 
-.md-content :where(h4, h5, h6):has(+ :where(ul, ol)) {
-  margin-bottom: 8px;
+.md-content h1 {
+  font-size: var(--text-title);
+  line-height: 1.3;
+  letter-spacing: -0.02em;
+  margin-top: 28px;
 }
 
-.md-content a {
-  color: var(--shell-accent);
-  text-decoration: none;
-  transition: box-shadow var(--ds-transition-duration-slow) var(--ds-ease-in-out);
-  /* 透明命中区内边距（只扩点击区，不产生可见色块） */
-  border-left: 3px solid rgb(255 255 255 / 0);
-  border-right: 3px solid rgb(255 255 255 / 0);
-  border-top: 2px solid rgb(255 255 255 / 0);
-  border-bottom: 2px solid rgb(255 255 255 / 0);
-  margin-left: -3px;
-  margin-right: -3px;
+.md-content h2 {
+  font-size: var(--text-body);
+  line-height: 1.4;
+  letter-spacing: -0.01em;
+  margin-top: 24px;
 }
 
-.md-content a:hover,
-.md-content a:focus {
-  outline: none;
-  text-decoration: underline var(--shell-accent);
+.md-content h3 {
+  font-size: var(--text-lead);
+  line-height: 1.5;
+  margin-top: 20px;
 }
 
-.md-content a:focus-visible {
-  box-shadow: 0 0 0 2px var(--shell-accent);
-}
-
-.md-content :where(ul, ol) {
-  margin: 16px 0;
-  padding-left: 18px;
-}
-
-.md-content li:not(:first-child) {
-  margin-top: 6px;
-}
-
-.md-content li > :where(ul, ol) {
-  margin-top: 4px;
-}
-
-.md-content li::marker {
-  line-height: 28px;
+/* h4 起靠颜色而不是字号分出层级：15px 再往下就比正文还小了 */
+.md-content h4 {
+  font-size: var(--text-lead);
+  line-height: 1.5;
+  margin-top: 16px;
   color: var(--shell-label-secondary);
 }
 
+.md-content :is(h5, h6) {
+  font-size: var(--text-ui-sm);
+  line-height: 1.5;
+  letter-spacing: 0.01em;
+  margin-top: 16px;
+  color: var(--shell-label-secondary);
+}
+
+.md-content h6 {
+  color: var(--shell-label-tertiary);
+}
+
+.md-content :is(h1, h2, h3, h4, h5, h6) strong {
+  font-weight: inherit;
+}
+
+/* 标题里的行内代码不放大、不铺底色（否则 h1 里一行 code 会把标题撑爆） */
+.md-content :is(h1, h2, h3, h4, h5, h6) code {
+  font: inherit;
+  font-family: var(--font-mono), ui-monospace, monospace;
+  background: none;
+  padding: 0;
+}
+
+/* ---- 段落与链接 ---- */
+
+.md-content p {
+  margin: 12px 0;
+}
+
+/* 独占一段的图片按块级留 16px（图片本体 margin 为 0，避免段落内多出一圈） */
+.md-content p:has(> img:only-child) {
+  margin: 16px 0;
+}
+
+/* 链接默认带下划线：只靠颜色区分在色弱/灰度下等于没有链接（WCAG 1.4.1）。
+   下划线取当前色的 40%，hover 才拉满——层级靠粗细而不是换色。
+   不再用「透明 border + 负 margin」撑点击区：那套写法会把行内两端的字符挤偏几像素。 */
+.md-content a {
+  color: var(--shell-accent);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.18em;
+  text-decoration-color: color-mix(in srgb, currentColor 40%, transparent);
+  transition: text-decoration-color var(--ds-transition-duration-slow) var(--ds-ease-out);
+}
+
+.md-content a:hover {
+  text-decoration-color: currentColor;
+}
+
+.md-content a:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+/* ---- 列表 ---- */
+
+.md-content :is(ul, ol) {
+  margin: 16px 0;
+  padding-left: 1.35em;
+}
+
+.md-content li + li {
+  margin-top: 4px;
+}
+
+.md-content li > :is(ul, ol) {
+  margin-top: 4px;
+  margin-bottom: 0;
+}
+
+.md-content li::marker {
+  color: var(--shell-label-secondary);
+}
+
+/* 嵌套无序：disc → circle → square，避免三层以上全是同一个圆点 */
+.md-content ul ul {
+  list-style-type: circle;
+}
+
+.md-content ul ul ul {
+  list-style-type: square;
+}
+
 /* 嵌套 ol（模型有时输出该形状）：marker 在内部 */
-.md-content :where(ul, ol) ol {
+.md-content :is(ul, ol) ol {
   list-style-position: inside;
   padding-left: 0;
 }
 
-.md-content :where(ul, ol) ol li p {
+.md-content :is(ul, ol) ol li p {
   display: inline;
 }
 
@@ -121,28 +189,73 @@
   margin: 8px 0;
 }
 
-.md-content li > *:first-child {
-  margin-top: 0;
+/* ---- 任务列表：渲染器输出的 .contains-task-list / .task-list-item 必须有落点 ----
+   之前这两个类名只出现在 render.tsx 里、CSS 里一条规则都没有，
+   于是 `- [ ] 待办` 会同时出现「默认圆点 + 复选框」两个标记。 */
+
+.md-content .contains-task-list {
+  padding-left: 0.25em;
 }
 
-.md-content li > *:last-child {
-  margin-bottom: 0;
+.md-content .task-list-item {
+  list-style: none;
+}
+
+.md-content .task-list-item::marker {
+  content: none;
+}
+
+.md-content input[type="checkbox"] {
+  width: 0.9em;
+  height: 0.9em;
+  margin: 0 0.5em 0 0;
+  vertical-align: -0.1em;
+  accent-color: var(--shell-accent);
+}
+
+/* ---- 引用 / 分隔线 ---- */
+
+.md-content blockquote {
+  margin: 16px 0;
+  padding-left: 14px;
+  border-left: 3px solid color-mix(in srgb, var(--shell-label-secondary) 55%, transparent);
+  color: var(--shell-label-secondary);
+}
+
+.md-content blockquote blockquote {
+  margin: 8px 0;
 }
 
 .md-content hr {
-  display: block;
   border: none;
-  height: 1px;
-  margin: 32px 0;
+  height: var(--hairline);
+  margin: 24px 0;
   background: var(--shell-border-l2);
 }
 
-.md-content blockquote {
-  border-left: 2px solid var(--shell-label-caption);
-  margin: 16px 0 0;
-  padding-left: 14px;
-  color: var(--shell-label-secondary);
+/* ---- 行内代码 ---- */
+
+/* inline（不是 inline-flex）：flex 行盒会抬高行高、并把 CJK 断行点吃掉 */
+.md-content :not(pre) > code,
+.md-content kbd {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.9em;
+  background-color: color-mix(in srgb, var(--foreground) 8%, transparent);
+  border-radius: var(--radius-control);
+  padding: 0.1em 0.36em;
+  overflow-wrap: anywhere;
+  /* 跨行折断时每行都保留圆角 */
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
 }
+
+.md-content kbd {
+  font-size: 0.85em;
+  border: var(--hairline) solid var(--shell-border-l2);
+  background-color: var(--shell-row-hover);
+}
+
+/* ---- 围栏代码块（语言横幅 + 复制按钮，无语法高亮） ---- */
 
 .md-content pre {
   margin: 16px 0;
@@ -150,30 +263,82 @@
   overflow: auto;
 }
 
-.md-content :not(pre) > code {
+.md-code-block {
+  margin: 16px 0;
+  border: var(--hairline) solid var(--shell-border);
+  border-radius: var(--radius-card);
+  background: var(--shell-row-active);
+  overflow: hidden;
+}
+
+.md-code-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 8px 4px 12px;
+  border-bottom: var(--hairline) solid var(--shell-border);
+  background: color-mix(in srgb, var(--foreground) 3%, transparent);
+}
+
+.md-code-lang {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: var(--text-ui-sm);
+  line-height: 1.5;
+  color: var(--shell-label-secondary);
+  user-select: none;
+}
+
+/* 复制按钮：命中区 ≥ 22px 高（此前 padding 0 6px + 12px 字 ≈ 18px），
+   并且键盘可达——之前 Tab 到它时画面零反馈。 */
+.md-code-copy {
   display: inline-flex;
   align-items: center;
-  box-sizing: border-box;
-  font-family: var(--font-mono), ui-monospace, monospace;
-  font-size: 0.875em;
-  background-color: color-mix(in srgb, var(--foreground) 7%, transparent);
-  border-radius: 6px;
-  padding: 0 5px;
+  flex: none;
+  min-height: 22px;
+  padding: 0 8px;
+  border: none;
+  border-radius: var(--radius-control);
+  background: none;
+  font-size: var(--text-ui-sm);
+  line-height: 1.5;
+  color: var(--shell-label-secondary);
+  cursor: pointer;
+  transition: color var(--ds-transition-duration-slow) var(--ds-ease-out),
+    background-color var(--ds-transition-duration-slow) var(--ds-ease-out);
 }
 
-.md-content :where(h1, h2, h3, h4, h5, h6) code {
-  font: inherit;
-  font-family: var(--font-mono), ui-monospace, monospace;
+.md-code-copy:hover {
+  color: var(--shell-label-primary);
+  background: var(--shell-row-hover);
 }
 
-.md-content input[type="checkbox"] {
-  margin: 0 8px 0 0;
-  accent-color: var(--shell-label-secondary);
+.md-code-copy:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 1px;
 }
 
-/* ---- 表格（对齐 DSH tableScroll：窄列横向滚动，宽高由内容决定） ---- */
+.md-code-block pre {
+  margin: 0;
+  padding: 10px 14px;
+  /* 长代码自带滚动：否则模型贴 300 行会把整条对话顶出视口 */
+  max-height: 360px;
+  font-size: var(--text-ui);
+  line-height: 1.55;
+  tab-size: 2;
+  background: transparent;
+}
+
+.md-code-block pre,
+.md-table-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--shell-scrollbar) transparent;
+}
+
+/* ---- 表格（窄列横向滚动，宽高由内容决定） ---- */
 
 .md-table-scroll {
+  margin: 16px 0;
   max-width: 100%;
   overflow-x: auto;
   overscroll-behavior-x: contain;
@@ -185,111 +350,75 @@
   max-width: max-content;
 }
 
-.md-table-scroll th {
+.md-table-scroll :is(th, td) {
+  padding: 8px 12px;
   text-align: start;
-  padding: 10px 16px;
-  border-bottom: 1px solid var(--shell-border-l2);
-  border-top: none;
+  vertical-align: top;
+  /* 5em（约 75px）而不是 100px：三列表在 400px 的窄栏里不再必然横向溢出 */
+  min-width: 5em;
+  max-width: min(28vw, 280px);
+  overflow-wrap: anywhere;
+}
+
+.md-table-scroll th {
   font-weight: 600;
-  max-width: min(30vw, 320px);
-  min-width: 100px;
+  border-bottom: 1px solid var(--shell-border-l2);
 }
 
 .md-table-scroll td {
-  padding: 10px 16px;
   border-bottom: 1px solid var(--shell-border);
-  max-width: min(30vw, 320px);
-  min-width: 100px;
 }
 
-.md-table-scroll th:first-child,
-.md-table-scroll td:first-child {
+/* 末行去线：否则表格底部会与下文之间出现两条相邻细线 */
+.md-table-scroll tbody tr:last-child > td {
+  border-bottom: none;
+}
+
+/* 首尾列对齐正文边缘，而不是缩进 12px 后与正文错位 */
+.md-table-scroll :is(th, td):first-child {
   padding-left: 0;
 }
 
-.md-table-scroll td:last-child {
+.md-table-scroll :is(th, td):last-child {
   padding-right: 0;
 }
 
-.md-table-scroll table code {
-  font-size: 13px;
-}
-
-/* ---- 围栏代码块（对齐 DSH CodeBlock：语言横幅 + 复制按钮，无高亮） ---- */
-
-.md-code-block {
-  margin: 16px 0;
-  border-radius: 8px;
-  background: var(--shell-row-active);
-  overflow: hidden;
-}
-
-.md-code-banner {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 5px 12px;
-  border-bottom: 1px solid var(--shell-border);
-}
-
-.md-code-lang {
-  font-family: var(--font-mono), ui-monospace, monospace;
-  font-size: 12px;
-  line-height: 18px;
-  color: var(--shell-label-tertiary);
-}
-
-.md-code-copy {
-  cursor: pointer;
-  border: none;
-  background: none;
-  font-size: 12px;
-  line-height: 18px;
-  color: var(--shell-label-tertiary);
-  border-radius: 4px;
-  padding: 0 6px;
-  transition: color 0.15s ease, background-color 0.15s ease;
-}
-
-.md-code-copy:hover {
-  color: var(--shell-label-primary);
-  background: var(--shell-row-hover);
-}
-
-.md-code-block pre {
-  margin: 0;
-  padding: 12px 16px;
-  overflow: auto;
-  font-size: 13px;
-  line-height: 20px;
-  background: transparent;
-}
-
-/* ---- 图片（对齐 DSH .image/.imageAlt） ---- */
+/* ---- 图片 ---- */
 
 .md-image {
   display: block;
   width: auto;
   max-width: 100%;
   height: auto;
+  /* 超长截图不再把面板撑成可无限滚动的长条 */
+  max-height: min(60vh, 480px);
   margin: 0;
-  border-radius: 8px;
+  border-radius: var(--radius-card);
   background: var(--shell-bg-base);
   object-fit: contain;
 }
 
+/* 图片被安全策略拒绝时渲染的 alt 文本：不套伪斜体（CJK 斜体是机器歪斜，很难看） */
 .md-image-alt {
-  color: var(--shell-label-tertiary);
-  font-style: italic;
+  color: var(--shell-label-secondary);
+  font-size: 0.9em;
+  font-style: normal;
 }
 
-/* 首尾块去外距（对齐 DSH） */
-.md-content > *:first-child,
-.md-content p:first-child {
-  margin-top: 0 !important;
+/* ---- 首尾外边距归零 ---- */
+
+.md-content > :first-child {
+  margin-top: 0;
 }
 
-.md-content > *:last-child,
-.md-content p:last-child {
-  margin-bottom: 0 !important;
+.md-content > :last-child {
+  margin-bottom: 0;
+}
+
+.md-content :is(li, blockquote, td) > :first-child {
+  margin-top: 0;
+}
+
+.md-content :is(li, blockquote, td) > :last-child {
+  margin-bottom: 0;
 }

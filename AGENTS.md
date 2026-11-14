@@ -193,7 +193,9 @@ test/                       # Vitest 单测（lib/ / api/ / components/ / seams/
 字体栈优先系统 SF Pro（`--font-ui`），非 Apple 平台回退 Geist。**不要引入衬线展示体。**
 
 以上纪律由 `test/components/design-system.test.ts` 静态守卫：任意值、裸 `shadow-md`、`z-[99999]` 一律报错；
-AI 面板的语义色另由 `test/components/ai/design-tokens.test.ts` 守卫。
+AI 面板的语义色另由 `test/components/ai/design-tokens.test.ts` 守卫。**该守卫只扫 `.ts/.tsx`**，
+纯 CSS（如 AI 正文 `components/markdown/markdown.css`）走自己的守卫
+`test/components/markdown/markdown-css.test.ts`（字号/圆角/动效/关键骨架），新增样式文件时记得补一份。
 
 ## 约定
 
