@@ -139,4 +139,20 @@ describe("全仓遵守设计 token 纪律", () => {
     expect(css, "BlockNote 圆角应走 --radius-* token").not.toMatch(/border-radius:\s*\d+px/);
     expect(css, "BlockNote 浮层层级应走 --z-popover").not.toMatch(/z-index:\s*\d+/);
   });
+
+  it("插件卡片与营销顶栏在手机宽度采用紧凑布局", () => {
+    const pluginSettings = fs.readFileSync(
+      path.join(ROOT, "components/settings/plugin-settings.tsx"),
+      "utf8",
+    );
+    const market = fs.readFileSync(
+      path.join(ROOT, "components/settings/plugin-market.tsx"),
+      "utf8",
+    );
+    const marketing = fs.readFileSync(path.join(ROOT, "src/marketing/navbar.tsx"), "utf8");
+    expect(pluginSettings).toContain("flex-col gap-2");
+    expect(pluginSettings).toContain("sm:flex-row");
+    expect(market).toContain("sm:flex-col sm:items-end");
+    expect(marketing).toContain("sm:hidden");
+  });
 });

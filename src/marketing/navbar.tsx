@@ -31,10 +31,13 @@ const Navbar = () => {
                 {!isAuthenticated && !loading && (
                     <>
                         <Link to="/login">
-                            <Button variant="ghost" className="cursor-pointer">登录</Button>
+                            <Button variant="ghost" className="hidden cursor-pointer sm:inline-flex">登录</Button>
                         </Link>
                         <Link to="/register">
-                            <Button className="cursor-pointer">免费开始使用</Button>
+                            <Button className="cursor-pointer">
+                                <span className="sm:hidden">开始使用</span>
+                                <span className="hidden sm:inline">免费开始使用</span>
+                            </Button>
                         </Link>
                     </>
                 )}

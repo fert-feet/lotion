@@ -366,7 +366,7 @@ export function PluginMarket() {
             return (
               <div
                 key={entry.id}
-                className="flex items-start gap-3 rounded-card hairline border-shell-border px-3 py-2.5"
+                className="flex flex-col gap-2 rounded-card hairline border-shell-border px-3 py-2.5 sm:flex-row sm:items-start sm:gap-3"
               >
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-1.5">
@@ -406,7 +406,7 @@ export function PluginMarket() {
                     </p>
                   ) : null}
                 </div>
-                <div className="flex shrink-0 flex-col items-end gap-1">
+                <div className="flex w-full shrink-0 flex-row flex-wrap items-center justify-end gap-1 sm:w-auto sm:flex-col sm:items-end">
                   <Button
                     variant={action.kind === "enabled" ? "secondary" : "default"}
                     size="sm"

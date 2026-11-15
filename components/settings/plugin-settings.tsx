@@ -84,7 +84,7 @@ function PluginRow({
     : null;
 
   return (
-    <div className="flex items-start gap-3 rounded-card hairline border-shell-border px-3 py-2.5">
+    <div className="flex flex-col gap-2 rounded-card hairline border-shell-border px-3 py-2.5 sm:flex-row sm:items-start sm:gap-3">
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="text-ui font-medium text-foreground">{plugin.title}</span>
@@ -138,7 +138,7 @@ function PluginRow({
         ) : null}
       </div>
 
-      <div className="flex shrink-0 items-center gap-1.5 pt-0.5">
+      <div className="flex w-full shrink-0 items-center justify-end gap-1.5 pt-0.5 sm:w-auto">
         {plugin.configFields.length > 0 ? (
           <Button variant="ghost" size="sm" onClick={onConfigure} disabled={busy || plugin.core}>
             配置
