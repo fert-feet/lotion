@@ -48,7 +48,12 @@ interface DocRowProps {
   batchMode: boolean;
   checked: boolean;
   onToggleCheck: (id: string) => void;
+  focused: boolean;
+  onFocusRow: (id: string) => void;
+  onMoveFocus: (id: string, action: TreeFocusAction) => void;
 }
+
+export type TreeFocusAction = "next" | "previous" | "first" | "last" | "parent";
 
 const DocRow = memo(function DocRow({
   doc,
@@ -63,6 +68,9 @@ const DocRow = memo(function DocRow({
   batchMode,
   checked,
   onToggleCheck,
+  focused,
+  onFocusRow,
+  onMoveFocus,
 }: DocRowProps) {
   const docStore = useDocStore();
   const actor = useActor();
@@ -76,10 +84,12 @@ const DocRow = memo(function DocRow({
       // 行内还有「＋子笔记 / ⋯菜单」两个真按钮，因此本行不能用 <button>（不能嵌套按钮）。
       // 用 tabIndex=0 + 键盘处理让它可达：此前是 role="button" tabIndex={-1}，
       // 等于把文档树从键盘/读屏用户手里整个拿走。
-      tabIndex={0}
+      tabIndex={focused ? 0 : -1}
       aria-level={level + 1}
       aria-selected={active}
       aria-expanded={hasChildren ? expanded : undefined}
+      data-doc-id={doc.id}
+      onFocus={() => onFocusRow(doc.id)}
       onClick={() => {
         if (batchMode) { onToggleCheck(doc.id); return; }
         onOpen();
@@ -95,6 +105,24 @@ const DocRow = memo(function DocRow({
         } else if (e.key === "ArrowLeft" && hasChildren && expanded) {
           e.preventDefault();
           onExpand();
+        } else if (e.key === "ArrowRight") {
+          e.preventDefault();
+          onMoveFocus(doc.id, "next");
+        } else if (e.key === "ArrowLeft" && doc.parentDocument) {
+          e.preventDefault();
+          onMoveFocus(doc.id, "parent");
+        } else if (e.key === "ArrowDown") {
+          e.preventDefault();
+          onMoveFocus(doc.id, "next");
+        } else if (e.key === "ArrowUp") {
+          e.preventDefault();
+          onMoveFocus(doc.id, "previous");
+        } else if (e.key === "Home") {
+          e.preventDefault();
+          onMoveFocus(doc.id, "first");
+        } else if (e.key === "End") {
+          e.preventDefault();
+          onMoveFocus(doc.id, "last");
         }
       }}
       onMouseEnter={() => { docStore.prefetch?.(actor, doc.id); }}
@@ -186,6 +214,49 @@ interface DocTreeProps {
   onToggleCheck?: (id: string) => void;
   expanded?: Record<string, boolean>;
   onExpandChange?: (id: string) => void;
+  focusedId?: string | null;
+  onFocusRow?: (id: string) => void;
+  onMoveFocus?: (id: string, action: TreeFocusAction) => void;
+}
+
+/** 当前展开状态下，按屏幕阅读顺序排列的可见文档 id。 */
+export function visibleDocIds(
+  docs: SidebarDocument[],
+  expanded: Record<string, boolean>,
+): string[] {
+  const children = new Map<string | null, SidebarDocument[]>();
+  for (const doc of docs) {
+    const list = children.get(doc.parentDocument) ?? [];
+    list.push(doc);
+    children.set(doc.parentDocument, list);
+  }
+  const out: string[] = [];
+  const walk = (parent: string | null) => {
+    for (const doc of children.get(parent) ?? []) {
+      out.push(doc.id);
+      if (expanded[doc.id] && (children.get(doc.id)?.length ?? 0) > 0) walk(doc.id);
+    }
+  };
+  walk(null);
+  return out;
+}
+
+/** 当前文档的全部祖先 id（从根到父）。 */
+export function ancestorDocIds(
+  docs: SidebarDocument[],
+  documentId: string | null | undefined,
+): string[] {
+  if (!documentId) return [];
+  const byId = new Map(docs.map((doc) => [doc.id, doc]));
+  const out: string[] = [];
+  let current = byId.get(documentId)?.parentDocument ?? null;
+  const seen = new Set<string>([documentId]);
+  while (current && !seen.has(current)) {
+    seen.add(current);
+    out.push(current);
+    current = byId.get(current)?.parentDocument ?? null;
+  }
+  return out.reverse();
 }
 
 export function DocTree({
@@ -197,6 +268,9 @@ export function DocTree({
   onToggleCheck,
   expanded,
   onExpandChange,
+  focusedId = null,
+  onFocusRow = () => {},
+  onMoveFocus = () => {},
 }: DocTreeProps) {
   const docStore = useDocStore();
   const params = useParams();
@@ -258,18 +332,26 @@ export function DocTree({
               batchMode={!!batchMode}
               checked={!!selected?.has(doc.id)}
               onToggleCheck={onToggleCheck || (() => {})}
+              focused={focusedId === doc.id}
+              onFocusRow={onFocusRow}
+              onMoveFocus={onMoveFocus}
             />
             {isExpanded && hasChildren && (
-              <DocTree
-                docs={docs}
-                level={level + 1}
-                parentDocumentId={doc.id}
-                batchMode={batchMode}
-                selected={selected}
-                onToggleCheck={onToggleCheck}
-                expanded={expanded}
-                onExpandChange={onExpandChange}
-              />
+              <div role="group">
+                <DocTree
+                  docs={docs}
+                  level={level + 1}
+                  parentDocumentId={doc.id}
+                  batchMode={batchMode}
+                  selected={selected}
+                  onToggleCheck={onToggleCheck}
+                  expanded={expanded}
+                  onExpandChange={onExpandChange}
+                  focusedId={focusedId}
+                  onFocusRow={onFocusRow}
+                  onMoveFocus={onMoveFocus}
+                />
+              </div>
             )}
           </div>
         );
@@ -292,12 +374,13 @@ export function DocSearchResults({ docs, query }: {
   return (
     <div className="flex flex-col gap-0.5">
       {hits.map((doc) => (
-        <div
+        <button
           key={doc.id}
-          role="button"
+          type="button"
           onClick={() => { navigate("/documents/" + doc.id); }}
+          aria-current={params.documentId === doc.id ? "page" : undefined}
           className={cn(
-            "flex h-8 cursor-pointer select-none items-center gap-1.5 rounded-control px-1.5 text-ui text-shell-label-primary",
+            "flex h-8 w-full cursor-pointer select-none items-center gap-1.5 rounded-control px-1.5 text-left text-ui text-shell-label-primary focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-shell-accent",
             params.documentId === doc.id ? "bg-shell-row-active" : "hover:bg-shell-row-hover"
           )}
         >
@@ -305,7 +388,7 @@ export function DocSearchResults({ docs, query }: {
             {doc.icon ? <span className="text-lead leading-none">{doc.icon}</span> : <FileIcon className="h-4 w-4 text-shell-label-tertiary" strokeWidth={1.75} />}
           </span>
           <span className="min-w-0 flex-1 truncate text-ui leading-5">{doc.title || "无标题"}</span>
-        </div>
+        </button>
       ))}
     </div>
   );

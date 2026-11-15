@@ -15,13 +15,17 @@ const FILE = path.join(ROOT, "src/shell/sidebar/doc-tree.tsx");
 const source = fs.readFileSync(FILE, "utf8");
 
 describe("侧边栏文档树", () => {
-  it("行键盘可达：treeitem + tabIndex=0 + Enter/Space 打开 + 方向键展开", () => {
+  it("行键盘可达：treeitem + roving tabindex + Enter/Space 打开 + 完整方向键", () => {
     expect(source, "行应当是 role=treeitem（不是 role=button）").toContain('role="treeitem"');
-    expect(source, "行必须能被 Tab 聚焦（此前是 tabIndex={-1}）").toContain("tabIndex={0}");
+    expect(source, "树只能有一个 Tab 停点").toContain("tabIndex={focused ? 0 : -1}");
     expect(source, "缺少 Enter/Space 打开").toMatch(/e\.key === "Enter"/);
     expect(source, '缺少空格键打开（" "）').toContain('e.key === " "');
     expect(source, "缺少 ArrowRight 展开").toContain('"ArrowRight"');
     expect(source, "缺少 ArrowLeft 收起").toContain('"ArrowLeft"');
+    expect(source, "缺少 ArrowDown 行导航").toContain('"ArrowDown"');
+    expect(source, "缺少 ArrowUp 行导航").toContain('"ArrowUp"');
+    expect(source, "缺少 Home/End").toContain('"Home"');
+    expect(source).toContain('"End"');
     // aria：层级与状态必须暴露给读屏
     expect(source).toContain("aria-level={level + 1}");
     expect(source).toContain("aria-selected={active}");
@@ -50,5 +54,11 @@ describe("侧边栏文档树", () => {
   it("树容器声明 role=tree（在 sidebar.tsx 里）", () => {
     const sidebar = fs.readFileSync(path.join(ROOT, "src/shell/sidebar/sidebar.tsx"), "utf8");
     expect(sidebar, "文档树容器缺少 role=tree").toMatch(/role="tree"/);
+    expect(sidebar, "缺少当前文档祖先自动展开").toContain("ancestorDocIds");
+  });
+
+  it("搜索结果使用真实按钮，不再用不可聚焦的 div role=button", () => {
+    expect(source).not.toMatch(/role="button"[\s\S]{0,120}DocSearchResults/);
+    expect(source).toContain("aria-current={params.documentId === doc.id ? \"page\" : undefined}");
   });
 });

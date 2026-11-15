@@ -95,7 +95,7 @@ describe("SidebarHeader 的插件市场按钮", () => {
     expect(header, "头部根节点缺少 data-sidebar-header").not.toBeNull();
 
     const labels = [...header!.querySelectorAll("button")].map((b) => b.getAttribute("aria-label"));
-    expect(labels).toEqual(["搜索笔记", "插件市场", "AI 助手", "新建笔记"]);
+    expect(labels).toEqual(["筛选当前文档树", "插件市场", "AI 助手", "新建笔记"]);
   });
 
   it("没有「文档」小标题：这一行只剩可操作元素（搜索在左、操作在右）", () => {
@@ -104,7 +104,9 @@ describe("SidebarHeader 的插件市场按钮", () => {
     // 去掉的是纯装饰的静态标题：它既不是工作区名也不是当前文档名
     expect(header.textContent?.includes("文档")).toBe(false);
     expect(header.className).toContain("justify-between");
-    expect(header.firstElementChild?.querySelector('button[aria-label="搜索笔记"]')).toBeTruthy();
+    expect(
+      header.firstElementChild?.querySelector('button[aria-label="筛选当前文档树"]'),
+    ).toBeTruthy();
   });
 });
 

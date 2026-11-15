@@ -1,7 +1,7 @@
 "use client";
 
 // 侧边栏头部 —— macOS 语言：
-// 填充式搜索框（放大镜内置、无边框）+ 24px 图标按钮，搜索在左、操作在右。
+// 填充式筛选框（放大镜内置、无边框）+ 24px 图标按钮，筛选在左、操作在右。
 // 不再有「文档」小标题：它既不是工作区名也不是当前文档名，只是给列表起个名字，
 // 而列表内容本身就说明了它是文档；去掉后这一行只保留可操作的东西。
 // expanded 由父级控制（rail 的搜索按钮点击后展开侧边栏并强制展开搜索框）。
@@ -81,8 +81,8 @@ export function SidebarHeader({
         >
           <button
             type="button"
-            aria-label="搜索笔记"
-            title="搜索笔记（⌘K）"
+            aria-label="筛选当前文档树"
+            title="筛选当前文档树"
             onClick={(e) => {
               e.stopPropagation();
               if (!expanded) { onExpandedChange(true); inputRef.current?.focus(); }
@@ -95,7 +95,7 @@ export function SidebarHeader({
             ref={inputRef}
             type="text"
             value={query}
-            placeholder="搜索"
+            placeholder="筛选当前文档树"
             onChange={(e) => onQueryChange(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Escape") collapse();

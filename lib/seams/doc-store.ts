@@ -32,8 +32,10 @@ export type Document = {
   updatedAt: string;
 };
 
-/** 侧边栏/列表用：不含 content 与 coverImage */
-export type SidebarDocument = Omit<Document, "content" | "coverImage">;
+/** 侧边栏/列表用：不含 content 与 coverImage；全文搜索命中可附带正文摘要 */
+export type SidebarDocument = Omit<Document, "content" | "coverImage"> & {
+  snippet?: string | null;
+};
 
 export type ChatMessage = {
   id: string;

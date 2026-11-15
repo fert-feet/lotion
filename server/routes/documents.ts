@@ -17,6 +17,7 @@ import {
   listTrash,
   moveDocument,
   restoreDocument,
+  searchSnippet,
   updateDocument,
 } from "@/lib/local/db";
 import { readJson, type AppEnv } from "../http";
@@ -53,7 +54,9 @@ documentsRoutes.get("/", (c) => {
       searchDocuments(db, user.id, q, 20).map((d) => ({
         id: d.id,
         title: d.title,
+        parentDocument: d.parentDocument,
         updatedAt: d.updatedAt,
+        snippet: searchSnippet(d.content, q),
       })),
     );
   }

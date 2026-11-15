@@ -26,6 +26,7 @@ import {
   markMessagesCompressed,
   insertChatMessage,
   searchDocuments,
+  searchSnippet,
   listDocumentVersions,
   getDocumentVersion,
   restoreDocumentVersion,
@@ -257,6 +258,22 @@ describe("lib/local/db Agent 搜索与组织", () => {
     seedDoc(db, userId, "100X完成");
     const hits = searchDocuments(db, userId, "100%_完成");
     expect(hits.map((d) => d.title)).toEqual(["100%_完成"]);
+  });
+
+  it("searchSnippet 从 BlockNote 正文提取命中上下文，并限制长度", () => {
+    const content = JSON.stringify([
+      {
+        id: "b1",
+        type: "paragraph",
+        props: {},
+        content: [{ type: "text", text: "前面是一段说明，产品路线图决定下一阶段优先级。", styles: {} }],
+        children: [],
+      },
+    ]);
+    const snippet = searchSnippet(content, "产品路线图", 30);
+    expect(snippet).toContain("产品路线图");
+    expect(snippet!.length).toBeLessThanOrEqual(32);
+    expect(searchSnippet(null, "产品")).toBeNull();
   });
 
   it("listDocumentsOverview 全量/按父过滤 + childCount，归档不计入", () => {

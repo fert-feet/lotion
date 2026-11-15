@@ -8,6 +8,7 @@
 
 import type Database from "better-sqlite3";
 import { isoNow, newId } from "./sqlite";
+import { extractText } from "@/lib/extract-text";
 
 // ---- 类型（与 lib/db.ts 保持一致，避免上层组件感知差异） ----
 export type Document = {
@@ -24,7 +25,9 @@ export type Document = {
   updatedAt: string;
 };
 
-export type SidebarDocument = Omit<Document, "content" | "coverImage">;
+export type SidebarDocument = Omit<Document, "content" | "coverImage"> & {
+  snippet?: string | null;
+};
 
 export type ChatMessage = {
   id: string;
@@ -449,14 +452,26 @@ export function searchDocuments(
   userId: string,
   query: string,
   limit = 20,
-): { id: string; title: string; content: string | null; updatedAt: string }[] {
+): {
+  id: string;
+  title: string;
+  content: string | null;
+  parentDocument: string | null;
+  updatedAt: string;
+}[] {
   const q = query.trim();
-  type Row = { id: string; title: string; content: string | null; updatedAt: string };
+  type Row = {
+    id: string;
+    title: string;
+    content: string | null;
+    parentDocument: string | null;
+    updatedAt: string;
+  };
 
   if (!q) {
     return db
       .prepare(
-        `SELECT id, title, content, updatedAt FROM documents
+        `SELECT id, title, content, parentDocument, updatedAt FROM documents
          WHERE userId = ? AND isArchived = 0
          ORDER BY updatedAt DESC, rowid DESC LIMIT ?`,
       )
@@ -469,7 +484,7 @@ export function searchDocuments(
     try {
       const rows = db
         .prepare(
-          `SELECT d.id, d.title, d.content, d.updatedAt
+          `SELECT d.id, d.title, d.content, d.parentDocument, d.updatedAt
            FROM documents_fts JOIN documents d ON d.rowid = documents_fts.rowid
            WHERE documents_fts MATCH ? AND d.userId = ? AND d.isArchived = 0
            ORDER BY d.updatedAt DESC, d.rowid DESC LIMIT ?`,
@@ -484,11 +499,28 @@ export function searchDocuments(
   const escaped = q.replace(/[\\%_]/g, (m) => `\\${m}`);
   return db
     .prepare(
-      `SELECT id, title, content, updatedAt FROM documents
+      `SELECT id, title, content, parentDocument, updatedAt FROM documents
        WHERE userId = ? AND isArchived = 0 AND (title LIKE ? ESCAPE '\\' OR content LIKE ? ESCAPE '\\')
        ORDER BY updatedAt DESC, rowid DESC LIMIT ?`,
     )
     .all(userId, `%${escaped}%`, `%${escaped}%`, limit) as Row[];
+}
+
+/** 为全局搜索生成围绕首个命中位置的纯文本摘要。 */
+export function searchSnippet(
+  content: string | null,
+  query: string,
+  maxLength = 140,
+): string | null {
+  if (!content) return null;
+  const text = extractText(content).replace(/\s+/g, " ").trim();
+  if (!text) return null;
+  const index = text.toLocaleLowerCase().indexOf(query.trim().toLocaleLowerCase());
+  const start = Math.max(0, index < 0 ? 0 : index - Math.floor(maxLength / 3));
+  const end = Math.min(text.length, start + maxLength);
+  const prefix = start > 0 ? "…" : "";
+  const suffix = end < text.length ? "…" : "";
+  return `${prefix}${text.slice(start, end)}${suffix}`;
 }
 
 /** 笔记目录浏览（listNotes 工具用）：未归档文档 + 直接子文档数，按最近更新倒序 */

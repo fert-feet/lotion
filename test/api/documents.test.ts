@@ -79,6 +79,41 @@ describe("documents API", () => {
     expect(search.map((d: { id: string }) => d.id)).toHaveLength(1);
   });
 
+  it("scope=search 带 q 时返回正文摘要与父文档，供全局搜索展示命中原因", async () => {
+    const { cookie } = await authCookie();
+    const parent = await (await call("/api/documents", "POST", cookie, { title: "产品" })).json();
+    const child = await (
+      await call("/api/documents", "POST", cookie, {
+        title: "路线图",
+        parentDocument: parent.id,
+      })
+    ).json();
+    await call(`/api/documents/${child.id}`, "PATCH", cookie, {
+      content: JSON.stringify([
+        {
+          id: "b1",
+          type: "paragraph",
+          props: {},
+          content: [{ type: "text", text: "下一季度重点是离线搜索。", styles: {} }],
+          children: [],
+        },
+      ]),
+    });
+
+    const result = await (
+      await call(`/api/documents?scope=search&q=${encodeURIComponent("离线搜索")}`, "GET", cookie)
+    ).json();
+    expect(result).toEqual([
+      expect.objectContaining({
+        id: child.id,
+        title: "路线图",
+        parentDocument: parent.id,
+        snippet: expect.stringContaining("离线搜索"),
+      }),
+    ]);
+    expect(result[0].content).toBeUndefined();
+  });
+
   it("PATCH 白名单：合法字段生效，白名单外的越权字段被丢弃", async () => {
     const { cookie } = await authCookie();
     const { id } = await (await call("/api/documents", "POST", cookie, { title: "t" })).json();

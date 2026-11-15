@@ -3,8 +3,8 @@
 // 侧边栏根组件（移植 DSH WorkspaceBrowser 结构）：
 // wide 形态 = header(搜索框+操作图标) + 文档树 + 底部图标栏 + 列表底部渐变；
 // rail 形态（56px）= 36px 图标控件列：logo / 搜索 / 新建 / AI，底部设置/回收站/批量/用户。
-import { useLocation, useNavigate } from "react-router";
-import { useEffect, useRef, useState } from "react";
+import { useLocation, useNavigate, useParams } from "react-router";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { PenLine, Plus, Search, Sparkles, Store } from "@/components/icons";
 import { toast } from "sonner";
 import { useUser } from "@/hooks/use-user";
@@ -14,7 +14,13 @@ import type { SidebarDocument } from "@/lib/seams/doc-store";
 import { useHasSlot, useActor, useDocStore } from "@/src/kernel/react";
 import { cn } from "@/lib/utils";
 import { SidebarHeader } from "./sidebar-header";
-import { DocTree, DocSearchResults } from "./doc-tree";
+import {
+  ancestorDocIds,
+  DocTree,
+  DocSearchResults,
+  visibleDocIds,
+  type TreeFocusAction,
+} from "./doc-tree";
 import { SidebarFooter } from "./sidebar-footer";
 import { SLOT_DETAILS_PANEL } from "../ui-plugins";
 import { Button } from "@/components/ui/button";
@@ -31,6 +37,7 @@ export function Sidebar({ wide, onExpand, overlay = false }: SidebarProps) {
   const actor = useActor();
   const navigate = useNavigate();
   const location = useLocation();
+  const params = useParams();
   const { user } = useUser();
   const marketActive = location.pathname === "/market";
   const sidebarKey = useRefresh((s) => s.sidebarKey);
@@ -47,6 +54,8 @@ export function Sidebar({ wide, onExpand, overlay = false }: SidebarProps) {
   const [searchExpanded, setSearchExpanded] = useState(false);
   const [batchMode, setBatchMode] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [focusedId, setFocusedId] = useState<string | null>(null);
+  const treeRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -55,6 +64,63 @@ export function Sidebar({ wide, onExpand, overlay = false }: SidebarProps) {
         .catch(() => { if (!initialLoaded.current) setAllDocs([]); });
     }
   }, [user, sidebarKey, docStore]);
+
+  // 直接链接、搜索跳转或 AI 跳转后，自动展开当前文档的祖先链。
+  useEffect(() => {
+    if (!allDocs || !params.documentId) return;
+    const ancestors = ancestorDocIds(allDocs, params.documentId);
+    if (ancestors.length === 0) return;
+    setExpanded((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      for (const id of ancestors) {
+        if (!next[id]) {
+          next[id] = true;
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [allDocs, params.documentId]);
+
+  // 树只有一个 Tab 停点：优先当前文档，否则第一条可见行。
+  useEffect(() => {
+    if (!allDocs) return;
+    const visible = visibleDocIds(allDocs, expanded);
+    setFocusedId((current) => {
+      if (current && visible.includes(current)) return current;
+      if (params.documentId && visible.includes(params.documentId)) return params.documentId;
+      return visible[0] ?? null;
+    });
+  }, [allDocs, expanded, params.documentId]);
+
+  const focusDocRow = useCallback((id: string) => {
+    setFocusedId(id);
+    requestAnimationFrame(() => {
+      const row = [...(treeRef.current?.querySelectorAll<HTMLElement>("[data-doc-id]") ?? [])]
+        .find((element) => element.dataset.docId === id);
+      row?.focus();
+    });
+  }, []);
+
+  const moveTreeFocus = useCallback((id: string, action: TreeFocusAction) => {
+    if (!allDocs) return;
+    if (action === "parent") {
+      const parent = allDocs.find((doc) => doc.id === id)?.parentDocument;
+      if (parent) focusDocRow(parent);
+      return;
+    }
+    const ids = visibleDocIds(allDocs, expanded);
+    if (ids.length === 0) return;
+    if (action === "first") return focusDocRow(ids[0]);
+    if (action === "last") return focusDocRow(ids[ids.length - 1]);
+    const index = ids.indexOf(id);
+    const nextIndex =
+      action === "next"
+        ? Math.min(ids.length - 1, Math.max(0, index + 1))
+        : Math.max(0, index - 1);
+    focusDocRow(ids[nextIndex]);
+  }, [allDocs, expanded, focusDocRow]);
 
   const onCreate = () => {
     if (!user) return;
@@ -108,8 +174,8 @@ export function Sidebar({ wide, onExpand, overlay = false }: SidebarProps) {
         </div>
         <button
           type="button"
-          aria-label="搜索笔记"
-          title="搜索笔记"
+          aria-label="筛选当前文档树"
+          title="筛选当前文档树"
           onClick={() => {
             setSearchExpanded(true);
             onExpand();
@@ -189,7 +255,7 @@ export function Sidebar({ wide, onExpand, overlay = false }: SidebarProps) {
           ) : searching ? (
             <DocSearchResults docs={allDocs} query={query} />
           ) : (
-            <div role="tree" aria-label="笔记">
+            <div ref={treeRef} role="tree" aria-label="笔记">
               <DocTree
                 docs={allDocs}
                 expanded={expanded}
@@ -197,6 +263,9 @@ export function Sidebar({ wide, onExpand, overlay = false }: SidebarProps) {
                 batchMode={batchMode}
                 selected={selected}
                 onToggleCheck={toggleCheck}
+                focusedId={focusedId}
+                onFocusRow={setFocusedId}
+                onMoveFocus={moveTreeFocus}
               />
             </div>
           )}

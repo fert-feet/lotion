@@ -12,6 +12,44 @@ import { File, Search } from "@/components/icons";
 import { Dialog, DialogContent, DialogTitle } from "./ui/dialog";
 import { cn } from "@/lib/utils";
 
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function HighlightedText({ text, query }: { text: string; query: string }) {
+  const q = query.trim();
+  if (!q) return <>{text}</>;
+  const parts = text.split(new RegExp(`(${escapeRegExp(q)})`, "gi"));
+  return (
+    <>
+      {parts.map((part, index) =>
+        part.toLocaleLowerCase() === q.toLocaleLowerCase() ? (
+          <mark key={index} className="rounded-control bg-ai-muted px-0.5 text-inherit">
+            {part}
+          </mark>
+        ) : (
+          <span key={index}>{part}</span>
+        ),
+      )}
+    </>
+  );
+}
+
+function documentPath(doc: SidebarDocument, all: SidebarDocument[]): string {
+  const byId = new Map(all.map((item) => [item.id, item]));
+  const labels: string[] = [];
+  const seen = new Set<string>();
+  let parent = doc.parentDocument;
+  while (parent && !seen.has(parent)) {
+    seen.add(parent);
+    const item = byId.get(parent);
+    if (!item) break;
+    labels.unshift(item.title || "未命名");
+    parent = item.parentDocument;
+  }
+  return labels.join(" / ");
+}
+
 const SearchCommand = () => {
 
   const docStore = useDocStore();
@@ -115,6 +153,11 @@ const SearchCommand = () => {
             onChange={(e) => { setQuery(e.target.value); setHighlight(0); }}
             onKeyDown={onKeyDown}
             aria-label="搜索笔记"
+            aria-autocomplete="list"
+            aria-controls="global-search-results"
+            aria-activedescendant={
+              filtered.length > 0 ? `global-search-result-${filtered[Math.min(highlight, filtered.length - 1)]?.id}` : undefined
+            }
             placeholder={"搜索 " + (user?.email?.split("@")[0] || "你的") + " 的笔记…"}
             className="h-12 min-w-0 flex-1 border-none bg-transparent text-lead text-shell-label-primary outline-none placeholder:text-shell-label-caption"
           />
@@ -124,21 +167,47 @@ const SearchCommand = () => {
           {filtered.length === 0 ? (
             <div className="px-3 py-6 text-center text-ui text-shell-label-tertiary">没有匹配的笔记</div>
           ) : (
-            <div className="flex flex-col gap-0.5">
+            <div
+              id="global-search-results"
+              role="listbox"
+              aria-label="搜索结果"
+              className="flex flex-col gap-0.5"
+            >
               <div className="px-2.5 py-1 text-caption font-semibold text-shell-label-tertiary">文档</div>
               {filtered.map((doc, i) => (
                 <button
                   key={doc.id}
+                  id={`global-search-result-${doc.id}`}
                   type="button"
+                  role="option"
+                  aria-selected={i === highlight}
                   onClick={() => onSelect(doc.id)}
                   onMouseEnter={() => setHighlight(i)}
                   className={cn(
-                    "flex w-full cursor-pointer items-center gap-2.5 rounded-control px-2 py-1.5 text-left text-ui text-shell-label-primary",
+                    "flex w-full cursor-pointer items-start gap-2.5 rounded-control px-2 py-1.5 text-left text-ui text-shell-label-primary focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-shell-accent",
                     i === highlight ? "bg-shell-row-active" : "hover:bg-shell-row-hover"
                   )}
                 >
-                  {doc.icon ? <span className="text-body leading-none">{doc.icon}</span> : <File className="h-4 w-4 shrink-0 text-shell-label-tertiary" />}
-                  <span className="min-w-0 truncate">{doc.title}</span>
+                  {doc.icon ? (
+                    <span className="text-body leading-none">{doc.icon}</span>
+                  ) : (
+                    <File className="mt-0.5 h-4 w-4 shrink-0 text-shell-label-tertiary" />
+                  )}
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-medium">
+                      <HighlightedText text={doc.title || "未命名"} query={q} />
+                    </span>
+                    {doc.snippet ? (
+                      <span className="mt-0.5 line-clamp-2 block text-ui-sm leading-[18px] text-shell-label-tertiary">
+                        <HighlightedText text={doc.snippet} query={q} />
+                      </span>
+                    ) : null}
+                    {documentPath(doc, documents) ? (
+                      <span className="mt-0.5 block truncate text-caption text-shell-label-caption">
+                        {documentPath(doc, documents)}
+                      </span>
+                    ) : null}
+                  </span>
                 </button>
               ))}
             </div>

@@ -28,6 +28,7 @@ import {
   listDocumentsOverview,
   listSearch,
   searchDocuments,
+  searchSnippet,
   listSidebar,
   listSidebarAll,
   listTrash,
@@ -72,10 +73,11 @@ export function createSqliteDocStore(db?: Database.Database): DocStore {
           userId: actor.userId,
           isArchived: false,
           isDraft: false,
-          parentDocument: null,
+          parentDocument: d.parentDocument,
           icon: null,
           createdAt: d.updatedAt,
           updatedAt: d.updatedAt,
+          snippet: searchSnippet(d.content, query),
         }));
       }
       return listSearch(conn(), actor.userId);
