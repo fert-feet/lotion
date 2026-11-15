@@ -31,7 +31,7 @@ const Navbar = ({
         if (documentId) {
             // alive 标志：快速切换文档时丢弃过期响应，避免旧文档覆盖新文档
             let alive = true;
-            docStore.getById(actor, documentId)
+            docStore.getById(actor, documentId, { fresh: refreshKey !== 0 })
                 .then((doc) => { if (alive) setDocument(doc); })
                 .catch(() => { if (alive) setDocument(null); });
             return () => { alive = false; };

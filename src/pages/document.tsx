@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback, lazy, Suspense } from "react";
+import { useEffect, useState, useCallback, lazy, Suspense } from "react";
 import { useNavigate, useParams } from "react-router";
 import type { Document } from "@/lib/seams/doc-store";
 import { useActor, useDocStore } from "@/src/kernel/react";
 import { useRefresh } from "@/hooks/use-refresh";
+import { useDocumentAutosave } from "@/hooks/use-document-autosave";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Button } from "@/components/ui/button";
@@ -15,9 +16,9 @@ import Cover from "@/src/shell/cover";
 // 编辑器按需加载（BlockNote 体积大）：迁移自 next/dynamic({ ssr:false }) → React.lazy
 const Editor = lazy(() => import("@/src/shell/editor"));
 
-// 编辑器写库防抖：击键期间不落库，停顿 800ms 或卸载时写一次。
-// 之前每次编辑都 JSON.stringify 全量 + update()，打字快时请求堆积
+// 正文停顿 800ms、标题停顿 400ms 后落库；切换文档或离开页面前由 hook 强制 flush。
 const SAVE_DEBOUNCE_MS = 800;
+const TITLE_SAVE_DEBOUNCE_MS = 400;
 
 const DocumentIdPage = () => {
   const docStore = useDocStore();
@@ -25,35 +26,32 @@ const DocumentIdPage = () => {
     const params = useParams();
     const navigate = useNavigate();
     const documentKeys = useRefresh((s) => s.documentKeys);
+    const triggerDocument = useRefresh((s) => s.triggerDocument);
+    const triggerSidebar = useRefresh((s) => s.triggerSidebar);
 
     const [document, setDocument] = useState<Document | null | undefined>(undefined);
     const documentId = params.documentId as string;
     const refreshKey = documentKeys[documentId] || 0;
-
-    // 防抖保存：latestContent 保存最新内容，timer 到期才写库；
-    // documentId 存 ref，避免 onChange 闭包捕获过期值
-    const latestContent = useRef("");
-    const documentIdRef = useRef(documentId);
-    const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-    documentIdRef.current = documentId;
-
-    // 切换文档时立即 flush 未保存内容（写回原文档）：
-    // 防抖窗口内切到别的文档，内容不会丢失也不会串写到新文档。
-    // cleanup 闭包捕获本次渲染的 documentId（旧值），documentIdRef 在
-    // 渲染时已更新为最新值，不能用于这里。
-    useEffect(() => {
-        const prevDocId = documentId;
-        return () => {
-            if (prevDocId && latestContent.current) {
-                if (saveTimer.current) {
-                    clearTimeout(saveTimer.current);
-                    saveTimer.current = undefined;
-                }
-                docStore.update(actor, prevDocId, { content: latestContent.current });
-                latestContent.current = "";
-            }
-        };
-    }, [documentId, docStore, actor]);
+    const contentAutosave = useDocumentAutosave({
+        storageKey: `lotion:autosave:v1:${documentId}:content`,
+        delay: SAVE_DEBOUNCE_MS,
+        save: useCallback(
+            (content: string) => docStore.update(actor, documentId, { content }),
+            [actor, docStore, documentId],
+        ),
+    });
+    const titleAutosave = useDocumentAutosave({
+        storageKey: `lotion:autosave:v1:${documentId}:title`,
+        delay: TITLE_SAVE_DEBOUNCE_MS,
+        save: useCallback(
+            async (title: string) => {
+                await docStore.update(actor, documentId, { title });
+                triggerSidebar();
+                triggerDocument(documentId);
+            },
+            [actor, docStore, documentId, triggerDocument, triggerSidebar],
+        ),
+    });
 
     useEffect(() => {
         if (documentId) {
@@ -69,28 +67,22 @@ const DocumentIdPage = () => {
         }
     }, [documentId, refreshKey, docStore, actor]);
 
-    // 卸载时 flush 最后一次未保存的编辑，防止防抖窗口内离开丢内容
-    useEffect(() => {
-        return () => {
-            if (saveTimer.current) clearTimeout(saveTimer.current);
-            if (latestContent.current && documentIdRef.current) {
-                docStore.update(actor, documentIdRef.current, { content: latestContent.current });
-            }
-        };
-    }, [docStore, actor]);
-
     const onChange = useCallback((content: string) => {
-        latestContent.current = content;
-        // 快照 timer 创建时的文档 id：到期后若已切换文档，内容仍写回原文档，杜绝串写
-        const docId = documentIdRef.current;
-        if (saveTimer.current) clearTimeout(saveTimer.current);
-        saveTimer.current = setTimeout(() => {
-            saveTimer.current = undefined;
-            if (docId) {
-                docStore.update(actor, docId, { content });
-            }
-        }, SAVE_DEBOUNCE_MS);
-    }, [docStore, actor]);
+        contentAutosave.schedule(content);
+    }, [contentAutosave]);
+
+    const onTitleChange = useCallback((title: string) => {
+        const nextTitle = title || "未命名";
+        setDocument((prev) => (prev ? { ...prev, title: nextTitle } : prev));
+        titleAutosave.schedule(nextTitle);
+    }, [titleAutosave]);
+
+    const onTitleCommit = useCallback((title: string) => {
+        const nextTitle = title || "未命名";
+        setDocument((prev) => (prev ? { ...prev, title: nextTitle } : prev));
+        titleAutosave.schedule(nextTitle);
+        void titleAutosave.flush();
+    }, [titleAutosave]);
 
     if (document === undefined) {
         return (
@@ -124,11 +116,101 @@ const DocumentIdPage = () => {
         );
     }
 
+    const contentRecovery =
+        contentAutosave.recovery !== null && contentAutosave.recovery !== document.content
+            ? contentAutosave.recovery
+            : null;
+    const titleRecovery =
+        titleAutosave.recovery !== null && titleAutosave.recovery !== document.title
+            ? titleAutosave.recovery
+            : null;
+    const saveError = contentAutosave.error ?? titleAutosave.error;
+    const saveStatus =
+        saveError !== null
+            ? "error"
+            : contentAutosave.status === "saving" || titleAutosave.status === "saving"
+              ? "saving"
+              : contentAutosave.status === "saved" || titleAutosave.status === "saved"
+                ? "saved"
+                : "idle";
+
+    const restoreRecovery = () => {
+        if (contentRecovery !== null) {
+            setDocument((prev) => (prev ? { ...prev, content: contentRecovery } : prev));
+            contentAutosave.schedule(contentRecovery);
+            void contentAutosave.flush();
+        }
+        if (titleRecovery !== null) {
+            setDocument((prev) => (prev ? { ...prev, title: titleRecovery } : prev));
+            titleAutosave.schedule(titleRecovery);
+            void titleAutosave.flush();
+        }
+    };
+
+    const discardRecovery = () => {
+        contentAutosave.discardRecovery();
+        titleAutosave.discardRecovery();
+    };
+
+    const retrySave = () => {
+        void Promise.all([contentAutosave.retry(), titleAutosave.retry()]);
+    };
+
     return (
         <div className="pb-40">
+            {(saveStatus !== "idle" || contentRecovery !== null || titleRecovery !== null) && (
+                <div
+                    role={saveStatus === "error" ? "alert" : "status"}
+                    aria-live="polite"
+                    className="sticky top-0 z-chrome flex flex-wrap items-center gap-x-3 gap-y-1.5 hairline-b border-shell-border bg-background/92 px-4 py-1.5 text-ui-sm text-shell-label-secondary backdrop-blur"
+                >
+                    {saveStatus !== "idle" && (
+                        <span className={saveStatus === "error" ? "text-destructive" : undefined}>
+                            {saveStatus === "saving"
+                                ? "正在保存…"
+                                : saveStatus === "saved"
+                                  ? "所有更改已保存"
+                                  : `保存失败：${saveError ?? "请稍后重试"}`}
+                        </span>
+                    )}
+                    {saveStatus === "error" && (
+                        <button
+                            type="button"
+                            onClick={retrySave}
+                            className="cursor-pointer font-medium text-primary hover:underline"
+                        >
+                            重试
+                        </button>
+                    )}
+                    {(contentRecovery !== null || titleRecovery !== null) && (
+                        <>
+                            <span className="text-warning">发现本地未保存内容</span>
+                            <button
+                                type="button"
+                                onClick={restoreRecovery}
+                                className="cursor-pointer font-medium text-primary hover:underline"
+                            >
+                                恢复
+                            </button>
+                            <button
+                                type="button"
+                                onClick={discardRecovery}
+                                className="cursor-pointer text-shell-label-tertiary hover:text-shell-label-primary"
+                            >
+                                忽略
+                            </button>
+                        </>
+                    )}
+                </div>
+            )}
             <Cover url={document.coverImage || undefined} />
             <div className="md:max-w-3xl lg:max-w-4xl mx-auto">
-                <Toolbar initialData={document} />
+                <Toolbar
+                    initialData={document}
+                    title={document.title || "未命名"}
+                    onTitleChange={onTitleChange}
+                    onTitleCommit={onTitleCommit}
+                />
                 <Suspense fallback={<EditorFallback />}>
                     <Editor
                         editable={!document.isArchived}

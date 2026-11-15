@@ -4,17 +4,24 @@ import { useActor, useDocStore } from "@/src/kernel/react";
 import IconPicker from "./icon-picker";
 import { Button } from "./ui/button";
 import { useEffect, useRef, useState } from "react";
-import { flushSync } from "react-dom";
 import { useRefresh } from "@/hooks/use-refresh";
 import TextareaAutosize from "react-textarea-autosize";
 import useCoverImage from "../hooks/use-cover-image";
 import { VersionHistoryDialog } from "./modals/version-history-dialog";
 
 interface ToolbarProps {
-    initialData: Document | undefined;
+    initialData: Document;
+    title: string;
+    onTitleChange: (title: string) => void;
+    onTitleCommit: (title: string) => void;
 }
 
-const Toolbar = ({ initialData }: ToolbarProps) => {
+const Toolbar = ({
+    initialData,
+    title,
+    onTitleChange,
+    onTitleCommit,
+}: ToolbarProps) => {
     const docStore = useDocStore();
     const actor = useActor();
     const coverImage = useCoverImage();
@@ -24,59 +31,32 @@ const Toolbar = ({ initialData }: ToolbarProps) => {
     const [isEditing, setIsEditing] = useState<boolean>(false);
     // 版本历史：从工具栏的 History 按钮打开
     const [historyOpen, setHistoryOpen] = useState(false);
-    const [value, setValue] = useState(initialData?.title || "");
-    const [displayValue, setDisplayValue] = useState(initialData?.title || "");
-    // 标题写库防抖：击键期间只更新本地 state，停顿 400ms 才落库
-    const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-    // 记录上次应用的外部标题：仅外部 title 变化（AI 修改/reload）时同步 displayValue，
-    // 避免失焦瞬间 isEditing 变化触发 effect 用旧标题覆盖新值（新→旧→新闪烁）
-    const lastAppliedTitle = useRef(initialData?.title);
+    const [value, setValue] = useState(title);
 
     useEffect(() => {
-        if (isEditing) return;
-        if (!initialData?.title || lastAppliedTitle.current === initialData.title) return;
-        lastAppliedTitle.current = initialData.title;
-        setDisplayValue(initialData.title);
-    }, [initialData?.title, isEditing]);
-
-    if (!initialData) {
-        return null;
-    }
+        if (!isEditing) setValue(title);
+    }, [isEditing, title]);
 
     const enableInput = () => {
+        setValue(title);
         setIsEditing(true);
 
         setTimeout(() => {
-            setValue(initialData.title);
             inputRef.current?.focus();
+            inputRef.current?.setSelectionRange(0, inputRef.current.value.length);
         }, 0);
     };
 
     const disableInput = () => {
         const newValue = value || "未命名";
-        // 取消未落库的防抖定时器，blur 时立即写入（避免与防抖重复写）
-        if (saveTimer.current) {
-            clearTimeout(saveTimer.current);
-            saveTimer.current = undefined;
-        }
-        flushSync(() => {
-            setIsEditing(false);
-            setDisplayValue(newValue);
-        });
-        docStore.update(actor, initialData.id, { title: newValue }).then(() => {
-            triggerDocument(initialData.id);
-            triggerSidebar(); // 侧边栏同步显示新标题
-        });
+        setIsEditing(false);
+        setValue(newValue);
+        onTitleCommit(newValue);
     };
 
     const onInput = (value: string) => {
         setValue(value);
-        // 防抖写库：连续输入只更新 state，停顿后落库一次
-        if (saveTimer.current) clearTimeout(saveTimer.current);
-        saveTimer.current = setTimeout(() => {
-            saveTimer.current = undefined;
-            docStore.update(actor, initialData.id, { title: value || "未命名" });
-        }, 400);
+        onTitleChange(value);
     };
 
     const onSelectIcon = (icon: string) => {
@@ -168,15 +148,18 @@ const Toolbar = ({ initialData }: ToolbarProps) => {
                     onKeyDown={onKeyDown}
                     value={value}
                     onChange={(e) => onInput(e.target.value)}
+                    aria-label="文档标题"
                     className="w-full resize-none break-words bg-transparent text-display font-bold leading-[1.15] tracking-[-0.022em] text-shell-label-primary outline-none"
                 />
             ) : (
-                <div
+                <button
+                    type="button"
                     onClick={enableInput}
-                    className="cursor-text pb-1 text-display font-bold leading-[1.15] tracking-[-0.022em] break-words text-shell-label-primary outline-none"
+                    aria-label="编辑文档标题"
+                    className="block w-full cursor-text break-words rounded-control pb-1 text-left text-display font-bold leading-[1.15] tracking-[-0.022em] text-shell-label-primary outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
                 >
-                    {displayValue}
-                </div>
+                    {title || "未命名"}
+                </button>
             )}
         </div>
         <VersionHistoryDialog
