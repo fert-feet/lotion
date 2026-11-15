@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, lazy, Suspense } from "react";
+import { useEffect, useState, useCallback, useRef, lazy, Suspense } from "react";
 import { useNavigate, useParams } from "react-router";
 import type { Document } from "@/lib/seams/doc-store";
 import { useActor, useDocStore } from "@/src/kernel/react";
@@ -28,9 +28,12 @@ const DocumentIdPage = () => {
     const documentKeys = useRefresh((s) => s.documentKeys);
     const triggerDocument = useRefresh((s) => s.triggerDocument);
     const triggerSidebar = useRefresh((s) => s.triggerSidebar);
+    const documentId = params.documentId as string;
 
     const [document, setDocument] = useState<Document | null | undefined>(undefined);
-    const documentId = params.documentId as string;
+    const [loadError, setLoadError] = useState<string | null>(null);
+    const [loadRevision, setLoadRevision] = useState(0);
+    const loadedDocumentIdRef = useRef(documentId);
     const refreshKey = documentKeys[documentId] || 0;
     const contentAutosave = useDocumentAutosave({
         storageKey: `lotion:autosave:v1:${documentId}:content`,
@@ -60,12 +63,25 @@ const DocumentIdPage = () => {
             // alive 标志：快速切换文档时丢弃过期响应，避免旧文档覆盖新文档
             let alive = true;
             const fresh = refreshKey !== 0;
+            if (loadedDocumentIdRef.current !== documentId) {
+                loadedDocumentIdRef.current = documentId;
+                setDocument(undefined);
+            }
+            setLoadError(null);
             docStore.getById(actor, documentId, { fresh })
-                .then((doc) => { if (alive) setDocument(doc); })
-                .catch(() => { if (alive) setDocument(null); });
+                .then((doc) => {
+                    if (!alive) return;
+                    setDocument(doc);
+                    setLoadError(null);
+                })
+                .catch((error: unknown) => {
+                    if (!alive) return;
+                    setDocument(null);
+                    setLoadError(error instanceof Error ? error.message : "加载文档失败");
+                });
             return () => { alive = false; };
         }
-    }, [documentId, refreshKey, docStore, actor]);
+    }, [documentId, refreshKey, loadRevision, docStore, actor]);
 
     const onChange = useCallback((content: string) => {
         contentAutosave.schedule(content);
@@ -101,6 +117,33 @@ const DocumentIdPage = () => {
     }
 
     if (document === null) {
+        if (loadError) {
+            return (
+                <div className="flex h-full items-center justify-center">
+                    <EmptyState
+                        icon={<FileQuestion className="h-5 w-5" strokeWidth={1.5} />}
+                        title="文档加载失败"
+                        description={loadError}
+                        action={
+                            <div className="flex items-center gap-2">
+                                <Button
+                                    size="sm"
+                                    onClick={() => {
+                                        setDocument(undefined);
+                                        setLoadRevision((value) => value + 1);
+                                    }}
+                                >
+                                    重试
+                                </Button>
+                                <Button variant="outline" size="sm" onClick={() => navigate("/documents")}>
+                                    返回文档列表
+                                </Button>
+                            </div>
+                        }
+                    />
+                </div>
+            );
+        }
         return (
             <div className="flex h-full items-center justify-center">
                 <EmptyState
@@ -203,7 +246,7 @@ const DocumentIdPage = () => {
                     )}
                 </div>
             )}
-            <Cover url={document.coverImage || undefined} />
+            <Cover url={document.coverImage || undefined} editable={!document.isArchived} />
             <div className="md:max-w-3xl lg:max-w-4xl mx-auto">
                 <Toolbar
                     initialData={document}

@@ -48,6 +48,7 @@ export function Sidebar({ wide, onExpand, overlay = false }: SidebarProps) {
   const hasAiPanel = useHasSlot(SLOT_DETAILS_PANEL);
 
   const [allDocs, setAllDocs] = useState<SidebarDocument[] | undefined>(undefined);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const initialLoaded = useRef(false);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [query, setQuery] = useState("");
@@ -57,13 +58,24 @@ export function Sidebar({ wide, onExpand, overlay = false }: SidebarProps) {
   const [focusedId, setFocusedId] = useState<string | null>(null);
   const treeRef = useRef<HTMLDivElement | null>(null);
 
+  const loadDocs = useCallback(() => {
+    if (!user) return;
+    setLoadError(null);
+    docStore.listSidebarAll({ userId: user.id })
+      .then((data) => {
+        setAllDocs(data);
+        setLoadError(null);
+        initialLoaded.current = true;
+      })
+      .catch((error: unknown) => {
+        if (!initialLoaded.current) setAllDocs([]);
+        setLoadError(error instanceof Error ? error.message : "加载笔记列表失败");
+      });
+  }, [user, docStore]);
+
   useEffect(() => {
-    if (user) {
-      docStore.listSidebarAll({ userId: user.id })
-        .then((data) => { setAllDocs(data); initialLoaded.current = true; })
-        .catch(() => { if (!initialLoaded.current) setAllDocs([]); });
-    }
-  }, [user, sidebarKey, docStore]);
+    void loadDocs();
+  }, [loadDocs, sidebarKey]);
 
   // 直接链接、搜索跳转或 AI 跳转后，自动展开当前文档的祖先链。
   useEffect(() => {
@@ -242,6 +254,21 @@ export function Sidebar({ wide, onExpand, overlay = false }: SidebarProps) {
       {/* 列表区：唯一滚动区域；底部渐变 fade 贴住可见底边 */}
       <div className="relative min-h-0 flex-1 overflow-hidden">
         <div className="h-full min-h-0 overflow-y-auto pb-2">
+          {loadError && (
+            <div
+              role="alert"
+              className="mx-2 mb-2 rounded-card bg-destructive/10 px-2.5 py-2 text-ui-sm text-destructive"
+            >
+              <p className="leading-5">{loadError}</p>
+              <button
+                type="button"
+                onClick={loadDocs}
+                className="mt-1 cursor-pointer font-medium text-primary hover:underline"
+              >
+                重试
+              </button>
+            </div>
+          )}
           {allDocs === undefined ? (
             <div className="space-y-1 px-3 py-2">
               <div className="h-4 w-3/4 animate-pulse rounded bg-shell-row-active" />
@@ -249,9 +276,11 @@ export function Sidebar({ wide, onExpand, overlay = false }: SidebarProps) {
               <div className="h-4 w-2/3 animate-pulse rounded bg-shell-row-active" />
             </div>
           ) : allDocs.length === 0 ? (
-            <div className="px-2 py-3 text-ui-sm leading-[18px] text-shell-label-tertiary">
-              还没有笔记
-            </div>
+            loadError ? null : (
+              <div className="px-2 py-3 text-ui-sm leading-[18px] text-shell-label-tertiary">
+                还没有笔记
+              </div>
+            )
           ) : searching ? (
             <DocSearchResults docs={allDocs} query={query} />
           ) : (

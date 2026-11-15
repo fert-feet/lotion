@@ -58,6 +58,8 @@ const SearchCommand = () => {
   const [documents, setDocuments] = useState<SidebarDocument[]>([]);
   // 服务端全文检索结果：输入停顿 200ms 才发请求（FTS5 走索引，但没必要每个键都打一次）
   const [remote, setRemote] = useState<SidebarDocument[] | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loadRevision, setLoadRevision] = useState(0);
   const [isMounted, setIsMounted] = useState(false);
   const [query, setQuery] = useState("");
   const [highlight, setHighlight] = useState(0);
@@ -73,16 +75,27 @@ const SearchCommand = () => {
     if (isOpen && user) {
       // alive 标志：快速开合搜索框时丢弃过期结果
       let alive = true;
+      setLoadError(null);
       docStore.listSearch({ userId: user.id })
-        .then((data) => { if (alive) setDocuments(data); })
-        .catch(() => { if (alive) setDocuments([]); });
+        .then((data) => {
+          if (alive) {
+            setDocuments(data);
+            setLoadError(null);
+          }
+        })
+        .catch((error: unknown) => {
+          if (alive) {
+            setDocuments([]);
+            setLoadError(error instanceof Error ? error.message : "加载搜索候选失败");
+          }
+        });
       setQuery("");
       setRemote(null);
       setHighlight(0);
       setTimeout(() => inputRef.current?.focus(), 30);
       return () => { alive = false; };
     }
-  }, [isOpen, user, docStore]);
+  }, [isOpen, user, docStore, loadRevision]);
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -107,7 +120,10 @@ const SearchCommand = () => {
       docStore
         .listSearch({ userId: user.id }, q)
         .then((data) => {
-          if (alive) setRemote(data);
+          if (alive) {
+            setRemote(data);
+            setLoadError(null);
+          }
         })
         .catch(() => {
           if (alive) setRemote(null); // 检索失败退回本地过滤，不让面板空掉
@@ -164,7 +180,18 @@ const SearchCommand = () => {
         </div>
         {/* 结果列表 */}
         <div className="max-h-[360px] overflow-y-auto p-1.5">
-          {filtered.length === 0 ? (
+          {loadError && filtered.length === 0 ? (
+            <div role="alert" className="px-3 py-6 text-center text-ui text-destructive">
+              <p>{loadError}</p>
+              <button
+                type="button"
+                onClick={() => setLoadRevision((value) => value + 1)}
+                className="mt-2 cursor-pointer font-medium text-primary hover:underline"
+              >
+                重试
+              </button>
+            </div>
+          ) : filtered.length === 0 ? (
             <div className="px-3 py-6 text-center text-ui text-shell-label-tertiary">没有匹配的笔记</div>
           ) : (
             <div

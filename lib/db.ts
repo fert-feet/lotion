@@ -51,9 +51,19 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
     } catch {
       // 忽略解析失败，保留默认信息
     }
-    throw new Error(message);
+    throw new ApiError(message, res.status);
   }
   return res.json() as Promise<T>;
+}
+
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number,
+  ) {
+    super(message);
+    this.name = "ApiError";
+  }
 }
 
 // ---- AI 会话 ----
@@ -122,24 +132,30 @@ export async function getSearch(
 }
 
 // 请求去重：Navbar 和 Page 同时请求同一个文档时共用同一个 promise
-const pendingById = new Map<string, Promise<Document>>();
+const pendingById = new Map<string, Promise<Document | null>>();
 // 内存缓存：已加载过的文档不再重复请求；设大小上限防长期会话内存增长
 const docCache = new Map<string, Document>();
 const DOC_CACHE_MAX = 200;
 
 /** 单文档查询（带缓存/去重；所有权由 GET /api/documents/[id] 的会话鉴权保证） */
-export async function getById(documentId: string) {
+export async function getById(documentId: string): Promise<Document | null> {
   if (docCache.has(documentId)) return docCache.get(documentId)!;
   if (pendingById.has(documentId)) return pendingById.get(documentId)!;
-  const promise = api<Document>(`/api/documents/${documentId}`).then((doc) => {
-    // 超出上限时淘汰最旧条目（Map 迭代序 = 插入序）
-    if (docCache.size >= DOC_CACHE_MAX) {
-      const oldest = docCache.keys().next().value;
-      if (oldest !== undefined) docCache.delete(oldest);
-    }
-    docCache.set(documentId, doc);
-    return doc;
-  });
+  const promise = api<Document>(`/api/documents/${documentId}`)
+    .then((doc) => {
+      // 超出上限时淘汰最旧条目（Map 迭代序 = 插入序）
+      if (docCache.size >= DOC_CACHE_MAX) {
+        const oldest = docCache.keys().next().value;
+        if (oldest !== undefined) docCache.delete(oldest);
+      }
+      docCache.set(documentId, doc);
+      return doc;
+    })
+    .catch((error: unknown) => {
+      // 404 是"不存在"这一正常业务结果；网络/鉴权/服务错误必须继续抛出。
+      if (error instanceof ApiError && error.status === 404) return null;
+      throw error;
+    });
   pendingById.set(documentId, promise);
   // 派生 promise 必须吞掉 rejection，否则主 promise reject 时产生 unhandled rejection
   promise.finally(() => pendingById.delete(documentId)).catch(() => {});

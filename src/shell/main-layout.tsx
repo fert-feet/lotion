@@ -27,6 +27,12 @@ const MainLayout = () => {
   return (
     // h-dvh：应用外壳恒等于视口高度（不依赖祖先高度链），左右栏才能各自独立滚动
     <div className="h-dvh">
+      <a
+        href="#main-content"
+        className="sr-only z-toast rounded-control bg-primary px-3 py-2 text-ui text-primary-foreground focus:not-sr-only focus:fixed focus:left-3 focus:top-3"
+      >
+        跳至正文
+      </a>
       {/* DSH 风格三栏 shell：sidebar | center | details，见 app-shell.tsx */}
       <AppShell>
         <LazySearchCommand />

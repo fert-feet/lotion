@@ -20,27 +20,30 @@ export default function LoginPage() {
     setLoading(true);
     setError("");
 
-    // 本地 Auth：POST /api/auth/login（服务端种 HttpOnly 会话 cookie）
-    const res = await fetch("/api/auth/login", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ email, password }),
-    });
-    const data = await res.json();
-
-    if (!res.ok) {
-      setError(data.error || "登录失败，请稍后重试");
-      setLoading(false);
-    } else {
-      setLoading(false);
+    try {
+      // 本地 Auth：POST /api/auth/login（服务端种 HttpOnly 会话 cookie）
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.error || "登录失败，请稍后重试");
+        return;
+      }
       navigate("/documents");
       refreshUser();
+    } catch {
+      setError("无法连接服务器，请检查网络后重试");
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
     // Apple 的登录面板：浅灰底 + 居中白色卡片，卡片靠发丝边与柔和阴影分层
-    <div className="flex min-h-screen items-center justify-center bg-[color-mix(in_srgb,var(--foreground)_4%,var(--background))] px-4">
+    <div className="flex min-h-dvh items-center justify-center bg-[color-mix(in_srgb,var(--foreground)_4%,var(--background))] px-4">
       <div className="w-full max-w-[380px] rounded-sheet hairline border-shell-border-l2 bg-card p-7 shadow-elevation-3">
         <div className="mb-6 flex flex-col items-center gap-3 text-center">
           <div className="flex h-12 w-12 items-center justify-center rounded-panel bg-primary text-primary-foreground shadow-elevation-1">
@@ -60,6 +63,7 @@ export default function LoginPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="邮箱地址"
+              autoComplete="email"
               required
             />
           </div>
@@ -71,10 +75,15 @@ export default function LoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
+              autoComplete="current-password"
               required
             />
           </div>
-          {error && <p className="text-ui-sm text-destructive">{error}</p>}
+          {error && (
+            <p role="alert" aria-live="polite" className="text-ui-sm text-destructive">
+              {error}
+            </p>
+          )}
           <Button type="submit" size="lg" disabled={loading} className="w-full">
             {loading ? "登录中…" : "登录"}
           </Button>

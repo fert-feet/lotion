@@ -685,7 +685,10 @@ const AiPanel = () => {
   // 点击胶囊/引用跳转前先确认文档存在，已删除的文档提示而不跳转（避免 not found 页）
   const openDocument = useCallback((id: string) => {
     docStore.getById(actor, id)
-      .then(() => navigate("/documents/" + id))
+      .then((doc) => {
+        if (doc) navigate("/documents/" + id);
+        else toast.error("文档不存在或已删除");
+      })
       .catch(() => toast.error("文档不存在或已删除"));
   }, [docStore, actor, navigate]);
 

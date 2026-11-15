@@ -28,6 +28,7 @@ const Toolbar = ({
     const triggerDocument = useRefresh((s) => s.triggerDocument);
     const triggerSidebar = useRefresh((s) => s.triggerSidebar);
     const inputRef = useRef<HTMLTextAreaElement>(null);
+    const readOnly = initialData.isArchived;
     const [isEditing, setIsEditing] = useState<boolean>(false);
     // 版本历史：从工具栏的 History 按钮打开
     const [historyOpen, setHistoryOpen] = useState(false);
@@ -38,6 +39,7 @@ const Toolbar = ({
     }, [isEditing, title]);
 
     const enableInput = () => {
+        if (readOnly) return;
         setValue(title);
         setIsEditing(true);
 
@@ -87,11 +89,16 @@ const Toolbar = ({
         <div className="pl-[54px] group relative">
             {Boolean(initialData.icon) && (
                 <div className="flex items-center gap-x-2 group/icon pt-6">
+                    {readOnly ? (
+                        <p className="text-hero leading-none">{initialData.icon}</p>
+                    ) : (
                     <IconPicker onChange={onSelectIcon}>
                         <p className="text-hero leading-none transition-opacity hover:opacity-70 cursor-pointer">
                             {initialData.icon}
                         </p>
                     </IconPicker>
+                    )}
+                    {!readOnly && (
                     <Button
                         type="button"
                         onClick={onRemoveIcon}
@@ -102,8 +109,10 @@ const Toolbar = ({
                     >
                         <X className="h-4 w-4" aria-hidden="true" />
                     </Button>
+                    )}
                 </div>
             )}
+            {!readOnly && (
             <div className="flex items-center gap-1 py-3 opacity-0 transition-opacity group-hover:opacity-100 max-md:opacity-100">
                 {!initialData.icon && (
                     <IconPicker onChange={onSelectIcon}>
@@ -141,7 +150,8 @@ const Toolbar = ({
                     </Button>
                 )}
             </div>
-            {isEditing ? (
+            )}
+            {!readOnly && isEditing ? (
                 <TextareaAutosize
                     ref={inputRef}
                     onBlur={disableInput}
@@ -151,6 +161,10 @@ const Toolbar = ({
                     aria-label="文档标题"
                     className="w-full resize-none break-words bg-transparent text-display font-bold leading-[1.15] tracking-[-0.022em] text-shell-label-primary outline-none"
                 />
+            ) : readOnly ? (
+                <div className="pb-1 text-display font-bold leading-[1.15] tracking-[-0.022em] break-words text-shell-label-primary">
+                    {title || "未命名"}
+                </div>
             ) : (
                 <button
                     type="button"

@@ -82,6 +82,13 @@ describe("全仓遵守设计 token 纪律", () => {
     );
   });
 
+  it("状态色走 warning/success/destructive 语义 token，不使用 Tailwind 裸色板", () => {
+    expect(
+      scan(/(?:text|bg|border|ring)-(?:amber|emerald|green|red|blue|slate|zinc|gray)-\d{2,3}/g),
+      "状态色应取 text-warning / text-success / text-destructive 等语义 token",
+    ).toEqual([]);
+  });
+
   it("globals.css 真的定义了这些 token 与工具类（删了会让组件静默降级）", () => {
     const css = fs.readFileSync(path.join(ROOT, "src/styles/globals.css"), "utf8");
     for (const token of [
@@ -124,5 +131,12 @@ describe("全仓遵守设计 token 纪律", () => {
         overridden,
       );
     }
+  });
+
+  it("BlockNote 纯 CSS 同样走发丝线、圆角与浮层层级 token", () => {
+    const css = fs.readFileSync(path.join(ROOT, "components/editor/blocknote.css"), "utf8");
+    expect(css, "BlockNote 样式不要手写 0.5px").not.toMatch(/\b0\.5px\b/);
+    expect(css, "BlockNote 圆角应走 --radius-* token").not.toMatch(/border-radius:\s*\d+px/);
+    expect(css, "BlockNote 浮层层级应走 --z-popover").not.toMatch(/z-index:\s*\d+/);
   });
 });

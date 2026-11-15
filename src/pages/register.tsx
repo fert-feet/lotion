@@ -20,26 +20,29 @@ export default function RegisterPage() {
     setLoading(true);
     setError("");
 
-    // 本地 Auth：POST /api/auth/register（注册即登录，服务端种会话 cookie）
-    const res = await fetch("/api/auth/register", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ email, password }),
-    });
-    const data = await res.json();
-
-    if (!res.ok) {
-      setError(data.error || "注册失败，请稍后重试");
-      setLoading(false);
-    } else {
-      setLoading(false);
+    try {
+      // 本地 Auth：POST /api/auth/register（注册即登录，服务端种会话 cookie）
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.error || "注册失败，请稍后重试");
+        return;
+      }
       navigate("/documents");
       refreshUser();
+    } catch {
+      setError("无法连接服务器，请检查网络后重试");
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[color-mix(in_srgb,var(--foreground)_4%,var(--background))] px-4">
+    <div className="flex min-h-dvh items-center justify-center bg-[color-mix(in_srgb,var(--foreground)_4%,var(--background))] px-4">
       <div className="w-full max-w-[380px] rounded-sheet hairline border-shell-border-l2 bg-card p-7 shadow-elevation-3">
         <div className="mb-6 flex flex-col items-center gap-3 text-center">
           <div className="flex h-12 w-12 items-center justify-center rounded-panel bg-primary text-primary-foreground shadow-elevation-1">
@@ -59,6 +62,7 @@ export default function RegisterPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="邮箱地址"
+              autoComplete="email"
               required
             />
           </div>
@@ -70,10 +74,17 @@ export default function RegisterPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
+              autoComplete="new-password"
+              minLength={8}
               required
             />
+            <p className="text-caption text-shell-label-tertiary">密码至少 8 位字符</p>
           </div>
-          {error && <p className="text-ui-sm text-destructive">{error}</p>}
+          {error && (
+            <p role="alert" aria-live="polite" className="text-ui-sm text-destructive">
+              {error}
+            </p>
+          )}
           <Button type="submit" size="lg" disabled={loading} className="w-full">
             {loading ? "注册中…" : "注册"}
           </Button>

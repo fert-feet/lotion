@@ -84,7 +84,7 @@ describe("lib/db 客户端入口（fetch REST）", () => {
 
   it("getById 走 GET 端点并缓存；getByIdFresh 绕过缓存", async () => {
     fetchMock.mockResolvedValueOnce(jsonRes({ id: "d1", title: "文档" }));
-    expect((await getById("d1")).title).toBe("文档");
+    expect((await getById("d1"))?.title).toBe("文档");
     expect(fetchMock).toHaveBeenCalledTimes(1);
 
     // 命中缓存：不再发请求
@@ -93,8 +93,16 @@ describe("lib/db 客户端入口（fetch REST）", () => {
 
     // 绕过缓存：重新请求
     fetchMock.mockResolvedValueOnce(jsonRes({ id: "d1", title: "新标题" }));
-    expect((await getByIdFresh("d1")).title).toBe("新标题");
+    expect((await getByIdFresh("d1"))?.title).toBe("新标题");
     expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("getById 只把 404 映射为 null；网络/服务错误继续抛错", async () => {
+    fetchMock.mockResolvedValueOnce(jsonRes({ error: "Not found" }, 404));
+    await expect(getById("missing")).resolves.toBeNull();
+
+    fetchMock.mockResolvedValueOnce(jsonRes({ error: "数据库不可用" }, 500));
+    await expect(getById("broken")).rejects.toThrow("数据库不可用");
   });
 
   it("trash/search/chat 端点正确", async () => {

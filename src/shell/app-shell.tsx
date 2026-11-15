@@ -11,9 +11,14 @@ import { useLocation, useParams } from "react-router";
 import { MenuIcon } from "@/components/icons";
 import {
   computeColumns,
+  DETAILS_DEFAULT,
+  DETAILS_MAX,
+  DETAILS_MIN,
   SIDEBAR_AUTO_COLLAPSE,
   SIDEBAR_COLLAPSED,
   SIDEBAR_DEFAULT,
+  SIDEBAR_MAX,
+  SIDEBAR_MIN,
 } from "@/lib/layout/columns";
 import { useLayout } from "@/hooks/use-layout";
 import Sidebar from "./sidebar/sidebar";
@@ -94,8 +99,14 @@ function DragHandle(props: {
   onStart: () => void;
   onDrag: (dx: number) => void;
   onEnd: () => void;
+  value: number;
+  min: number;
+  max: number;
+  onStep: (delta: number) => void;
+  onReset: () => void;
 }) {
   const [dragging, setDragging] = useState(false);
+  const { onStep, onReset } = props;
   const origin = useRef(0);
   const latest = useRef(0);
   const frame = useRef<number | null>(null);
@@ -129,14 +140,47 @@ function DragHandle(props: {
     callbacks.current.onEnd();
   }, []);
 
+  const onPointerCancel = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    }
+    if (frame.current !== null) {
+      cancelAnimationFrame(frame.current);
+      frame.current = null;
+    }
+    setDragging(false);
+    callbacks.current.onEnd();
+  }, []);
+
+  const onKeyDown = useCallback((event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+      event.preventDefault();
+      onStep(event.key === "ArrowRight" ? 8 : -8);
+    } else if (event.key === "Home") {
+      event.preventDefault();
+      onReset();
+    }
+  }, [onStep, onReset]);
+
   const isDetails = props.side === "details";
   return (
     <div
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
+      onPointerCancel={onPointerCancel}
+      onDoubleClick={props.onReset}
+      onKeyDown={onKeyDown}
+      role="separator"
+      tabIndex={0}
+      aria-label={isDetails ? "调整 AI 面板宽度" : "调整侧边栏宽度"}
+      aria-orientation="vertical"
+      aria-valuemin={props.min}
+      aria-valuemax={props.max}
+      aria-valuenow={Math.round(props.value)}
+      title="拖拽或使用方向键调整宽度；Home 恢复默认"
       className={
-        "absolute top-0 bottom-0 z-[2] -ml-1 w-2 cursor-col-resize touch-none " +
+        "absolute top-0 bottom-0 z-chrome -ml-1 w-2 cursor-col-resize touch-none outline-none focus-visible:bg-shell-row-active focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-shell-accent " +
         "transition-[left] duration-300 ease-[var(--ds-ease-in-out)] " +
         (isDetails
           ? "after:absolute after:top-1/2 after:left-1/2 after:-translate-x-1/2 after:-translate-y-1/2 after:block after:h-8 after:w-3 after:rounded-card after:border after:border-shell-border-l2 after:bg-shell-bg-base after:opacity-0 after:transition-opacity after:duration-300 after:ease-[var(--ds-ease-in-out)] " +
@@ -317,7 +361,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         {hasDocument
           ? <Navbar isCollapsed={sidebarCollapsed} onResetWidth={() => toggleSidebar()} />
           : <SlimTopBar collapsed={sidebarCollapsed} onExpand={() => toggleSidebar()} />}
-        <main className="min-h-0 flex-1 overflow-y-auto">
+        <main id="main-content" tabIndex={-1} className="min-h-0 flex-1 overflow-y-auto outline-none">
           {children}
         </main>
       </CenterColumn>
@@ -356,10 +400,32 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       {/* 折叠 rail 是固定宽：关闭时不渲染拖拽手柄 */}
       {!sidebarCollapsed && (
-        <DragHandle side="sidebar" left={cols.sidebar} onStart={onSidebarStart} onDrag={onSidebarDrag} onEnd={onDragEnd} />
+        <DragHandle
+          side="sidebar"
+          left={cols.sidebar}
+          onStart={onSidebarStart}
+          onDrag={onSidebarDrag}
+          onEnd={onDragEnd}
+          value={cols.sidebar}
+          min={SIDEBAR_MIN}
+          max={SIDEBAR_MAX}
+          onStep={(delta) => setSidebar(colsRef.current.sidebar + delta)}
+          onReset={() => setSidebar(SIDEBAR_DEFAULT)}
+        />
       )}
       {detailsColumnWidth > 0 && (
-        <DragHandle side="details" left={viewport - detailsColumnWidth} onStart={onDetailsStart} onDrag={onDetailsDrag} onEnd={onDragEnd} />
+        <DragHandle
+          side="details"
+          left={viewport - detailsColumnWidth}
+          onStart={onDetailsStart}
+          onDrag={onDetailsDrag}
+          onEnd={onDragEnd}
+          value={detailsColumnWidth}
+          min={DETAILS_MIN}
+          max={DETAILS_MAX}
+          onStep={(delta) => setDetails(colsRef.current.details - delta)}
+          onReset={() => setDetails(DETAILS_DEFAULT)}
+        />
       )}
     </div>
   );

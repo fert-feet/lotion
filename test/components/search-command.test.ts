@@ -23,4 +23,13 @@ describe("搜索交互", () => {
     expect(source).toContain('role="option"');
     expect(source).toContain("aria-activedescendant");
   });
+
+  it("主界面提供跳到正文入口，原生交互控件有全局焦点回退", () => {
+    const layout = read("src/shell/main-layout.tsx");
+    const shell = read("src/shell/app-shell.tsx");
+    const css = read("src/styles/globals.css");
+    expect(layout).toContain("跳至正文");
+    expect(shell).toContain('id="main-content"');
+    expect(css).toContain(':where(button, a, [role="button"]');
+  });
 });

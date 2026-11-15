@@ -199,4 +199,28 @@ describe("详情列布局", () => {
     expect(useLayout.getState().details).toBeGreaterThan(0);
     expect(tracks(shell)[2], "重新打开后依旧是三栏停靠，不再铺满").not.toBe("0px");
   });
+
+  it("分隔条可聚焦，方向键调整宽度，Home 恢复默认", async () => {
+    const shell = await mountShell();
+    const sidebarHandle = shell.querySelector<HTMLElement>(
+      '[role="separator"][aria-label="调整侧边栏宽度"]',
+    );
+    expect(sidebarHandle?.tabIndex).toBe(0);
+    expect(sidebarHandle?.getAttribute("aria-orientation")).toBe("vertical");
+
+    const before = useLayout.getState().sidebar;
+    await act(async () => {
+      sidebarHandle!.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }),
+      );
+    });
+    expect(useLayout.getState().sidebar).toBe(before + 8);
+
+    await act(async () => {
+      sidebarHandle!.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Home", bubbles: true }),
+      );
+    });
+    expect(useLayout.getState().sidebar).toBe(280);
+  });
 });

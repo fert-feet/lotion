@@ -38,7 +38,7 @@ function Stars({ rating = 0, count = 0 }: { rating?: number; count?: number }) {
   const rounded = Math.round(rating);
   return (
     <span className="inline-flex items-center gap-1 text-caption text-shell-label-tertiary">
-      <span className="text-amber-500" aria-hidden>
+      <span className="text-warning" aria-hidden>
         {"★".repeat(rounded)}
         {"☆".repeat(Math.max(0, 5 - rounded))}
       </span>
@@ -56,8 +56,8 @@ function Badge({ children, tone = "neutral" }: { children: React.ReactNode; tone
       className={cn(
         "rounded-control px-1.5 py-[1px] text-caption font-medium leading-4",
         tone === "blue" && "bg-primary/10 text-primary",
-        tone === "amber" && "bg-amber-500/10 text-amber-700 dark:text-amber-300",
-        tone === "green" && "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+        tone === "amber" && "bg-warning/10 text-warning",
+        tone === "green" && "bg-success/10 text-success",
         tone === "neutral" && "bg-secondary text-shell-label-secondary",
       )}
     >
@@ -284,7 +284,7 @@ export function PluginMarket() {
         </div>
       </div>
 
-      <p className="rounded-control bg-amber-500/10 px-2.5 py-1.5 text-caption leading-4 text-amber-800 dark:text-amber-200">
+      <p className="rounded-control bg-warning/10 px-2.5 py-1.5 text-caption leading-4 text-warning">
         ⚠️ 第三方插件代码与本机同信任级别（不是安全沙箱）。安装前请审阅权限与源码。
       </p>
 
@@ -477,7 +477,7 @@ export function PluginMarket() {
               <span className="font-medium">完整性：</span>
               {confirmEntry?.signature ? "已签名（安装时验签）" : confirmEntry?.sha256 ? "有 sha256 校验和" : "未提供校验和"}
             </div>
-            <p className="rounded-control bg-amber-500/10 px-2.5 py-1.5 text-caption leading-4 text-amber-800 dark:text-amber-200">
+            <p className="rounded-control bg-warning/10 px-2.5 py-1.5 text-caption leading-4 text-warning">
               宿主代码在 Lotion 进程内运行，客户端代码在浏览器执行；都不是安全沙箱。安装后默认停用。
             </p>
           </div>
@@ -510,7 +510,7 @@ export function PluginMarket() {
                   onClick={() => setRatingValue(value)}
                   className={cn(
                     "text-title leading-none transition-transform hover:scale-110",
-                    value <= ratingValue ? "text-amber-500" : "text-shell-label-tertiary",
+                    value <= ratingValue ? "text-warning" : "text-shell-label-tertiary",
                   )}
                 >
                   ★
@@ -529,7 +529,7 @@ export function PluginMarket() {
                 <p className="mb-1 text-caption font-medium text-shell-label-secondary">最近评论</p>
                 {(ratingEntry?.comments ?? []).slice(-5).map((comment, index) => (
                   <div key={`${comment.createdAt}-${index}`} className="hairline-t border-shell-border py-1 first:border-t-0">
-                    <span className="text-caption text-amber-500">{"★".repeat(comment.rating)}</span>
+                    <span className="text-caption text-warning">{"★".repeat(comment.rating)}</span>
                     <p className="text-caption leading-4 text-shell-label-tertiary">{comment.text}</p>
                   </div>
                 ))}

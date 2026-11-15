@@ -28,11 +28,11 @@ import { EmptyState } from "@/components/ui/empty-state";
 function statusLabel(plugin: PluginInfo): { text: string; className: string } {
   switch (plugin.status) {
     case "active":
-      return { text: "运行中", className: "text-emerald-600 dark:text-emerald-400" };
+      return { text: "运行中", className: "text-success" };
     case "error":
       return { text: "出错", className: "text-destructive" };
     case "pending":
-      return { text: "等待依赖", className: "text-amber-600 dark:text-amber-400" };
+      return { text: "等待依赖", className: "text-warning" };
     case "disabled":
       return { text: "已停用", className: "text-shell-label-tertiary" };
     default:
@@ -46,7 +46,7 @@ function Badge({ children, tone = "neutral" }: { children: React.ReactNode; tone
       className={cn(
         "rounded-control px-1.5 py-[1px] text-caption font-medium leading-4",
         tone === "blue" && "bg-primary/10 text-primary",
-        tone === "amber" && "bg-amber-500/10 text-amber-700 dark:text-amber-300",
+        tone === "amber" && "bg-warning/10 text-warning",
         tone === "neutral" && "bg-secondary text-shell-label-secondary",
       )}
     >

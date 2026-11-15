@@ -323,6 +323,11 @@ body,
     background: color-mix(in srgb, var(--primary) 26%, transparent);
     color: inherit;
   }
+  /* 原生 button/a 即使没有使用 Button 原语，也必须有键盘焦点反馈。 */
+  :where(button, a, [role="button"], [role="treeitem"], [role="separator"]):focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
 }
 
 /* 发丝线 / 层级 / 材质 elevation

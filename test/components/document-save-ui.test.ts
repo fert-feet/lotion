@@ -27,4 +27,17 @@ describe("文档保存 UI", () => {
     expect(navbarTitle).not.toContain("contentEditable");
     expect(navbarTitle).not.toContain("<Input");
   });
+
+  it("归档文档统一只读：正文、标题和封面操作都不可修改", () => {
+    const page = read("src/pages/document.tsx");
+    const toolbar = read("components/toobar.tsx");
+    const cover = read("src/shell/cover.tsx");
+
+    expect(page).toContain('editable={!document.isArchived}');
+    expect(toolbar).toContain("const readOnly = initialData.isArchived");
+    expect(toolbar).toContain("if (readOnly) return");
+    expect(toolbar).toContain("{!readOnly && (");
+    expect(cover).toContain("editable = true");
+    expect(cover).toContain("{url && editable && (");
+  });
 });
