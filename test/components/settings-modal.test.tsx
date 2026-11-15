@@ -149,4 +149,28 @@ describe("SettingsModal", () => {
     const nav = document.querySelector('nav[aria-label="设置导航"]')!;
     expect(nav.textContent).toBe("外观插件");
   });
+
+  it("窄屏改为顶部横向标签，且容器高度不再被固定最小高度裁切", async () => {
+    const admin = createPluginAdminStub({ list: vi.fn(async () => []) });
+    await act(async () => {
+      root.render(
+        <ThemeProvider attribute="class" defaultTheme="light">
+          <KernelProvider kernel={kernelWith(admin)}>
+            <UserProvider initialUser={null}>
+              <SettingsModal />
+            </UserProvider>
+          </KernelProvider>
+        </ThemeProvider>,
+      );
+    });
+
+    const nav = document.querySelector<HTMLElement>('nav[aria-label="设置导航"]')!;
+    expect(nav.className).toContain("flex-row");
+    expect(nav.className).toContain("sm:flex-col");
+    expect(nav.className).toContain("overflow-x-auto");
+
+    const body = nav.nextElementSibling as HTMLElement;
+    expect(body.parentElement?.className).not.toContain("min-h-[380px]");
+    expect(body.parentElement?.className).toContain("h-[min(72dvh,560px)]");
+  });
 });

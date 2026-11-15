@@ -151,13 +151,29 @@ describe("详情列布局", () => {
     expect(shell.dataset.detailsOverlay).toBe("true");
     expect(tracks(shell)[2], "浮层时 details 不占轨道").toBe("0px");
     expect(shell.querySelector("[data-details-column]")?.className).toContain("fixed");
+    expect(shell.querySelector("[data-details-column]")?.getAttribute("role")).toBe("dialog");
+    expect(shell.querySelector("[data-details-column]")?.getAttribute("aria-modal")).toBe("true");
 
-    const scrim = container.querySelector<HTMLDivElement>('div[aria-hidden="true"].fixed.inset-0');
+    const scrim = container.querySelector<HTMLDivElement>("[data-details-scrim]");
     expect(scrim, "浮层兜底缺少点击关闭的遮罩").not.toBeNull();
     await act(async () => {
       scrim!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
     expect(useLayout.getState().details, "点遮罩应当关闭面板").toBe(0);
+  });
+
+  it("浮层提供 Esc 关闭与焦点陷阱语义", async () => {
+    stubViewport(1100);
+    const shell = await mountShell();
+    const panel = shell.querySelector<HTMLElement>("[data-details-column]");
+    expect(panel).not.toBeNull();
+
+    await act(async () => {
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    });
+
+    expect(useLayout.getState().details).toBe(0);
+    expect(shell.dataset.detailsOverlay).toBeUndefined();
   });
 
   it("不再有呈现模式：无切换器、无 data-details-mode、⌘⇧J 与 ⌘J 同义", async () => {

@@ -23,9 +23,10 @@ import ConfirmModal from "@/components/modals/confirm-modal";
 interface SidebarProps {
   wide: boolean;
   onExpand: () => void;
+  overlay?: boolean;
 }
 
-export function Sidebar({ wide, onExpand }: SidebarProps) {
+export function Sidebar({ wide, onExpand, overlay = false }: SidebarProps) {
   const docStore = useDocStore();
   const actor = useActor();
   const navigate = useNavigate();
@@ -169,6 +170,7 @@ export function Sidebar({ wide, onExpand }: SidebarProps) {
         onCreate={onCreate}
         onOpenMarket={() => navigate("/market")}
         marketActive={marketActive}
+        onCollapse={overlay ? onExpand : undefined}
       />
 
       {/* 列表区：唯一滚动区域；底部渐变 fade 贴住可见底边 */}

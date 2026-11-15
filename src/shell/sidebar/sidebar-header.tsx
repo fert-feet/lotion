@@ -23,6 +23,8 @@ interface SidebarHeaderProps {
   onOpenMarket: () => void;
   /** 当前是否停在 /market（选中态高亮） */
   marketActive?: boolean;
+  /** 窄屏覆盖式侧边栏的显式收起入口 */
+  onCollapse?: () => void;
 }
 
 /** 图标按钮：24px 圆形，hover 出现填充底（Apple 的 toolbar button） */
@@ -37,6 +39,7 @@ export function SidebarHeader({
   onCreate,
   onOpenMarket,
   marketActive = false,
+  onCollapse,
 }: SidebarHeaderProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const detailsOpen = useLayout((s) => s.details > 0);
@@ -139,7 +142,12 @@ export function SidebarHeader({
             type="button"
             aria-label="AI 助手"
             title="AI 助手"
-            onClick={toggleDetails}
+            aria-expanded={detailsOpen}
+            aria-controls="details-panel"
+            onClick={() => {
+              toggleDetails();
+              onCollapse?.();
+            }}
             className={cn(iconBtn, detailsOpen && "bg-ai text-ai-foreground hover:bg-ai hover:text-ai-foreground")}
           >
             <Sparkles className="h-4 w-4" />
@@ -154,6 +162,17 @@ export function SidebarHeader({
         >
           <Plus className="h-4 w-4" />
         </button>
+        {onCollapse && (
+          <button
+            type="button"
+            aria-label="收起侧边栏"
+            title="收起侧边栏"
+            onClick={onCollapse}
+            className={iconBtn}
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
       </div>
     </div>
   );

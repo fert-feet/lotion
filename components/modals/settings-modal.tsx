@@ -49,10 +49,10 @@ const SettingsModal = () => {
           <DialogTitle>设置</DialogTitle>
         </DialogHeader>
 
-        <div className="flex h-[min(72vh,560px)] min-h-[380px]">
+        <div className="flex h-[min(72dvh,560px)] min-h-0 flex-col sm:flex-row">
           <nav
             aria-label="设置导航"
-            className="flex w-[148px] shrink-0 flex-col gap-0.5 overflow-y-auto hairline-r border-shell-border bg-secondary/40 p-2.5"
+            className="flex shrink-0 flex-row gap-0.5 overflow-x-auto hairline-b border-shell-border bg-secondary/40 p-2.5 sm:w-[148px] sm:flex-col sm:overflow-x-visible sm:overflow-y-auto sm:border-b-0 sm:hairline-r"
           >
             <TabButton active={tab === "appearance"} onClick={() => setTab("appearance")}>
               外观
@@ -62,7 +62,7 @@ const SettingsModal = () => {
             </TabButton>
           </nav>
 
-          <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden p-5 pr-12">
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden p-4 pr-12 sm:p-5 sm:pr-12">
             {tab === "appearance" ? (
               <div className="flex flex-col gap-4">
                 <div>

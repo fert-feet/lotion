@@ -7,14 +7,20 @@
 // （不是可选模式，而是让步链触发的兜底）。
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { useParams } from "react-router";
+import { useLocation, useParams } from "react-router";
 import { MenuIcon } from "@/components/icons";
-import { computeColumns, SIDEBAR_AUTO_COLLAPSE, SIDEBAR_DEFAULT } from "@/lib/layout/columns";
+import {
+  computeColumns,
+  SIDEBAR_AUTO_COLLAPSE,
+  SIDEBAR_COLLAPSED,
+  SIDEBAR_DEFAULT,
+} from "@/lib/layout/columns";
 import { useLayout } from "@/hooks/use-layout";
 import Sidebar from "./sidebar/sidebar";
 import Navbar from "./navbar";
 import { useHasSlot, useSlot } from "@/src/kernel/react";
 import { SLOT_DETAILS_PANEL } from "./ui-plugins";
+import { useDialogFocus } from "@/components/ui/_focus";
 
 /** 中心列 grid item（会话主体构建块）。
  *  relative + @container：编辑器大纲面板的定位基准（绝对定位）与可见性基准（容器查询按列宽，
@@ -37,11 +43,34 @@ function DetailsPanel() {
 /** 详情列 grid item；宽度 0 时保持子树挂载（关闭不卸载）。
  *  `overlay`：让步链把 details 压成 0（窗口放不下三栏）时改为右侧浮层——
  *  此时面板仍是同一个 React 位置，不重挂载、流式状态不丢（此前窄屏直接打不开 AI 面板）。 */
-function DetailsColumn(props: { children?: ReactNode; overlay?: boolean }) {
+function DetailsColumn(props: {
+  children?: ReactNode;
+  overlay?: boolean;
+  onClose: () => void;
+}) {
+  const { overlay = false, onClose } = props;
+  const panelRef = useRef<HTMLDivElement | null>(null);
+  useDialogFocus(overlay, panelRef);
+
+  useEffect(() => {
+    if (!overlay) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [overlay, onClose]);
+
   return (
     <div
+      ref={panelRef}
+      id="details-panel"
       data-details-column
       data-details-overlay={props.overlay || undefined}
+      role={props.overlay ? "dialog" : undefined}
+      aria-modal={props.overlay ? "true" : undefined}
+      aria-label={props.overlay ? "AI 文档助手" : undefined}
+      tabIndex={props.overlay ? -1 : undefined}
       className={
         props.overlay
           ? "material-sidebar fixed inset-y-0 right-0 z-chrome w-[min(440px,100vw)] min-w-0 overflow-hidden hairline-l border-shell-border shadow-elevation-3"
@@ -140,8 +169,36 @@ function SlimTopBar(props: { collapsed: boolean; onExpand: () => void }) {
   );
 }
 
+/** 窄屏侧边栏抽屉：覆盖正文，并具备模态导航的焦点与关闭语义。 */
+function SidebarDrawer({ onClose }: { onClose: () => void }) {
+  const panelRef = useRef<HTMLDivElement | null>(null);
+  useDialogFocus(true, panelRef);
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <div
+      ref={panelRef}
+      role="dialog"
+      aria-modal="true"
+      aria-label="笔记导航"
+      tabIndex={-1}
+      className="material-sidebar fixed inset-y-0 left-0 z-chrome w-[min(280px,86vw)] overflow-hidden hairline-r border-shell-border shadow-elevation-3"
+    >
+      <Sidebar wide overlay onExpand={onClose} />
+    </div>
+  );
+}
+
 export function AppShell({ children }: { children: ReactNode }) {
   const params = useParams();
+  const location = useLocation();
   const hasDocument = !!params.documentId;
   // 只订阅稳定 action（zustand action 引用恒定，useCallback 依赖稳定）
   const setSidebar = useLayout((s) => s.setSidebar);
@@ -162,12 +219,19 @@ export function AppShell({ children }: { children: ReactNode }) {
   const autoNarrow = viewport < SIDEBAR_AUTO_COLLAPSE;
   useEffect(() => { setNarrow(autoNarrow); }, [autoNarrow, setNarrow]);
   const sidebarCollapsed = narrow ? !narrowExpanded : sidebar === 0;
+  const sidebarOverlay = narrow && narrowExpanded;
   const sidebarPreference = sidebarCollapsed
     ? 0
     : sidebar === 0 ? SIDEBAR_DEFAULT : sidebar;
-  const cols = computeColumns(viewport, sidebarPreference, details === 0 ? 0 : details);
+  // 窄屏展开是抽屉：移除 rail 后以完整视口求解正文/详情列，抽屉本身不占网格轨道。
+  const cols = computeColumns(
+    viewport + (sidebarOverlay ? SIDEBAR_COLLAPSED : 0),
+    sidebarOverlay ? 0 : sidebarPreference,
+    details === 0 ? 0 : details,
+  );
   const colsRef = useRef(cols);
   colsRef.current = cols;
+  const sidebarColumnWidth = sidebarOverlay ? 0 : cols.sidebar;
   // 详情列是否存在由插件决定：ui-ai-panel 被用户在设置里禁用时槽位无贡献者，
   // 此时"打开"不成立——否则详情列会作为一块空白壳挂在右边（入口能点、打开没内容）。
   const hasDetailsPanel = useHasSlot(SLOT_DETAILS_PANEL);
@@ -176,7 +240,15 @@ export function AppShell({ children }: { children: ReactNode }) {
   const detailsOverlay = detailsOpen && cols.details === 0;
   /** details 作为真实网格列时的宽度（浮层时占 0 列，但仍挂载） */
   const detailsColumnWidth = detailsOverlay ? 0 : cols.details;
-  const gridTemplateColumns = [cols.sidebar + "px", "minmax(0, 1fr)", detailsColumnWidth + "px"].join(" ");
+  const gridTemplateColumns = [sidebarColumnWidth + "px", "minmax(0, 1fr)", detailsColumnWidth + "px"].join(" ");
+
+  // 选择文档或切换页面后收起窄屏抽屉；打开抽屉本身不改变 pathname，因此不会被立即关闭。
+  const pathnameRef = useRef(location.pathname);
+  useEffect(() => {
+    if (pathnameRef.current === location.pathname) return;
+    pathnameRef.current = location.pathname;
+    if (narrowExpanded) toggleSidebar();
+  }, [location.pathname, narrowExpanded, toggleSidebar]);
 
   // 跟踪 frame 自身盒宽（非窗口）：rAF 节流 ResizeObserver。
   useEffect(() => {
@@ -231,13 +303,14 @@ export function AppShell({ children }: { children: ReactNode }) {
       }
       style={{ gridTemplateColumns }}
       data-sidebar-collapsed={sidebarCollapsed || undefined}
+      data-sidebar-overlay={sidebarOverlay || undefined}
       data-details-collapsed={detailsColumnWidth === 0 || undefined}
       data-details-overlay={detailsOverlay || undefined}
       data-dragging={dragging || undefined}
     >
       {/* sidebar 槽位：折叠时以紧凑 rail 保持挂载；拖拽过渡由 frame 统一控制 */}
       <div className="material-sidebar min-w-0 overflow-hidden hairline-r border-shell-border">
-        <Sidebar wide={!sidebarCollapsed} onExpand={() => toggleSidebar()} />
+        {!sidebarOverlay && <Sidebar wide={!sidebarCollapsed} onExpand={() => toggleSidebar()} />}
       </div>
 
       <CenterColumn>
@@ -253,6 +326,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           面板仍在同一 React 位置 → 不重挂载，流式状态与草稿都保留。 */}
       {detailsOverlay && (
         <div
+          data-details-scrim
           className="fixed inset-0 z-chrome bg-black/20 dark:bg-black/40"
           onClick={closeDetails}
           aria-hidden="true"
@@ -261,10 +335,23 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       {/* 没有详情列插件时连列壳都不渲染：否则右侧会挂一块空白壳 */}
       {hasDetailsPanel && (
-        <DetailsColumn overlay={detailsOverlay}>
+        <DetailsColumn overlay={detailsOverlay} onClose={closeDetails}>
           {/* 详情列内容由 UI 插件贡献（当前是 ui-ai-panel）；0 宽时仅视觉关闭、不卸载 */}
           <DetailsPanel />
         </DetailsColumn>
+      )}
+
+      {/* 窄屏侧边栏是覆盖式抽屉，不能挤压正文。 */}
+      {sidebarOverlay && (
+        <>
+          <div
+            data-sidebar-scrim
+            className="fixed inset-0 z-chrome bg-black/20 dark:bg-black/40"
+            onClick={() => toggleSidebar()}
+            aria-hidden="true"
+          />
+          <SidebarDrawer onClose={() => toggleSidebar()} />
+        </>
       )}
 
       {/* 折叠 rail 是固定宽：关闭时不渲染拖拽手柄 */}
