@@ -156,9 +156,10 @@ test/                       # Vitest 单测（lib/ / api/ / components/ / seams/
   （每次启动自动迁移，当前 7 个迁移；chat_messages.metadata=回合快照，chat_sessions.documentId=会话绑定文档）
 - `documents` 自引用（`parentDocument`）支持嵌套；多用户隔离靠**应用层显式 userId 过滤**（无 RLS）
 - AI 面板在 `src/shell/ai-panel.tsx`（纯逻辑在 `src/shell/ai/turn-reducer.ts`，有单测），
-  流式渲染；**三种呈现模式** `docked`（占列，默认）/ `overlay`（浮层，点遮罩关闭）/
-  `fullscreen`（铺满正文区，正文压 0 宽但不卸载），列头切换器或 ⌘⇧J 循环，⌘J 只开合；
-  模式与开合正交，宽度只是 docked 模式下的偏好（`useLayout.detailsMode`）
+  流式渲染；**只有一种布局** = 三栏停靠（占一列挤压正文），⌘J / Ctrl+J 开合，宽度是
+  `useLayout.details` 的拖拽偏好；窗口放不下三栏时让步链把列压成 0 → 降级为右侧浮层 +
+  遮罩点击关闭（同一个 React 位置，不重挂载）。**不要**再引入 `docked/overlay/fullscreen`
+  这样的呈现模式**或 ⌘⇧J 循环**：同一功能三套行为、用户无法预期，已删除
 - AI 回合的三条持久化通道：assistant 消息正文（纯文本回放）、`chat_messages.metadata`
   回合快照（工具卡/副作用卡/引用/待办/提问/耗时/requestId/附件清单）、`ai_changes` 改动前快照（撤销）
 - **AI 草稿流程**：建完自动跳转到新文档让用户**查看**（内容在创建时就已写入，不必先保存；

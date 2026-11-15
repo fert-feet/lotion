@@ -3,13 +3,14 @@
 // 三栏 shell（移植自 DSH packages/client/ui-layout/src/client/AppFrame.tsx 设计）：
 // grid 轨道（sidebar | center | details）、拖拽手柄（pointer capture + rAF 节流）、
 // 让步链（columns.ts）、窄屏自动折叠。sidebar 槽位按让步结果渲染（折叠时是 56px rail，
-// 保持挂载）；details 槽位保持挂载，0 宽时仅视觉关闭。
+// 保持挂载）；details 槽位保持挂载，0 宽时仅视觉关闭；窗口放不下三栏时降级为右侧浮层
+// （不是可选模式，而是让步链触发的兜底）。
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useParams } from "react-router";
 import { MenuIcon } from "@/components/icons";
 import { computeColumns, SIDEBAR_AUTO_COLLAPSE, SIDEBAR_DEFAULT } from "@/lib/layout/columns";
-import { useLayout, DETAILS_MODES, type DetailsMode } from "@/hooks/use-layout";
+import { useLayout } from "@/hooks/use-layout";
 import Sidebar from "./sidebar/sidebar";
 import Navbar from "./navbar";
 import { useHasSlot, useSlot } from "@/src/kernel/react";
@@ -47,52 +48,9 @@ function DetailsColumn(props: { children?: ReactNode; overlay?: boolean }) {
           : "material-sidebar min-w-0 overflow-hidden hairline-l border-shell-border"
       }
     >
-      {/* 三种模式都渲染切换器：只放在全屏里会让“如何回去”变成隐藏知识。 */}
       <div className="flex h-full min-w-0 flex-col">
-        <DetailsModeSwitch />
         <div className="min-h-0 flex-1">{props.children}</div>
       </div>
-    </div>
-  );
-}
-
-const DETAILS_MODE_LABEL: Record<DetailsMode, { label: string; hint: string }> = {
-  docked: { label: "停靠", hint: "占一列，挤压正文（⌘J 开合）" },
-  overlay: { label: "浮层", hint: "浮在正文之上，不挤压正文" },
-  fullscreen: { label: "全屏", hint: "铺满正文区，专注对话（⌘⇧J 循环）" },
-};
-
-/**
- * 呈现模式切换器（停靠 / 浮层 / 全屏）。
- * 放在详情列头部而不是塞进 AI 面板插件：插槽内容仍由 ui-ai-panel 贡献，
- * 布局决策留在布局层——换面板不必重写一遍切换器。
- */
-function DetailsModeSwitch() {
-  const mode = useLayout((s) => s.detailsMode);
-  const setMode = useLayout((s) => s.setDetailsMode);
-  return (
-    <div
-      className="flex h-8 shrink-0 items-center gap-0.5 hairline-b border-shell-border px-1.5"
-      role="group"
-      aria-label="AI 面板呈现模式"
-    >
-      {DETAILS_MODES.map((id) => (
-        <button
-          key={id}
-          type="button"
-          onClick={() => setMode(id)}
-          aria-pressed={mode === id}
-          title={DETAILS_MODE_LABEL[id].hint}
-          className={
-            "h-6 cursor-pointer rounded-control px-2 text-ui-sm font-medium transition-colors " +
-            (mode === id
-              ? "bg-shell-row-active text-shell-label-primary"
-              : "bg-transparent text-shell-label-secondary hover:bg-shell-row-hover hover:text-shell-label-primary")
-          }
-        >
-          {DETAILS_MODE_LABEL[id].label}
-        </button>
-      ))}
     </div>
   );
 }
@@ -210,22 +168,15 @@ export function AppShell({ children }: { children: ReactNode }) {
   const cols = computeColumns(viewport, sidebarPreference, details === 0 ? 0 : details);
   const colsRef = useRef(cols);
   colsRef.current = cols;
-  const detailsMode = useLayout((s) => s.detailsMode);
-  const cycleDetailsMode = useLayout((s) => s.cycleDetailsMode);
   // 详情列是否存在由插件决定：ui-ai-panel 被用户在设置里禁用时槽位无贡献者，
-  // 此时"打开/切模式"一律不成立——否则详情列会作为一块空白壳挂在右边（入口能点、打开没内容）。
+  // 此时"打开"不成立——否则详情列会作为一块空白壳挂在右边（入口能点、打开没内容）。
   const hasDetailsPanel = useHasSlot(SLOT_DETAILS_PANEL);
   const detailsOpen = hasDetailsPanel && details > 0;
-  /** 全屏：details 铺满正文区，中心列压成 0（"读" 与 "聊" 两种模式，而非被迫挤压） */
-  const detailsFullscreen = detailsOpen && detailsMode === "fullscreen";
-  /** 浮层：用户显式选了浮层，或让步链把 details 压成 0（窗口放不下三栏） */
-  const detailsOverlay =
-    detailsOpen && !detailsFullscreen && (detailsMode === "overlay" || cols.details === 0);
+  /** 浮层：只有让步链把 details 压成 0（窗口放不下三栏）时才发生，不再是一个可切换的模式 */
+  const detailsOverlay = detailsOpen && cols.details === 0;
   /** details 作为真实网格列时的宽度（浮层时占 0 列，但仍挂载） */
   const detailsColumnWidth = detailsOverlay ? 0 : cols.details;
-  const gridTemplateColumns = detailsFullscreen
-    ? [cols.sidebar + "px", "0px", "minmax(0, 1fr)"].join(" ")
-    : [cols.sidebar + "px", "minmax(0, 1fr)", detailsColumnWidth + "px"].join(" ");
+  const gridTemplateColumns = [cols.sidebar + "px", "minmax(0, 1fr)", detailsColumnWidth + "px"].join(" ");
 
   // 跟踪 frame 自身盒宽（非窗口）：rAF 节流 ResizeObserver。
   useEffect(() => {
@@ -247,20 +198,18 @@ export function AppShell({ children }: { children: ReactNode }) {
   }, []);
 
   // ⌘J / Ctrl+J：开合右侧 AI 面板（对齐 DSH 的 details 列快捷键）
-  // ⌘⇧J：循环呈现模式（停靠 → 浮层 → 全屏）
   useEffect(() => {
     // 没有详情列插件时快捷键不接管：⌘J 不应"打开一列空的"
     if (!hasDetailsPanel) return;
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "j") {
         e.preventDefault();
-        if (e.shiftKey) cycleDetailsMode();
-        else toggleDetails();
+        toggleDetails();
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [toggleDetails, cycleDetailsMode, hasDetailsPanel]);
+  }, [toggleDetails, hasDetailsPanel]);
 
   // 拖拽基准：抓取时定格当前渲染宽，整个手势期间冻结，dx 不叠加。
   const sidebarBase = useRef(0);
@@ -283,8 +232,6 @@ export function AppShell({ children }: { children: ReactNode }) {
       style={{ gridTemplateColumns }}
       data-sidebar-collapsed={sidebarCollapsed || undefined}
       data-details-collapsed={detailsColumnWidth === 0 || undefined}
-      data-details-mode={detailsMode}
-      data-details-fullscreen={detailsFullscreen || undefined}
       data-details-overlay={detailsOverlay || undefined}
       data-dragging={dragging || undefined}
     >
@@ -312,7 +259,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         />
       )}
 
-      {/* 没有详情列插件时连列壳都不渲染：mode 切换器属于列壳，留着就是一块空白的控件条 */}
+      {/* 没有详情列插件时连列壳都不渲染：否则右侧会挂一块空白壳 */}
       {hasDetailsPanel && (
         <DetailsColumn overlay={detailsOverlay}>
           {/* 详情列内容由 UI 插件贡献（当前是 ui-ai-panel）；0 宽时仅视觉关闭、不卸载 */}
@@ -320,11 +267,11 @@ export function AppShell({ children }: { children: ReactNode }) {
         </DetailsColumn>
       )}
 
-      {/* 折叠 rail 是固定宽：关闭时不渲染拖拽手柄。全屏时 details 不可拖（宽度铺满）。 */}
+      {/* 折叠 rail 是固定宽：关闭时不渲染拖拽手柄 */}
       {!sidebarCollapsed && (
         <DragHandle side="sidebar" left={cols.sidebar} onStart={onSidebarStart} onDrag={onSidebarDrag} onEnd={onDragEnd} />
       )}
-      {!detailsFullscreen && detailsColumnWidth > 0 && (
+      {detailsColumnWidth > 0 && (
         <DragHandle side="details" left={viewport - detailsColumnWidth} onStart={onDetailsStart} onDrag={onDetailsDrag} onEnd={onDragEnd} />
       )}
     </div>

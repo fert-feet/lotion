@@ -44,7 +44,7 @@
   启动与每日维护会 `VACUUM INTO` 做一次数据库快照（保留 7 份，24h 节流）
 - **全文搜索** — FTS5 + trigram（中文 ≥3 字走索引，更短回落 LIKE），触发器与文档表同步
 - **加固** — 登录/注册每 IP 每分钟 10 次限流；scrypt N=2^17（s2 前缀，旧哈希登录时自动升级）
-- **常驻 AI 面板** — 关闭不丢状态；三种呈现模式：停靠（占列）/ 浮层（不挤压正文）/ 全屏（专注对话），列头切换器或 ⌘⇧J 循环，⌘J / Ctrl+J 开合
+- **常驻 AI 面板** — 关闭不丢状态，⌘J / Ctrl+J 开合；占一列挤压正文，窗口放不下三栏时自动降级为右侧浮层
 - **回合快照** — 每轮的工具卡 / 副作用卡 / 引用 / 待办 / 提问 / 耗时随 assistant 消息落库
   （`chat_messages.metadata`），刷新或切换会话后时间线完整重建（不再只剩一段纯文本）
 - **AI 改动可撤销** — 写类工具执行前先拍文档快照（`ai_changes` 表），回合操作条的
@@ -237,7 +237,7 @@ lib/
 public/plugin-market/             # 本地市场 registry + 示例 bundle
 templates/plugin/                 # 第三方插件最小模板
 docs/                             # 插件化架构 / 本地数据库版 / 插件开发
-test/                             # Vitest 单测（与 lib/、server/ 同构，835 个用例）
+test/                             # Vitest 单测（与 lib/、server/ 同构，830 个用例）
 ```
 
 ## 数据模型（SQLite 6 张表）
@@ -270,7 +270,7 @@ pnpm build        # vite 构建客户端到 dist/
 pnpm start        # 运行 Hono（托管 dist/ + API，单机自托管）
 pnpm typecheck    # tsc --noEmit
 pnpm lint         # ESLint
-pnpm test         # Vitest 单测（835 个用例，内存 SQLite + Hono app.request）
+pnpm test         # Vitest 单测（830 个用例，内存 SQLite + Hono app.request）
 pnpm test:watch   # Vitest 监听模式
 ```
 

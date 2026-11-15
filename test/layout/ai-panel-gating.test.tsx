@@ -29,7 +29,6 @@ beforeEach(() => {
   useLayout.setState({
     sidebar: 264,
     details: 0,
-    detailsMode: "docked",
     narrow: false,
     narrowExpanded: false,
   });
@@ -118,7 +117,6 @@ describe("禁用 AI 面板插件后，AI 入口与详情列一并消失", () => 
 
     expect(useLayout.getState().details, "⌘J 不该把 details 打开").toBe(0);
     expect(shell.querySelector("[data-details-column]")).toBeNull();
-    expect(shell.dataset.detailsMode).toBe("docked");
   });
 
   it("启用时 ⌘J 仍能开合（对照）」", async () => {
