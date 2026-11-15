@@ -86,7 +86,7 @@ const Toolbar = ({
 
     return (
         <>
-        <div className="pl-[54px] group relative">
+        <div className="group relative px-4 sm:pl-[54px] sm:pr-0">
             {Boolean(initialData.icon) && (
                 <div className="flex items-center gap-x-2 group/icon pt-6">
                     {readOnly ? (
@@ -113,7 +113,7 @@ const Toolbar = ({
                 </div>
             )}
             {!readOnly && (
-            <div className="flex items-center gap-1 py-3 opacity-0 transition-opacity group-hover:opacity-100 max-md:opacity-100">
+            <div className="flex flex-wrap items-center gap-1 py-3 opacity-0 transition-opacity group-hover:opacity-100 max-md:opacity-100">
                 {!initialData.icon && (
                     <IconPicker onChange={onSelectIcon}>
                         <Button

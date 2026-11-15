@@ -23,6 +23,8 @@ describe("文档保存 UI", () => {
     expect(toolbar).toContain('aria-label="文档标题"');
     expect(toolbar).toContain('aria-label="编辑文档标题"');
     expect(toolbar).toContain("onTitleCommit");
+    expect(toolbar).toContain("px-4 sm:pl-[54px]");
+    expect(toolbar).toContain("flex flex-wrap items-center");
     expect(navbarTitle).not.toContain("docStore.update");
     expect(navbarTitle).not.toContain("contentEditable");
     expect(navbarTitle).not.toContain("<Input");

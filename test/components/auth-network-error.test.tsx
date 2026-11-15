@@ -22,6 +22,7 @@ async function mount(page: "login" | "register") {
     [
       { path: "/login", element: <LoginPage /> },
       { path: "/register", element: <RegisterPage /> },
+      { path: "/documents", element: <div>documents page</div> },
     ],
     { initialEntries: [`/${page}`] },
   );
@@ -76,4 +77,46 @@ describe.each(["login", "register"] as const)("%s 网络异常", (page) => {
     const submit = container.querySelector<HTMLButtonElement>('button[type="submit"]');
     expect(submit?.disabled).toBe(false);
   });
+});
+
+it("注册成功后等待强制刷新用户，再进入主界面，不被旧的匿名请求重定向", async () => {
+  let meCalls = 0;
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (input: RequestInfo | URL) => {
+      const url = typeof input === "string" ? input : input.toString();
+      if (url.includes("/api/me")) {
+        meCalls++;
+        await new Promise((resolve) => setTimeout(resolve, meCalls === 1 ? 60 : 5));
+        return new Response(
+          JSON.stringify({
+            user:
+              meCalls === 1
+                ? null
+                : { id: "u1", email: "user@example.com", name: null },
+          }),
+        );
+      }
+      if (url.includes("/api/auth/register")) {
+        return new Response(JSON.stringify({ ok: true }));
+      }
+      return new Response(JSON.stringify([]));
+    }),
+  );
+
+  const router = await mount("register");
+  const inputs = [...container.querySelectorAll("input")];
+  await act(async () => {
+    setInput(inputs[0], "user@example.com");
+    setInput(inputs[1], "password123");
+  });
+  await act(async () => {
+    container.querySelector("form")!.dispatchEvent(
+      new Event("submit", { bubbles: true, cancelable: true }),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  });
+
+  expect(router.state.location.pathname).toBe("/documents");
+  expect(container.textContent).toContain("documents page");
 });

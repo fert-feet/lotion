@@ -51,9 +51,10 @@ function DetailsPanel() {
 function DetailsColumn(props: {
   children?: ReactNode;
   overlay?: boolean;
+  inactive?: boolean;
   onClose: () => void;
 }) {
-  const { overlay = false, onClose } = props;
+  const { overlay = false, inactive = false, onClose } = props;
   const panelRef = useRef<HTMLDivElement | null>(null);
   useDialogFocus(overlay, panelRef);
 
@@ -75,6 +76,8 @@ function DetailsColumn(props: {
       role={props.overlay ? "dialog" : undefined}
       aria-modal={props.overlay ? "true" : undefined}
       aria-label={props.overlay ? "AI 文档助手" : undefined}
+      aria-hidden={inactive || undefined}
+      inert={inactive || undefined}
       tabIndex={props.overlay ? -1 : undefined}
       className={
         props.overlay
@@ -379,7 +382,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       {/* 没有详情列插件时连列壳都不渲染：否则右侧会挂一块空白壳 */}
       {hasDetailsPanel && (
-        <DetailsColumn overlay={detailsOverlay} onClose={closeDetails}>
+        <DetailsColumn overlay={detailsOverlay} inactive={!detailsOpen} onClose={closeDetails}>
           {/* 详情列内容由 UI 插件贡献（当前是 ui-ai-panel）；0 宽时仅视觉关闭、不卸载 */}
           <DetailsPanel />
         </DetailsColumn>

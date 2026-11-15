@@ -2,7 +2,7 @@
 // - Vite SPA 无 SSR 注入，初始值传 null，挂载后经 GET /api/me 恢复会话
 // - 登录/注册成功后调用 refreshUser() 重新拉取（替代 Next 的 router.refresh()）
 // 组件里 user.id / user.email 用法不变（LocalUser 与 Supabase User 字段对齐）。
-import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import type { LocalUser } from "@/lib/local/auth";
 import { fetchWithRetry } from "@/lib/client/fetch-retry";
 
@@ -15,7 +15,7 @@ type UserState = {
 
 type UserContextValue = UserState & {
   /** 重新拉取当前会话（登录 / 注册 / 注销后调用） */
-  refreshUser: () => Promise<void>;
+  refreshUser: (options?: { force?: boolean }) => Promise<void>;
 };
 
 const UserContext = createContext<UserContextValue>({
@@ -46,7 +46,15 @@ async function requestMe(): Promise<{ user: LocalUser | null; isOwner: boolean }
  */
 let meInFlight: Promise<{ user: LocalUser | null; isOwner: boolean }> | null = null;
 
-function fetchMe(): Promise<{ user: LocalUser | null; isOwner: boolean }> {
+function fetchMe(force = false): Promise<{ user: LocalUser | null; isOwner: boolean }> {
+  if (force) {
+    const request = requestMe();
+    meInFlight = request;
+    void request.finally(() => {
+      if (meInFlight === request) meInFlight = null;
+    });
+    return request;
+  }
   if (!meInFlight) {
     meInFlight = requestMe().finally(() => {
       meInFlight = null;
@@ -74,9 +82,13 @@ export function UserProvider({
     loading: initialUser ? false : true,
     isOwner: false,
   });
+  const refreshSequence = useRef(0);
 
-  const refreshUser = useCallback(async () => {
-    const next = await fetchMe();
+  const refreshUser = useCallback(async (options?: { force?: boolean }) => {
+    const sequence = ++refreshSequence.current;
+    const next = await fetchMe(options?.force);
+    // 登录成功后的强制刷新可能晚于更早的匿名恢复请求；只允许最新一次写入 state。
+    if (sequence !== refreshSequence.current) return;
     setState({ ...next, loading: false });
   }, []);
 

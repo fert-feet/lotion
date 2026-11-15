@@ -32,8 +32,8 @@ export default function RegisterPage() {
         setError(data.error || "注册失败，请稍后重试");
         return;
       }
+      await refreshUser({ force: true });
       navigate("/documents");
-      refreshUser();
     } catch {
       setError("无法连接服务器，请检查网络后重试");
     } finally {

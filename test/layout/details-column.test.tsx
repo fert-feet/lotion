@@ -223,4 +223,14 @@ describe("详情列布局", () => {
     });
     expect(useLayout.getState().sidebar).toBe(280);
   });
+
+  it("关闭态保持挂载但设为 inert，隐藏面板不会进入 Tab 顺序", async () => {
+    useLayout.setState({ sidebar: 280, details: 0, narrow: false, narrowExpanded: false });
+    const shell = await mountShell();
+    const details = shell.querySelector<HTMLElement>("[data-details-column]");
+    expect(details).not.toBeNull();
+    expect(details!.hasAttribute("inert")).toBe(true);
+    expect(details!.getAttribute("aria-hidden")).toBe("true");
+    expect(details!.querySelector('[contenteditable="true"]')).not.toBeNull();
+  });
 });
