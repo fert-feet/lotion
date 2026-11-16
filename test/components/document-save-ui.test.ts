@@ -23,7 +23,9 @@ describe("文档保存 UI", () => {
     expect(toolbar).toContain('aria-label="文档标题"');
     expect(toolbar).toContain('aria-label="编辑文档标题"');
     expect(toolbar).toContain("onTitleCommit");
-    expect(toolbar).toContain("px-4 sm:pl-[54px]");
+    expect(toolbar).toContain("document-title-rail");
+    expect(toolbar).toContain("text-title");
+    expect(toolbar).toContain("sm:text-display");
     expect(toolbar).toContain("flex flex-wrap items-center");
     expect(navbarTitle).not.toContain("docStore.update");
     expect(navbarTitle).not.toContain("contentEditable");
@@ -41,5 +43,20 @@ describe("文档保存 UI", () => {
     expect(toolbar).toContain("{!readOnly && (");
     expect(cover).toContain("editable = true");
     expect(cover).toContain("{url && editable && (");
+  });
+
+  it("hover-only 操作同时覆盖键盘焦点与无 hover 设备", () => {
+    const toolbar = read("components/toobar.tsx");
+    const cover = read("src/shell/cover.tsx");
+    const sidebarHeader = read("src/shell/sidebar/sidebar-header.tsx");
+    const sessionMenu = read("src/shell/ai/session-menu.tsx");
+
+    for (const source of [toolbar, cover, sessionMenu]) {
+      expect(source).toContain("group-focus-within");
+      expect(source).toContain("[@media(hover:none)]");
+      expect(source).toContain("pointer-events-none");
+    }
+    expect(sidebarHeader).toContain("inert={expanded || undefined}");
+    expect(sidebarHeader).toContain("aria-hidden={expanded || undefined}");
   });
 });

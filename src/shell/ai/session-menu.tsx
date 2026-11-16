@@ -67,7 +67,7 @@ export function SessionMenu({
           onKeyDown={(e) => e.stopPropagation()}
           placeholder="搜索会话"
           aria-label="搜索历史会话"
-          className="h-6 min-w-0 flex-1 bg-transparent text-ui-sm text-shell-label-primary outline-none placeholder:text-shell-label-caption"
+          className="h-6 min-w-0 flex-1 bg-transparent text-ui-sm text-shell-label-primary outline-none placeholder:text-shell-label-placeholder"
         />
       </div>
 
@@ -154,7 +154,7 @@ export function SessionMenu({
                 setDraftTitle(session.title);
                 setRenamingId(session.id);
               }}
-              className="shrink-0 cursor-pointer rounded p-0.5 text-shell-label-tertiary opacity-0 transition-opacity hover:bg-shell-row-hover hover:text-shell-label-primary group-hover/session:opacity-100"
+              className="pointer-events-none shrink-0 cursor-pointer rounded p-0.5 text-shell-label-tertiary opacity-0 transition-opacity hover:bg-shell-row-hover hover:text-shell-label-primary group-hover/session:pointer-events-auto group-hover/session:opacity-100 group-focus-within/session:pointer-events-auto group-focus-within/session:opacity-100 focus-visible:pointer-events-auto focus-visible:opacity-100 [@media(hover:none)]:pointer-events-auto [@media(hover:none)]:opacity-100"
             >
               <PenLine className="h-3.5 w-3.5" />
             </button>
@@ -166,7 +166,7 @@ export function SessionMenu({
                 e.stopPropagation();
                 setPendingDelete(session);
               }}
-              className="shrink-0 cursor-pointer rounded p-0.5 text-shell-label-tertiary opacity-0 transition-opacity hover:bg-destructive/10 hover:text-destructive group-hover/session:opacity-100"
+              className="pointer-events-none shrink-0 cursor-pointer rounded p-0.5 text-shell-label-tertiary opacity-0 transition-opacity hover:bg-destructive/10 hover:text-destructive group-hover/session:pointer-events-auto group-hover/session:opacity-100 group-focus-within/session:pointer-events-auto group-focus-within/session:opacity-100 focus-visible:pointer-events-auto focus-visible:opacity-100 [@media(hover:none)]:pointer-events-auto [@media(hover:none)]:opacity-100"
             >
               <Trash2 className="h-3.5 w-3.5" />
             </button>

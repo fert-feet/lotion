@@ -55,7 +55,7 @@ const Cover = ({ url, editable = true }: CoverProps) => {
                 <img src={url} alt="封面" className="absolute inset-0 h-full w-full object-cover" />
             )}
             {url && editable && (
-                <div className="opacity-0 transition group-hover:opacity-100 max-md:opacity-100 absolute bottom-2 right-3 flex items-center gap-x-2">
+                <div className="pointer-events-none absolute bottom-2 right-3 flex items-center gap-x-2 opacity-0 transition group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100 [@media(hover:none)]:pointer-events-auto [@media(hover:none)]:opacity-100">
                     <Button
                         onClick={() => coverImage.onReplace(url)}
                         className="text-muted-foreground text-ui-sm cursor-pointer"

@@ -37,7 +37,7 @@ const IconPicker = ({ onChange, children }: IconPickerProps) => {
             onChange={(e) => setQuery(e.target.value)}
             placeholder="搜索表情（如 想法 / 完成）"
             aria-label="搜索表情"
-            className="h-6 w-full min-w-0 bg-transparent text-ui text-shell-label-primary outline-none placeholder:text-shell-label-tertiary"
+            className="h-6 w-full min-w-0 bg-transparent text-ui text-shell-label-primary outline-none placeholder:text-shell-label-placeholder"
           />
         </div>
 

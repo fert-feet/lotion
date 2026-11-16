@@ -247,7 +247,7 @@ const DocumentIdPage = () => {
                 </div>
             )}
             <Cover url={document.coverImage || undefined} editable={!document.isArchived} />
-            <div className="md:max-w-3xl lg:max-w-4xl mx-auto">
+            <div className="document-content-rail md:max-w-3xl lg:max-w-4xl mx-auto">
                 <Toolbar
                     initialData={document}
                     title={document.title || "未命名"}

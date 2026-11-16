@@ -115,7 +115,7 @@ const TrashBox = () => {
                         <span className="truncate">
                             {document.title}
                         </span>
-                        <div className="flex items-center group-hover:opacity-100 opacity-0 max-md:opacity-100">
+                        <div className="pointer-events-none flex items-center opacity-0 group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100 [@media(hover:none)]:pointer-events-auto [@media(hover:none)]:opacity-100">
                             <button
                                 type="button"
                                 aria-label={`恢复「${document.title || "未命名"}」`}

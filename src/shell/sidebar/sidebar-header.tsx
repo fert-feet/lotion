@@ -101,7 +101,7 @@ export function SidebarHeader({
               if (e.key === "Escape") collapse();
             }}
             className={cn(
-              "w-0 min-w-0 flex-1 border-none bg-transparent pr-1 text-ui leading-[18px] text-shell-label-primary opacity-0 outline-none transition-opacity duration-100 placeholder:text-shell-label-tertiary",
+              "w-0 min-w-0 flex-1 border-none bg-transparent pr-1 text-ui leading-[18px] text-shell-label-primary opacity-0 outline-none transition-opacity duration-100 placeholder:text-shell-label-placeholder",
               expanded && "opacity-100"
             )}
             tabIndex={expanded ? 0 : -1}
@@ -123,7 +123,14 @@ export function SidebarHeader({
       </div>
 
       {/* 操作按钮：插件市场 + AI 助手 + 新建；搜索展开时让位隐藏 */}
-      <div className={cn("flex flex-none items-center gap-0.5 transition-all duration-200 ease-[var(--ds-ease-in-out)]", expanded && "max-w-0 translate-x-1 opacity-0")}>
+      <div
+        aria-hidden={expanded || undefined}
+        inert={expanded || undefined}
+        className={cn(
+          "flex flex-none items-center gap-0.5 transition-all duration-200 ease-[var(--ds-ease-in-out)]",
+          expanded && "pointer-events-none max-w-0 translate-x-1 overflow-hidden opacity-0",
+        )}
+      >
         <button
           type="button"
           aria-label="插件市场"

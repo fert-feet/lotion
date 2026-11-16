@@ -27,7 +27,7 @@
 - **斜杠菜单 Notion 式分组** — 基础 / 媒体 / 高级 / 其他，含自定义 Callout 块（点击图标换 emoji）
 - **@ 提及文档** — 输入 `@` 搜索当前用户文档并插入胶囊，点击跳转
 - **页面大纲 TOC** — 右侧 Outline 面板提取标题层级树，点击定位到对应块
-- **页面宽窄切换** — narrow（`max-w-3xl`）/ wide（`max-w-5xl`），localStorage 持久化
+- **响应式正文轨道** — 标题、正文与编辑器共用 `16–54px` 自适应左右基线，窄屏不再被固定内边距压缩
 - **图片与封面** — 拖拽上传到本地磁盘、封面图、Emoji 图标
 
 **AI Agent**
@@ -237,7 +237,7 @@ lib/
 public/plugin-market/             # 本地市场 registry + 示例 bundle
 templates/plugin/                 # 第三方插件最小模板
 docs/                             # 插件化架构 / 本地数据库版 / 插件开发
-test/                             # Vitest 单测（与 lib/、server/ 同构，861 个用例）
+test/                             # Vitest 单测（与 lib/、server/ 同构，864 个用例）
 ```
 
 ## 数据模型（SQLite 6 张表）
@@ -270,7 +270,7 @@ pnpm build        # vite 构建客户端到 dist/
 pnpm start        # 运行 Hono（托管 dist/ + API，单机自托管）
 pnpm typecheck    # tsc --noEmit
 pnpm lint         # ESLint
-pnpm test         # Vitest 单测（861 个用例，内存 SQLite + Hono app.request）
+pnpm test         # Vitest 单测（864 个用例，内存 SQLite + Hono app.request）
 pnpm test:watch   # Vitest 监听模式
 ```
 

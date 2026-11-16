@@ -43,6 +43,31 @@ function scan(pattern: RegExp): string[] {
   return offenders;
 }
 
+function parseRgba(value: string): [number, number, number, number] {
+  const match = /rgba\(\s*(\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\s*\)/.exec(value);
+  if (!match) throw new Error(`无法解析 rgba: ${value}`);
+  return [
+    Number(match[1]),
+    Number(match[2]),
+    Number(match[3]),
+    Number(match[4]),
+  ];
+}
+
+function relativeLuminance(rgb: readonly number[]): number {
+  const [r, g, b] = rgb.map((channel) => {
+    const value = channel / 255;
+    return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+function contrastOn(fg: [number, number, number, number], bg: readonly number[]): number {
+  const composite = fg.slice(0, 3).map((channel, index) => channel * fg[3] + bg[index] * (1 - fg[3]));
+  const [lighter, darker] = [relativeLuminance(composite), relativeLuminance(bg)].sort((a, b) => b - a);
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
 describe("全仓遵守设计 token 纪律", () => {
   it("不写字号任意值：用 --text-* 刻度（text-caption / ui-sm / ui / lead / body / title / display / hero）", () => {
     expect(
@@ -104,6 +129,11 @@ describe("全仓遵守设计 token 纪律", () => {
       "--text-title",
       "--text-display",
       "--text-hero",
+      "--text-editor-h1",
+      "--text-editor-h3",
+      "--text-editor-glyph",
+      "--shell-label-placeholder",
+      "--ds-transition-duration-fast",
       "--hairline",
       "--z-modal",
       "--z-popover",
@@ -138,6 +168,34 @@ describe("全仓遵守设计 token 纪律", () => {
     expect(css, "BlockNote 样式不要手写 0.5px").not.toMatch(/\b0\.5px\b/);
     expect(css, "BlockNote 圆角应走 --radius-* token").not.toMatch(/border-radius:\s*\d+px/);
     expect(css, "BlockNote 浮层层级应走 --z-popover").not.toMatch(/z-index:\s*\d+/);
+    expect(
+      css,
+      "BlockNote 字号应走 --text-* token；编辑器标题层级也不要在纯 CSS 里写裸 px",
+    ).not.toMatch(/font-size:\s*\d+(?:\.\d+)?px/);
+  });
+
+  it("文档标题与正文共享响应式内容轨道", () => {
+    const globals = fs.readFileSync(path.join(ROOT, "src/styles/globals.css"), "utf8");
+    const blocknote = fs.readFileSync(path.join(ROOT, "components/editor/blocknote.css"), "utf8");
+    expect(globals, "缺少响应式文档内容轨道").toContain(
+      "--editor-inline: clamp(16px, 5cqi, 54px)",
+    );
+    expect(globals, "标题没有复用正文基线").toContain(
+      ".document-title-rail",
+    );
+    expect(blocknote, "BlockNote 没有复用 --editor-inline").toContain(
+      "padding-inline: var(--editor-inline, 54px)",
+    );
+  });
+
+  it("placeholder 弱文本在明暗主题下都达到正文可读对比度", () => {
+    const css = fs.readFileSync(path.join(ROOT, "src/styles/globals.css"), "utf8");
+    const values = [...css.matchAll(/--shell-label-placeholder:\s*([^;]+);/g)].map((hit) =>
+      parseRgba(hit[1]),
+    );
+    expect(values).toHaveLength(2);
+    expect(contrastOn(values[0], [255, 255, 255])).toBeGreaterThanOrEqual(4.5);
+    expect(contrastOn(values[1], [30, 30, 30])).toBeGreaterThanOrEqual(4.5);
   });
 
   it("插件卡片与营销顶栏在手机宽度采用紧凑布局", () => {

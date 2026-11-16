@@ -45,6 +45,7 @@
   --color-shell-label-secondary: var(--shell-label-secondary);
   --color-shell-label-tertiary: var(--shell-label-tertiary);
   --color-shell-label-caption: var(--shell-label-caption);
+  --color-shell-label-placeholder: var(--shell-label-placeholder);
   --color-shell-row-hover: var(--shell-row-hover);
   --color-shell-row-active: var(--shell-row-active);
   --color-shell-row-active-accent: var(--shell-row-active-accent);
@@ -171,6 +172,9 @@
   --shell-label-secondary: rgba(60, 60, 67, 0.6);
   --shell-label-tertiary: rgba(60, 60, 67, 0.36);
   --shell-label-caption: rgba(60, 60, 67, 0.24);
+  /* 可读的弱文本：placeholders 与必须能读的 11–13px 元信息。
+     在 #fff 上约 4.74:1，避免 tertiary/caption 仅承担装饰时被误用为正文。 */
+  --shell-label-placeholder: rgba(60, 60, 67, 0.72);
   --shell-row-hover: rgba(0, 0, 0, 0.045);
   --shell-row-active: rgba(0, 0, 0, 0.075);
   --shell-row-active-accent: rgba(0, 122, 255, 0.12);
@@ -202,7 +206,13 @@
   /* ---- 动效：Apple 的减速曲线 ---- */
   --ds-ease-in-out: cubic-bezier(0.32, 0.72, 0, 1);
   --ds-ease-out: cubic-bezier(0.25, 1, 0.5, 1);
+  --ds-transition-duration-fast: 0.16s;
   --ds-transition-duration-slow: 0.28s;
+
+  /* 编辑器专用字号：补齐正文标题层级，同时避免在纯 CSS 里散落裸 px。 */
+  --text-editor-h1: 28px;
+  --text-editor-h3: 19px;
+  --text-editor-glyph: 18px;
 
   --chart-1: #007aff;
   --chart-2: #34c759;
@@ -254,6 +264,7 @@
   --shell-label-secondary: rgba(235, 235, 245, 0.6);
   --shell-label-tertiary: rgba(235, 235, 245, 0.36);
   --shell-label-caption: rgba(235, 235, 245, 0.24);
+  --shell-label-placeholder: rgba(235, 235, 245, 0.6);
   --shell-row-hover: rgba(255, 255, 255, 0.06);
   --shell-row-active: rgba(255, 255, 255, 0.1);
   --shell-row-active-accent: rgba(10, 132, 255, 0.22);
@@ -375,6 +386,17 @@ body,
 }
 @utility z-toast {
   z-index: var(--z-toast);
+}
+
+/* 文档内容轨道：标题、正文和编辑器工具栏共用同一条左右基线。
+   CenterColumn 声明了 @container；窄屏按列宽缩到 16px，宽屏最多 54px，
+   既保留 BlockNote 侧边菜单的操作净空，也不再让 320/375px 视口只剩 150–210px 正文。 */
+.document-content-rail {
+  --editor-inline: clamp(16px, 5cqi, 54px);
+}
+
+.document-title-rail {
+  padding-inline: var(--editor-inline, 54px);
 }
 
 /* ---------------- 材质（vibrancy） ---------------- */
@@ -532,7 +554,7 @@ body,
 /* @提及胶囊输入框的 placeholder（contentEditable 无原生 placeholder） */
 .mention-editor:empty::before {
   content: attr(data-placeholder);
-  color: var(--muted-foreground);
+  color: var(--shell-label-placeholder);
   pointer-events: none;
 }
 

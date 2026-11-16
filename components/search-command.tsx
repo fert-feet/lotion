@@ -175,7 +175,7 @@ const SearchCommand = () => {
               filtered.length > 0 ? `global-search-result-${filtered[Math.min(highlight, filtered.length - 1)]?.id}` : undefined
             }
             placeholder={"搜索 " + (user?.email?.split("@")[0] || "你的") + " 的笔记…"}
-            className="h-12 min-w-0 flex-1 border-none bg-transparent text-lead text-shell-label-primary outline-none placeholder:text-shell-label-caption"
+            className="h-12 min-w-0 flex-1 border-none bg-transparent text-lead text-shell-label-primary outline-none placeholder:text-shell-label-placeholder"
           />
         </div>
         {/* 结果列表 */}

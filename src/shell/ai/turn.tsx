@@ -263,7 +263,7 @@ function QuestionCard({
             disabled={submitting}
             onChange={(e) => setCustom(e.target.value)}
             placeholder="自定义回答（可选）"
-            className="h-8 rounded-card hairline border-shell-border-l2 bg-transparent px-2.5 text-ui text-shell-label-primary outline-none transition-colors placeholder:text-shell-label-caption focus:border-shell-accent/50"
+            className="h-8 rounded-card hairline border-shell-border-l2 bg-transparent px-2.5 text-ui text-shell-label-primary outline-none transition-colors placeholder:text-shell-label-placeholder focus:border-shell-accent/50"
           />
         )}
       </div>

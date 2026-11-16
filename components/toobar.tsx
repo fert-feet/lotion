@@ -86,16 +86,20 @@ const Toolbar = ({
 
     return (
         <>
-        <div className="group relative px-4 sm:pl-[54px] sm:pr-0">
+        <div className="document-title-rail group relative">
             {Boolean(initialData.icon) && (
                 <div className="flex items-center gap-x-2 group/icon pt-6">
                     {readOnly ? (
                         <p className="text-hero leading-none">{initialData.icon}</p>
                     ) : (
                     <IconPicker onChange={onSelectIcon}>
-                        <p className="text-hero leading-none transition-opacity hover:opacity-70 cursor-pointer">
+                        <button
+                            type="button"
+                            aria-label="更换文档图标"
+                            className="cursor-pointer rounded-control p-0 text-hero leading-none transition-opacity hover:opacity-70 focus-visible:opacity-100"
+                        >
                             {initialData.icon}
-                        </p>
+                        </button>
                     </IconPicker>
                     )}
                     {!readOnly && (
@@ -103,7 +107,7 @@ const Toolbar = ({
                         type="button"
                         onClick={onRemoveIcon}
                         aria-label="移除图标"
-                        className="size-8 opacity-0 transition-opacity group-hover/icon:opacity-100 max-md:opacity-100 text-shell-label-secondary"
+                        className="pointer-events-none size-8 text-shell-label-secondary opacity-0 transition-opacity group-hover/icon:pointer-events-auto group-hover/icon:opacity-100 group-focus-within/icon:pointer-events-auto group-focus-within/icon:opacity-100 focus-visible:pointer-events-auto focus-visible:opacity-100 [@media(hover:none)]:pointer-events-auto [@media(hover:none)]:opacity-100"
                         variant={"outline"}
                         size={"icon"}
                     >
@@ -113,19 +117,16 @@ const Toolbar = ({
                 </div>
             )}
             {!readOnly && (
-            <div className="flex flex-wrap items-center gap-1 py-3 opacity-0 transition-opacity group-hover:opacity-100 max-md:opacity-100">
+            <div className="pointer-events-none flex flex-wrap items-center gap-1 py-3 opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100 [@media(hover:none)]:pointer-events-auto [@media(hover:none)]:opacity-100">
                 {!initialData.icon && (
                     <IconPicker onChange={onSelectIcon}>
                         <Button
-                            asChild
                             className="cursor-pointer text-shell-label-secondary"
                             variant={"outline"}
                             size={"sm"}
                         >
-                            <div>
-                                <Smile className="h-4 w-4 mr-2" />
-                                添加图标
-                            </div>
+                            <Smile className="h-4 w-4 mr-2" />
+                            添加图标
                         </Button>
                     </IconPicker>
                 )}
@@ -159,10 +160,10 @@ const Toolbar = ({
                     value={value}
                     onChange={(e) => onInput(e.target.value)}
                     aria-label="文档标题"
-                    className="w-full resize-none break-words bg-transparent text-display font-bold leading-[1.15] tracking-[-0.022em] text-shell-label-primary outline-none"
+                    className="w-full resize-none break-words bg-transparent text-title font-bold leading-[1.15] tracking-[-0.022em] text-shell-label-primary outline-none sm:text-display"
                 />
             ) : readOnly ? (
-                <div className="pb-1 text-display font-bold leading-[1.15] tracking-[-0.022em] break-words text-shell-label-primary">
+                <div className="pb-1 text-title font-bold leading-[1.15] tracking-[-0.022em] break-words text-shell-label-primary sm:text-display">
                     {title || "未命名"}
                 </div>
             ) : (
@@ -170,7 +171,7 @@ const Toolbar = ({
                     type="button"
                     onClick={enableInput}
                     aria-label="编辑文档标题"
-                    className="block w-full cursor-text break-words rounded-control pb-1 text-left text-display font-bold leading-[1.15] tracking-[-0.022em] text-shell-label-primary outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
+                    className="block w-full cursor-text break-words rounded-control pb-1 text-left text-title font-bold leading-[1.15] tracking-[-0.022em] text-shell-label-primary outline-none focus-visible:ring-[3px] focus-visible:ring-ring sm:text-display"
                 >
                     {title || "未命名"}
                 </button>
