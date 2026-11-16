@@ -39,7 +39,7 @@ export function Button({ className, variant = "default", size = "default", asChi
   const cls = cn(
     "inline-flex shrink-0 cursor-pointer select-none items-center justify-center gap-1.5 whitespace-nowrap rounded-control text-ui font-medium leading-none",
     "transition-[background-color,box-shadow,transform] duration-150 ease-[var(--ds-ease-out)]",
-    "active:scale-[0.97] disabled:pointer-events-none disabled:opacity-40 motion-reduce:active:scale-100",
+    "active:scale-[0.97] disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-secondary disabled:text-shell-label-placeholder disabled:shadow-none motion-reduce:active:scale-100",
     "outline-none focus-visible:ring-[3px] focus-visible:ring-ring",
     variantClass[variant],
     sizeClass[size],
