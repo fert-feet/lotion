@@ -321,7 +321,7 @@ const DocRow = memo(function DocRow({
       )}
 
       <span className="absolute inset-y-0 right-1.5 flex w-14 items-center justify-end">
-        <span className="pointer-events-none absolute inset-0 flex items-center justify-end text-caption leading-5 text-shell-label-tertiary transition-opacity duration-150 group-hover:opacity-0 group-focus-within:opacity-0">
+        <span className="pointer-events-none absolute inset-0 flex items-center justify-end text-caption leading-5 text-shell-label-tertiary transition-opacity duration-150 group-hover:opacity-0 group-focus-within:opacity-0 @max-[300px]/sidebar:hidden">
           {relativeTime(doc.updatedAt, now)}
         </span>
 

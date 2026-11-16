@@ -157,7 +157,7 @@ export function SessionMenu({
                 setDraftTitle(session.title);
                 setRenamingId(session.id);
               }}
-              className="touch-target pointer-events-none shrink-0 cursor-pointer rounded p-0.5 text-shell-label-tertiary opacity-0 transition-opacity hover:bg-shell-row-hover hover:text-shell-label-primary group-hover/session:pointer-events-auto group-hover/session:opacity-100 group-focus-within/session:pointer-events-auto group-focus-within/session:opacity-100 focus-visible:pointer-events-auto focus-visible:opacity-100 [@media(hover:none)]:pointer-events-auto [@media(hover:none)]:opacity-100"
+              className="touch-target pointer-events-none flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-control text-shell-label-tertiary opacity-0 transition-opacity hover:bg-shell-row-hover hover:text-shell-label-primary group-hover/session:pointer-events-auto group-hover/session:opacity-100 group-focus-within/session:pointer-events-auto group-focus-within/session:opacity-100 focus-visible:pointer-events-auto focus-visible:opacity-100 [@media(hover:none)]:pointer-events-auto [@media(hover:none)]:opacity-100"
             >
               <PenLine className="h-3.5 w-3.5" />
             </button>
@@ -169,7 +169,7 @@ export function SessionMenu({
                 e.stopPropagation();
                 setPendingDelete(session);
               }}
-              className="touch-target pointer-events-none shrink-0 cursor-pointer rounded p-0.5 text-shell-label-tertiary opacity-0 transition-opacity hover:bg-destructive/10 hover:text-destructive group-hover/session:pointer-events-auto group-hover/session:opacity-100 group-focus-within/session:pointer-events-auto group-focus-within/session:opacity-100 focus-visible:pointer-events-auto focus-visible:opacity-100 [@media(hover:none)]:pointer-events-auto [@media(hover:none)]:opacity-100"
+              className="touch-target pointer-events-none flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-control text-shell-label-tertiary opacity-0 transition-opacity hover:bg-destructive/10 hover:text-destructive group-hover/session:pointer-events-auto group-hover/session:opacity-100 group-focus-within/session:pointer-events-auto group-focus-within/session:opacity-100 focus-visible:pointer-events-auto focus-visible:opacity-100 [@media(hover:none)]:pointer-events-auto [@media(hover:none)]:opacity-100"
             >
               <Trash2 className="h-3.5 w-3.5" />
             </button>

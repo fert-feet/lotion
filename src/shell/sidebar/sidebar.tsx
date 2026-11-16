@@ -86,7 +86,7 @@ function PinnedDocs({
               aria-label={`取消收藏「${doc.title || "无标题"}」`}
               title="取消收藏"
               onClick={() => onTogglePin(doc.id)}
-              className="touch-target flex size-6 flex-none cursor-pointer items-center justify-center rounded-control text-shell-label-tertiary opacity-0 transition-opacity hover:bg-shell-row-active hover:text-shell-label-primary group-hover/pin:opacity-100 group-focus-within/pin:opacity-100 [@media(hover:none)]:opacity-100"
+              className="touch-target flex size-7 flex-none cursor-pointer items-center justify-center rounded-control text-shell-label-tertiary opacity-0 transition-opacity hover:bg-shell-row-active hover:text-shell-label-primary group-hover/pin:opacity-100 group-focus-within/pin:opacity-100 [@media(hover:none)]:opacity-100"
             >
               <Star className="h-3.5 w-3.5 text-shell-accent" />
             </button>
