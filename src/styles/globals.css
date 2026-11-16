@@ -348,6 +348,7 @@ body,
   --hairline: 0.5px;
   /* 层级表：dialog < popover 是有意的——浮层要能盖在弹窗之上 */
   --z-chrome: 20;
+  --z-drawer: 30;
   --z-modal: 9980;
   --z-popover: 9990;
   --z-toast: 9999;
@@ -378,6 +379,9 @@ body,
 @utility z-chrome {
   z-index: var(--z-chrome);
 }
+@utility z-drawer {
+  z-index: var(--z-drawer);
+}
 @utility z-popover {
   z-index: var(--z-popover);
 }
@@ -397,6 +401,19 @@ body,
 
 .document-title-rail {
   padding-inline: var(--editor-inline, 54px);
+}
+
+/* 触屏设备给紧凑图标按钮补足命中区；视觉尺寸不变，避免侧栏密度被撑大。 */
+.touch-target {
+  position: relative;
+}
+
+@media (pointer: coarse) {
+  .touch-target::after {
+    content: "";
+    position: absolute;
+    inset: -6px;
+  }
 }
 
 /* ---------------- 材质（vibrancy） ---------------- */
@@ -453,9 +470,12 @@ body,
 
 /* ---------------- 动效 ---------------- */
 
-/* 文档行入场淡入 */
-@keyframes row-in {
-  from { opacity: 0; }
+/* 文档行入场：轻微上移 + 淡入，只用于新出现或刚展开的行 */
+@keyframes sidebar-row-in {
+  from {
+    opacity: 0;
+    transform: translateY(-3px);
+  }
 }
 
 /* 工具卡片 running：柔和微光平移。

@@ -15,8 +15,9 @@
 **布局与组织**
 
 - **Apple 风格三栏布局** — `sidebar | center | details` 可拖拽（侧边栏 264-420px、AI 面板 300-520px），让步链优先保证中心列 ≥ 640px；侧边栏/详情栏为半透明材质（vibrancy），可折叠成 56px 图标 rail，视口 < 1024px 自动折叠
+- **单实例侧边栏** — wide / rail / 窄屏抽屉共享同一份文档、展开状态、收藏和滚动位置；抽屉原地滑入滑出，不会重复请求或把长文档树滚回顶部
 - **macOS 视觉系统** — 系统色板（systemBlue 主色 / 分级 label / 发丝分隔线）、SF 字体栈、连续圆角与多层柔和阴影、Apple 减速曲线；明暗双主题各自独立取值
-- **无限层级文档树** — `parentDocument` 自引用嵌套，任意深度组织笔记；32px 行高、hover 浮现「新建子笔记 / 更多」操作与相对时间
+- **无限层级文档树** — 扁平化可视行 + 超过 120 行自动虚拟窗口；第 5 层起压缩缩进，深层标题仍可读；行内菜单支持新建子笔记、重命名、收藏、移动与归档，拖到另一页面即可改层级
 - **内嵌搜索胶囊** — 侧边栏头部点击展开全宽输入框，即时过滤文档树；`Cmd/Ctrl + J` 全局命令面板
 - **回收站与草稿** — 搜索过滤、单条恢复 / 永久删除（删除需二次确认）；AI 新建笔记默认进入确认制草稿
 
@@ -237,7 +238,7 @@ lib/
 public/plugin-market/             # 本地市场 registry + 示例 bundle
 templates/plugin/                 # 第三方插件最小模板
 docs/                             # 插件化架构 / 本地数据库版 / 插件开发
-test/                             # Vitest 单测（与 lib/、server/ 同构，864 个用例）
+test/                             # Vitest 单测（与 lib/、server/ 同构，873 个用例）
 ```
 
 ## 数据模型（SQLite 6 张表）
@@ -270,7 +271,7 @@ pnpm build        # vite 构建客户端到 dist/
 pnpm start        # 运行 Hono（托管 dist/ + API，单机自托管）
 pnpm typecheck    # tsc --noEmit
 pnpm lint         # ESLint
-pnpm test         # Vitest 单测（864 个用例，内存 SQLite + Hono app.request）
+pnpm test         # Vitest 单测（873 个用例，内存 SQLite + Hono app.request）
 pnpm test:watch   # Vitest 监听模式
 ```
 

@@ -13,6 +13,7 @@ import { routes } from "@/src/router";
 
 let container: HTMLDivElement;
 let root: Root;
+let sidebarRequests = 0;
 
 function stubViewport(width: number) {
   vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({
@@ -73,6 +74,7 @@ function splitTracks(value: string): string[] {
 
 beforeEach(() => {
   _resetClientKernelForTest();
+  sidebarRequests = 0;
   useLayout.setState({ sidebar: 280, details: 0, narrow: false, narrowExpanded: false });
   container = document.createElement("div");
   document.body.appendChild(container);
@@ -84,6 +86,9 @@ beforeEach(() => {
       const url = typeof input === "string" ? input : input.toString();
       if (url.includes("/api/me")) {
         return new Response(JSON.stringify({ user: { id: "u1", email: "u@x.com", name: null } }));
+      }
+      if (url.includes("/api/documents?scope=sidebar")) {
+        sidebarRequests += 1;
       }
       return new Response(JSON.stringify([]));
     }),
@@ -100,16 +105,25 @@ afterEach(() => {
 describe("窄屏侧边栏抽屉", () => {
   it("展开后覆盖正文、不占用网格列", async () => {
     const { shell } = await mountShell();
+    const sidebarBefore = shell.querySelector<HTMLElement>("[data-sidebar-shell]");
+    expect(sidebarBefore).not.toBeNull();
+    const requestsBeforeOpen = sidebarRequests;
+    expect(requestsBeforeOpen).toBeGreaterThan(0);
     const opener = shell.querySelector<HTMLButtonElement>('button[aria-label="展开侧边栏"]');
     expect(opener).not.toBeNull();
 
     await act(async () => {
       opener!.click();
-      await new Promise((resolve) => setTimeout(resolve, 20));
+      await new Promise((resolve) => setTimeout(resolve, 80));
     });
 
     expect(shell.dataset.sidebarOverlay).toBe("true");
-    expect(splitTracks(shell.style.gridTemplateColumns)[0]).toBe("0px");
+    // 抽屉浮在内容上，底层仍保留 rail 轨道，正文不会横向跳动。
+    expect(splitTracks(shell.style.gridTemplateColumns)[0]).toBe("56px");
+    const sidebarAfter = shell.querySelector<HTMLElement>("[data-sidebar-shell]");
+    expect(sidebarAfter).toBe(sidebarBefore);
+    expect(sidebarAfter?.dataset.sidebarWide).toBe("true");
+    expect(sidebarRequests).toBe(requestsBeforeOpen);
     expect(shell.querySelector('[role="dialog"][aria-label="笔记导航"]')).not.toBeNull();
   });
 
@@ -131,6 +145,7 @@ describe("窄屏侧边栏抽屉", () => {
     const { shell } = await mountShell();
     await act(async () => {
       shell.querySelector<HTMLButtonElement>('button[aria-label="展开侧边栏"]')!.click();
+      await new Promise((resolve) => setTimeout(resolve, 80));
     });
 
     await act(async () => {
@@ -139,7 +154,9 @@ describe("窄屏侧边栏抽屉", () => {
     expect(useLayout.getState().narrowExpanded).toBe(false);
 
     await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 240));
       shell.querySelector<HTMLButtonElement>('button[aria-label="展开侧边栏"]')!.click();
+      await new Promise((resolve) => setTimeout(resolve, 80));
     });
     const scrim = shell.querySelector<HTMLElement>("[data-sidebar-scrim]");
     expect(scrim).not.toBeNull();
@@ -147,5 +164,29 @@ describe("窄屏侧边栏抽屉", () => {
       scrim!.click();
     });
     expect(useLayout.getState().narrowExpanded).toBe(false);
+  });
+
+  it("关闭时保留同一抽屉完成退场，再回落为 rail", async () => {
+    const { shell } = await mountShell();
+    await act(async () => {
+      shell.querySelector<HTMLButtonElement>('button[aria-label="展开侧边栏"]')!.click();
+      await new Promise((resolve) => setTimeout(resolve, 80));
+    });
+
+    const sidebar = shell.querySelector<HTMLElement>("[data-sidebar-shell]")!;
+    expect(sidebar.dataset.sidebarWide).toBe("true");
+    await act(async () => {
+      shell.querySelector<HTMLElement>("[data-sidebar-scrim]")!.click();
+    });
+    const column = shell.querySelector<HTMLElement>("[data-sidebar-column]")!;
+    expect(column.dataset.sidebarDrawer).toBe("true");
+    expect(column.dataset.sidebarDrawerOpen).toBeUndefined();
+    expect(sidebar.dataset.sidebarWide).toBe("true");
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 240));
+    });
+    expect(column.dataset.sidebarDrawer).toBeUndefined();
+    expect(sidebar.dataset.sidebarWide).toBeUndefined();
   });
 });

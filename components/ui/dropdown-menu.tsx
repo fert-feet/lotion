@@ -8,6 +8,7 @@ import { createPortal } from "react-dom";
 import type { HTMLAttributes, ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { Slot } from "./_primitives";
+import { useDialogFocus } from "./_focus";
 
 interface MenuContextValue {
   open: boolean;
@@ -44,6 +45,7 @@ function DropdownMenuTrigger({ asChild = true, children, className, ...props }: 
     className,
     ref: setTriggerEl,
     onClick: (e: React.MouseEvent) => { e.stopPropagation(); setOpen(!open); },
+    "aria-haspopup": "menu" as const,
     "aria-expanded": open || undefined,
     ...props,
   };
@@ -51,13 +53,14 @@ function DropdownMenuTrigger({ asChild = true, children, className, ...props }: 
   return <button {...triggerProps}>{children}</button>;
 }
 
-function DropdownMenuContent({ className, align = "start", side = "bottom", forceMount: _forceMount, alignOffset: _alignOffset, sideOffset: _sideOffset, children, ...props }: HTMLAttributes<HTMLDivElement> & { align?: "start" | "end" | "center"; side?: "bottom" | "top" | "right" | "left"; forceMount?: boolean; alignOffset?: number; sideOffset?: number; children: ReactNode }) {
+function DropdownMenuContent({ className, align = "start", side = "bottom", forceMount: _forceMount, alignOffset: _alignOffset, sideOffset: _sideOffset, children, onKeyDown, ...props }: HTMLAttributes<HTMLDivElement> & { align?: "start" | "end" | "center"; side?: "bottom" | "top" | "right" | "left"; forceMount?: boolean; alignOffset?: number; sideOffset?: number; children: ReactNode }) {
   const { open, setOpen, getTriggerEl } = useMenu();
   const contentRef = useRef<HTMLDivElement | null>(null);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
   // SSR 水合门控：服务端不渲染 portal，挂载后再出现（避免 forceMount 下 HTML 不一致）
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
+  useDialogFocus(open && mounted, contentRef, { trap: false });
 
   useEffect(() => {
     if (!open) { setPos(null); return; }
@@ -115,6 +118,30 @@ function DropdownMenuContent({ className, align = "start", side = "bottom", forc
   return createPortal(
     <div
       ref={contentRef}
+      role="menu"
+      onKeyDown={(event) => {
+        onKeyDown?.(event);
+        if (event.defaultPrevented) return;
+        const items = [...(contentRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]:not([aria-disabled="true"])') ?? [])];
+        if (items.length === 0) return;
+        const current = items.indexOf(document.activeElement as HTMLElement);
+        if (event.key === "ArrowDown") {
+          event.preventDefault();
+          items[(current + 1 + items.length) % items.length]?.focus();
+        } else if (event.key === "ArrowUp") {
+          event.preventDefault();
+          items[(current - 1 + items.length) % items.length]?.focus();
+        } else if (event.key === "Home") {
+          event.preventDefault();
+          items[0]?.focus();
+        } else if (event.key === "End") {
+          event.preventDefault();
+          items[items.length - 1]?.focus();
+        } else if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          (document.activeElement as HTMLElement | null)?.click();
+        }
+      }}
       style={{ position: "fixed", top: pos?.top ?? 0, left: pos?.left ?? 0, zIndex: "var(--z-popover)", visibility: pos ? "visible" : "hidden" }}
       className={cn("material-popover max-h-80 min-w-[9rem] overflow-y-auto rounded-card hairline border-shell-border-l2 p-1 shadow-elevation-2", className)}
       {...props}
@@ -130,7 +157,7 @@ function DropdownMenuItem({ className, children, ...props }: HTMLAttributes<HTML
     <div
       role="menuitem"
       tabIndex={-1}
-      className={cn("flex cursor-default select-none items-center gap-2 rounded-control px-2 py-[5px] text-ui leading-[18px] text-shell-label-primary outline-none transition-colors hover:bg-shell-row-hover data-[disabled]:pointer-events-none data-[disabled]:opacity-40 [&_svg]:size-3.5 [&_svg]:shrink-0", className)}
+      className={cn("flex cursor-default select-none items-center gap-2 rounded-control px-2 py-[5px] text-ui leading-[18px] text-shell-label-primary outline-none transition-colors hover:bg-shell-row-hover focus:bg-shell-row-hover data-[disabled]:pointer-events-none data-[disabled]:opacity-40 [&_svg]:size-3.5 [&_svg]:shrink-0", className)}
       {...props}
     >
       {children}

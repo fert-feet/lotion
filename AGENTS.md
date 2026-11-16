@@ -167,6 +167,8 @@ test/                       # Vitest 单测（lib/ / api/ / components/ / seams/
   打开看看 / 丢弃 / 确认保存 + 创建位置）；文档页不再有 `DraftBanner`（已删除）。
   刷新后的终态靠"文档事实对账"恢复：文档不在了 = 已丢弃，`isDraft=false` = 已保存
 - sidebar 宽度可拖拽（264-420px），可折叠为 56px rail
+- sidebar 的 wide / rail / 窄屏抽屉共用**同一个持久实例**（文档、展开状态、收藏、滚动位置不丢，抽屉不重复请求）；
+  文档树用扁平可视行模型，超过 120 行自动虚拟窗口，第 5 层起压缩缩进；行菜单支持重命名/收藏/移动，拖拽可改层级
 - 运行时数据：`data/lotion.db`（可用 `LOTION_DB_PATH` 覆盖）、`data/uploads/`（可用 `UPLOAD_DIR` 覆盖）、
   `data/plugins/`（已安装 + AI 动态定义，可用 `LOTION_PLUGINS_DIR` 覆盖）、
   `data/plugin-market/`（发布包 / stats）与 `data/plugin-market.json`（本机市场 registry），均 gitignore

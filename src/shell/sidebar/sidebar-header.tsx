@@ -6,14 +6,23 @@
 // 而列表内容本身就说明了它是文档；去掉后这一行只保留可操作的东西。
 // expanded 由父级控制（rail 的搜索按钮点击后展开侧边栏并强制展开搜索框）。
 // 插件市场入口就在这里（与 AI 助手 / 新建同一组 toolbar 图标），不再单占一整行。
-import { useEffect, useRef } from "react";
-import { Plus, Search, Sparkles, Store, X } from "@/components/icons";
+import { useEffect, useRef, useState } from "react";
+import { MoreHorizontal, Plus, Search, Sparkles, Store, X } from "@/components/icons";
 import { useLayout } from "@/hooks/use-layout";
 import { useHasSlot } from "@/src/kernel/react";
 import { SLOT_DETAILS_PANEL } from "../ui-plugins";
 import { cn } from "@/lib/utils";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface SidebarHeaderProps {
+  /** 宽栏内容是否真实可见；rail 状态下搜索框不应抢焦点 */
+  active?: boolean;
   query: string;
   onQueryChange: (q: string) => void;
   expanded: boolean;
@@ -29,9 +38,10 @@ interface SidebarHeaderProps {
 
 /** 图标按钮：24px 圆形，hover 出现填充底（Apple 的 toolbar button） */
 const iconBtn =
-  "flex size-7 flex-none cursor-pointer items-center justify-center rounded-control bg-transparent p-0 text-shell-label-secondary transition-colors duration-150 hover:bg-shell-row-hover hover:text-shell-label-primary";
+  "touch-target flex size-7 flex-none cursor-pointer items-center justify-center rounded-control bg-transparent p-0 text-shell-label-secondary transition-colors duration-150 hover:bg-shell-row-hover hover:text-shell-label-primary";
 
 export function SidebarHeader({
+  active = true,
   query,
   onQueryChange,
   expanded,
@@ -42,14 +52,19 @@ export function SidebarHeader({
   onCollapse,
 }: SidebarHeaderProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const [moreOpen, setMoreOpen] = useState(false);
   const detailsOpen = useLayout((s) => s.details > 0);
   const toggleDetails = useLayout((s) => s.toggleDetails);
   // 入口跟着插件走：ui-ai-panel 被禁用时这里不能还留一个能点的 AI 按钮
   const hasAiPanel = useHasSlot(SLOT_DETAILS_PANEL);
 
   useEffect(() => {
-    if (expanded) inputRef.current?.focus({ preventScroll: true });
-  }, [expanded]);
+    if (expanded && active) inputRef.current?.focus({ preventScroll: true });
+  }, [active, expanded]);
+
+  useEffect(() => {
+    if (!active) setMoreOpen(false);
+  }, [active]);
 
   useEffect(() => {
     if (!expanded) return;
@@ -122,7 +137,7 @@ export function SidebarHeader({
         </div>
       </div>
 
-      {/* 操作按钮：插件市场 + AI 助手 + 新建；搜索展开时让位隐藏 */}
+      {/* 操作按钮：新建保持一级入口，市场与 AI 收进「更多」，避免 280px 头部拥挤。 */}
       <div
         aria-hidden={expanded || undefined}
         inert={expanded || undefined}
@@ -131,35 +146,47 @@ export function SidebarHeader({
           expanded && "pointer-events-none max-w-0 translate-x-1 overflow-hidden opacity-0",
         )}
       >
-        <button
-          type="button"
-          aria-label="插件市场"
-          title="插件市场"
-          aria-current={marketActive ? "page" : undefined}
-          onClick={onOpenMarket}
-          className={cn(
-            iconBtn,
-            marketActive && "bg-shell-row-active text-shell-label-primary hover:text-shell-label-primary",
-          )}
-        >
-          <Store className="h-4 w-4" />
-        </button>
-        {hasAiPanel && (
-          <button
-            type="button"
-            aria-label="AI 助手"
-            title="AI 助手"
-            aria-expanded={detailsOpen}
-            aria-controls="details-panel"
-            onClick={() => {
-              toggleDetails();
-              onCollapse?.();
-            }}
-            className={cn(iconBtn, detailsOpen && "bg-ai text-ai-foreground hover:bg-ai hover:text-ai-foreground")}
-          >
-            <Sparkles className="h-4 w-4" />
-          </button>
-        )}
+        <DropdownMenu open={moreOpen} onOpenChange={setMoreOpen}>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              aria-label="更多侧边栏操作"
+              title="更多"
+              className={iconBtn}
+            >
+              <MoreHorizontal className="h-4 w-4" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-44">
+            {hasAiPanel && (
+              <DropdownMenuItem
+                aria-label="AI 助手"
+                onClick={() => {
+                  setMoreOpen(false);
+                  toggleDetails();
+                  onCollapse?.();
+                }}
+                className="cursor-pointer"
+              >
+                <Sparkles className={cn("mr-2 h-4 w-4", detailsOpen && "text-shell-accent")} />
+                {detailsOpen ? "关闭 AI 助手" : "打开 AI 助手"}
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              aria-label="插件市场"
+              onClick={() => {
+                setMoreOpen(false);
+                onOpenMarket();
+              }}
+              aria-current={marketActive ? "page" : undefined}
+              className="cursor-pointer"
+            >
+              <Store className={cn("mr-2 h-4 w-4", marketActive && "text-shell-accent")} />
+              插件市场
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
         <button
           type="button"
           aria-label="新建笔记"

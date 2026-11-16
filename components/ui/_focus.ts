@@ -17,6 +17,7 @@ const FOCUSABLE = [
   "select:not([disabled])",
   "textarea:not([disabled])",
   '[tabindex]:not([tabindex="-1"])',
+  '[role="menuitem"]:not([aria-disabled="true"])',
 ].join(",");
 
 function focusables(node: HTMLElement): HTMLElement[] {

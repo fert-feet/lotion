@@ -1,11 +1,4 @@
-// 侧边栏文档树的**可访问性/密度**守卫（静态检查 + 行为）。
-//
-// 背景（2026-11）：行是 `role="button" tabIndex={-1}` 且只有 onClick ——
-// 等于把文档树从键盘/读屏用户手里整个拿走；注释写"行高 32px、缩进 22px"，
-// 类名却是 h-7（28px）+ level*16；hover 时时间戳与两个操作按钮用 hidden/flex 互相
-// 顶替，标题右边界会被挤动约 44px（侧边栏是鼠标最频繁的区域）。
-//
-// 这里钉三件事：① 行必须键盘可达；② 行高/缩进与设计稿一致；③ 尾部区固定宽度、零重排。
+// 侧边栏文档树的键盘、密度与操作守卫。
 import { describe, it, expect } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
@@ -15,50 +8,53 @@ const FILE = path.join(ROOT, "src/shell/sidebar/doc-tree.tsx");
 const source = fs.readFileSync(FILE, "utf8");
 
 describe("侧边栏文档树", () => {
-  it("行键盘可达：treeitem + roving tabindex + Enter/Space 打开 + 完整方向键", () => {
-    expect(source, "行应当是 role=treeitem（不是 role=button）").toContain('role="treeitem"');
-    expect(source, "树只能有一个 Tab 停点").toContain("tabIndex={focused ? 0 : -1}");
-    expect(source, "缺少 Enter/Space 打开").toMatch(/e\.key === "Enter"/);
-    expect(source, '缺少空格键打开（" "）').toContain('e.key === " "');
-    expect(source, "缺少 ArrowRight 展开").toContain('"ArrowRight"');
-    expect(source, "缺少 ArrowLeft 收起").toContain('"ArrowLeft"');
-    expect(source, "缺少 ArrowDown 行导航").toContain('"ArrowDown"');
-    expect(source, "缺少 ArrowUp 行导航").toContain('"ArrowUp"');
-    expect(source, "缺少 Home/End").toContain('"Home"');
+  it("行键盘可达：treeitem + roving tabindex + Enter/Space + 完整方向键", () => {
+    expect(source).toContain('role="treeitem"');
+    expect(source).toContain("tabIndex={focused ? 0 : -1}");
+    expect(source).toContain('event.key === "Enter"');
+    expect(source).toContain('event.key === " "');
+    expect(source).toContain('"ArrowRight"');
+    expect(source).toContain('"ArrowLeft"');
+    expect(source).toContain('"ArrowDown"');
+    expect(source).toContain('"ArrowUp"');
+    expect(source).toContain('"Home"');
     expect(source).toContain('"End"');
-    // aria：层级与状态必须暴露给读屏
+    expect(source).toContain('"F2"');
     expect(source).toContain("aria-level={level + 1}");
+    expect(source).toContain("aria-posinset={positionInSet}");
+    expect(source).toContain("aria-setsize={setSize}");
     expect(source).toContain("aria-selected={active}");
     expect(source).toMatch(/aria-expanded=\{hasChildren \? expanded : undefined\}/);
-    // 焦点环：没有它键盘用户不知道自己停在哪一行
-    expect(source, "缺少 focus-visible 焦点环").toMatch(/focus-visible:outline/);
+    expect(source).toMatch(/focus-visible:outline/);
   });
 
-  it("行高与缩进对齐设计稿：h-8（32px）+ level*22", () => {
-    expect(source, "行高应为 h-8（32px）——此前误写成 h-7（28px）").toMatch(/flex h-8 /);
-    expect(source, "缩进步进应为 22px").toContain("level * 22");
-    expect(source, "不要再出现 28px 行的 h-7").not.toMatch(/flex h-7 /);
+  it("树使用扁平模型与虚拟窗口，不再递归重复扫描 docs", () => {
+    expect(source).toContain("flattenVisibleDocs(docs, expanded)");
+    expect(source).toContain("VIRTUAL_THRESHOLD");
+    expect(source).toContain("rows.slice(range.start, range.end)");
+    expect(source).not.toContain("<DocTree");
   });
 
-  it("尾部区固定宽度、只做透明度切换（悬停不再重排标题）", () => {
-    // 时间戳与操作按钮共存，不再用 group-hover:hidden / group-hover:flex 互相顶替
-    expect(source, "不要再用 group-hover:hidden 顶掉时间戳").not.toContain("group-hover:hidden");
-    expect(source, "不要再用 group-hover:flex 顶出按钮").not.toContain("group-hover:flex");
-    expect(source, "尾部应为固定宽度占位（w-[52px]）").toContain("w-[52px]");
-    expect(source, "标题需要为尾部区预留空间（pr-[52px]）").toContain("pr-[52px]");
-    expect(source, "切换应走透明度").toContain("group-hover:opacity-100");
-    // 键盘聚焦到行内按钮时，尾部也要显形（否则焦点落在看不见的按钮上）
-    expect(source, "缺少 group-focus-within 显形").toContain("group-focus-within:opacity-100");
+  it("深层缩进压缩，尾部只保留一个操作入口且键盘/触屏可见", () => {
+    expect(source).toContain("visualTreeIndent(level)");
+    expect(source).toContain("pr-9");
+    expect(source).not.toContain("pr-[52px]");
+    expect(source).toContain("group-focus-within:opacity-100");
+    expect(source).toContain("[@media(hover:none)]:opacity-100");
+    expect(source).toContain("更多操作");
   });
 
-  it("树容器声明 role=tree（在 sidebar.tsx 里）", () => {
-    const sidebar = fs.readFileSync(path.join(ROOT, "src/shell/sidebar/sidebar.tsx"), "utf8");
-    expect(sidebar, "文档树容器缺少 role=tree").toMatch(/role="tree"/);
-    expect(sidebar, "缺少当前文档祖先自动展开").toContain("ancestorDocIds");
+  it("文档操作覆盖重命名、收藏、移动和归档", () => {
+    for (const text of ["新建子笔记", "重命名", "收藏", "移到根目录", "移入回收站"]) {
+      expect(source).toContain(text);
+    }
+    expect(source).toContain("draggable={!batchMode && !renaming}");
+    expect(source).toContain('dataTransfer.setData("text/lotion-doc-id"');
   });
 
-  it("搜索结果使用真实按钮，不再用不可聚焦的 div role=button", () => {
-    expect(source).not.toMatch(/role="button"[\s\S]{0,120}DocSearchResults/);
-    expect(source).toContain("aria-current={params.documentId === doc.id ? \"page\" : undefined}");
+  it("搜索结果使用真实按钮并展示祖先面包屑", () => {
+    expect(source).toContain("docBreadcrumb(docs, doc.id, index)");
+    expect(source).toContain('aria-current={active ? "page" : undefined}');
+    expect(source).toContain('path.join(" / ")');
   });
 });

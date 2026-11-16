@@ -15,7 +15,6 @@ import {
   DETAILS_MAX,
   DETAILS_MIN,
   SIDEBAR_AUTO_COLLAPSE,
-  SIDEBAR_COLLAPSED,
   SIDEBAR_DEFAULT,
   SIDEBAR_MAX,
   SIDEBAR_MIN,
@@ -33,7 +32,10 @@ import { useDialogFocus } from "@/components/ui/_focus";
 function CenterColumn(props: { children?: ReactNode }) {
   // bg-background（纸张底）保持编辑器观感；shell 底色只用于侧边栏/详情栏
   return (
-    <div className="@container relative flex min-h-0 min-w-0 flex-col overflow-hidden bg-background">
+    <div
+      style={{ gridColumn: 2 }}
+      className="@container relative flex min-h-0 min-w-0 flex-col overflow-hidden bg-background"
+    >
       {props.children}
     </div>
   );
@@ -71,6 +73,7 @@ function DetailsColumn(props: {
     <div
       ref={panelRef}
       id="details-panel"
+      style={{ gridColumn: 3 }}
       data-details-column
       data-details-overlay={props.overlay || undefined}
       role={props.overlay ? "dialog" : undefined}
@@ -184,11 +187,9 @@ function DragHandle(props: {
       title="拖拽或使用方向键调整宽度；Home 恢复默认"
       className={
         "absolute top-0 bottom-0 z-chrome -ml-1 w-2 cursor-col-resize touch-none outline-none focus-visible:bg-shell-row-active focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-shell-accent " +
-        "transition-[left] duration-300 ease-[var(--ds-ease-in-out)] " +
-        (isDetails
-          ? "after:absolute after:top-1/2 after:left-1/2 after:-translate-x-1/2 after:-translate-y-1/2 after:block after:h-8 after:w-3 after:rounded-card after:border after:border-shell-border-l2 after:bg-shell-bg-base after:opacity-0 after:transition-opacity after:duration-300 after:ease-[var(--ds-ease-in-out)] " +
-            "hover:after:opacity-100 [&[data-dragging]]:after:opacity-100 [&[data-dragging]]:after:bg-shell-row-active"
-          : "")
+        (dragging ? "transition-none " : "transition-[left] duration-300 ease-[var(--ds-ease-in-out)] ") +
+        "after:absolute after:top-1/2 after:left-1/2 after:-translate-x-1/2 after:-translate-y-1/2 after:block after:h-8 after:w-3 after:rounded-card after:border after:border-shell-border-l2 after:bg-shell-bg-base after:opacity-0 after:transition-opacity after:duration-200 after:ease-[var(--ds-ease-out)] " +
+        "hover:after:opacity-100 focus-visible:after:opacity-100 [&[data-dragging]]:after:opacity-100 [&[data-dragging]]:after:bg-shell-row-active"
       }
       style={{ left: props.left }}
       data-side={props.side}
@@ -216,33 +217,6 @@ function SlimTopBar(props: { collapsed: boolean; onExpand: () => void }) {
   );
 }
 
-/** 窄屏侧边栏抽屉：覆盖正文，并具备模态导航的焦点与关闭语义。 */
-function SidebarDrawer({ onClose }: { onClose: () => void }) {
-  const panelRef = useRef<HTMLDivElement | null>(null);
-  useDialogFocus(true, panelRef);
-
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [onClose]);
-
-  return (
-    <div
-      ref={panelRef}
-      role="dialog"
-      aria-modal="true"
-      aria-label="笔记导航"
-      tabIndex={-1}
-      className="material-sidebar fixed inset-y-0 left-0 z-chrome w-[min(280px,86vw)] overflow-hidden hairline-r border-shell-border shadow-elevation-3"
-    >
-      <Sidebar wide overlay onExpand={onClose} />
-    </div>
-  );
-}
-
 export function AppShell({ children }: { children: ReactNode }) {
   const params = useParams();
   const location = useLocation();
@@ -261,24 +235,35 @@ export function AppShell({ children }: { children: ReactNode }) {
   const frameRef = useRef<HTMLDivElement | null>(null);
   // SSR 水合安全：首渲用固定宽（与服务端一致），挂载后 ResizeObserver 立即校正真实宽度
   const [viewport, setViewport] = useState(1440);
+  const [sidebarClosing, setSidebarClosing] = useState(false);
+  const [drawerRenderedOpen, setDrawerRenderedOpen] = useState(false);
+  const drawerWasOpen = useRef(false);
 
   // 窄屏自动折叠：折叠在 shell 层决定，求解器保持无断点。
   const autoNarrow = viewport < SIDEBAR_AUTO_COLLAPSE;
   useEffect(() => { setNarrow(autoNarrow); }, [autoNarrow, setNarrow]);
   const sidebarCollapsed = narrow ? !narrowExpanded : sidebar === 0;
   const sidebarOverlay = narrow && narrowExpanded;
-  const sidebarPreference = sidebarCollapsed
+  const sidebarDrawerVisible = narrow && (sidebarOverlay || sidebarClosing);
+  const sidebarWide = narrow
+    ? sidebarClosing || (sidebarOverlay && drawerRenderedOpen)
+    : !sidebarCollapsed;
+  const sidebarPreference = narrow
     ? 0
-    : sidebar === 0 ? SIDEBAR_DEFAULT : sidebar;
-  // 窄屏展开是抽屉：移除 rail 后以完整视口求解正文/详情列，抽屉本身不占网格轨道。
+    : sidebarCollapsed
+      ? 0
+      : sidebar === 0
+        ? SIDEBAR_DEFAULT
+        : sidebar;
+  // 抽屉浮在内容上方；底层仍保留 56px rail 轨道，正文不会因打开抽屉而横向跳动。
   const cols = computeColumns(
-    viewport + (sidebarOverlay ? SIDEBAR_COLLAPSED : 0),
-    sidebarOverlay ? 0 : sidebarPreference,
+    viewport,
+    sidebarPreference,
     details === 0 ? 0 : details,
   );
   const colsRef = useRef(cols);
   colsRef.current = cols;
-  const sidebarColumnWidth = sidebarOverlay ? 0 : cols.sidebar;
+  const sidebarColumnWidth = cols.sidebar;
   // 详情列是否存在由插件决定：ui-ai-panel 被用户在设置里禁用时槽位无贡献者，
   // 此时"打开"不成立——否则详情列会作为一块空白壳挂在右边（入口能点、打开没内容）。
   const hasDetailsPanel = useHasSlot(SLOT_DETAILS_PANEL);
@@ -288,6 +273,37 @@ export function AppShell({ children }: { children: ReactNode }) {
   /** details 作为真实网格列时的宽度（浮层时占 0 列，但仍挂载） */
   const detailsColumnWidth = detailsOverlay ? 0 : cols.details;
   const gridTemplateColumns = [sidebarColumnWidth + "px", "minmax(0, 1fr)", detailsColumnWidth + "px"].join(" ");
+
+  // 关闭抽屉时先保留同一个 Sidebar 实例完成退场，再回落成 rail。
+  useEffect(() => {
+    if (sidebarOverlay) {
+      drawerWasOpen.current = true;
+      setSidebarClosing(false);
+      return;
+    }
+    if (!drawerWasOpen.current) {
+      setSidebarClosing(false);
+      return;
+    }
+    drawerWasOpen.current = false;
+    if (!narrow) {
+      setSidebarClosing(false);
+      return;
+    }
+    setSidebarClosing(true);
+    const timer = window.setTimeout(() => setSidebarClosing(false), 220);
+    return () => window.clearTimeout(timer);
+  }, [narrow, sidebarOverlay]);
+
+  // 从 -100% 起步，下一帧再进入 0，保证同一个固定侧栏也能播放开场。
+  useEffect(() => {
+    if (!sidebarOverlay) {
+      setDrawerRenderedOpen(false);
+      return;
+    }
+    const frame = requestAnimationFrame(() => setDrawerRenderedOpen(true));
+    return () => cancelAnimationFrame(frame);
+  }, [sidebarOverlay]);
 
   // 选择文档或切换页面后收起窄屏抽屉；打开抽屉本身不改变 pathname，因此不会被立即关闭。
   const pathnameRef = useRef(location.pathname);
@@ -355,9 +371,30 @@ export function AppShell({ children }: { children: ReactNode }) {
       data-details-overlay={detailsOverlay || undefined}
       data-dragging={dragging || undefined}
     >
-      {/* sidebar 槽位：折叠时以紧凑 rail 保持挂载；拖拽过渡由 frame 统一控制 */}
-      <div className="material-sidebar min-w-0 overflow-hidden hairline-r border-shell-border">
-        {!sidebarOverlay && <Sidebar wide={!sidebarCollapsed} onExpand={() => toggleSidebar()} />}
+      {/* sidebar 槽位始终是同一个 Sidebar 实例；窄屏打开时同一节点变成 fixed 抽屉。 */}
+      <div
+        style={{ gridColumn: 1 }}
+        data-sidebar-column
+        data-sidebar-drawer={sidebarDrawerVisible || undefined}
+        data-sidebar-drawer-open={sidebarDrawerVisible && drawerRenderedOpen ? true : undefined}
+        className={
+          "material-sidebar min-w-0 overflow-hidden hairline-r border-shell-border " +
+          (sidebarDrawerVisible
+            ? "fixed inset-y-0 left-0 z-drawer w-[min(320px,90vw)] shadow-elevation-3 transition-transform duration-200 ease-[var(--ds-ease-out)] "
+            : "relative ") +
+          (sidebarDrawerVisible
+            ? drawerRenderedOpen
+              ? "translate-x-0"
+              : "-translate-x-full"
+            : "")
+        }
+      >
+        <Sidebar
+          wide={sidebarWide}
+          overlay={sidebarDrawerVisible}
+          drawerActive={sidebarOverlay}
+          onExpand={toggleSidebar}
+        />
       </div>
 
       <CenterColumn>
@@ -388,21 +425,21 @@ export function AppShell({ children }: { children: ReactNode }) {
         </DetailsColumn>
       )}
 
-      {/* 窄屏侧边栏是覆盖式抽屉，不能挤压正文。 */}
-      {sidebarOverlay && (
-        <>
-          <div
-            data-sidebar-scrim
-            className="fixed inset-0 z-chrome bg-black/20 dark:bg-black/40"
-            onClick={() => toggleSidebar()}
-            aria-hidden="true"
-          />
-          <SidebarDrawer onClose={() => toggleSidebar()} />
-        </>
+      {/* 抽屉遮罩与抽屉使用同一个显隐阶段，关闭时一起退场。 */}
+      {sidebarDrawerVisible && (
+        <div
+          data-sidebar-scrim
+          className={
+            "fixed inset-0 z-chrome bg-black/20 transition-opacity duration-200 dark:bg-black/40 " +
+            (drawerRenderedOpen ? "opacity-100" : "pointer-events-none opacity-0")
+          }
+          onClick={() => toggleSidebar()}
+          aria-hidden="true"
+        />
       )}
 
       {/* 折叠 rail 是固定宽：关闭时不渲染拖拽手柄 */}
-      {!sidebarCollapsed && (
+      {!narrow && !sidebarCollapsed && (
         <DragHandle
           side="sidebar"
           left={cols.sidebar}

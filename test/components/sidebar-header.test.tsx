@@ -46,8 +46,15 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-function marketButton(scope: ParentNode): HTMLButtonElement | undefined {
-  return scope.querySelector<HTMLButtonElement>('button[aria-label="插件市场"]') ?? undefined;
+function moreButton(scope: ParentNode): HTMLButtonElement | undefined {
+  return scope.querySelector<HTMLButtonElement>('button[aria-label="更多侧边栏操作"]') ?? undefined;
+}
+
+function openMore(scope: ParentNode): HTMLElement {
+  act(() => moreButton(scope)!.dispatchEvent(new MouseEvent("click", { bubbles: true })));
+  const item = document.querySelector<HTMLElement>('[role="menuitem"][aria-label="插件市场"]');
+  expect(item, "更多菜单缺少插件市场入口").not.toBeNull();
+  return item!;
 }
 
 describe("SidebarHeader 的插件市场按钮", () => {
@@ -66,28 +73,26 @@ describe("SidebarHeader 的插件市场按钮", () => {
     return props;
   }
 
-  it("图标组里有「插件市场」按钮，点击回调 onOpenMarket", () => {
+  it("更多菜单里有「插件市场」入口，点击回调 onOpenMarket", () => {
     const onOpenMarket = vi.fn();
     renderHeader({ onOpenMarket });
-    const button = marketButton(container);
-    expect(button, "头部图标组缺少插件市场按钮").toBeTruthy();
-    expect(button!.getAttribute("title")).toBe("插件市场");
-
-    act(() => button!.dispatchEvent(new MouseEvent("click", { bubbles: true })));
+    const item = openMore(container);
+    act(() => item.dispatchEvent(new MouseEvent("click", { bubbles: true })));
     expect(onOpenMarket).toHaveBeenCalledTimes(1);
   });
 
   it("停在 /market 时 aria-current=page 高亮", () => {
     renderHeader({ marketActive: true });
-    expect(marketButton(container)!.getAttribute("aria-current")).toBe("page");
+    expect(openMore(container).getAttribute("aria-current")).toBe("page");
 
     act(() => root.unmount());
     container.innerHTML = "";
+    document.body.querySelectorAll('[role="menuitem"]').forEach((node) => node.remove());
     renderHeader({ marketActive: false });
-    expect(marketButton(container)!.getAttribute("aria-current")).toBeNull();
+    expect(openMore(container).getAttribute("aria-current")).toBeNull();
   });
 
-  it("与 AI 助手 / 新建 同排（都在搜索框之后的那一组里）", async () => {
+  it("一级操作保持搜索、更多、新建三项，AI 与市场收进更多菜单", async () => {
     // 头部现在按插槽有无决定是否渲染 AI 入口，所以先把带 ui-ai-panel 的内核装好
     await bootClientKernel({ extraPlugins: shellUiPlugins() }).ready;
     renderHeader();
@@ -95,7 +100,10 @@ describe("SidebarHeader 的插件市场按钮", () => {
     expect(header, "头部根节点缺少 data-sidebar-header").not.toBeNull();
 
     const labels = [...header!.querySelectorAll("button")].map((b) => b.getAttribute("aria-label"));
-    expect(labels).toEqual(["筛选当前文档树", "插件市场", "AI 助手", "新建笔记"]);
+    expect(labels).toEqual(["筛选当前文档树", "更多侧边栏操作", "新建笔记"]);
+    act(() => moreButton(header!)!.dispatchEvent(new MouseEvent("click", { bubbles: true })));
+    expect(document.querySelector('[role="menuitem"][aria-label="AI 助手"]')).not.toBeNull();
+    expect(document.querySelector('[role="menuitem"][aria-label="插件市场"]')).not.toBeNull();
   });
 
   it("没有「文档」小标题：这一行只剩可操作元素（搜索在左、操作在右）", () => {
@@ -147,10 +155,10 @@ describe("外壳里的市场入口位置", () => {
 
     const header = sidebar.querySelector("[data-sidebar-header]");
     expect(header, "侧边栏是 wide 形态，应存在头部").not.toBeNull();
-    expect(marketButton(header!), "头部缺少插件市场按钮").toBeTruthy();
+    expect(openMore(header!), "头部更多菜单缺少插件市场入口").toBeTruthy();
 
-    // 侧边栏里市场按钮只有一个（rail 形态不属于 wide，不会同时出现）
-    expect(sidebar.querySelectorAll('button[aria-label="插件市场"]').length).toBe(1);
+    // wide 头部的一级入口只有搜索、更多、新建；rail 图标只存在于隐藏的另一层。
+    expect(header!.querySelectorAll('button[aria-label="插件市场"]').length).toBe(0);
 
     // 旧实现是 <button><Store/><span>插件市场</span></button>：文字入口不该再存在
     const textEntry = [...sidebar.querySelectorAll("button")].find(

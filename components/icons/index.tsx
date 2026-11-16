@@ -36,6 +36,18 @@ export const Plus = ({ size = 16, className, ...rest }: IconProps) => (
   </svg>
 )
 
+/** Star（收藏 / 取消收藏） */
+export const Star = ({ size = 16, className, ...rest }: IconProps) => (
+  <svg width={size} height={size} className={className} {...rest} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path
+      d="M8 1.75l1.84 3.73 4.12.6-2.98 2.9.7 4.1L8 11.14l-3.68 1.94.7-4.1-2.98-2.9 4.12-.6L8 1.75Z"
+      stroke="currentColor"
+      strokeWidth="1.4"
+      strokeLinejoin="round"
+    />
+  </svg>
+)
+
 /** X（取自 DSH IconCloseOutline16） */
 export const X = ({ size = 16, className, ...rest }: IconProps) => (
   <svg width={size} height={size} className={className} {...rest} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">

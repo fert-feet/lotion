@@ -135,6 +135,7 @@ describe("全仓遵守设计 token 纪律", () => {
       "--shell-label-placeholder",
       "--ds-transition-duration-fast",
       "--hairline",
+      "--z-drawer",
       "--z-modal",
       "--z-popover",
       "--z-toast",
@@ -149,9 +150,11 @@ describe("全仓遵守设计 token 纪律", () => {
       /@media\s*\(max-resolution:\s*1\.9dppx\)/,
     );
     // 自定义工具类必须存在，否则 hairline / z-modal 这些类名不会生成
-    for (const utility of ["hairline", "hairline-b", "hairline-t", "hairline-l", "hairline-r", "z-modal", "z-popover"]) {
+    for (const utility of ["hairline", "hairline-b", "hairline-t", "hairline-l", "hairline-r", "z-drawer", "z-modal", "z-popover"]) {
       expect(css, `globals.css 缺少 @utility ${utility}`).toContain(`@utility ${utility}`);
     }
+    expect(css, "触屏命中区工具类缺失").toContain(".touch-target");
+    expect(css, "触屏命中区未按 pointer: coarse 扩展").toContain("@media (pointer: coarse)");
   });
 
   it("不再覆盖 Tailwind 的 --radius-sm/md/lg（覆盖过一次，导致 shadcn 派生组件圆角漂移）", () => {

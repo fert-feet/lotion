@@ -2,7 +2,7 @@
 
 // 侧边栏底部（DSH 风格 icon 栏）：设置 / 回收站 / 批量删除 / 用户菜单。
 // 28px 圆形图标按钮，hover 底色 shell-row-hover；rail 形态下 36px 竖排。
-import { ListChecks, Settings, Trash } from "@/components/icons";
+import { ListChecks, MoreHorizontal, Settings, Trash } from "@/components/icons";
 import { useNavigate } from "react-router";
 import { Fragment, useState } from "react";
 import { cn } from "@/lib/utils";
@@ -31,8 +31,11 @@ export function SidebarFooter({ rail, onBatchMode }: SidebarFooterProps) {
   const navigate = useNavigate();
   const settingsOnOpen = useSettings((s) => s.onOpen);
   const [trashOpen, setTrashOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
   // 第三方客户端插件贡献的底部动作（list 槽；无贡献时为空数组）
   const footerActions = useSlotList(SLOT_SIDEBAR_FOOTER_ACTION);
+  const inlineActions = footerActions.slice(0, 2);
+  const overflowActions = footerActions.slice(2);
 
   const handleSignOut = async () => {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -50,7 +53,7 @@ export function SidebarFooter({ rail, onBatchMode }: SidebarFooterProps) {
         aria-label="设置"
         title="设置"
         onClick={settingsOnOpen}
-        className={cn("flex flex-none items-center justify-center rounded-control bg-transparent p-0 text-shell-label-secondary hover:bg-shell-row-hover", btn)}
+        className={cn("touch-target flex flex-none items-center justify-center rounded-control bg-transparent p-0 text-shell-label-secondary hover:bg-shell-row-hover", btn)}
       >
         <Settings className="h-4 w-4" />
       </button>
@@ -61,7 +64,7 @@ export function SidebarFooter({ rail, onBatchMode }: SidebarFooterProps) {
             type="button"
             aria-label="回收站"
             title="回收站"
-            className={cn("flex flex-none items-center justify-center rounded-control bg-transparent p-0 text-shell-label-secondary hover:bg-shell-row-hover", btn)}
+            className={cn("touch-target flex flex-none items-center justify-center rounded-control bg-transparent p-0 text-shell-label-secondary hover:bg-shell-row-hover", btn)}
           >
             <Trash className="h-4 w-4" />
           </button>
@@ -82,14 +85,39 @@ export function SidebarFooter({ rail, onBatchMode }: SidebarFooterProps) {
         aria-label="批量删除"
         title="批量删除"
         onClick={onBatchMode}
-        className={cn("flex flex-none items-center justify-center rounded-control bg-transparent p-0 text-shell-label-secondary hover:bg-shell-row-hover", btn)}
+        className={cn("touch-target flex flex-none items-center justify-center rounded-control bg-transparent p-0 text-shell-label-secondary hover:bg-shell-row-hover", btn)}
       >
         <ListChecks className="h-4 w-4" />
       </button>
 
-      {footerActions.map((action, index) => (
+      {inlineActions.map((action, index) => (
         <Fragment key={index}>{action}</Fragment>
       ))}
+
+      {overflowActions.length > 0 && (
+        <Popover open={moreOpen} onOpenChange={setMoreOpen}>
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              aria-label="更多侧边栏动作"
+              title="更多动作"
+              className={cn("touch-target flex flex-none items-center justify-center rounded-control bg-transparent p-0 text-shell-label-secondary hover:bg-shell-row-hover", btn)}
+            >
+              <MoreHorizontal className="h-4 w-4" />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent
+            aria-label="更多侧边栏动作"
+            className="w-56 p-2"
+            side={rail ? "right" : "top"}
+            align={rail ? "start" : "end"}
+          >
+            <div className="flex flex-wrap items-center gap-1">
+              {overflowActions}
+            </div>
+          </PopoverContent>
+        </Popover>
+      )}
 
       <div className={cn(rail ? "mt-auto" : "ml-auto")} />
 
@@ -99,12 +127,12 @@ export function SidebarFooter({ rail, onBatchMode }: SidebarFooterProps) {
             type="button"
             aria-label="用户菜单"
             title={displayName}
-            className={cn("flex flex-none cursor-pointer items-center justify-center rounded-control bg-transparent p-0 hover:bg-shell-row-hover", btn)}
+            className={cn("touch-target flex flex-none cursor-pointer items-center justify-center rounded-control bg-transparent p-0 hover:bg-shell-row-hover", btn)}
           >
             <Avatar className="h-6 w-6 shrink-0" />
           </button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent className="w-72" align="start" alignOffset={11} forceMount>
+        <DropdownMenuContent className="w-72" align="start" alignOffset={11}>
           <div className="flex items-center gap-3 p-3">
             <Avatar className="h-9 w-9" />
             <div className="min-w-0">
