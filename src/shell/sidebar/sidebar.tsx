@@ -5,7 +5,7 @@
 // 都留在本组件内，切换呈现时不卸载列表，也不会重复请求 sidebar 数据。
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router";
-import { FileIcon, History, PenLine, Plus, Search, Sparkles, Star, Store } from "@/components/icons";
+import { PenLine, Plus, Search, Sparkles, Star, Store } from "@/components/icons";
 import { toast } from "sonner";
 import { useUser } from "@/hooks/use-user";
 import { useRefresh } from "@/hooks/use-refresh";
@@ -90,44 +90,6 @@ function PinnedDocs({
               <Star className="h-3.5 w-3.5 text-shell-accent" />
             </button>
           </div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function RecentDocs({
-  docs,
-  activeId,
-  onOpen,
-}: {
-  docs: SidebarDocument[];
-  activeId: string | undefined;
-  onOpen: (id: string) => void;
-}) {
-  if (docs.length === 0) return null;
-  return (
-    <section className="mb-2" aria-label="最近打开的笔记">
-      <div className="mb-1 flex h-6 items-center gap-1.5 px-2 text-caption font-semibold text-shell-label-tertiary">
-        <History className="h-3.5 w-3.5" />
-        最近
-      </div>
-      <div className="space-y-0.5">
-        {docs.map((doc) => (
-          <button
-            key={doc.id}
-            type="button"
-            onClick={() => onOpen(doc.id)}
-            className={cn(
-              "flex h-8 w-full cursor-pointer items-center gap-1.5 rounded-control px-2 text-left text-ui",
-              activeId === doc.id ? "bg-shell-row-active-accent" : "hover:bg-shell-row-hover",
-            )}
-          >
-            <span className="flex h-5 w-4 flex-none items-center justify-center text-shell-label-tertiary">
-              {doc.icon ? <span className="text-lead leading-none">{doc.icon}</span> : <FileIcon className="h-4 w-4" />}
-            </span>
-            <span className="truncate">{doc.title || "无标题"}</span>
-          </button>
         ))}
       </div>
     </section>
@@ -433,13 +395,6 @@ export const Sidebar = memo(function Sidebar({
         .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
     [allDocs, pinnedIds],
   );
-  const recentDocs = useMemo(() => {
-    if (!allDocs || allDocs.length <= 8) return [];
-    return [...allDocs]
-      .filter((doc) => !pinnedIds.has(doc.id))
-      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
-      .slice(0, 3);
-  }, [allDocs, pinnedIds]);
 
   return (
     <div
@@ -533,11 +488,6 @@ export const Sidebar = memo(function Sidebar({
                   activeId={params.documentId}
                   onOpen={(id) => navigate(`/documents/${id}`)}
                   onTogglePin={togglePin}
-                />
-                <RecentDocs
-                  docs={recentDocs}
-                  activeId={params.documentId}
-                  onOpen={(id) => navigate(`/documents/${id}`)}
                 />
                 <div ref={treeRef} role="tree" aria-label="笔记">
                   <DocTree
