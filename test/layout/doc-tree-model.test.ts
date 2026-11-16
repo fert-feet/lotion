@@ -4,6 +4,7 @@ import {
   descendantDocIds,
   docBreadcrumb,
   flattenVisibleDocs,
+  movableDocTargets,
   visualTreeIndent,
   visibleDocIds,
 } from "@/src/shell/sidebar/doc-tree-model";
@@ -46,6 +47,8 @@ describe("侧边栏扁平树模型", () => {
   it("搜索结果面包屑从根到父排列", () => {
     expect(docBreadcrumb(docs, "a1x")).toEqual(["a", "a1"]);
     expect([...descendantDocIds(docs, "a")]).toEqual(["a1", "a1x"]);
+    expect(movableDocTargets(docs, "a").map((item) => item.id)).toEqual(["b", "b1"]);
+    expect(movableDocTargets(docs, "a", "b1").map((item) => item.id)).toEqual(["b1"]);
   });
 
   it("深层缩进在第四层后压缩，不再无限右移", () => {

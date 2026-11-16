@@ -23,6 +23,10 @@ describe("侧边栏持久实例与动效", () => {
     expect(shell).toContain("transition-transform duration-200");
     expect(shell).toContain("window.setTimeout(() => setSidebarClosing(false), 220)");
     expect(shell).toContain("data-sidebar-drawer-open");
+    expect(shell).toContain("motion-reduce:transition-none");
+    expect(shell).toContain("sidebar-drawer-safe");
+    expect(shell).toContain("inert={sidebarOverlay}");
+    expect(shell).toContain('{ popover: "manual" }');
   });
 
   it("侧栏拖拽期间手柄取消 left 过渡，并给键盘/悬停显示抓手", () => {
@@ -30,5 +34,15 @@ describe("侧边栏持久实例与动效", () => {
     expect(shell).toContain('dragging ? "transition-none "');
     expect(shell).toContain("hover:after:opacity-100");
     expect(shell).toContain("focus-visible:after:opacity-100");
+  });
+
+  it("侧栏内部使用命名容器，触屏命中区与安全区由平台能力适配", () => {
+    const sidebar = read("src/shell/sidebar/sidebar.tsx");
+    const header = read("src/shell/sidebar/sidebar-header.tsx");
+    const globals = read("src/styles/globals.css");
+    expect(sidebar).toContain("@container/sidebar");
+    expect(header).toContain("@max-[300px]/sidebar");
+    expect(globals).toContain("inset: -8px");
+    expect(globals).toContain("env(safe-area-inset-bottom");
   });
 });

@@ -128,3 +128,22 @@ export function descendantDocIds(
   walk(documentId);
   return out;
 }
+
+/** “移动到…”对话框的候选父页面：排除自身、子孙和归档页。 */
+export function movableDocTargets(
+  docs: readonly SidebarDocument[],
+  documentId: string,
+  query = "",
+): SidebarDocument[] {
+  const excluded = descendantDocIds(docs, documentId);
+  excluded.add(documentId);
+  const q = query.trim().toLowerCase();
+  return docs
+    .filter((doc) => !excluded.has(doc.id) && !doc.isArchived)
+    .filter((doc) => {
+      if (!q) return true;
+      const path = docBreadcrumb(docs, doc.id).join(" / ");
+      return doc.title.toLowerCase().includes(q) || path.toLowerCase().includes(q);
+    })
+    .sort((a, b) => a.title.localeCompare(b.title, "zh-CN"));
+}

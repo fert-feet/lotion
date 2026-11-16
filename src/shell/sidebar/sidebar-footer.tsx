@@ -7,6 +7,7 @@ import { useNavigate } from "react-router";
 import { Fragment, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useUser } from "@/hooks/use-user";
+import { useCoarsePointer } from "@/hooks/use-coarse-pointer";
 import { useSlotList } from "@/src/kernel/react";
 import useSettings from "@/hooks/use-setting";
 import { Avatar } from "@/components/ui/avatar";
@@ -28,14 +29,16 @@ interface SidebarFooterProps {
 
 export function SidebarFooter({ rail, onBatchMode }: SidebarFooterProps) {
   const { user, refreshUser } = useUser();
+  const coarsePointer = useCoarsePointer();
   const navigate = useNavigate();
   const settingsOnOpen = useSettings((s) => s.onOpen);
   const [trashOpen, setTrashOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   // 第三方客户端插件贡献的底部动作（list 槽；无贡献时为空数组）
   const footerActions = useSlotList(SLOT_SIDEBAR_FOOTER_ACTION);
-  const inlineActions = footerActions.slice(0, 2);
-  const overflowActions = footerActions.slice(2);
+  const inlineLimit = coarsePointer ? 0 : 2;
+  const inlineActions = footerActions.slice(0, inlineLimit);
+  const overflowActions = footerActions.slice(inlineLimit);
 
   const handleSignOut = async () => {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -47,7 +50,7 @@ export function SidebarFooter({ rail, onBatchMode }: SidebarFooterProps) {
   const btn = rail ? "h-9 w-9" : "h-7 w-7";
 
   return (
-    <div className={cn("flex shrink-0 items-center gap-0.5", rail ? "flex-col gap-1 pb-3" : "mt-1 hairline-t border-shell-border px-0.5 pt-1.5")}>
+    <div className={cn("flex shrink-0 items-center gap-0.5 @max-[300px]/sidebar:gap-0", rail ? "flex-col gap-1 pb-3" : "mt-1 hairline-t border-shell-border px-0.5 pt-1.5")}>
       <button
         type="button"
         aria-label="设置"

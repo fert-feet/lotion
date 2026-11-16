@@ -8,6 +8,7 @@ import {
   ArrowRight,
   ChevronRight,
   FileIcon,
+  GripVertical,
   MoreHorizontal,
   PenLine,
   Plus,
@@ -18,8 +19,10 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useUser } from "@/hooks/use-user";
 import { useRefresh } from "@/hooks/use-refresh";
+import { useCoarsePointer } from "@/hooks/use-coarse-pointer";
 import type { SidebarDocument } from "@/lib/seams/doc-store";
 import { useActor, useDocStore } from "@/src/kernel/react";
+import { isImeConfirmingKey } from "@/lib/ime";
 import {
   buildDocIndex,
   docBreadcrumb,
@@ -36,9 +39,11 @@ import {
 
 export { ancestorDocIds, visibleDocIds } from "./doc-tree-model";
 
-const VIRTUAL_THRESHOLD = 120;
-const ROW_HEIGHT = 32;
+const VIRTUAL_THRESHOLD = 500;
+const ROW_HEIGHT_FINE = 32;
+const ROW_HEIGHT_COARSE = 44;
 const OVERSCAN = 8;
+const DEFER_AFTER_ROWS = 20;
 
 /** 相对时间（DSH 紧凑格式） */
 function relativeTime(iso: string | null, now: number): string {
@@ -74,6 +79,8 @@ interface DocRowProps {
   checked: boolean;
   focused: boolean;
   entering: boolean;
+  rowHeight: number;
+  deferRendering: boolean;
   canDrop: (draggedId: string, targetId: string) => boolean;
   onExpand: () => void;
   onOpen: () => void;
@@ -86,6 +93,7 @@ interface DocRowProps {
   onRenameCommit: (id: string) => void;
   onRenameCancel: () => void;
   onMove: (id: string, parentDocument: string | null) => void;
+  onRequestMove: (id: string) => void;
   onDragStart: (id: string) => void;
   onDragEnd: () => void;
   onFocusRow: (id: string) => void;
@@ -111,6 +119,8 @@ const DocRow = memo(function DocRow({
   checked,
   focused,
   entering,
+  rowHeight,
+  deferRendering,
   canDrop,
   onExpand,
   onOpen,
@@ -123,6 +133,7 @@ const DocRow = memo(function DocRow({
   onRenameCommit,
   onRenameCancel,
   onMove,
+  onRequestMove,
   onDragStart,
   onDragEnd,
   onFocusRow,
@@ -156,16 +167,6 @@ const DocRow = memo(function DocRow({
       data-doc-id={doc.id}
       data-drop-target={dropActive || undefined}
       data-dragging={dragging || undefined}
-      draggable={!batchMode && !renaming}
-      onDragStart={(event) => {
-        event.dataTransfer.effectAllowed = "move";
-        event.dataTransfer.setData("text/lotion-doc-id", doc.id);
-        onDragStart(doc.id);
-      }}
-      onDragEnd={() => {
-        setDropActive(false);
-        onDragEnd();
-      }}
       onDragOver={(event) => {
         if (!acceptsDrop) return;
         event.preventDefault();
@@ -227,13 +228,18 @@ const DocRow = memo(function DocRow({
       onMouseEnter={() => {
         docStore.prefetch?.(actor, doc.id);
       }}
-      style={{ paddingLeft: indent }}
+      style={{
+        paddingLeft: indent,
+        height: rowHeight,
+        contentVisibility: deferRendering ? "auto" : undefined,
+        containIntrinsicSize: deferRendering ? `auto ${rowHeight}px` : undefined,
+      }}
       className={cn(
-        "group relative flex h-8 cursor-pointer select-none items-center gap-1.5 rounded-control px-1.5 text-ui leading-5 text-shell-label-primary",
+        "group relative flex cursor-pointer select-none items-center gap-1.5 rounded-control px-1.5 text-ui leading-5 text-shell-label-primary",
         "transition-[background-color,opacity,box-shadow] duration-150 ease-[var(--ds-ease-out)]",
         "focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-shell-accent",
         active ? "bg-shell-row-active-accent font-medium" : "hover:bg-shell-row-hover",
-        entering && "animate-[sidebar-row-in_140ms_var(--ds-ease-out)]",
+        entering && "motion-safe:animate-[sidebar-row-in_140ms_var(--ds-ease-out)]",
         dragging && "opacity-45",
         dropActive && "bg-shell-row-active-accent ring-1 ring-inset ring-shell-accent",
       )}
@@ -299,6 +305,7 @@ const DocRow = memo(function DocRow({
             event.stopPropagation();
             if (event.key === "Enter") {
               event.preventDefault();
+              if (isImeConfirmingKey(event.nativeEvent)) return;
               onRenameCommit(doc.id);
             } else if (event.key === "Escape") {
               event.preventDefault();
@@ -308,17 +315,39 @@ const DocRow = memo(function DocRow({
           className="h-6 min-w-0 flex-1 rounded-control hairline border-shell-border-l2 bg-card px-1.5 text-ui text-shell-label-primary outline-none focus:border-shell-accent/60"
         />
       ) : (
-        <span className="min-w-0 flex-1 truncate pr-9 text-ui leading-5">
+        <span className="min-w-0 flex-1 truncate pr-14 text-ui leading-5">
           {title}
         </span>
       )}
 
-      <span className="absolute inset-y-0 right-1.5 flex w-8 items-center justify-end">
+      <span className="absolute inset-y-0 right-1.5 flex w-14 items-center justify-end">
         <span className="pointer-events-none absolute inset-0 flex items-center justify-end text-caption leading-5 text-shell-label-tertiary transition-opacity duration-150 group-hover:opacity-0 group-focus-within:opacity-0">
           {relativeTime(doc.updatedAt, now)}
         </span>
 
-        <span className="relative flex items-center opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100">
+        <span className="relative flex items-center gap-0.5 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100">
+          <button
+            type="button"
+            tabIndex={-1}
+            draggable={!batchMode && !renaming}
+            aria-label={`拖动「${title}」更改位置`}
+            title="拖动更改位置"
+            onDragStart={(event) => {
+              event.dataTransfer.effectAllowed = "move";
+              event.dataTransfer.setData("text/lotion-doc-id", doc.id);
+              onDragStart(doc.id);
+            }}
+            onDragEnd={() => {
+              setDropActive(false);
+              onDragEnd();
+            }}
+            className={cn(
+              "touch-target flex size-7 touch-none select-none items-center justify-center rounded-control text-shell-label-tertiary hover:bg-shell-row-active hover:text-shell-label-primary [-webkit-user-select:none]",
+              dragging ? "cursor-grabbing" : "cursor-grab",
+            )}
+          >
+            <GripVertical className="h-3.5 w-3.5" aria-hidden="true" />
+          </button>
           <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
             <DropdownMenuTrigger asChild>
               <button
@@ -362,18 +391,16 @@ const DocRow = memo(function DocRow({
                 <Star className={cn("mr-2 h-4 w-4", pinned && "text-shell-accent")} />
                 {pinned ? "取消收藏" : "收藏"}
               </DropdownMenuItem>
-              {doc.parentDocument && (
-                <DropdownMenuItem
-                  onClick={() => {
-                    setMenuOpen(false);
-                    onMove(doc.id, null);
-                  }}
-                  className="cursor-pointer"
-                >
-                  <ArrowRight className="mr-2 h-4 w-4" />
-                  移到根目录
-                </DropdownMenuItem>
-              )}
+              <DropdownMenuItem
+                onClick={() => {
+                  setMenuOpen(false);
+                  onRequestMove(doc.id);
+                }}
+                className="cursor-pointer"
+              >
+                <ArrowRight className="mr-2 h-4 w-4" />
+                移动到…
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onClick={() => {
@@ -411,6 +438,7 @@ interface DocTreeProps {
   onRenameCommit: (id: string) => void;
   onRenameCancel: () => void;
   onMove: (id: string, parentDocument: string | null) => void;
+  onRequestMove: (id: string) => void;
   onDragStart: (id: string) => void;
   onDragEnd: () => void;
   onFocusRow?: (id: string) => void;
@@ -435,6 +463,7 @@ export function DocTree({
   onRenameCommit,
   onRenameCancel,
   onMove,
+  onRequestMove,
   onDragStart,
   onDragEnd,
   onFocusRow = () => {},
@@ -444,6 +473,8 @@ export function DocTree({
   const navigate = useNavigate();
   const docStore = useDocStore();
   const { user } = useUser();
+  const coarsePointer = useCoarsePointer();
+  const rowHeight = coarsePointer ? ROW_HEIGHT_COARSE : ROW_HEIGHT_FINE;
   const triggerSidebar = useRefresh((s) => s.triggerSidebar);
   const rootRef = useRef<HTMLDivElement | null>(null);
   const [range, setRange] = useState({ start: 0, end: VIRTUAL_THRESHOLD });
@@ -503,10 +534,10 @@ export function DocTree({
       const scrollerRect = scroller.getBoundingClientRect();
       const rootTop = rootRect.top - scrollerRect.top + scroller.scrollTop;
       const visibleTop = Math.max(0, scroller.scrollTop - rootTop);
-      const start = Math.max(0, Math.floor(visibleTop / ROW_HEIGHT) - OVERSCAN);
+      const start = Math.max(0, Math.floor(visibleTop / rowHeight) - OVERSCAN);
       const end = Math.min(
         rows.length,
-        Math.ceil((visibleTop + scroller.clientHeight) / ROW_HEIGHT) + OVERSCAN,
+        Math.ceil((visibleTop + scroller.clientHeight) / rowHeight) + OVERSCAN,
       );
       setRange((prev) => (prev.start === start && prev.end === end ? prev : { start, end }));
     };
@@ -518,7 +549,7 @@ export function DocTree({
       scroller.removeEventListener("scroll", update);
       observer.disconnect();
     };
-  }, [rows.length]);
+  }, [rowHeight, rows.length]);
 
   useEffect(() => {
     if (!focusedId) return;
@@ -527,20 +558,22 @@ export function DocTree({
     if (index < range.start + OVERSCAN || index >= range.end - OVERSCAN) {
       const scroller = rootRef.current?.closest<HTMLElement>("[data-sidebar-scroll]");
       if (!scroller) return;
-      scroller.scrollTop = Math.max(0, index * ROW_HEIGHT - scroller.clientHeight / 2);
+      scroller.scrollTop = Math.max(0, index * rowHeight - scroller.clientHeight / 2);
     }
-  }, [focusedId, range.end, range.start, rowIndexById]);
+  }, [focusedId, range.end, range.start, rowHeight, rowIndexById]);
 
   const visible = rows.length > VIRTUAL_THRESHOLD ? rows.slice(range.start, range.end) : rows;
-  const topPad = rows.length > VIRTUAL_THRESHOLD ? range.start * ROW_HEIGHT : 0;
+  const topPad = rows.length > VIRTUAL_THRESHOLD ? range.start * rowHeight : 0;
   const bottomPad =
-    rows.length > VIRTUAL_THRESHOLD ? (rows.length - range.end) * ROW_HEIGHT : 0;
+    rows.length > VIRTUAL_THRESHOLD ? (rows.length - range.end) * rowHeight : 0;
 
   return (
-    <div ref={rootRef} data-doc-tree>
+    <div ref={rootRef} data-doc-tree data-row-height={rowHeight}>
       {topPad > 0 && <div aria-hidden="true" style={{ height: topPad }} />}
-      {visible.map((row) => {
+      {visible.map((row, offset) => {
         const { doc } = row;
+        const absoluteIndex =
+          (rows.length > VIRTUAL_THRESHOLD ? range.start : 0) + offset;
         const onCreateChild = () => {
           if (!user) return;
           const promise = docStore.create({ userId: user.id }, "未命名", doc.id).then(
@@ -587,6 +620,8 @@ export function DocTree({
             checked={!!selected?.has(doc.id)}
             focused={focusedId === doc.id}
             entering={enteringIds.has(doc.id)}
+            rowHeight={rowHeight}
+            deferRendering={rows.length > DEFER_AFTER_ROWS && absoluteIndex >= DEFER_AFTER_ROWS}
             canDrop={canDrop}
             onExpand={() => onExpandChange?.(doc.id)}
             onOpen={() => navigate(`/documents/${doc.id}`)}
@@ -599,6 +634,7 @@ export function DocTree({
             onRenameCommit={onRenameCommit}
             onRenameCancel={onRenameCancel}
             onMove={onMove}
+            onRequestMove={onRequestMove}
             onDragStart={onDragStart}
             onDragEnd={onDragEnd}
             onFocusRow={onFocusRow}

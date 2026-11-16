@@ -2,7 +2,7 @@
 // 迁移自 app/layout.tsx（Next.js RootLayout）——原 SSR 注入的 user 改为
 // 客户端经 GET /api/me 引导（UserProvider 内置兜底），见 src/router.tsx 的守卫。
 // KernelProvider：客户端内核（docStore / uiSlots 等接缝）注入组件树，UI 不再直接 import 数据模块。
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { RouterProvider } from "react-router";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
@@ -11,6 +11,7 @@ import { UserProvider } from "@/hooks/use-user";
 import { KernelProvider } from "./kernel/react";
 import { shellUiPlugins } from "./shell/ui-plugins";
 import { router } from "./router";
+import { titleForPath } from "./shell/document-title";
 
 interface AppProps {
   /** 启动期从 /api/plugins/client-config 拿到的 disabled UI 插件 id */
@@ -22,6 +23,14 @@ const App = ({ disabledUiPlugins = [] }: AppProps) => {
     () => ({ extraPlugins: shellUiPlugins({ disabled: disabledUiPlugins }) }),
     [disabledUiPlugins],
   );
+
+  useEffect(() => {
+    const syncTitle = () => {
+      document.title = titleForPath(router.state.location.pathname);
+    };
+    syncTitle();
+    return router.subscribe(syncTitle);
+  }, []);
 
   return (
     <ThemeProvider

@@ -22,6 +22,7 @@ describe("搜索交互", () => {
     expect(source).toContain('role="listbox"');
     expect(source).toContain('role="option"');
     expect(source).toContain("aria-activedescendant");
+    expect(source).toContain("isImeConfirmingKey");
   });
 
   it("主界面提供跳到正文入口，原生交互控件有全局焦点回退", () => {

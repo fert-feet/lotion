@@ -16,6 +16,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
+import { isImeConfirmingKey } from "@/lib/ime";
 import type { ChatSession } from "@/lib/seams/doc-store";
 import { filterSessions, formatRelativeTime, sortSessionsByRecent } from "./session-utils";
 
@@ -109,7 +110,9 @@ export function SessionMenu({
                 onChange={(e) => setDraftTitle(e.target.value)}
                 onKeyDown={(e) => {
                   e.stopPropagation();
-                  if (e.key === "Enter") commitRename(session.id);
+                  if (e.key === "Enter" && !isImeConfirmingKey(e.nativeEvent)) {
+                    commitRename(session.id);
+                  }
                   if (e.key === "Escape") setRenamingId(null);
                 }}
                 onBlur={() => commitRename(session.id)}
@@ -154,7 +157,7 @@ export function SessionMenu({
                 setDraftTitle(session.title);
                 setRenamingId(session.id);
               }}
-              className="pointer-events-none shrink-0 cursor-pointer rounded p-0.5 text-shell-label-tertiary opacity-0 transition-opacity hover:bg-shell-row-hover hover:text-shell-label-primary group-hover/session:pointer-events-auto group-hover/session:opacity-100 group-focus-within/session:pointer-events-auto group-focus-within/session:opacity-100 focus-visible:pointer-events-auto focus-visible:opacity-100 [@media(hover:none)]:pointer-events-auto [@media(hover:none)]:opacity-100"
+              className="touch-target pointer-events-none shrink-0 cursor-pointer rounded p-0.5 text-shell-label-tertiary opacity-0 transition-opacity hover:bg-shell-row-hover hover:text-shell-label-primary group-hover/session:pointer-events-auto group-hover/session:opacity-100 group-focus-within/session:pointer-events-auto group-focus-within/session:opacity-100 focus-visible:pointer-events-auto focus-visible:opacity-100 [@media(hover:none)]:pointer-events-auto [@media(hover:none)]:opacity-100"
             >
               <PenLine className="h-3.5 w-3.5" />
             </button>
@@ -166,7 +169,7 @@ export function SessionMenu({
                 e.stopPropagation();
                 setPendingDelete(session);
               }}
-              className="pointer-events-none shrink-0 cursor-pointer rounded p-0.5 text-shell-label-tertiary opacity-0 transition-opacity hover:bg-destructive/10 hover:text-destructive group-hover/session:pointer-events-auto group-hover/session:opacity-100 group-focus-within/session:pointer-events-auto group-focus-within/session:opacity-100 focus-visible:pointer-events-auto focus-visible:opacity-100 [@media(hover:none)]:pointer-events-auto [@media(hover:none)]:opacity-100"
+              className="touch-target pointer-events-none shrink-0 cursor-pointer rounded p-0.5 text-shell-label-tertiary opacity-0 transition-opacity hover:bg-destructive/10 hover:text-destructive group-hover/session:pointer-events-auto group-hover/session:opacity-100 group-focus-within/session:pointer-events-auto group-focus-within/session:opacity-100 focus-visible:pointer-events-auto focus-visible:opacity-100 [@media(hover:none)]:pointer-events-auto [@media(hover:none)]:opacity-100"
             >
               <Trash2 className="h-3.5 w-3.5" />
             </button>

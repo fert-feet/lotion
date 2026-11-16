@@ -209,6 +209,7 @@ export default function MentionInput({
         key: e.key,
         shiftKey: e.shiftKey,
         isComposing: e.nativeEvent.isComposing,
+        keyCode: e.nativeEvent.keyCode,
         mentionOpen,
         itemCount: filtered.length,
         empty: emptyRef.current,

@@ -33,11 +33,14 @@ describe("侧边栏文档树", () => {
     expect(source).toContain("VIRTUAL_THRESHOLD");
     expect(source).toContain("rows.slice(range.start, range.end)");
     expect(source).not.toContain("<DocTree");
+    expect(source).toContain("const VIRTUAL_THRESHOLD = 500");
+    expect(source).toContain("contentVisibility");
+    expect(source).toContain("containIntrinsicSize");
   });
 
   it("深层缩进压缩，尾部只保留一个操作入口且键盘/触屏可见", () => {
     expect(source).toContain("visualTreeIndent(level)");
-    expect(source).toContain("pr-9");
+    expect(source).toContain("pr-14");
     expect(source).not.toContain("pr-[52px]");
     expect(source).toContain("group-focus-within:opacity-100");
     expect(source).toContain("[@media(hover:none)]:opacity-100");
@@ -45,10 +48,13 @@ describe("侧边栏文档树", () => {
   });
 
   it("文档操作覆盖重命名、收藏、移动和归档", () => {
-    for (const text of ["新建子笔记", "重命名", "收藏", "移到根目录", "移入回收站"]) {
+    for (const text of ["新建子笔记", "重命名", "收藏", "移动到…", "移入回收站"]) {
       expect(source).toContain(text);
     }
     expect(source).toContain("draggable={!batchMode && !renaming}");
+    expect(source).toContain("拖动「${title}」更改位置");
+    expect(source).toContain("GripVertical");
+    expect(source).toContain("isImeConfirmingKey");
     expect(source).toContain('dataTransfer.setData("text/lotion-doc-id"');
   });
 

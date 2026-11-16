@@ -26,6 +26,7 @@ describe("文档保存 UI", () => {
     expect(toolbar).toContain("document-title-rail");
     expect(toolbar).toContain("text-title");
     expect(toolbar).toContain("sm:text-display");
+    expect(toolbar).toContain("isImeConfirmingKey");
     expect(toolbar).toContain("flex flex-wrap items-center");
     expect(navbarTitle).not.toContain("docStore.update");
     expect(navbarTitle).not.toContain("contentEditable");

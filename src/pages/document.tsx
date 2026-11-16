@@ -83,6 +83,12 @@ const DocumentIdPage = () => {
         }
     }, [documentId, refreshKey, loadRevision, docStore, actor]);
 
+    useEffect(() => {
+        if (document) {
+            window.document.title = `${document.title || "未命名"} · Lotion`;
+        }
+    }, [document]);
+
     const onChange = useCallback((content: string) => {
         contentAutosave.schedule(content);
     }, [contentAutosave]);

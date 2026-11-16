@@ -46,6 +46,9 @@ describe("DropdownMenu 键盘行为", () => {
     const menu = document.querySelector<HTMLElement>('[role="menu"]');
     const items = [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')];
     expect(menu).not.toBeNull();
+    expect(menu!.tagName).toBe("DIV");
+    expect(menu!.getAttribute("role")).toBe("menu");
+    expect(menu!.getAttribute("aria-labelledby")).toBeTruthy();
     expect(items).toHaveLength(2);
     expect(document.activeElement).toBe(items[0]);
 
@@ -58,5 +61,36 @@ describe("DropdownMenu 键盘行为", () => {
       menu!.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
     });
     expect(onSecond).toHaveBeenCalledTimes(1);
+  });
+
+  it("鼠标打开时焦点留在触发器，ArrowDown 才进入菜单", async () => {
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    root = createRoot(host);
+
+    await act(async () => {
+      root!.render(
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild={false}>更多</DropdownMenuTrigger>
+          <DropdownMenuContent>
+            <DropdownMenuItem>第一项</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>,
+      );
+    });
+
+    const trigger = document.querySelector<HTMLButtonElement>('button[aria-haspopup="menu"]')!;
+    await act(async () => {
+      trigger.dispatchEvent(new MouseEvent("click", { bubbles: true, detail: 1 }));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    expect(document.activeElement).toBe(trigger);
+
+    await act(async () => {
+      trigger.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
+    });
+    expect(document.activeElement).toBe(
+      document.querySelector<HTMLElement>('[role="menuitem"]'),
+    );
   });
 });

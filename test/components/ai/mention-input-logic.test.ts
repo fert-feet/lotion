@@ -15,6 +15,7 @@ describe("resolveMentionKey：键盘意图", () => {
 
   it("IME 组词中一律不拦截（否则中文输入会被当成提交）", () => {
     expect(resolveMentionKey({ ...base, key: "Enter", isComposing: true })).toEqual({ kind: "ignore" });
+    expect(resolveMentionKey({ ...base, key: "Enter", keyCode: 229 })).toEqual({ kind: "ignore" });
     expect(
       resolveMentionKey({ ...base, key: "ArrowDown", isComposing: true, mentionOpen: true, itemCount: 3 }),
     ).toEqual({ kind: "ignore" });

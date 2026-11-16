@@ -29,11 +29,13 @@ import { useDialogFocus } from "@/components/ui/_focus";
 /** 中心列 grid item（会话主体构建块）。
  *  relative + @container：编辑器大纲面板的定位基准（绝对定位）与可见性基准（容器查询按列宽，
  *  而非视口宽度）——否则打开 AI 面板后大纲会浮在 AI 面板之上。 */
-function CenterColumn(props: { children?: ReactNode }) {
+function CenterColumn(props: { children?: ReactNode; inert?: boolean }) {
   // bg-background（纸张底）保持编辑器观感；shell 底色只用于侧边栏/详情栏
   return (
     <div
       style={{ gridColumn: 2 }}
+      aria-hidden={props.inert || undefined}
+      inert={props.inert || undefined}
       className="@container relative flex min-h-0 min-w-0 flex-col overflow-hidden bg-background"
     >
       {props.children}
@@ -58,16 +60,16 @@ function DetailsColumn(props: {
 }) {
   const { overlay = false, inactive = false, onClose } = props;
   const panelRef = useRef<HTMLDivElement | null>(null);
-  useDialogFocus(overlay, panelRef);
+  useDialogFocus(overlay && !inactive, panelRef);
 
   useEffect(() => {
-    if (!overlay) return;
+    if (!overlay || inactive) return;
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") onClose();
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [overlay, onClose]);
+  }, [inactive, overlay, onClose]);
 
   return (
     <div
@@ -233,6 +235,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const toggleDetails = useLayout((s) => s.toggleDetails);
   const closeDetails = useLayout((s) => s.closeDetails);
   const frameRef = useRef<HTMLDivElement | null>(null);
+  const sidebarColumnRef = useRef<HTMLDivElement | null>(null);
   // SSR 水合安全：首渲用固定宽（与服务端一致），挂载后 ResizeObserver 立即校正真实宽度
   const [viewport, setViewport] = useState(1440);
   const [sidebarClosing, setSidebarClosing] = useState(false);
@@ -305,6 +308,17 @@ export function AppShell({ children }: { children: ReactNode }) {
     return () => cancelAnimationFrame(frame);
   }, [sidebarOverlay]);
 
+  // 同一 Sidebar 兼任普通侧栏与抽屉：只在抽屉阶段提升到 Top Layer。
+  useEffect(() => {
+    if (!sidebarDrawerVisible) return;
+    const node = sidebarColumnRef.current;
+    if (!node || typeof node.showPopover !== "function") return;
+    if (!node.matches(":popover-open")) node.showPopover();
+    return () => {
+      if (node.isConnected && node.matches(":popover-open")) node.hidePopover();
+    };
+  }, [sidebarDrawerVisible]);
+
   // 选择文档或切换页面后收起窄屏抽屉；打开抽屉本身不改变 pathname，因此不会被立即关闭。
   const pathnameRef = useRef(location.pathname);
   useEffect(() => {
@@ -361,7 +375,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       ref={frameRef}
       className={
         // h-dvh + overflow-hidden：外壳恒等于视口，三列各自滚动，页面本身不滚
-        "relative grid h-dvh overflow-hidden bg-shell-bg-base transition-[grid-template-columns] duration-300 ease-[var(--ds-ease-in-out)]" +
+        "relative grid h-dvh overflow-hidden bg-shell-bg-base transition-[grid-template-columns] duration-300 ease-[var(--ds-ease-in-out)] motion-reduce:transition-none" +
         (dragging ? " transition-none" : "")
       }
       style={{ gridTemplateColumns }}
@@ -373,6 +387,10 @@ export function AppShell({ children }: { children: ReactNode }) {
     >
       {/* sidebar 槽位始终是同一个 Sidebar 实例；窄屏打开时同一节点变成 fixed 抽屉。 */}
       <div
+        ref={sidebarColumnRef}
+        {...(sidebarDrawerVisible
+          ? ({ popover: "manual" } as React.HTMLAttributes<HTMLDivElement>)
+          : {})}
         style={{ gridColumn: 1 }}
         data-sidebar-column
         data-sidebar-drawer={sidebarDrawerVisible || undefined}
@@ -380,7 +398,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         className={
           "material-sidebar min-w-0 overflow-hidden hairline-r border-shell-border " +
           (sidebarDrawerVisible
-            ? "fixed inset-y-0 left-0 z-drawer w-[min(320px,90vw)] shadow-elevation-3 transition-transform duration-200 ease-[var(--ds-ease-out)] "
+            ? "sidebar-drawer-safe fixed inset-y-0 left-0 z-drawer m-0 max-h-none max-w-none w-[min(320px,90vw)] p-0 shadow-elevation-3 transition-transform duration-200 ease-[var(--ds-ease-out)] motion-reduce:translate-x-0 motion-reduce:transition-none "
             : "relative ") +
           (sidebarDrawerVisible
             ? drawerRenderedOpen
@@ -397,7 +415,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         />
       </div>
 
-      <CenterColumn>
+      <CenterColumn inert={sidebarOverlay}>
         {hasDocument
           ? <Navbar isCollapsed={sidebarCollapsed} onResetWidth={() => toggleSidebar()} />
           : <SlimTopBar collapsed={sidebarCollapsed} onExpand={() => toggleSidebar()} />}
@@ -419,7 +437,11 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       {/* 没有详情列插件时连列壳都不渲染：否则右侧会挂一块空白壳 */}
       {hasDetailsPanel && (
-        <DetailsColumn overlay={detailsOverlay} inactive={!detailsOpen} onClose={closeDetails}>
+        <DetailsColumn
+          overlay={detailsOverlay}
+          inactive={!detailsOpen || sidebarOverlay}
+          onClose={closeDetails}
+        >
           {/* 详情列内容由 UI 插件贡献（当前是 ui-ai-panel）；0 宽时仅视觉关闭、不卸载 */}
           <DetailsPanel />
         </DetailsColumn>

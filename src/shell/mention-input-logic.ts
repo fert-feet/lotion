@@ -22,6 +22,8 @@ export interface MentionKeyInput {
   shiftKey: boolean;
   /** IME 组词中：一律不拦截 */
   isComposing: boolean;
+  /** Safari IME 确认键兜底（229 = VK_PROCESSKEY） */
+  keyCode?: number;
   mentionOpen: boolean;
   /** 当前 @ 候选条数（0 时 Enter 应该发送而不是"选中"） */
   itemCount: number;
@@ -31,7 +33,7 @@ export interface MentionKeyInput {
 
 /** 键盘意图（纯函数：可单测，不碰 DOM） */
 export function resolveMentionKey(input: MentionKeyInput): MentionKeyAction {
-  if (input.isComposing) return { kind: "ignore" };
+  if (input.isComposing || input.keyCode === 229) return { kind: "ignore" };
 
   if (input.mentionOpen && input.itemCount > 0) {
     if (input.key === "ArrowDown") return { kind: "highlight", delta: 1 };

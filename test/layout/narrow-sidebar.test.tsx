@@ -125,6 +125,9 @@ describe("窄屏侧边栏抽屉", () => {
     expect(sidebarAfter?.dataset.sidebarWide).toBe("true");
     expect(sidebarRequests).toBe(requestsBeforeOpen);
     expect(shell.querySelector('[role="dialog"][aria-label="笔记导航"]')).not.toBeNull();
+    const center = shell.children[1] as HTMLElement;
+    expect(center.hasAttribute("inert")).toBe(true);
+    expect(center.getAttribute("aria-hidden")).toBe("true");
   });
 
   it("路由变化后自动收起抽屉", async () => {
@@ -188,5 +191,8 @@ describe("窄屏侧边栏抽屉", () => {
     });
     expect(column.dataset.sidebarDrawer).toBeUndefined();
     expect(sidebar.dataset.sidebarWide).toBeUndefined();
+    const center = shell.children[1] as HTMLElement;
+    expect(center.hasAttribute("inert")).toBe(false);
+    expect(center.getAttribute("aria-hidden")).toBeNull();
   });
 });

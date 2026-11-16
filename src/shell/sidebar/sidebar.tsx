@@ -24,6 +24,7 @@ import {
 } from "./doc-tree";
 import { descendantDocIds } from "./doc-tree-model";
 import { SidebarFooter } from "./sidebar-footer";
+import { MoveDocDialog } from "./move-doc-dialog";
 import { SLOT_DETAILS_PANEL } from "../ui-plugins";
 import { Button } from "@/components/ui/button";
 import ConfirmModal from "@/components/modals/confirm-modal";
@@ -135,6 +136,8 @@ export const Sidebar = memo(function Sidebar({
   const renamingRef = useRef<string | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
   const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [movingId, setMovingId] = useState<string | null>(null);
+  const [moveAnnouncement, setMoveAnnouncement] = useState("");
 
   useDialogFocus(drawerActive, rootRef);
 
@@ -238,8 +241,9 @@ export const Sidebar = memo(function Sidebar({
     if (index < 0 || !scroller || !tree) return;
     const scrollerRect = scroller.getBoundingClientRect();
     const treeTop = tree.getBoundingClientRect().top - scrollerRect.top + scroller.scrollTop;
-    const rowTop = treeTop + index * 32;
-    if (rowTop < scroller.scrollTop || rowTop + 32 > scroller.scrollTop + scroller.clientHeight) {
+    const rowHeight = Number(tree.dataset.rowHeight) || 32;
+    const rowTop = treeTop + index * rowHeight;
+    if (rowTop < scroller.scrollTop || rowTop + rowHeight > scroller.scrollTop + scroller.clientHeight) {
       scroller.scrollTop = Math.max(0, rowTop - scroller.clientHeight / 3);
     }
   }, [visibleIds]);
@@ -379,6 +383,10 @@ export const Sidebar = memo(function Sidebar({
         setExpanded((prev) => ({ ...prev, [parentDocument]: true }));
       }
       triggerSidebar();
+      const targetLabel = parentDocument
+        ? `「${allDocs.find((item) => item.id === parentDocument)?.title || "目标页面"}」`
+        : "根目录";
+      setMoveAnnouncement(`已将「${doc.title || "无标题"}」移动到${targetLabel}`);
     });
     toast.promise(promise, {
       loading: "正在移动...",
@@ -402,10 +410,11 @@ export const Sidebar = memo(function Sidebar({
       role={drawerActive ? "dialog" : undefined}
       aria-modal={drawerActive ? "true" : undefined}
       aria-label={drawerActive ? "笔记导航" : undefined}
+      id="sidebar-shell"
       tabIndex={drawerActive ? -1 : undefined}
       data-sidebar-shell
       data-sidebar-wide={wide || undefined}
-      className="relative h-full min-h-0 overflow-hidden outline-none"
+      className="@container/sidebar relative h-full min-h-0 overflow-hidden outline-none"
     >
       <div
         ref={wideRef}
@@ -414,6 +423,7 @@ export const Sidebar = memo(function Sidebar({
         className={cn(
           "absolute inset-0 flex min-h-0 flex-col px-2 pb-2 pt-2.5",
           "transition-[opacity,transform] duration-200 ease-[var(--ds-ease-out)]",
+          "motion-reduce:translate-x-0",
           wide
             ? "pointer-events-auto translate-x-0 opacity-100"
             : "pointer-events-none -translate-x-2 opacity-0",
@@ -508,6 +518,7 @@ export const Sidebar = memo(function Sidebar({
                     onRenameCommit={commitRename}
                     onRenameCancel={cancelRename}
                     onMove={moveDoc}
+                    onRequestMove={setMovingId}
                     onDragStart={setDraggedId}
                     onDragEnd={() => setDraggedId(null)}
                     onFocusRow={setFocusedId}
@@ -543,6 +554,19 @@ export const Sidebar = memo(function Sidebar({
         )}
       </div>
 
+      <MoveDocDialog
+        docs={allDocs ?? []}
+        documentId={movingId}
+        open={movingId !== null}
+        onOpenChange={(open) => {
+          if (!open) setMovingId(null);
+        }}
+        onMove={moveDoc}
+      />
+      <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+        {moveAnnouncement}
+      </p>
+
       <div
         ref={railRef}
         aria-hidden={wide || undefined}
@@ -550,6 +574,7 @@ export const Sidebar = memo(function Sidebar({
         className={cn(
           "absolute inset-0 flex flex-col items-center gap-1 py-3",
           "transition-[opacity,transform] duration-150 ease-[var(--ds-ease-out)]",
+          "motion-reduce:scale-100",
           wide
             ? "pointer-events-none scale-95 opacity-0"
             : "pointer-events-auto scale-100 opacity-100",
@@ -559,6 +584,8 @@ export const Sidebar = memo(function Sidebar({
           type="button"
           aria-label="打开笔记列表"
           title="打开笔记列表"
+          aria-controls="sidebar-shell"
+          aria-expanded="false"
           onClick={onExpand}
           className="touch-target mb-2 flex h-9 w-9 cursor-pointer items-center justify-center rounded-card bg-ai text-ai-foreground"
         >
@@ -568,6 +595,8 @@ export const Sidebar = memo(function Sidebar({
           type="button"
           aria-label="筛选当前文档树"
           title="筛选当前文档树"
+          aria-controls="sidebar-shell"
+          aria-expanded="false"
           onClick={() => {
             setSearchExpanded(true);
             onExpand();

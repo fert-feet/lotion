@@ -8,6 +8,7 @@ import { useRefresh } from "@/hooks/use-refresh";
 import TextareaAutosize from "react-textarea-autosize";
 import useCoverImage from "../hooks/use-cover-image";
 import { VersionHistoryDialog } from "./modals/version-history-dialog";
+import { isImeConfirmingKey } from "@/lib/ime";
 
 interface ToolbarProps {
     initialData: Document;
@@ -80,6 +81,7 @@ const Toolbar = ({
     ) => {
         if (e.key === "Enter") {
             e.preventDefault();
+            if (isImeConfirmingKey(e.nativeEvent)) return;
             disableInput();
         }
     };

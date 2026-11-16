@@ -11,6 +11,7 @@ import { useDocStore } from "@/src/kernel/react";
 import { File, Search } from "@/components/icons";
 import { Dialog, DialogContent, DialogTitle } from "./ui/dialog";
 import { cn } from "@/lib/utils";
+import { isImeConfirmingKey } from "@/lib/ime";
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -148,7 +149,10 @@ const SearchCommand = () => {
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "ArrowDown") { e.preventDefault(); setHighlight((i) => Math.min(i + 1, Math.max(0, filtered.length - 1))); }
     else if (e.key === "ArrowUp") { e.preventDefault(); setHighlight((i) => Math.max(i - 1, 0)); }
-    else if (e.key === "Enter") { const hit = filtered[Math.min(highlight, filtered.length - 1)]; if (hit) onSelect(hit.id); }
+    else if (e.key === "Enter" && !isImeConfirmingKey(e.nativeEvent)) {
+      const hit = filtered[Math.min(highlight, filtered.length - 1)];
+      if (hit) onSelect(hit.id);
+    }
   };
 
   if (!isMounted) return null;

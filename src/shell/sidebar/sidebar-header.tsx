@@ -83,7 +83,10 @@ export function SidebarHeader({
   };
 
   return (
-    <div data-sidebar-header className="mb-2 flex h-7 shrink-0 items-center justify-between gap-1 px-0.5">
+    <div
+      data-sidebar-header
+      className="mb-2 flex h-7 shrink-0 items-center justify-between gap-1 px-0.5 @max-[300px]/sidebar:gap-0 @max-[300px]/sidebar:px-0"
+    >
       {/* 搜索框：Apple 的填充式搜索（放大镜内置）；收起时是左侧的放大镜图标 */}
       <div className={cn("flex min-w-0 flex-1 items-center transition-all duration-200 ease-[var(--ds-ease-in-out)]", expanded ? "max-w-full" : "max-w-6")}>
         <div

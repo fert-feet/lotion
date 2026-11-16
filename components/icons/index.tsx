@@ -213,6 +213,18 @@ export const MoreHorizontal = ({ size = 16, className, ...rest }: IconProps) => 
   </svg>
 )
 
+/** GripVertical（拖动排序/移动的专用抓手） */
+export const GripVertical = ({ size = 16, className, ...rest }: IconProps) => (
+  <svg width={size} height={size} className={className} {...rest} viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="5.5" cy="4" r="1.1" />
+    <circle cx="10.5" cy="4" r="1.1" />
+    <circle cx="5.5" cy="8" r="1.1" />
+    <circle cx="10.5" cy="8" r="1.1" />
+    <circle cx="5.5" cy="12" r="1.1" />
+    <circle cx="10.5" cy="12" r="1.1" />
+  </svg>
+)
+
 /** Undo（取自 DSH IconRefreshOutline16） */
 export const Undo = ({ size = 16, className, ...rest }: IconProps) => (
   <svg width={size} height={size} className={className} {...rest} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
