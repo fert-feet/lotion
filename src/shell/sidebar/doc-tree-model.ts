@@ -147,3 +147,17 @@ export function movableDocTargets(
     })
     .sort((a, b) => a.title.localeCompare(b.title, "zh-CN"));
 }
+
+/** “全选可见”：全部已选时清空这些可见项，否则把可见项并入选择。 */
+export function toggleVisibleSelection(
+  selected: ReadonlySet<string>,
+  visibleIds: readonly string[],
+): Set<string> {
+  const next = new Set(selected);
+  const allSelected = visibleIds.length > 0 && visibleIds.every((id) => next.has(id));
+  for (const id of visibleIds) {
+    if (allSelected) next.delete(id);
+    else next.add(id);
+  }
+  return next;
+}

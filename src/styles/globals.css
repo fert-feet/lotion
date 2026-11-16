@@ -493,6 +493,13 @@ body,
   }
 }
 
+@keyframes selection-bar-in {
+  from {
+    opacity: 0;
+    translate: 0 4px;
+  }
+}
+
 @media (prefers-reduced-motion: no-preference) {
   .dropdown-menu-popover {
     animation: menu-popover-in 100ms var(--ds-ease-out) both;

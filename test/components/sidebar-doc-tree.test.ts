@@ -23,7 +23,7 @@ describe("侧边栏文档树", () => {
     expect(source).toContain("aria-level={level + 1}");
     expect(source).toContain("aria-posinset={positionInSet}");
     expect(source).toContain("aria-setsize={setSize}");
-    expect(source).toContain("aria-selected={active}");
+    expect(source).toContain("aria-selected={batchMode ? checked : active}");
     expect(source).toMatch(/aria-expanded=\{hasChildren \? expanded : undefined\}/);
     expect(source).toMatch(/focus-visible:outline/);
   });
@@ -62,5 +62,21 @@ describe("侧边栏文档树", () => {
     expect(source).toContain("docBreadcrumb(docs, doc.id, index)");
     expect(source).toContain('aria-current={active ? "page" : undefined}');
     expect(source).toContain('path.join(" / ")');
+  });
+
+  it("批量模式使用多选树语义、上下文工具栏和可见项全选", () => {
+    const sidebar = fs.readFileSync(
+      path.join(ROOT, "src/shell/sidebar/sidebar.tsx"),
+      "utf8",
+    );
+    expect(sidebar).toContain("aria-multiselectable={batchMode || undefined}");
+    expect(sidebar).toContain('role="toolbar"');
+    expect(sidebar).toContain('aria-label="批量选择操作"');
+    expect(sidebar).toContain('aria-label="全选可见笔记"');
+    expect(sidebar).toContain('aria-label="退出批量选择"');
+    expect(source).toContain("aria-selected={batchMode ? checked : active}");
+    expect(source).toContain("aria-current={active ? \"page\" : undefined}");
+    expect(source).not.toContain('type="checkbox"');
+    expect(source).toContain("batchMode\n              ? \"hidden\"");
   });
 });

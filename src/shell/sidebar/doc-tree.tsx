@@ -6,6 +6,7 @@ import { useNavigate, useParams } from "react-router";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowRight,
+  Check,
   ChevronRight,
   FileIcon,
   GripVertical,
@@ -150,6 +151,7 @@ const DocRow = memo(function DocRow({
 
   const title = doc.title || "无标题";
   const indent = visualTreeIndent(level);
+  const rowEmphasized = batchMode ? checked : active;
   const acceptsDrop =
     draggedId !== null &&
     draggedId !== doc.id &&
@@ -162,7 +164,8 @@ const DocRow = memo(function DocRow({
       aria-level={level + 1}
       aria-posinset={positionInSet}
       aria-setsize={setSize}
-      aria-selected={active}
+      aria-selected={batchMode ? checked : active}
+      aria-current={active ? "page" : undefined}
       aria-expanded={hasChildren ? expanded : undefined}
       data-doc-id={doc.id}
       data-drop-target={dropActive || undefined}
@@ -238,7 +241,7 @@ const DocRow = memo(function DocRow({
         "group relative flex cursor-pointer select-none items-center gap-1.5 rounded-control px-1.5 text-ui leading-5 text-shell-label-primary",
         "transition-[background-color,opacity,box-shadow] duration-150 ease-[var(--ds-ease-out)]",
         "focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-shell-accent",
-        active ? "bg-shell-row-active-accent font-medium" : "hover:bg-shell-row-hover",
+        rowEmphasized ? "bg-shell-row-active-accent font-medium" : "hover:bg-shell-row-hover",
         entering && "motion-safe:animate-[sidebar-row-in_140ms_var(--ds-ease-out)]",
         dragging && "opacity-45",
         dropActive && "bg-shell-row-active-accent ring-1 ring-inset ring-shell-accent",
@@ -253,14 +256,17 @@ const DocRow = memo(function DocRow({
       )}
 
       {batchMode && (
-        <input
-          type="checkbox"
-          checked={checked}
-          onChange={() => onToggleCheck(doc.id)}
-          onClick={(event) => event.stopPropagation()}
-          aria-label={`选择「${title}」`}
-          className="h-3.5 w-3.5 shrink-0 cursor-pointer accent-shell-accent"
-        />
+        <span
+          aria-hidden="true"
+          className={cn(
+            "flex size-4 shrink-0 items-center justify-center rounded-control border",
+            checked
+              ? "border-shell-accent bg-shell-accent text-primary-foreground"
+              : "border-shell-border-l2 bg-card text-transparent",
+          )}
+        >
+          <Check className="h-3 w-3" />
+        </span>
       )}
 
       <span className="flex h-5 w-4 flex-none items-center justify-center text-shell-label-tertiary">
@@ -315,7 +321,12 @@ const DocRow = memo(function DocRow({
           className="h-6 min-w-0 flex-1 rounded-control hairline border-shell-border-l2 bg-card px-1.5 text-ui text-shell-label-primary outline-none focus:border-shell-accent/60"
         />
       ) : (
-        <span className="min-w-0 flex-1 truncate pr-14 text-ui leading-5">
+        <span
+          className={cn(
+            "min-w-0 flex-1 truncate text-ui leading-5",
+            !batchMode && "pr-14",
+          )}
+        >
           {title}
         </span>
       )}
@@ -325,7 +336,14 @@ const DocRow = memo(function DocRow({
           {relativeTime(doc.updatedAt, now)}
         </span>
 
-        <span className="relative flex items-center gap-0.5 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100">
+        <span
+          className={cn(
+            "relative flex items-center gap-0.5 transition-opacity duration-150",
+            batchMode
+              ? "hidden"
+              : "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100",
+          )}
+        >
           <button
             type="button"
             tabIndex={-1}

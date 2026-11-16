@@ -7,7 +7,7 @@
 // expanded 由父级控制（rail 的搜索按钮点击后展开侧边栏并强制展开搜索框）。
 // 插件市场入口就在这里（与 AI 助手 / 新建同一组 toolbar 图标），不再单占一整行。
 import { useEffect, useRef, useState } from "react";
-import { MoreHorizontal, Plus, Search, Sparkles, Store, X } from "@/components/icons";
+import { ListChecks, MoreHorizontal, Plus, Search, Sparkles, Store, X } from "@/components/icons";
 import { useLayout } from "@/hooks/use-layout";
 import { useHasSlot } from "@/src/kernel/react";
 import { SLOT_DETAILS_PANEL } from "../ui-plugins";
@@ -23,6 +23,7 @@ import {
 interface SidebarHeaderProps {
   /** 宽栏内容是否真实可见；rail 状态下搜索框不应抢焦点 */
   active?: boolean;
+  batchMode?: boolean;
   query: string;
   onQueryChange: (q: string) => void;
   expanded: boolean;
@@ -42,6 +43,7 @@ const iconBtn =
 
 export function SidebarHeader({
   active = true,
+  batchMode = false,
   query,
   onQueryChange,
   expanded,
@@ -81,6 +83,21 @@ export function SidebarHeader({
     onExpandedChange(false);
     onQueryChange("");
   };
+
+  if (batchMode) {
+    return (
+      <div
+        data-sidebar-header
+        className="mb-2 flex h-7 shrink-0 items-center gap-1.5 px-1 text-ui-sm text-shell-label-secondary"
+      >
+        <ListChecks className="h-4 w-4 flex-none" aria-hidden="true" />
+        <span className="font-medium text-shell-label-primary">选择笔记</span>
+        <span className="min-w-0 truncate text-caption text-shell-label-tertiary">
+          点击整行切换选择
+        </span>
+      </div>
+    );
+  }
 
   return (
     <div

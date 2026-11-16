@@ -5,7 +5,7 @@
 // 都留在本组件内，切换呈现时不卸载列表，也不会重复请求 sidebar 数据。
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router";
-import { PenLine, Plus, Search, Sparkles, Star, Store } from "@/components/icons";
+import { ListChecks, PenLine, Plus, Search, Sparkles, Star, Store, X } from "@/components/icons";
 import { toast } from "sonner";
 import { useUser } from "@/hooks/use-user";
 import { useRefresh } from "@/hooks/use-refresh";
@@ -14,6 +14,7 @@ import type { SidebarDocument } from "@/lib/seams/doc-store";
 import { useHasSlot, useActor, useDocStore } from "@/src/kernel/react";
 import { cn } from "@/lib/utils";
 import { useDialogFocus } from "@/components/ui/_focus";
+import { useRovingToolbar } from "@/hooks/use-roving-toolbar";
 import { SidebarHeader } from "./sidebar-header";
 import {
   ancestorDocIds,
@@ -22,7 +23,7 @@ import {
   visibleDocIds,
   type TreeFocusAction,
 } from "./doc-tree";
-import { descendantDocIds } from "./doc-tree-model";
+import { descendantDocIds, toggleVisibleSelection } from "./doc-tree-model";
 import { SidebarFooter } from "./sidebar-footer";
 import { MoveDocDialog } from "./move-doc-dialog";
 import { SLOT_DETAILS_PANEL } from "../ui-plugins";
@@ -121,6 +122,7 @@ export const Sidebar = memo(function Sidebar({
   const railRef = useRef<HTMLDivElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const treeRef = useRef<HTMLDivElement | null>(null);
+  const selectAllRef = useRef<HTMLInputElement | null>(null);
 
   const [allDocs, setAllDocs] = useState<SidebarDocument[] | undefined>(undefined);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -129,6 +131,7 @@ export const Sidebar = memo(function Sidebar({
   const [query, setQuery] = useState("");
   const [searchExpanded, setSearchExpanded] = useState(false);
   const [batchMode, setBatchMode] = useState(false);
+  const batchToolbar = useRovingToolbar("horizontal", batchMode);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [focusedId, setFocusedId] = useState<string | null>(null);
   const [pinnedIds, setPinnedIds] = useState<Set<string>>(new Set());
@@ -311,6 +314,26 @@ export const Sidebar = memo(function Sidebar({
     setBatchMode(false);
   };
 
+  const enterBatchMode = useCallback(() => {
+    setQuery("");
+    setSearchExpanded(false);
+    setBatchMode(true);
+  }, []);
+
+  const allVisibleSelected =
+    visibleIds.length > 0 && visibleIds.every((id) => selected.has(id));
+  const someVisibleSelected = visibleIds.some((id) => selected.has(id));
+
+  useEffect(() => {
+    if (selectAllRef.current) {
+      selectAllRef.current.indeterminate = someVisibleSelected && !allVisibleSelected;
+    }
+  }, [allVisibleSelected, someVisibleSelected]);
+
+  const toggleSelectVisible = () => {
+    setSelected((prev) => toggleVisibleSelection(prev, visibleIds));
+  };
+
   const batchDelete = () => {
     if (selected.size === 0) return;
     const ids = Array.from(selected);
@@ -431,6 +454,7 @@ export const Sidebar = memo(function Sidebar({
       >
         <SidebarHeader
           active={wide}
+          batchMode={batchMode}
           query={query}
           onQueryChange={setQuery}
           expanded={searchExpanded}
@@ -499,7 +523,12 @@ export const Sidebar = memo(function Sidebar({
                   onOpen={(id) => navigate(`/documents/${id}`)}
                   onTogglePin={togglePin}
                 />
-                <div ref={treeRef} role="tree" aria-label="笔记">
+                <div
+                  ref={treeRef}
+                  role="tree"
+                  aria-label="笔记"
+                  aria-multiselectable={batchMode || undefined}
+                >
                   <DocTree
                     docs={allDocs}
                     pinnedIds={pinnedIds}
@@ -532,8 +561,33 @@ export const Sidebar = memo(function Sidebar({
         </div>
 
         {batchMode ? (
-          <div className="flex shrink-0 items-center gap-2 hairline-t border-shell-border px-3 py-2">
-            <span className="flex-1 truncate text-ui-sm text-shell-label-secondary">
+          <div
+            ref={batchToolbar.ref}
+            role="toolbar"
+            aria-label="批量选择操作"
+            onFocusCapture={batchToolbar.onFocusCapture}
+            onKeyDown={batchToolbar.onKeyDown}
+            {...({
+              focusgroup: "toolbar wrap",
+            } as React.HTMLAttributes<HTMLDivElement>)}
+            className="motion-safe:animate-[selection-bar-in_140ms_var(--ds-ease-out)] flex shrink-0 items-center gap-2 hairline-t border-shell-border bg-shell-bg-base/80 px-2 py-1.5"
+          >
+            <label className="flex min-h-8 min-w-0 cursor-pointer items-center gap-1.5 rounded-control px-1 text-ui-sm text-shell-label-secondary hover:bg-shell-row-hover">
+              <input
+                ref={selectAllRef}
+                type="checkbox"
+                checked={allVisibleSelected}
+                onChange={toggleSelectVisible}
+                aria-label="全选可见笔记"
+                className="size-3.5 accent-shell-accent"
+              />
+              <span className="truncate">全选</span>
+            </label>
+            <span
+              className="min-w-0 flex-1 truncate text-center text-ui-sm tabular-nums text-shell-label-secondary"
+              role="status"
+              aria-live="polite"
+            >
               已选 {selected.size} 篇
             </span>
             <ConfirmModal
@@ -541,16 +595,27 @@ export const Sidebar = memo(function Sidebar({
               title={`删除这 ${selected.size} 篇笔记？`}
               description="删除后无法恢复。"
             >
-              <Button size="sm" variant="destructive" disabled={selected.size === 0} className="h-7 cursor-pointer text-ui-sm">
+              <Button
+                size="sm"
+                variant="destructive"
+                disabled={selected.size === 0}
+                className="cursor-pointer text-ui-sm"
+              >
                 删除
               </Button>
             </ConfirmModal>
-            <Button size="sm" variant="ghost" className="h-7 cursor-pointer text-ui-sm" onClick={exitBatchMode}>
-              取消
-            </Button>
+            <button
+              type="button"
+              aria-label="退出批量选择"
+              title="退出批量选择"
+              onClick={exitBatchMode}
+              className="touch-target flex size-7 flex-none cursor-pointer items-center justify-center rounded-control text-shell-label-tertiary hover:bg-shell-row-hover hover:text-shell-label-primary"
+            >
+              <X className="h-3.5 w-3.5" aria-hidden="true" />
+            </button>
           </div>
         ) : (
-          <SidebarFooter onBatchMode={() => setBatchMode(true)} />
+          <SidebarFooter onBatchMode={enterBatchMode} />
         )}
       </div>
 
@@ -614,6 +679,17 @@ export const Sidebar = memo(function Sidebar({
         >
           <Plus className="h-4 w-4" />
         </button>
+        {batchMode && (
+          <button
+            type="button"
+            aria-label={`退出批量选择，已选 ${selected.size} 篇`}
+            title={`退出批量选择（已选 ${selected.size} 篇）`}
+            onClick={exitBatchMode}
+            className="touch-target flex h-9 w-9 cursor-pointer items-center justify-center rounded-card bg-shell-row-active text-shell-label-primary hover:bg-shell-row-active"
+          >
+            <ListChecks className="h-4 w-4" aria-hidden="true" />
+          </button>
+        )}
         {hasAiPanel && (
           <button
             type="button"
@@ -641,7 +717,7 @@ export const Sidebar = memo(function Sidebar({
           <Store className="h-4 w-4" />
         </button>
         <div className="mt-auto" />
-        <SidebarFooter rail onBatchMode={() => { setBatchMode(true); onExpand(); }} />
+        <SidebarFooter rail onBatchMode={() => { enterBatchMode(); onExpand(); }} />
       </div>
     </div>
   );

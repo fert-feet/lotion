@@ -171,6 +171,10 @@ test/                       # Vitest 单测（lib/ / api/ / components/ / seams/
   抽屉在窄屏提升到 Popover Top Layer，并把正文/详情列设为 `inert`；
   文档树用扁平可视行模型，超过 500 行自动虚拟窗口，普通长列表用 `content-visibility`，第 5 层起压缩缩进；
   行菜单支持重命名/收藏/“移动到…”对话框，专用拖拽抓手可改层级
+- sidebar 底栏是 `role="toolbar"`：设置/回收站/更多为一组，账户菜单独立成组；批量操作和 `sidebar.footer.action`
+  插件动作收进“更多”，原生 focusgroup 不可用时由 `useRovingToolbar` 提供单 Tab 停点与方向键导航
+- 批量选择模式是 `aria-multiselectable` 树：头部切换为选择状态，行尾普通操作隐藏，行选择走 `aria-selected`；
+  底部是独立工具栏（全选可见 / 已选数量 / 删除确认 / 退出），进入前清空搜索避免混合状态
 - 运行时数据：`data/lotion.db`（可用 `LOTION_DB_PATH` 覆盖）、`data/uploads/`（可用 `UPLOAD_DIR` 覆盖）、
   `data/plugins/`（已安装 + AI 动态定义，可用 `LOTION_PLUGINS_DIR` 覆盖）、
   `data/plugin-market/`（发布包 / stats）与 `data/plugin-market.json`（本机市场 registry），均 gitignore

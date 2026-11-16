@@ -5,6 +5,7 @@ import {
   docBreadcrumb,
   flattenVisibleDocs,
   movableDocTargets,
+  toggleVisibleSelection,
   visualTreeIndent,
   visibleDocIds,
 } from "@/src/shell/sidebar/doc-tree-model";
@@ -56,5 +57,10 @@ describe("侧边栏扁平树模型", () => {
     expect(visualTreeIndent(4)).toBe(76);
     expect(visualTreeIndent(5)).toBe(84);
     expect(visualTreeIndent(8)).toBe(108);
+  });
+
+  it("全选可见项与清空可见项保持其他选择不变", () => {
+    expect([...toggleVisibleSelection(new Set(["x"]), ["a", "b"])]).toEqual(["x", "a", "b"]);
+    expect([...toggleVisibleSelection(new Set(["x", "a", "b"]), ["a", "b"])]).toEqual(["x"]);
   });
 });

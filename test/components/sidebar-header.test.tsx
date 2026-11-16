@@ -116,6 +116,14 @@ describe("SidebarHeader 的插件市场按钮", () => {
       header.firstElementChild?.querySelector('button[aria-label="筛选当前文档树"]'),
     ).toBeTruthy();
   });
+
+  it("批量模式把头部切换为明确的选择状态", () => {
+    renderHeader({ batchMode: true });
+    const header = container.querySelector<HTMLElement>("[data-sidebar-header]")!;
+    expect(header.textContent).toContain("选择笔记");
+    expect(header.textContent).toContain("点击整行切换选择");
+    expect(header.querySelectorAll("button")).toHaveLength(0);
+  });
 });
 
 describe("外壳里的市场入口位置", () => {

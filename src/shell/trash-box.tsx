@@ -82,21 +82,32 @@ const TrashBox = () => {
         // 高度上限由父级 PopoverContent 的 max-h 决定：搜索框固定、列表区独立滚动，
         // 回收站文档很多时不会把浮层撑出视口
         <div className="flex max-h-[inherit] flex-col text-ui">
-            <div className="gap-x-1 flex shrink-0 items-center p-2">
-                <Search className="h-4 w-4 mr-1" />
+            <div className="flex shrink-0 items-center justify-between gap-2 hairline-b border-shell-border px-2.5 py-2">
+                <p className="text-ui font-medium text-shell-label-primary">回收站</p>
+                <span className="text-caption tabular-nums text-shell-label-tertiary">
+                    {documents.length} 篇
+                </span>
+            </div>
+            <div className="flex shrink-0 items-center gap-1.5 px-2 py-1.5">
+                <Search className="h-4 w-4 text-shell-label-tertiary" aria-hidden="true" />
                 <Input
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     className="h-7 px-2 text-ui-sm"
                     placeholder="按标题筛选..."
+                    aria-label="筛选回收站"
                 />
-
             </div>
-            <div className="mt-2 min-h-0 flex-1 overflow-y-auto px-1 pb-1">
-                <p className="hidden pb-2 text-center text-ui-sm text-muted-foreground last:block">
-                    没有匹配的笔记
-                </p>
-                {filterDocuments?.map((document) => (
+            <div className="min-h-0 flex-1 overflow-y-auto px-1 pb-1">
+                {documents.length === 0 ? (
+                    <p className="px-3 py-8 text-center text-ui-sm text-shell-label-tertiary">
+                        回收站是空的
+                    </p>
+                ) : filterDocuments?.length === 0 ? (
+                    <p className="px-3 py-8 text-center text-ui-sm text-shell-label-tertiary">
+                        没有匹配的笔记
+                    </p>
+                ) : filterDocuments?.map((document) => (
                     <div
                         key={document.id}
                         role="button"
@@ -104,6 +115,7 @@ const TrashBox = () => {
                         // 行内含「恢复 / 永久删除」两个真按钮，因此整行不能用 <button>（不能嵌套）；
                         // 用 tabIndex + 键盘处理让它可达
                         onKeyDown={(e) => {
+                            if (e.target !== e.currentTarget) return;
                             if (e.key === "Enter" || e.key === " ") {
                                 e.preventDefault();
                                 handleClick(document.id);
@@ -119,14 +131,12 @@ const TrashBox = () => {
                             <button
                                 type="button"
                                 aria-label={`恢复「${document.title || "未命名"}」`}
-                                className="flex size-7 cursor-pointer items-center justify-center rounded-control bg-transparent p-0 text-shell-label-tertiary hover:bg-shell-row-active hover:text-shell-label-primary"
+                                className="touch-target flex size-7 cursor-pointer items-center justify-center rounded-control bg-transparent p-0 text-shell-label-tertiary hover:bg-shell-row-active hover:text-shell-label-primary"
                                 onClick={(e) => onRestore(e, document.id)}
+                                onKeyDown={(e) => e.stopPropagation()}
                             >
                                 <Undo className="h-3.5 w-3.5" aria-hidden="true" />
                             </button>
-                            <div>
-
-                            </div>
                             <ConfirmModal
                                 onConfirm={() => onRemove(document.id)}
                                 title={`永久删除「${document.title || "未命名"}」？`}
@@ -135,7 +145,8 @@ const TrashBox = () => {
                                 <button
                                     type="button"
                                     aria-label={`永久删除「${document.title || "未命名"}」`}
-                                    className="flex size-7 cursor-pointer items-center justify-center rounded-control border-0 bg-transparent p-0 text-shell-label-tertiary hover:bg-secondary hover:text-destructive"
+                                    className="touch-target flex size-7 cursor-pointer items-center justify-center rounded-control border-0 bg-transparent p-0 text-shell-label-tertiary hover:bg-secondary hover:text-destructive"
+                                    onKeyDown={(e) => e.stopPropagation()}
                                 >
                                     <Trash className="h-3.5 w-3.5" aria-hidden="true" />
                                 </button>
