@@ -25,7 +25,7 @@ describe("侧边栏持久实例与动效", () => {
     expect(shell).toContain("data-sidebar-drawer-open");
     expect(shell).toContain("motion-reduce:transition-none");
     expect(shell).toContain("sidebar-drawer-safe");
-    expect(shell).toContain("inert={sidebarOverlay}");
+    expect(shell).toContain("inert={sidebarOverlay || detailsOverlay}");
     expect(shell).toContain('{ popover: "manual" }');
   });
 

@@ -44,7 +44,7 @@ function ResolvedRow({ text }: { text: string }) {
 
 /** 确认卡的按钮行：右对齐，取消在左、确认在右（Apple 的对话框次序） */
 function CardActions({ children }: { children: React.ReactNode }) {
-  return <div className="mt-3 flex items-center justify-end gap-1.5">{children}</div>;
+  return <div className="mt-3 flex flex-wrap items-center justify-end gap-1.5">{children}</div>;
 }
 
 export function NoteCard({
@@ -125,7 +125,7 @@ export function NoteCard({
         <button
           type="button"
           onClick={() => onOpen(note.noteId)}
-          className="flex-none cursor-pointer text-ui-sm text-shell-accent hover:underline"
+          className="flex min-h-7 flex-none cursor-pointer items-center rounded-control px-1.5 text-ui-sm text-shell-accent hover:bg-shell-row-hover focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-shell-accent"
         >
           查看
         </button>

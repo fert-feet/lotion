@@ -143,14 +143,14 @@ async function mountPanel() {
     await act(async () => {
       await new Promise((r) => setTimeout(r, 25));
     });
-    if (document.querySelector('[aria-label^="输入"]')) break;
+    if (document.querySelector('[aria-label="给文档助手的消息"]')) break;
   }
   return router;
 }
 
 /** 找到 AI 面板的输入框（contentEditable + role=textbox）并发一条消息 */
 async function sendMessage(text: string) {
-  const editor = document.querySelector<HTMLElement>('[aria-label^="输入你的问题"], [aria-label^="输入消息"]');
+  const editor = document.querySelector<HTMLElement>('[aria-label="给文档助手的消息"]');
   expect(editor, "AI 面板的输入框没渲染出来").not.toBeNull();
   await act(async () => {
     editor!.textContent = text;
@@ -179,7 +179,7 @@ async function waitForQuestionCard() {
 
 /** 点一个按钮（按文本匹配） */
 async function clickButton(text: string) {
-  const button = Array.from(container.querySelectorAll("button")).find((b) =>
+  const button = Array.from(container.querySelectorAll<HTMLElement>("button, label")).find((b) =>
     b.textContent?.includes(text),
   );
   expect(button, `找不到按钮「${text}」`).toBeTruthy();

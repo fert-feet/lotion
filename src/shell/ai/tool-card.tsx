@@ -9,7 +9,7 @@
 //   * 默认透明、hover 才浮出底色，所以一串连续调用读起来是一条安静的日志，
 //     而不是一堆互相抢注意力的按钮；
 //   * 运行中的光效换成 .ai-running-row（柔和、无硬边），替换原 300px 色块扫过。
-import { useState } from "react";
+import { useId, useState } from "react";
 import { ChevronRight } from "@/components/icons";
 import { toolIcon } from "@/lib/tool-meta";
 import { cn } from "@/lib/utils";
@@ -17,6 +17,7 @@ import { AiDot } from "./ai-mark";
 import type { ToolCardState } from "./types";
 
 export function ToolCard({ card }: { card: ToolCardState }) {
+  const detailsId = useId();
   const [open, setOpen] = useState(false);
   const running = card.state === "running";
   const failed = card.state === "error";
@@ -27,10 +28,11 @@ export function ToolCard({ card }: { card: ToolCardState }) {
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
+        aria-controls={detailsId}
         aria-label={`工具调用 ${card.label}：${running ? "执行中" : failed ? "失败" : "完成"}`}
         className={cn(
-          "relative flex w-full cursor-pointer items-center gap-1.5 overflow-hidden rounded-card py-1 pl-2 pr-1.5 text-left",
-          "transition-colors duration-150 ease-[var(--ds-ease-out)] hover:bg-shell-row-hover",
+          "relative flex min-h-8 w-full cursor-pointer items-center gap-1.5 overflow-hidden rounded-card py-1 pl-2 pr-1.5 text-left",
+          "transition-colors duration-150 ease-[var(--ds-ease-out)] hover:bg-shell-row-hover focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-shell-accent",
           running && "ai-running-row",
         )}
       >
@@ -58,7 +60,10 @@ export function ToolCard({ card }: { card: ToolCardState }) {
         )}
       </button>
       {open && (
-        <div className="mx-2 mb-1.5 flex max-h-64 flex-col gap-2 overflow-auto rounded-card hairline border-shell-border bg-[color-mix(in_srgb,var(--foreground)_4%,transparent)] p-2.5">
+        <div
+          id={detailsId}
+          className="mx-2 mb-1.5 flex max-h-64 flex-col gap-2 overflow-auto rounded-card hairline border-shell-border bg-[color-mix(in_srgb,var(--foreground)_4%,transparent)] p-2.5"
+        >
           {card.argsText && (
             <pre className="whitespace-pre-wrap break-words font-mono text-ui-sm leading-5 text-shell-label-secondary">{card.argsText}</pre>
           )}

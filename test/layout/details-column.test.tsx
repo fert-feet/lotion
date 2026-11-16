@@ -153,6 +153,14 @@ describe("详情列布局", () => {
     expect(shell.querySelector("[data-details-column]")?.className).toContain("fixed");
     expect(shell.querySelector("[data-details-column]")?.getAttribute("role")).toBe("dialog");
     expect(shell.querySelector("[data-details-column]")?.getAttribute("aria-modal")).toBe("true");
+    expect(
+      shell.querySelector("[data-sidebar-column]")?.hasAttribute("inert"),
+      "详情浮层打开时，背景侧栏必须 inert",
+    ).toBe(true);
+    expect(
+      shell.children[1].hasAttribute("inert"),
+      "详情浮层打开时，正文必须 inert",
+    ).toBe(true);
 
     const scrim = container.querySelector<HTMLDivElement>("[data-details-scrim]");
     expect(scrim, "浮层兜底缺少点击关闭的遮罩").not.toBeNull();

@@ -86,7 +86,7 @@ function DetailsColumn(props: {
       tabIndex={props.overlay ? -1 : undefined}
       className={
         props.overlay
-          ? "material-sidebar fixed inset-y-0 right-0 z-chrome w-[min(440px,100vw)] min-w-0 overflow-hidden hairline-l border-shell-border shadow-elevation-3"
+          ? "details-overlay-safe material-sidebar fixed inset-y-0 right-0 z-chrome w-[min(440px,100vw)] min-w-0 overflow-hidden hairline-l border-shell-border shadow-elevation-3"
           : "material-sidebar min-w-0 overflow-hidden hairline-l border-shell-border"
       }
     >
@@ -395,6 +395,8 @@ export function AppShell({ children }: { children: ReactNode }) {
         data-sidebar-column
         data-sidebar-drawer={sidebarDrawerVisible || undefined}
         data-sidebar-drawer-open={sidebarDrawerVisible && drawerRenderedOpen ? true : undefined}
+        aria-hidden={(detailsOverlay && !sidebarDrawerVisible) || undefined}
+        inert={(detailsOverlay && !sidebarDrawerVisible) || undefined}
         className={
           "material-sidebar min-w-0 overflow-hidden hairline-r border-shell-border " +
           (sidebarDrawerVisible
@@ -415,7 +417,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         />
       </div>
 
-      <CenterColumn inert={sidebarOverlay}>
+      <CenterColumn inert={sidebarOverlay || detailsOverlay}>
         {hasDocument
           ? <Navbar isCollapsed={sidebarCollapsed} onResetWidth={() => toggleSidebar()} />
           : <SlimTopBar collapsed={sidebarCollapsed} onExpand={() => toggleSidebar()} />}

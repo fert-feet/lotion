@@ -14,11 +14,32 @@
 //
 // ⚠️ 文案是契约：'正在思考' / '已创建草稿「X」' / '确认保存' / '丢弃' 等被
 // test/components/ai/panel-streaming.test.tsx 直接断言，改字会破坏回归保护。
-import { memo, useCallback, useEffect, useState } from "react";
+import { memo, useCallback, useEffect, useId, useState } from "react";
 import { toast } from "sonner";
-import { AlertTriangle, Check, ChevronDown, Copy, FileText, Info, Loader2, PenLine, Plus, RefreshCw, Square, Undo } from "@/components/icons";
+import {
+  AlertTriangle,
+  Check,
+  ChevronDown,
+  Copy,
+  FileText,
+  Info,
+  Loader2,
+  MoreHorizontal,
+  PenLine,
+  Plus,
+  RefreshCw,
+  Square,
+  Undo,
+} from "@/components/icons";
 import { MarkdownText } from "@/components/markdown/MarkdownText";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { truncateMentionTitle } from "@/lib/mention";
 import { cn } from "@/lib/utils";
 import type { AiChangePreview } from "@/lib/seams/doc-store";
@@ -101,7 +122,7 @@ function RunningClock({ startedAt }: { startedAt: number }) {
     return () => clearInterval(id);
   }, [startedAt]);
   return (
-    <div className="flex items-center gap-2 text-ui-sm leading-[18px] text-shell-label-tertiary" role="status" aria-live="polite">
+    <div className="flex items-center gap-2 text-ui-sm leading-[18px] text-shell-label-tertiary">
       <AiDot size={7} running />
       <span>正在思考</span>
       {elapsed >= 15000 && <span className="tabular-nums">· {formatDuration(elapsed)}</span>}
@@ -118,8 +139,8 @@ function StopActions({
   onStopAndNewSession: () => void;
 }) {
   return (
-    <span className="flex flex-none items-center gap-1" data-stop-actions>
-      <Button variant="ghost" size="sm" onClick={onStop} className="text-shell-label-secondary">
+    <span className="flex flex-wrap items-center gap-1" data-stop-actions>
+      <Button variant="ghost" size="sm" onClick={onStop} className="touch-target text-shell-label-secondary">
         <Square className="h-2.5 w-2.5" />
         停止生成
       </Button>
@@ -128,7 +149,7 @@ function StopActions({
         size="sm"
         onClick={onStopAndNewSession}
         title="停止当前生成并开一个新对话"
-        className="text-shell-label-tertiary"
+        className="touch-target text-shell-label-tertiary"
       >
         <Plus className="h-3 w-3" />
         停止并开新对话
@@ -198,6 +219,7 @@ function QuestionCard({
   question: Question;
   onAnswer: (answers: string[], customText?: string) => void;
 }) {
+  const customId = useId();
   const [selected, setSelected] = useState<string[]>([]);
   const [custom, setCustom] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -226,54 +248,107 @@ function QuestionCard({
     );
   };
   const submit = () => {
+    if (selected.length === 0 && !(question.custom !== false && custom.trim())) return;
     setSubmitting(true);
     onAnswer(selected, question.custom === false ? undefined : custom);
   };
+  const canSubmit = selected.length > 0 || (question.custom !== false && custom.trim().length > 0);
 
   return (
-    <div className="surface-card px-3.5 py-3">
-      <p className="text-lead font-medium leading-6 text-shell-label-primary">{question.question}</p>
+    <form
+      aria-label="回答文档助手的问题"
+      onSubmit={(event) => {
+        event.preventDefault();
+        submit();
+      }}
+      className="surface-card px-3.5 py-3"
+    >
+      <p id={`${customId}-question`} className="text-lead font-medium leading-6 text-shell-label-primary">
+        {question.question}
+      </p>
       {question.header && <p className="mb-2.5 mt-0.5 text-ui-sm leading-4 text-shell-label-tertiary">{question.header}</p>}
-      <div className={cn("flex flex-col gap-1.5", !question.header && "mt-2.5")}>
+      <div
+        role={question.multiple ? "group" : "radiogroup"}
+        aria-labelledby={`${customId}-question`}
+        className={cn("flex flex-col gap-1.5", !question.header && "mt-2.5")}
+      >
         {question.options.map((opt) => {
           const active = selected.includes(opt.label);
           return (
-            <button
+            <label
               key={opt.label}
-              type="button"
-              disabled={submitting}
-              onClick={() => toggle(opt.label)}
               className={cn(
-                "cursor-pointer rounded-card hairline px-2.5 py-1.5 text-left transition-colors duration-150 ease-[var(--ds-ease-out)] disabled:cursor-default disabled:opacity-50",
+                "relative min-h-10 cursor-pointer rounded-card hairline px-2.5 py-2 text-left transition-colors duration-150 ease-[var(--ds-ease-out)] focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-shell-accent",
                 active
                   ? "border-shell-accent/50 bg-shell-accent/10"
                   : "border-shell-border-l2 hover:bg-shell-row-hover",
+                submitting && "cursor-default opacity-50",
               )}
             >
-              <span className="block text-ui font-medium leading-5 text-shell-label-primary">{opt.label}</span>
+              <input
+                type={question.multiple ? "checkbox" : "radio"}
+                name={`question-${customId}`}
+                value={opt.label}
+                checked={active}
+                disabled={submitting}
+                onChange={() => toggle(opt.label)}
+                className="sr-only"
+              />
+              <span className="flex items-center gap-2 text-ui font-medium leading-5 text-shell-label-primary">
+                <span
+                  aria-hidden="true"
+                  className={cn(
+                    "flex size-3.5 flex-none items-center justify-center rounded-full hairline border-shell-border-l2",
+                    active && "border-shell-accent",
+                  )}
+                >
+                  {active && <span className="size-1.5 rounded-full bg-shell-accent" />}
+                </span>
+                {opt.label}
+              </span>
               {opt.description && (
-                <span className="block text-ui-sm leading-4 text-shell-label-tertiary">{opt.description}</span>
+                <span className="mt-0.5 block pl-5.5 text-ui-sm leading-4 text-shell-label-tertiary">{opt.description}</span>
               )}
-            </button>
+            </label>
           );
         })}
         {question.custom !== false && (
-          <input
-            value={custom}
-            disabled={submitting}
-            onChange={(e) => setCustom(e.target.value)}
-            placeholder="自定义回答（可选）"
-            className="h-8 rounded-card hairline border-shell-border-l2 bg-transparent px-2.5 text-ui text-shell-label-primary outline-none transition-colors placeholder:text-shell-label-placeholder focus:border-shell-accent/50"
-          />
+          <>
+            <label htmlFor={customId} className="sr-only">
+              自定义回答
+            </label>
+            <input
+              id={customId}
+              name="custom-answer"
+              value={custom}
+              disabled={submitting}
+              onChange={(e) => setCustom(e.target.value)}
+              placeholder="自定义回答（可选）"
+              enterKeyHint="done"
+              className="h-9 rounded-card hairline border-shell-border-l2 bg-transparent px-2.5 text-body text-shell-label-primary outline-none transition-colors placeholder:text-shell-label-placeholder focus:border-shell-accent/50"
+            />
+          </>
         )}
       </div>
-      <div className="mt-3 flex justify-end">
-        <Button size="sm" disabled={submitting} onClick={submit}>
+      <div className="mt-3 flex items-center justify-end gap-1.5">
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          disabled={submitting}
+          onClick={() => {
+            setSubmitting(true);
+            onAnswer([]);
+          }}
+        >
+          跳过
+        </Button>
+        <Button type="submit" size="sm" disabled={submitting || !canSubmit}>
           {submitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
           提交回答
         </Button>
       </div>
-    </div>
+    </form>
   );
 }
 
@@ -338,7 +413,7 @@ function TurnActions({
   }, [hasText, turn.text]);
 
   const actionClass =
-    "cursor-pointer rounded-control px-1.5 py-0.5 text-caption text-shell-label-tertiary transition-colors hover:bg-shell-row-hover hover:text-shell-label-primary";
+    "inline-flex min-h-7 cursor-pointer items-center gap-1 rounded-control px-2 text-ui-sm text-shell-label-tertiary transition-colors hover:bg-shell-row-hover hover:text-shell-label-primary focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-shell-accent";
 
   const [preview, setPreview] = useState<AiChangePreview[] | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -360,10 +435,8 @@ function TurnActions({
       <span className="flex flex-wrap items-center gap-0.5" data-turn-actions>
         {hasText && (
           <button type="button" onClick={copy} className={actionClass} title="复制回答">
-            <span className="inline-flex items-center gap-1">
-              <Copy className="h-3 w-3" />
-              复制
-            </span>
+            <Copy className="h-3.5 w-3.5" />
+            复制
           </button>
         )}
         {turn.changedDocuments.length > 0 && turn.requestId && !turn.undone && (
@@ -373,76 +446,64 @@ function TurnActions({
             className={actionClass}
             title={`恢复这轮改动前的文档（${turn.changedDocuments.length} 篇）`}
           >
-            <span className="inline-flex items-center gap-1">
-              <Undo className="h-3 w-3" />
-              撤销本次改动
-            </span>
-          </button>
-        )}
-        {turn.changedDocuments.length > 0 && !turn.undone && (
-          <button
-            type="button"
-            onClick={() => void togglePreview()}
-            className={actionClass}
-            title="看看 AI 到底改了哪些内容"
-          >
-            <span className="inline-flex items-center gap-1">
-              {previewLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <ChevronDown className="h-3 w-3" />}
-              {preview ? "收起改动" : "查看改动"}
-            </span>
+            <Undo className="h-3.5 w-3.5" />
+            撤销本次改动
           </button>
         )}
         {turn.undone && turn.changedDocuments.length > 0 && (
-          <span className="px-1.5 py-0.5 text-caption text-shell-label-caption">已撤销本次改动</span>
+          <span className="px-2 py-1 text-ui-sm text-shell-label-caption">已撤销本次改动</span>
         )}
-        <button
-          type="button"
-          onClick={() => onRetry(turn)}
-          className={actionClass}
-          title="用同样的输入重新生成一轮"
-        >
-          <span className="inline-flex items-center gap-1">
-            <RefreshCw className="h-3 w-3" />
-            重新生成
-          </span>
-        </button>
-        <button
-          type="button"
-          onClick={() => onEditUser(turn)}
-          className={actionClass}
-          title="把这条输入放回输入框再改一改"
-        >
-          <span className="inline-flex items-center gap-1">
-            <PenLine className="h-3 w-3" />
-            编辑重发
-          </span>
-        </button>
-        {hasText && canInsertToDocument && (
-          <button
-            type="button"
-            onClick={() => onInsertToDocument(turn)}
-            className={actionClass}
-            title="把回答追加到当前打开的文档末尾"
-          >
-            <span className="inline-flex items-center gap-1">
-              <FileText className="h-3 w-3" />
-              插入本文档
-            </span>
-          </button>
-        )}
-        {hasText && (
-          <button
-            type="button"
-            onClick={() => onSaveAsNote(turn)}
-            className={actionClass}
-            title="把回答另存为一篇新笔记"
-          >
-            <span className="inline-flex items-center gap-1">
-              <Plus className="h-3 w-3" />
-              另存为笔记
-            </span>
-          </button>
-        )}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              className={actionClass}
+              aria-label="更多回答操作"
+              title="更多回答操作"
+            >
+              <MoreHorizontal className="h-3.5 w-3.5" />
+              更多
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" sideOffset={4} className="w-44">
+            {turn.changedDocuments.length > 0 && !turn.undone && (
+              <>
+                <DropdownMenuItem onClick={() => void togglePreview()}>
+                  {previewLoading ? (
+                    <Loader2 className="animate-spin" />
+                  ) : (
+                    <ChevronDown className={cn("transition-transform", preview && "rotate-180")} />
+                  )}
+                  {preview ? "收起改动" : "查看改动"}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+              </>
+            )}
+            <DropdownMenuItem onClick={() => onRetry(turn)}>
+              <RefreshCw />
+              重新生成
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onEditUser(turn)}>
+              <PenLine />
+              编辑重发
+            </DropdownMenuItem>
+            {hasText && canInsertToDocument && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => onInsertToDocument(turn)}>
+                  <FileText />
+                  插入本文档
+                </DropdownMenuItem>
+              </>
+            )}
+            {hasText && (
+              <DropdownMenuItem onClick={() => onSaveAsNote(turn)}>
+                <Plus />
+                另存为笔记
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </span>
       {preview && preview.length > 0 && (
         <div className="mt-1.5 w-full space-y-2 rounded-card hairline border-shell-border bg-[color-mix(in_srgb,var(--foreground)_4%,transparent)] p-2.5">
@@ -484,7 +545,7 @@ function TurnViewInner({ turn, onOpenDocument, onConfirmDelete, onCancelDelete, 
   const hasMeta = turn.durationMs !== null || turn.tokens !== null;
 
   return (
-    <div className="flex flex-col gap-2.5">
+    <article className="flex flex-col gap-2.5">
       {/* 用户消息：systemBlue 实底气泡、右对齐（iMessage 的语义：这是"我说的话"）。
           附件以 chip 呈现在气泡上方，正文本身不下发到界面。 */}
       <div className="flex flex-col items-end gap-1">
@@ -503,12 +564,13 @@ function TurnViewInner({ turn, onOpenDocument, onConfirmDelete, onCancelDelete, 
           </div>
         )}
         <div className="max-w-[85%] whitespace-pre-wrap break-words rounded-sheet bg-primary px-3.5 py-2 text-lead leading-[1.45] text-primary-foreground">
+          <span className="sr-only">你说：</span>
           {renderMentions(turn.userContent, onOpenDocument, true)}
         </div>
       </div>
 
       {/* AI 回合内容：严格按事件顺序；助手回答不加气泡，按正文排版 */}
-      <div className="flex flex-col gap-2">
+      <div role="group" aria-label="文档助手回答" className="flex flex-col gap-2">
         {turn.parts.map((part, i) => {
           switch (part.kind) {
             case "text":
@@ -626,7 +688,7 @@ function TurnViewInner({ turn, onOpenDocument, onConfirmDelete, onCancelDelete, 
                   aria-label={metaOpen ? "收起本次运行详情" : "查看本次运行详情（耗时与 token 用量）"}
                   title={metaOpen ? "收起运行详情" : "运行详情（耗时 / tokens）"}
                   className={cn(
-                    "flex h-5 w-5 flex-none cursor-pointer items-center justify-center rounded-control text-shell-label-caption transition-colors hover:bg-shell-row-hover hover:text-shell-label-secondary",
+                    "flex size-7 flex-none cursor-pointer items-center justify-center rounded-control text-shell-label-caption transition-colors hover:bg-shell-row-hover hover:text-shell-label-secondary",
                     metaOpen && "bg-shell-row-hover text-shell-label-secondary",
                   )}
                 >
@@ -647,7 +709,7 @@ function TurnViewInner({ turn, onOpenDocument, onConfirmDelete, onCancelDelete, 
           </div>
         )}
       </div>
-    </div>
+    </article>
   );
 }
 

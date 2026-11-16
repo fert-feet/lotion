@@ -5,18 +5,30 @@
 // SSE 事件按到达顺序归组渲染（状态流转见 ./ai/turn-reducer.ts，纯逻辑已抽出去可测）。
 //
 // 本组件只负责 I/O 与编排：请求生命周期、队列调度、滚动、确认/提问的回填。
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router";
-import { FileText, History, Loader2, Paperclip, Plus, Send, Sparkles, Square, X } from "@/components/icons";
+import {
+  ChevronDown,
+  FileText,
+  History,
+  Loader2,
+  Paperclip,
+  Plus,
+  Send,
+  Sparkles,
+  Square,
+  X,
+} from "@/components/icons";
 import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
 import { useLayout } from "@/hooks/use-layout";
 import { useUser } from "@/hooks/use-user";
 import { useRefresh } from "@/hooks/use-refresh";
 import type { ChatSession } from "@/lib/seams/doc-store";
+import { cn } from "@/lib/utils";
 import { useActor, useDocStore } from "@/src/kernel/react";
 import MentionInput, { type MentionInputHandle } from "./mention-input";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { createTurn, type Question, type SseEvent, type Turn } from "./ai/types";
 import {
   applyTurnEvent,
@@ -55,6 +67,9 @@ const HISTORY_PAGE = 40;
 const NAVIGATE_DELAY_MS = 500;
 
 const AiPanel = () => {
+  const composerId = useId();
+  const composerHintId = `${composerId}-hint`;
+  const historyId = useId();
   const docStore = useDocStore();
   const actor = useActor();
   // details 列由布局 store 控制：0 宽 = 关闭（保持挂载），>0 = 打开
@@ -71,6 +86,8 @@ const AiPanel = () => {
   // 会话作用域：全部 / 只看本文档 / 只看全局（会话可绑定到某篇文档）
   const [sessionScope, setSessionScope] = useState<"all" | "document">("all");
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [announcement, setAnnouncement] = useState("");
 
   // ---- turn 时间线 ----
   const [turns, setTurns] = useState<Turn[]>([]);
@@ -285,8 +302,10 @@ const AiPanel = () => {
 
   // ---- 滚动：粘底才跟随（原来无条件 scrollTo 底部，用户上翻读历史会被每帧打断）----
   const messagesRef = useRef<HTMLDivElement>(null);
+  const jumpToBottomRef = useRef<HTMLButtonElement>(null);
   const stickToBottomRef = useRef(true);
   const [showJumpToBottom, setShowJumpToBottom] = useState(false);
+  const [showTopFade, setShowTopFade] = useState(false);
 
   const scrollToBottom = useCallback((smooth = false) => {
     const el = messagesRef.current;
@@ -309,7 +328,18 @@ const AiPanel = () => {
     const atBottom = distance < STICK_THRESHOLD_PX;
     stickToBottomRef.current = atBottom;
     setShowJumpToBottom((prev) => (prev === !atBottom ? prev : !atBottom));
+    setShowTopFade((prev) => {
+      const next = el.scrollTop > 4;
+      return prev === next ? prev : next;
+    });
   }, []);
+
+  // 浮层随滚动隐藏时，浏览器会把焦点丢回 body。若焦点原本在「回到底部」上，
+  // 先把它交给可编程聚焦的对话区，避免键盘用户失去当前位置。
+  useEffect(() => {
+    if (showJumpToBottom || jumpToBottomRef.current !== document.activeElement) return;
+    messagesRef.current?.focus({ preventScroll: true });
+  }, [showJumpToBottom]);
 
   // 打开面板 / 新内容落地时，只有"仍贴底"才自动跟随，否则显示"回到底部"
   useEffect(() => {
@@ -396,6 +426,7 @@ const AiPanel = () => {
     currentTurnRef.current = turn;
     setTurns((prev) => [...prev, turn]);
     setLoading(true);
+    setAnnouncement("文档助手正在生成回答");
     stickToBottomRef.current = true;
 
     // 本轮已自动跳转过新建文档（只跳第一篇，避免连续创建时来回跳）
@@ -438,6 +469,7 @@ const AiPanel = () => {
         const t = currentTurnRef.current;
         if (!t || !owned() || !stillActive()) return;
         const effects = applyTurnEvent(t, event);
+        if (event.type === "turn_end") setAnnouncement("文档助手回答已完成");
         // 文本走 rAF 节流，其余事件立即提交
         if (event.type === "text") commitText();
         else commit();
@@ -490,6 +522,7 @@ const AiPanel = () => {
       if (t && t.status === "running") {
         finalizeTurn(t, "done");
         commit();
+        setAnnouncement("文档助手回答已完成");
       }
       refreshSessions(); // 刷新会话列表（首个问题会自动命名会话）
     } catch (err) {
@@ -551,6 +584,7 @@ const AiPanel = () => {
       const item = createQueuedMessage(content, activeSessionId);
       queueRef.current = enqueue(queueRef.current, item);
       setQueueItems(queueRef.current);
+      setAnnouncement("消息已加入待发送队列");
       return;
     }
 
@@ -583,6 +617,7 @@ const AiPanel = () => {
     queueSuppressedRef.current = true;
     setQueueSuppressed(true);
     abortRef.current?.abort();
+    setAnnouncement("已停止生成");
   }, []);
 
   // 停止并立刻开一个新对话（"这次不聊了 / 换个话题"一步到位）。
@@ -796,47 +831,76 @@ const AiPanel = () => {
   };
 
   // ---- 渲染：DSH DetailsPanel 头部 + turn 时间线 + 悬浮输入卡 ----
+  const starterPrompts = params.documentId
+    ? ["总结当前文档", "提炼待办事项", "列出文档大纲"]
+    : ["整理今天的笔记", "创建一篇会议纪要", "查找我的笔记"];
 
   return (
     <aside className="flex h-full min-w-0 flex-col overflow-hidden" aria-label="AI 文档助手">
+      <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+        {announcement}
+      </div>
       {/* 头部：AI 身份 = Apple Intelligence 渐变 orb（与草稿卡、思考指示同一个标识）；
           操作按钮走 <Button> 原语，拿回按压缩放与 3px 聚焦环 */}
       {/* 头部不再画第二条 hairline-b：详情列的 DetailsModeSwitch 工具条已有一道下边线，
           两道线相隔 32px 看起来像表格边框 */}
-      <div className="flex shrink-0 items-center justify-between gap-2 px-3 py-1.5">
+      <header className="flex shrink-0 items-center justify-between gap-2 px-3 py-2">
         <div className="flex min-w-0 items-center gap-2 pl-0.5">
           <AiOrb size={20} icon={<Sparkles className="h-3 w-3" />} />
-          <span className="truncate text-ui font-semibold leading-5 tracking-[-0.01em] text-shell-label-primary">
-            {sessions.find((s) => s.id === activeSessionId)?.title ?? "新对话"}
-          </span>
+          <div className="min-w-0">
+            <h2 className="truncate text-ui font-semibold leading-5 tracking-[-0.01em] text-shell-label-primary">
+              {sessions.find((s) => s.id === activeSessionId)?.title ?? "新对话"}
+            </h2>
+            <p className="truncate text-caption leading-4 text-shell-label-tertiary">
+              {params.documentId ? "已关联当前文档" : "全局文档助手"}
+            </p>
+          </div>
         </div>
         <div className="flex flex-none items-center gap-0.5">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon-sm" aria-label="历史会话" title="历史会话" className="text-shell-label-secondary">
+          <Popover open={historyOpen} onOpenChange={setHistoryOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label="历史会话"
+                aria-haspopup="dialog"
+                aria-expanded={historyOpen}
+                aria-controls={historyId}
+                title="历史会话"
+                className="touch-target text-shell-label-secondary"
+              >
                 <History className="h-4 w-4" />
               </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-72 p-0">
+            </PopoverTrigger>
+            <PopoverContent
+              id={historyId}
+              align="end"
+              sideOffset={6}
+              aria-label="历史会话"
+              className="w-[min(22rem,calc(100vw-1rem))] p-0"
+            >
               <SessionMenu
                 sessions={filterSessionsByScope(sessions, sessionScope, params.documentId)}
                 scope={sessionScope}
                 canFilterByDocument={!!params.documentId}
                 onScopeChange={setSessionScope}
                 activeSessionId={activeSessionId}
-                onSelect={(id) => setActiveSessionId(id)}
+                onSelect={(id) => {
+                  setActiveSessionId(id);
+                  setHistoryOpen(false);
+                }}
                 onRename={handleRenameSession}
                 onDelete={(id) => void handleDeleteSession(id)}
               />
-            </DropdownMenuContent>
-          </DropdownMenu>
+            </PopoverContent>
+          </Popover>
           <Button
             variant="ghost"
             size="icon-sm"
             aria-label="新增会话"
             title="新增会话"
             onClick={handleNewSession}
-            className="text-shell-label-secondary"
+            className="touch-target text-shell-label-secondary"
           >
             <Plus className="h-4 w-4" />
           </Button>
@@ -846,12 +910,12 @@ const AiPanel = () => {
             aria-label="关闭"
             title="关闭"
             onClick={closeDetails}
-            className="text-shell-label-secondary"
+            className="touch-target text-shell-label-secondary"
           >
             <X className="h-4 w-4" />
           </Button>
         </div>
-      </div>
+      </header>
 
       {/* turn 时间线：唯一滚动区。
           ⚠️ 外层这个 relative 包裹层是给底部浮层（渐隐 / 回到底部）当包含块的：
@@ -863,10 +927,10 @@ const AiPanel = () => {
           ref={messagesRef}
           onScroll={onMessagesScroll}
           role="log"
-          aria-live="polite"
-          aria-relevant="additions text"
+          aria-live="off"
           aria-label="与文档助手的对话"
-          className="h-full min-h-0 overflow-y-auto"
+          tabIndex={-1}
+          className="h-full min-h-0 overflow-y-auto outline-none"
         >
           <div className="flex min-h-full flex-col gap-4 px-3 py-4">
             {hasMoreHistory && turns.length > 0 && (
@@ -879,12 +943,28 @@ const AiPanel = () => {
               </button>
             )}
             {turns.length === 0 && !loading && (
-              <div className="flex flex-1 flex-col items-center justify-center gap-4 px-3 pb-16 text-center">
+              <div className="flex flex-1 flex-col items-center justify-center gap-4 px-3 pb-14 text-center">
                 <AiOrb size={56} icon={<Sparkles className="h-6 w-6" />} />
-                <div className="space-y-1.5">
-                  <p className="text-title font-semibold leading-7 tracking-[-0.02em] text-shell-label-primary">
+                <div className="max-w-72 space-y-1.5">
+                  <h2 className="text-title font-semibold leading-7 tracking-[-0.02em] text-shell-label-primary">
                     你好，我是你的文档助手
+                  </h2>
+                  <p className="text-ui leading-5 text-shell-label-tertiary">
+                    可以帮你总结、续写、整理文档，也能在笔记库里查找和创建内容。
                   </p>
+                </div>
+                <div className="grid w-full max-w-80 grid-cols-1 gap-1.5" aria-label="快捷提问">
+                  {starterPrompts.map((prompt) => (
+                    <button
+                      key={prompt}
+                      type="button"
+                      onClick={() => handleSendRef.current(prompt)}
+                      className="group flex min-h-9 w-full cursor-pointer items-center justify-between gap-3 rounded-control hairline border-shell-border-l2 bg-card/70 px-3 py-2 text-left text-ui-sm text-shell-label-secondary transition-colors duration-150 ease-[var(--ds-ease-out)] hover:bg-shell-row-hover hover:text-shell-label-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-shell-accent"
+                    >
+                      <span>{prompt}</span>
+                      <ChevronDown className="h-3 w-3 -rotate-90 text-shell-label-caption transition-transform group-hover:translate-x-0.5" />
+                    </button>
+                  ))}
                 </div>
               </div>
             )}
@@ -914,13 +994,29 @@ const AiPanel = () => {
             ))}
           </div>
         </div>
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-9 bg-gradient-to-t from-shell-bg-base to-transparent" />
+        <div
+          aria-hidden="true"
+          className={cn(
+            "pointer-events-none absolute inset-x-0 top-0 h-7 bg-gradient-to-b from-shell-bg-base to-transparent transition-opacity duration-150 motion-reduce:transition-none",
+            showTopFade ? "opacity-100" : "opacity-0",
+          )}
+        />
+        <div
+          aria-hidden="true"
+          className={cn(
+            "pointer-events-none absolute inset-x-0 bottom-0 h-9 bg-gradient-to-t from-shell-bg-base to-transparent transition-opacity duration-150 motion-reduce:transition-none",
+            showJumpToBottom ? "opacity-100" : "opacity-0",
+          )}
+        />
         {showJumpToBottom && (
           <button
+            ref={jumpToBottomRef}
             type="button"
             onClick={() => scrollToBottom(true)}
-            className="material-popover absolute bottom-3 left-1/2 z-popover flex h-7 -translate-x-1/2 cursor-pointer items-center gap-1 rounded-control hairline border-shell-border-l2 px-3 text-ui-sm font-medium text-shell-label-secondary shadow-elevation-2 transition-colors hover:text-shell-label-primary"
+            aria-label="回到底部，查看最新消息"
+            className="material-popover absolute bottom-3 left-1/2 z-popover flex min-h-8 -translate-x-1/2 cursor-pointer items-center gap-1.5 rounded-control hairline border-shell-border-l2 px-3 text-ui-sm font-medium text-shell-label-primary shadow-elevation-2 transition-[background-color,transform] duration-150 ease-[var(--ds-ease-out)] hover:bg-shell-row-hover active:scale-[0.97] motion-reduce:active:scale-100"
           >
+            <ChevronDown className="h-3.5 w-3.5" />
             回到底部
           </button>
         )}
@@ -929,9 +1025,12 @@ const AiPanel = () => {
       {/* 悬浮输入卡 */}
       <div className="shrink-0 px-3 pb-3 pt-1">
         {queueItems.length > 0 && (
-          <div className="mb-3 rounded-card hairline border-shell-border-l2 bg-shell-row-hover p-2.5">
+          <section
+            aria-labelledby={`${composerId}-queue`}
+            className="mb-3 rounded-card hairline border-shell-border-l2 bg-shell-row-hover p-2.5"
+          >
             <div className="mb-1.5 flex items-center justify-between gap-2">
-              <span className="text-ui-sm font-medium text-shell-label-secondary">
+              <span id={`${composerId}-queue`} className="text-ui-sm font-medium text-shell-label-secondary">
                 待发送队列（{queueItems.length}）
                 {queueSuppressed && <span className="ml-1 text-shell-label-tertiary">· 已暂停自动发送</span>}
               </span>
@@ -940,7 +1039,7 @@ const AiPanel = () => {
                   <button
                     type="button"
                     onClick={resumeQueue}
-                    className="cursor-pointer text-ui-sm text-shell-accent hover:underline"
+                    className="min-h-7 cursor-pointer rounded-control px-1.5 text-ui-sm text-shell-accent hover:bg-shell-row-active"
                   >
                     继续发送
                   </button>
@@ -948,15 +1047,15 @@ const AiPanel = () => {
                 <button
                   type="button"
                   onClick={clearQueue}
-                  className="cursor-pointer text-ui-sm text-shell-label-tertiary transition-colors hover:text-shell-label-primary"
+                  className="min-h-7 cursor-pointer rounded-control px-1.5 text-ui-sm text-shell-label-tertiary transition-colors hover:bg-shell-row-active hover:text-shell-label-primary"
                 >
                   清空
                 </button>
               </span>
             </div>
-            <div className="max-h-28 space-y-1 overflow-y-auto">
+            <ul className="max-h-28 space-y-1 overflow-y-auto" aria-label="待发送消息">
               {queueItems.map((item, index) => (
-                <div
+                <li
                   key={item.id}
                   className="flex items-center gap-2 rounded-control bg-shell-bg-base/70 px-2 py-1"
                 >
@@ -971,19 +1070,19 @@ const AiPanel = () => {
                     onClick={() => removeFromQueue(index)}
                     title="移除该条"
                     aria-label="移除这条待发送消息"
-                    className="shrink-0 cursor-pointer rounded-control p-0.5 text-shell-label-tertiary transition-colors hover:bg-shell-row-hover hover:text-shell-label-primary"
+                    className="touch-target flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-control text-shell-label-tertiary transition-colors hover:bg-shell-row-hover hover:text-shell-label-primary"
                   >
                     <X className="h-3 w-3" />
                   </button>
-                </div>
+                </li>
               ))}
-            </div>
-          </div>
+            </ul>
+          </section>
         )}
         {attachments.length > 0 && (
-          <div className="mb-2 flex flex-wrap gap-1.5">
+          <ul className="mb-2 flex flex-wrap gap-1.5" aria-label="待发送附件">
             {attachments.map((item, index) => (
-              <span
+              <li
                 key={item.name + index}
                 className="inline-flex max-w-[220px] items-center gap-1.5 rounded-card hairline border-shell-border-l2 bg-shell-row-hover px-2 py-1 text-ui-sm text-shell-label-secondary"
               >
@@ -997,22 +1096,39 @@ const AiPanel = () => {
                   title="移除附件"
                   aria-label={`移除附件 ${item.name}`}
                   onClick={() => setAttachments((prev) => prev.filter((_, i) => i !== index))}
-                  className="flex-none cursor-pointer rounded-control p-0.5 hover:text-shell-label-primary"
+                  className="touch-target flex size-7 flex-none cursor-pointer items-center justify-center rounded-control text-shell-label-tertiary hover:bg-shell-row-hover hover:text-shell-label-primary"
                 >
                   <X className="h-3 w-3" />
                 </button>
-              </span>
+              </li>
             ))}
-          </div>
+          </ul>
         )}
-        {/* 输入卡：Apple 的填充式输入区（14px 圆角 + 发丝描边 + 聚焦时加深阴影） */}
-        <div className="rounded-panel hairline border-shell-border-l2 bg-card shadow-elevation-1 transition-shadow duration-200 ease-[var(--ds-ease-out)] focus-within:shadow-elevation-2">
+        {/* 输入卡：Apple 的填充式输入区（14px 圆角 + 发丝描边 + 聚焦时加深阴影）。
+            语义上用原生 form + submit 按钮；Enter 只是快捷键，不替代原生提交路径。 */}
+        <form
+          aria-label="向文档助手发送消息"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (!loading) mentionRef.current?.submit();
+          }}
+          className="group/composer rounded-panel hairline border-shell-border-l2 bg-card shadow-elevation-1 transition-[border-color,box-shadow] duration-200 ease-[var(--ds-ease-out)] focus-within:border-shell-accent/40 focus-within:shadow-elevation-2"
+        >
+          <label htmlFor={composerId} className="sr-only">
+            给文档助手的消息
+          </label>
+          <p id={composerHintId} className="sr-only">
+            Enter 发送，Shift+Enter 换行；输入 @ 可以提及文档。生成过程中发送会加入待发送队列。
+          </p>
           <MentionInput
+            id={composerId}
             ref={mentionRef}
             onSubmit={handleSend}
             onEmptyChange={setInputEmpty}
             onEscape={loading ? handleStop : undefined}
             onRecall={handleRecall}
+            ariaLabel="给文档助手的消息"
+            ariaDescribedBy={composerHintId}
             placeholder={loading ? "正在生成，输入后自动排队发送..." : "输入你的问题，@ 可提及文档..."}
             className="px-1 pt-2"
           />
@@ -1023,6 +1139,8 @@ const AiPanel = () => {
                 type="file"
                 multiple
                 accept={ATTACHMENT_EXTENSIONS.join(",")}
+                name="attachments"
+                aria-label="选择要附加的文本文件"
                 className="hidden"
                 onChange={(e) => void handlePickFiles(e.target.files)}
               />
@@ -1047,15 +1165,16 @@ const AiPanel = () => {
             </div>
             <Button
               size="icon-sm"
+              type={loading ? "button" : "submit"}
               title={loading ? "停止生成" : "发送"}
               aria-label={loading ? "停止生成" : "发送"}
-              onClick={loading ? handleStop : () => mentionRef.current?.submit()}
+              onClick={loading ? handleStop : undefined}
               disabled={!loading && inputEmpty}
             >
               {loading ? <Square className="h-3.5 w-3.5" /> : <Send className="h-3.5 w-3.5" />}
             </Button>
           </div>
-        </div>
+        </form>
       </div>
     </aside>
   );

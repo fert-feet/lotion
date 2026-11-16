@@ -7,7 +7,7 @@ import { useDocStore } from "@/src/kernel/react";
 import { truncateMentionTitle } from "@/lib/mention";
 import { FileText } from "@/components/icons";
 import { parseMentionText, resolveMentionKey, serializeMentionEditor } from "./mention-input-logic";
-import { useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useImperativeHandle, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 
 export interface MentionInputHandle {
@@ -18,6 +18,8 @@ export interface MentionInputHandle {
 }
 
 interface MentionInputProps {
+  /** 输入框 id，供可见或视觉隐藏的 <label> 关联。 */
+  id?: string;
   /** 提交（Enter）时回调，参数为序列化后的文本（含 [@标题](id) 标记） */
   onSubmit: (text: string) => void;
   /** 内容是否为空（供外部禁用发送按钮） */
@@ -27,6 +29,10 @@ interface MentionInputProps {
   /** 空输入时按 ↑：召回上一条消息（由面板决定召回什么） */
   onRecall?: () => void;
   placeholder?: string;
+  /** 输入框可访问名称；省略时回退到 placeholder。 */
+  ariaLabel?: string;
+  /** 输入提示或错误说明。 */
+  ariaDescribedBy?: string;
   className?: string;
   ref?: React.Ref<MentionInputHandle>;
 }
@@ -42,11 +48,14 @@ const MENTION_TOKEN_RE = /@([\p{L}\p{N}_-]*)$/u;
  * - 提交时序列化为 `[@标题](文档id)` 文本（<br>/<div> 换行还原为 \n）
  */
 export default function MentionInput({
+  id,
   onSubmit,
   onEmptyChange,
   onEscape,
   onRecall,
   placeholder,
+  ariaLabel,
+  ariaDescribedBy,
   className,
   ref,
 }: MentionInputProps) {
@@ -54,6 +63,7 @@ export default function MentionInput({
   const { user } = useUser();
   const sidebarKey = useRefresh((s) => s.sidebarKey);
   const editorRef = useRef<HTMLDivElement>(null);
+  const mentionListId = useId();
   const [docs, setDocs] = useState<SidebarDocument[]>([]);
   const [mentionOpen, setMentionOpen] = useState(false);
   const [mentionQuery, setMentionQuery] = useState("");
@@ -255,18 +265,35 @@ export default function MentionInput({
   return (
     <div className={cn("relative", className)}>
       <div
+        id={id}
         ref={editorRef}
         contentEditable
         role="textbox"
         aria-multiline="true"
-        aria-label={placeholder ?? "输入消息，可用 @ 提及文档"}
+        aria-label={ariaLabel ?? placeholder ?? "输入消息，可用 @ 提及文档"}
+        aria-describedby={ariaDescribedBy}
+        aria-autocomplete="list"
+        aria-controls={mentionOpen ? mentionListId : undefined}
+        aria-expanded={mentionOpen}
+        aria-haspopup="listbox"
+        aria-activedescendant={
+          mentionOpen && filtered[highlightIndex]
+            ? `${mentionListId}-${filtered[highlightIndex].id}`
+            : undefined
+        }
+        enterKeyHint="send"
         data-placeholder={placeholder}
         onInput={handleInput}
         onKeyDown={handleKeyDown}
-        className="mention-editor max-h-32 flex-1 overflow-y-auto whitespace-pre-wrap break-words px-3 pt-2 text-lead leading-[1.5] focus:outline-none"
+        className="mention-editor max-h-32 flex-1 overflow-y-auto whitespace-pre-wrap break-words px-3 pt-2 text-body leading-[1.5] focus:outline-none"
       />
       {mentionOpen && (
-        <div className="material-popover absolute bottom-full left-0 z-popover mb-1 max-h-56 w-72 overflow-y-auto rounded-card hairline border-shell-border-l2 p-1 shadow-elevation-2">
+        <div
+          id={mentionListId}
+          role="listbox"
+          aria-label="提及文档"
+          className="material-popover absolute bottom-full left-0 z-popover mb-1 max-h-56 w-72 overflow-y-auto rounded-card hairline border-shell-border-l2 p-1 shadow-elevation-2"
+        >
           {filtered.length === 0 && (
             <div className="px-2.5 py-2 text-ui-sm text-muted-foreground">没有匹配的文档</div>
           )}
@@ -274,6 +301,8 @@ export default function MentionInput({
             <button
               key={d.id}
               type="button"
+              role="option"
+              aria-selected={i === highlightIndex}
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => insertMention(d)}
               className={cn(

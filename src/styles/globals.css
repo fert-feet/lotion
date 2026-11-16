@@ -424,6 +424,13 @@ body,
   padding-left: env(safe-area-inset-left, 0px);
 }
 
+/* 窄屏 AI 详情浮层：同样避开刘海、圆角与 Home Indicator。 */
+.details-overlay-safe {
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
 /* ---------------- 材质（vibrancy） ---------------- */
 
 /* 侧边栏 / 详情栏：半透明 + 背景模糊（macOS sidebar material） */

@@ -147,14 +147,14 @@ async function mountPanel() {
     await act(async () => {
       await new Promise((r) => setTimeout(r, 25));
     });
-    if (document.querySelector('[aria-label^="输入"]')) break;
+    if (document.querySelector('[aria-label="给文档助手的消息"]')) break;
   }
   return router;
 }
 
 /** 找到 AI 面板的输入框（contentEditable + role=textbox）并发一条消息 */
 async function sendMessage(text: string) {
-  const editor = document.querySelector<HTMLElement>('[aria-label^="输入你的问题"], [aria-label^="输入消息"]');
+  const editor = document.querySelector<HTMLElement>('[aria-label="给文档助手的消息"]');
   expect(editor, "AI 面板的输入框没渲染出来").not.toBeNull();
   await act(async () => {
     editor!.textContent = text;
@@ -185,6 +185,20 @@ describe("AI 面板流式渲染", () => {
   it("SSE 文本到达后渲染到界面上，并且回合收尾（不再永远『正在思考』）", async () => {
     mockApi();
     await mountPanel();
+
+    const form = container.querySelector<HTMLFormElement>('form[aria-label="向文档助手发送消息"]');
+    expect(form, "AI 输入区应是带可访问名称的原生 form").not.toBeNull();
+    const editor = form!.querySelector<HTMLElement>('[role="textbox"]');
+    const label = form!.querySelector<HTMLLabelElement>(`label[for="${editor?.id}"]`);
+    const send = form!.querySelector<HTMLButtonElement>('button[type="submit"]');
+    const log = container.querySelector<HTMLElement>('[role="log"]');
+    const status = container.querySelector<HTMLElement>('[role="status"][aria-live="polite"]');
+    expect(editor?.getAttribute("aria-describedby"), "输入框应关联操作提示").toBeTruthy();
+    expect(label?.textContent?.trim(), "输入框应有明确标签").toBe("给文档助手的消息");
+    expect(send, "发送必须是原生 submit 路径").not.toBeNull();
+    expect(log?.getAttribute("aria-live"), "整段流式正文不能被逐 token 播报").toBe("off");
+    expect(status, "生成状态应由独立的 polite 区域播报").not.toBeNull();
+
     await sendMessage("hi");
 
     await act(async () => {
@@ -225,6 +239,26 @@ describe("AI 面板流式渲染", () => {
       await new Promise((r) => setTimeout(r, 60));
     });
     expect(container.textContent ?? "").toContain(REPLY);
+  });
+
+  it("历史会话使用可搜索的 dialog，而不是把输入框和行按钮塞进 menu", async () => {
+    mockApi();
+    await mountPanel();
+    const trigger = container.querySelector<HTMLButtonElement>('button[aria-label="历史会话"]');
+    expect(trigger).not.toBeNull();
+    expect(trigger?.getAttribute("aria-haspopup")).toBe("dialog");
+    expect(trigger?.getAttribute("aria-expanded")).toBe("false");
+
+    await act(async () => {
+      trigger!.click();
+    });
+
+    const dialog = document.querySelector<HTMLElement>('[role="dialog"][aria-label="历史会话"]');
+    expect(dialog, "历史会话应使用普通 dialog 语义").not.toBeNull();
+    expect(dialog?.querySelector('input[type="search"]'), "会话多时应提供搜索框").not.toBeNull();
+    expect(dialog?.querySelector("ul"), "会话列表应使用列表语义").not.toBeNull();
+    expect(document.querySelector('[role="menu"]'), "历史会话不是单一命令菜单").toBeNull();
+    expect(trigger?.getAttribute("aria-expanded")).toBe("true");
   });
 });
 
