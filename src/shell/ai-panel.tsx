@@ -599,7 +599,7 @@ const AiPanel = () => {
    *  `if (!content || !activeSessionId) return` 会静默返回。
    *  症状：「回答提问后没反应」—— 卡片已被 markQuestionAnswered 改成「已回答」（看起来
    *  像发生了什么），请求却根本没发出去，对话就停在那里。
-   *  与 sendMessageRef / stopAndNewSessionRef 同一套路。 */
+   *  与 sendMessageRef 同一套路。 */
   const handleSendRef = useRef<(content: string) => void>(() => {});
   handleSendRef.current = handleSend;
 
@@ -619,22 +619,6 @@ const AiPanel = () => {
     abortRef.current?.abort();
     setAnnouncement("已停止生成");
   }, []);
-
-  // 停止并立刻开一个新对话（"这次不聊了 / 换个话题"一步到位）。
-  // 用 ref 转发到"最新一次渲染的函数"，既保证 TurnView 的 memo 不被新函数引用击穿，
-  // 又能读到最新的 sessions / activeSessionId（否则会拿到过期闭包）。
-  const stopAndNewSessionRef = useRef<() => void>(() => {});
-  stopAndNewSessionRef.current = () => {
-    handleStop();
-    const active = sessions.find((s) => s.id === activeSessionId);
-    if (active?.title === "新对话") {
-      // 已经是空的新对话：不重复创建，明确告诉用户（否则会以为按钮坏了）
-      toast.info("当前已经是新对话，已停止生成");
-      return;
-    }
-    void handleNewSession();
-  };
-  const handleStopAndNewSession = useCallback(() => stopAndNewSessionRef.current(), []);
 
   // 恢复队列自动发送（用户点「继续发送」）
   const resumeQueue = useCallback(() => {
@@ -844,17 +828,12 @@ const AiPanel = () => {
           操作按钮走 <Button> 原语，拿回按压缩放与 3px 聚焦环 */}
       {/* 头部不再画第二条 hairline-b：详情列的 DetailsModeSwitch 工具条已有一道下边线，
           两道线相隔 32px 看起来像表格边框 */}
-      <header className="flex shrink-0 items-center justify-between gap-2 px-3 py-2">
+      <header className="flex shrink-0 items-center justify-between gap-2 px-3 py-1.5">
         <div className="flex min-w-0 items-center gap-2 pl-0.5">
-          <AiOrb size={20} icon={<Sparkles className="h-3 w-3" />} />
-          <div className="min-w-0">
-            <h2 className="truncate text-ui font-semibold leading-5 tracking-[-0.01em] text-shell-label-primary">
-              {sessions.find((s) => s.id === activeSessionId)?.title ?? "新对话"}
-            </h2>
-            <p className="truncate text-caption leading-4 text-shell-label-tertiary">
-              {params.documentId ? "已关联当前文档" : "全局文档助手"}
-            </p>
-          </div>
+          <AiOrb size={18} icon={<Sparkles className="h-3 w-3" />} />
+          <h2 className="truncate text-ui font-semibold leading-5 tracking-[-0.01em] text-shell-label-primary">
+            {sessions.find((s) => s.id === activeSessionId)?.title ?? "新对话"}
+          </h2>
         </div>
         <div className="flex flex-none items-center gap-0.5">
           <Popover open={historyOpen} onOpenChange={setHistoryOpen}>
@@ -943,26 +922,25 @@ const AiPanel = () => {
               </button>
             )}
             {turns.length === 0 && !loading && (
-              <div className="flex flex-1 flex-col items-center justify-center gap-4 px-3 pb-14 text-center">
-                <AiOrb size={56} icon={<Sparkles className="h-6 w-6" />} />
-                <div className="max-w-72 space-y-1.5">
+              <div className="flex flex-1 flex-col items-center justify-center gap-3.5 px-3 pb-14 text-center">
+                <AiOrb size={48} icon={<Sparkles className="h-5 w-5" />} />
+                <div className="max-w-72 space-y-1">
                   <h2 className="text-title font-semibold leading-7 tracking-[-0.02em] text-shell-label-primary">
                     你好，我是你的文档助手
                   </h2>
-                  <p className="text-ui leading-5 text-shell-label-tertiary">
-                    可以帮你总结、续写、整理文档，也能在笔记库里查找和创建内容。
+                  <p className="text-ui-sm leading-5 text-shell-label-tertiary">
+                    总结、续写、整理，或在整个笔记库中查找内容。
                   </p>
                 </div>
-                <div className="grid w-full max-w-80 grid-cols-1 gap-1.5" aria-label="快捷提问">
+                <div className="flex w-full max-w-80 flex-wrap justify-center gap-1.5" aria-label="快捷提问">
                   {starterPrompts.map((prompt) => (
                     <button
                       key={prompt}
                       type="button"
                       onClick={() => handleSendRef.current(prompt)}
-                      className="group flex min-h-9 w-full cursor-pointer items-center justify-between gap-3 rounded-control hairline border-shell-border-l2 bg-card/70 px-3 py-2 text-left text-ui-sm text-shell-label-secondary transition-colors duration-150 ease-[var(--ds-ease-out)] hover:bg-shell-row-hover hover:text-shell-label-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-shell-accent"
+                      className="min-h-8 cursor-pointer rounded-control bg-secondary px-2.5 text-ui-sm text-shell-label-secondary transition-colors duration-150 ease-[var(--ds-ease-out)] hover:bg-shell-row-active hover:text-shell-label-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-shell-accent"
                     >
-                      <span>{prompt}</span>
-                      <ChevronDown className="h-3 w-3 -rotate-90 text-shell-label-caption transition-transform group-hover:translate-x-0.5" />
+                      {prompt}
                     </button>
                   ))}
                 </div>
@@ -982,8 +960,6 @@ const AiPanel = () => {
                 onDiscardDraft={handleDiscardDraft}
                 onAnswerQuestion={handleQuestionAnswer}
                 onRetry={handleRetry}
-                onStop={handleStop}
-                onStopAndNewSession={handleStopAndNewSession}
                 onUndo={handleUndo}
                 onPreviewChanges={handlePreviewChanges}
                 onEditUser={handleEditUser}
@@ -1157,21 +1133,26 @@ const AiPanel = () => {
               {loading ? (
                 <span className="flex min-w-0 items-center gap-1.5">
                   <Loader2 className="h-3 w-3 flex-none animate-spin" />
-                  <span className="truncate">正在生成…（Esc 停止）</span>
+                  <span className="truncate">正在生成…</span>
                 </span>
-              ) : (
-                <span className="truncate pl-1 text-shell-label-caption">Enter 发送</span>
-              )}
+              ) : null}
             </div>
             <Button
-              size="icon-sm"
+              size={loading ? "sm" : "icon-sm"}
               type={loading ? "button" : "submit"}
               title={loading ? "停止生成" : "发送"}
               aria-label={loading ? "停止生成" : "发送"}
               onClick={loading ? handleStop : undefined}
               disabled={!loading && inputEmpty}
             >
-              {loading ? <Square className="h-3.5 w-3.5" /> : <Send className="h-3.5 w-3.5" />}
+              {loading ? (
+                <>
+                  <Square className="h-3 w-3" />
+                  停止
+                </>
+              ) : (
+                <Send className="h-3.5 w-3.5" />
+              )}
             </Button>
           </div>
         </form>

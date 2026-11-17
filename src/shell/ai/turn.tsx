@@ -10,7 +10,8 @@
 //   * 助手回答**不加气泡**，按正文排版（贴近 Siri / Apple Intelligence 的呈现），
 //     它与卡片之间的区分靠留白与卡片自身的发丝边，而不是再套一层圆角容器；
 //   * AI 的身份由 <AiOrb> 渐变承担，思考中是一个呼吸的渐变点；
-//   * 耗时 / tokens 这类开发者元信息从常驻行收进 ⓘ 披露区，默认不抢注意力。
+//   * 连续工具调用合并为一条默认收起的过程日志；已完成任务、多篇引用也按需展开；
+//   * 复制 / 撤销 / 重试 / 插入 / 运行详情等次级操作统一收进回合末尾的一个菜单。
 //
 // ⚠️ 文案是契约：'正在思考' / '已创建草稿「X」' / '确认保存' / '丢弃' 等被
 // test/components/ai/panel-streaming.test.tsx 直接断言，改字会破坏回归保护。
@@ -28,7 +29,6 @@ import {
   PenLine,
   Plus,
   RefreshCw,
-  Square,
   Undo,
 } from "@/components/icons";
 import { MarkdownText } from "@/components/markdown/MarkdownText";
@@ -43,7 +43,7 @@ import {
 import { truncateMentionTitle } from "@/lib/mention";
 import { cn } from "@/lib/utils";
 import type { AiChangePreview } from "@/lib/seams/doc-store";
-import type { Question, TodoItem, Turn } from "./types";
+import type { Question, TodoItem, ToolCardState, Turn } from "./types";
 import { formatDuration } from "./types";
 import { ToolCard } from "./tool-card";
 import { NoteCard } from "./note-card";
@@ -69,9 +69,6 @@ interface TurnProps {
     customText?: string,
   ) => void;
   onRetry: (turn: Turn) => void;
-  /** 停止本轮生成（用户点「停止」/「停止并开新对话」） */
-  onStop: () => void;
-  onStopAndNewSession: () => void;
   /** 撤销本轮 AI 对文档的改动 */
   onUndo: (turn: Turn) => void;
   /** 拉取本轮改动的改动前后对照（懒加载，点「查看改动」时才请求） */
@@ -130,46 +127,55 @@ function RunningClock({ startedAt }: { startedAt: number }) {
   );
 }
 
-/** 回合内的停止操作：显式文字按钮（用户明确要求"点中断"要看得见，不做 hover 才现身） */
-function StopActions({
-  onStop,
-  onStopAndNewSession,
-}: {
-  onStop: () => void;
-  onStopAndNewSession: () => void;
-}) {
+/** 连续工具调用合并成一条过程日志；完成态默认收起，运行态自动展开。 */
+function ToolActivityGroup({ cards }: { cards: ToolCardState[] }) {
+  const running = cards.some((card) => card.state === "running");
+  const failed = cards.some((card) => card.state === "error");
+  const [open, setOpen] = useState(running);
+
+  useEffect(() => {
+    if (running) setOpen(true);
+  }, [running]);
+
   return (
-    <span className="flex flex-wrap items-center gap-1" data-stop-actions>
-      <Button variant="ghost" size="sm" onClick={onStop} className="touch-target text-shell-label-secondary">
-        <Square className="h-2.5 w-2.5" />
-        停止生成
-      </Button>
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={onStopAndNewSession}
-        title="停止当前生成并开一个新对话"
-        className="touch-target text-shell-label-tertiary"
-      >
-        <Plus className="h-3 w-3" />
-        停止并开新对话
-      </Button>
-    </span>
+    <details
+      open={open}
+      onToggle={(event) => {
+        const next = event.currentTarget.open;
+        if (next !== open) setOpen(next);
+      }}
+      className="group/activity"
+    >
+      <summary className="flex min-h-8 cursor-pointer list-none items-center gap-2 rounded-control px-1 text-ui-sm text-shell-label-tertiary transition-colors hover:bg-shell-row-hover hover:text-shell-label-secondary focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-shell-accent [&::-webkit-details-marker]:hidden">
+        {running ? (
+          <AiDot size={7} running />
+        ) : failed ? (
+          <AlertTriangle className="h-3.5 w-3.5 flex-none text-destructive" />
+        ) : (
+          <Check className="h-3.5 w-3.5 flex-none" />
+        )}
+        <span className="min-w-0 flex-1 truncate">
+          {running ? `正在执行 ${cards.length} 项操作` : `${cards.length} 项工具操作`}
+        </span>
+        <ChevronDown className="h-3 w-3 flex-none transition-transform group-open/activity:rotate-180" />
+      </summary>
+      <div className="ml-2 mt-0.5 flex flex-col gap-0.5 border-l border-shell-border pl-2">
+        {cards.map((card) => <ToolCard key={card.seq} card={card} />)}
+      </div>
+    </details>
   );
 }
 
 /** 任务清单卡片（对齐 SiYuan todo_write：多步任务进度跟踪） */
-function TodoCard({ items }: { items: TodoItem[] }) {
+function TodoCard({ items, running }: { items: TodoItem[]; running: boolean }) {
   const statusLabel: Record<TodoItem["status"], string> = {
     pending: "待办",
     in_progress: "进行中",
     completed: "已完成",
     cancelled: "已取消",
   };
-  return (
-    <div className="surface-card px-3 py-2.5">
-      <p className="mb-2 text-ui-sm font-medium text-shell-label-secondary">任务清单</p>
-      <ul className="flex flex-col gap-1.5">
+  const list = (
+    <ul className="flex flex-col gap-1.5">
         {items.map((item, i) => (
           <li key={i} className="flex items-center gap-2 text-ui leading-5">
             {/* 勾/叉是图标字形而非可读正文：16px 圆圈里 10px 才是正确视觉重量
@@ -206,8 +212,26 @@ function TodoCard({ items }: { items: TodoItem[] }) {
             </span>
           </li>
         ))}
-      </ul>
-    </div>
+    </ul>
+  );
+  if (running) {
+    return (
+      <div className="surface-card px-3 py-2.5">
+        <p className="mb-2 text-ui-sm font-medium text-shell-label-secondary">任务清单</p>
+        {list}
+      </div>
+    );
+  }
+  const completed = items.filter((item) => item.status === "completed").length;
+  return (
+    <details className="group/todo">
+      <summary className="flex min-h-8 cursor-pointer list-none items-center gap-2 rounded-control px-1 text-ui-sm text-shell-label-tertiary transition-colors hover:bg-shell-row-hover hover:text-shell-label-secondary focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-shell-accent [&::-webkit-details-marker]:hidden">
+        <Check className="h-3.5 w-3.5 flex-none" />
+        <span className="min-w-0 flex-1">任务清单 · {completed}/{items.length} 已完成</span>
+        <ChevronDown className="h-3 w-3 flex-none transition-transform group-open/todo:rotate-180" />
+      </summary>
+      <div className="mt-1 rounded-card bg-shell-row-hover/60 px-3 py-2">{list}</div>
+    </details>
   );
 }
 
@@ -226,7 +250,7 @@ function QuestionCard({
 
   if (question.answered) {
     return (
-      <div className="surface-card flex items-start gap-2 px-3 py-2.5">
+      <div className="flex items-start gap-2 px-1 py-0.5">
         <Check className="mt-0.5 h-3.5 w-3.5 flex-none text-success" />
         <div className="min-w-0">
           <p className="text-ui-sm leading-5 text-shell-label-tertiary">{question.question}</p>
@@ -381,6 +405,43 @@ function NoticeCard({ level, message, onRetry }: { level: "warning" | "error"; m
   );
 }
 
+/** 引用默认只占一条低调线索；多篇时用原生 details 按需展开。 */
+function ReferenceTrail({
+  references,
+  onOpenDocument,
+}: {
+  references: Turn["references"];
+  onOpenDocument: (id: string) => void;
+}) {
+  const chips = (items: Turn["references"]) => (
+    <div className="flex flex-wrap gap-1.5">
+      {items.map((ref) => (
+        <button
+          key={ref.noteId}
+          type="button"
+          onClick={() => onOpenDocument(ref.noteId)}
+          className="inline-flex min-h-7 max-w-[240px] cursor-pointer items-center gap-1.5 rounded-control bg-shell-row-hover px-2 text-ui-sm text-shell-label-secondary transition-colors hover:bg-shell-row-active hover:text-shell-accent focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-shell-accent"
+        >
+          <FileText className="h-3.5 w-3.5 shrink-0" />
+          <span className="truncate">{ref.title}</span>
+        </button>
+      ))}
+    </div>
+  );
+
+  if (references.length === 1) return chips(references);
+  return (
+    <details className="group/references">
+      <summary className="flex min-h-8 cursor-pointer list-none items-center gap-2 rounded-control px-1 text-ui-sm text-shell-label-tertiary transition-colors hover:bg-shell-row-hover hover:text-shell-label-secondary focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-shell-accent [&::-webkit-details-marker]:hidden">
+        <FileText className="h-3.5 w-3.5 flex-none" />
+        <span className="min-w-0 flex-1">参考了 {references.length} 篇笔记</span>
+        <ChevronDown className="h-3 w-3 flex-none transition-transform group-open/references:rotate-180" />
+      </summary>
+      <div className="mt-1 px-1">{chips(references)}</div>
+    </details>
+  );
+}
+
 /** 回合级操作条（复制 / 撤销 / 查看改动 / 重新生成 / 编辑重发 / 插入本文档 / 另存为笔记） */
 function TurnActions({
   turn,
@@ -391,6 +452,9 @@ function TurnActions({
   onEditUser,
   onInsertToDocument,
   onSaveAsNote,
+  hasMeta,
+  metaOpen,
+  onToggleMeta,
 }: {
   turn: Turn;
   canInsertToDocument: boolean;
@@ -400,6 +464,9 @@ function TurnActions({
   onEditUser: (turn: Turn) => void;
   onInsertToDocument: (turn: Turn) => void;
   onSaveAsNote: (turn: Turn) => void;
+  hasMeta: boolean;
+  metaOpen: boolean;
+  onToggleMeta: () => void;
 }) {
   const hasText = turn.text.trim().length > 0;
   const copy = useCallback(async () => {
@@ -413,7 +480,7 @@ function TurnActions({
   }, [hasText, turn.text]);
 
   const actionClass =
-    "inline-flex min-h-7 cursor-pointer items-center gap-1 rounded-control px-2 text-ui-sm text-shell-label-tertiary transition-colors hover:bg-shell-row-hover hover:text-shell-label-primary focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-shell-accent";
+    "flex size-7 cursor-pointer items-center justify-center rounded-control text-shell-label-tertiary transition-colors hover:bg-shell-row-hover hover:text-shell-label-primary focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-shell-accent";
 
   const [preview, setPreview] = useState<AiChangePreview[] | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -432,53 +499,48 @@ function TurnActions({
 
   return (
     <>
-      <span className="flex flex-wrap items-center gap-0.5" data-turn-actions>
-        {hasText && (
-          <button type="button" onClick={copy} className={actionClass} title="复制回答">
-            <Copy className="h-3.5 w-3.5" />
-            复制
-          </button>
-        )}
-        {turn.changedDocuments.length > 0 && turn.requestId && !turn.undone && (
-          <button
-            type="button"
-            onClick={() => onUndo(turn)}
-            className={actionClass}
-            title={`恢复这轮改动前的文档（${turn.changedDocuments.length} 篇）`}
-          >
-            <Undo className="h-3.5 w-3.5" />
-            撤销本次改动
-          </button>
-        )}
-        {turn.undone && turn.changedDocuments.length > 0 && (
-          <span className="px-2 py-1 text-ui-sm text-shell-label-caption">已撤销本次改动</span>
-        )}
+      <span className="flex justify-end" data-turn-actions>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
               type="button"
               className={actionClass}
-              aria-label="更多回答操作"
-              title="更多回答操作"
+              aria-label="回答操作"
+              title="回答操作"
             >
               <MoreHorizontal className="h-3.5 w-3.5" />
-              更多
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" sideOffset={4} className="w-44">
-            {turn.changedDocuments.length > 0 && !turn.undone && (
-              <>
-                <DropdownMenuItem onClick={() => void togglePreview()}>
-                  {previewLoading ? (
-                    <Loader2 className="animate-spin" />
-                  ) : (
-                    <ChevronDown className={cn("transition-transform", preview && "rotate-180")} />
-                  )}
-                  {preview ? "收起改动" : "查看改动"}
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-              </>
+          <DropdownMenuContent align="end" sideOffset={4} className="w-48">
+            {hasText && (
+              <DropdownMenuItem onClick={() => void copy()}>
+                <Copy />
+                复制回答
+              </DropdownMenuItem>
             )}
+            {turn.changedDocuments.length > 0 && turn.requestId && !turn.undone && (
+              <DropdownMenuItem onClick={() => onUndo(turn)}>
+                <Undo />
+                撤销本次改动
+              </DropdownMenuItem>
+            )}
+            {turn.undone && turn.changedDocuments.length > 0 && (
+              <DropdownMenuItem disabled>
+                <Undo />
+                已撤销本次改动
+              </DropdownMenuItem>
+            )}
+            {turn.changedDocuments.length > 0 && !turn.undone && (
+              <DropdownMenuItem onClick={() => void togglePreview()}>
+                {previewLoading ? (
+                  <Loader2 className="animate-spin" />
+                ) : (
+                  <ChevronDown className={cn("transition-transform", preview && "rotate-180")} />
+                )}
+                {preview ? "收起改动对照" : "查看改动对照"}
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => onRetry(turn)}>
               <RefreshCw />
               重新生成
@@ -488,19 +550,25 @@ function TurnActions({
               编辑重发
             </DropdownMenuItem>
             {hasText && canInsertToDocument && (
-              <>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => onInsertToDocument(turn)}>
-                  <FileText />
-                  插入本文档
-                </DropdownMenuItem>
-              </>
+              <DropdownMenuItem onClick={() => onInsertToDocument(turn)}>
+                <FileText />
+                插入本文档
+              </DropdownMenuItem>
             )}
             {hasText && (
               <DropdownMenuItem onClick={() => onSaveAsNote(turn)}>
                 <Plus />
                 另存为笔记
               </DropdownMenuItem>
+            )}
+            {hasMeta && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={onToggleMeta}>
+                  <Info />
+                  {metaOpen ? "收起运行详情" : "运行详情"}
+                </DropdownMenuItem>
+              </>
             )}
           </DropdownMenuContent>
         </DropdownMenu>
@@ -536,7 +604,7 @@ function TurnActions({
   );
 }
 
-function TurnViewInner({ turn, onOpenDocument, onConfirmDelete, onCancelDelete, onConfirmMove, onCancelMove, onConfirmDraft, onDiscardDraft, onAnswerQuestion, onRetry, onStop, onStopAndNewSession, onUndo, onPreviewChanges, onEditUser, onInsertToDocument, onSaveAsNote, canInsertToDocument }: TurnProps) {
+function TurnViewInner({ turn, onOpenDocument, onConfirmDelete, onCancelDelete, onConfirmMove, onCancelMove, onConfirmDraft, onDiscardDraft, onAnswerQuestion, onRetry, onUndo, onPreviewChanges, onEditUser, onInsertToDocument, onSaveAsNote, canInsertToDocument }: TurnProps) {
   const running = turn.status === "running";
   const lastPartIndex = turn.parts.length - 1;
   const trailingText = turn.parts[lastPartIndex]?.kind === "text";
@@ -571,72 +639,97 @@ function TurnViewInner({ turn, onOpenDocument, onConfirmDelete, onCancelDelete, 
 
       {/* AI 回合内容：严格按事件顺序；助手回答不加气泡，按正文排版 */}
       <div role="group" aria-label="文档助手回答" className="flex flex-col gap-2">
-        {turn.parts.map((part, i) => {
-          switch (part.kind) {
-            case "text":
-              return (
-                // 正文的字号/行高/颜色由 .md-content 一处决定（components/markdown/markdown.css），
-                // 这里再挂 text-lead / leading 会形成两套真相源
-                <div key={i}>
-                  <MarkdownText
-                    text={part.text}
-                    streaming={running && i === lastPartIndex}
-                    onOpenDocument={onOpenDocument}
-                  />
-                </div>
-              );
-            case "tool": {
-              const card = turn.tools.find((c) => c.seq === part.seq);
-              return card ? <ToolCard key={i} card={card} /> : null;
+        {(() => {
+          const nodes: React.ReactNode[] = [];
+          for (let i = 0; i < turn.parts.length;) {
+            const part = turn.parts[i];
+            if (part.kind === "tool") {
+              const cards: ToolCardState[] = [];
+              const start = i;
+              while (i < turn.parts.length && turn.parts[i]?.kind === "tool") {
+                const current = turn.parts[i];
+                const card = current?.kind === "tool"
+                  ? turn.tools.find((item) => item.seq === current.seq)
+                  : undefined;
+                if (card) cards.push(card);
+                i += 1;
+              }
+              if (cards.length === 1) {
+                nodes.push(<ToolCard key={`tool-${start}`} card={cards[0]} />);
+              } else if (cards.length > 1) {
+                nodes.push(<ToolActivityGroup key={`tool-group-${start}`} cards={cards} />);
+              }
+              continue;
             }
-            case "note": {
-              const note = turn.notes[part.index];
-              if (!note) return null;
-              return (
-                <NoteCard
-                  key={i}
-                  note={note}
-                  onOpen={onOpenDocument}
-                  onConfirmDelete={onConfirmDelete}
-                  onCancelDelete={onCancelDelete}
-                  onConfirmMove={onConfirmMove}
-                  onCancelMove={onCancelMove}
-                  onConfirmDraft={onConfirmDraft}
-                  onDiscardDraft={onDiscardDraft}
-                />
-              );
+            switch (part.kind) {
+              case "text":
+                nodes.push(
+                  // 正文的字号/行高/颜色由 .md-content 一处决定（components/markdown/markdown.css），
+                  // 这里再挂 text-lead / leading 会形成两套真相源
+                  <div key={`text-${i}`}>
+                    <MarkdownText
+                      text={part.text}
+                      streaming={running && i === lastPartIndex}
+                      onOpenDocument={onOpenDocument}
+                    />
+                  </div>,
+                );
+                break;
+              case "note": {
+                const note = turn.notes[part.index];
+                if (note) {
+                  nodes.push(
+                    <NoteCard
+                      key={`note-${i}`}
+                      note={note}
+                      onOpen={onOpenDocument}
+                      onConfirmDelete={onConfirmDelete}
+                      onCancelDelete={onCancelDelete}
+                      onConfirmMove={onConfirmMove}
+                      onCancelMove={onCancelMove}
+                      onConfirmDraft={onConfirmDraft}
+                      onDiscardDraft={onDiscardDraft}
+                    />,
+                  );
+                }
+                break;
+              }
+              case "todo":
+                if (turn.todos.length > 0) {
+                  nodes.push(<TodoCard key={`todo-${i}`} items={turn.todos} running={running} />);
+                }
+                break;
+              case "question": {
+                const question = turn.questions[part.index];
+                if (question) {
+                  nodes.push(
+                    <QuestionCard
+                      key={`question-${i}`}
+                      question={question}
+                      onAnswer={(answers, customText) =>
+                        onAnswerQuestion(turn.id, part.index, question, answers, customText)}
+                    />,
+                  );
+                }
+                break;
+              }
+              case "warning": {
+                const message = turn.warnings[part.index];
+                if (message) {
+                  nodes.push(<NoticeCard key={`warning-${i}`} level="warning" message={message} />);
+                }
+                break;
+              }
             }
-            case "todo":
-              return turn.todos.length > 0 ? <TodoCard key={i} items={turn.todos} /> : null;
-            case "question": {
-              const q = turn.questions[part.index];
-              if (!q) return null;
-              return (
-                <QuestionCard
-                  key={i}
-                  question={q}
-                  onAnswer={(answers, customText) => onAnswerQuestion(turn.id, part.index, q, answers, customText)}
-                />
-              );
-            }
-            case "warning": {
-              const message = turn.warnings[part.index];
-              return message ? <NoticeCard key={i} level="warning" message={message} /> : null;
-            }
+            i += 1;
           }
-        })}
+          return nodes;
+        })()}
 
-        {/* 还没吐出任何文本时的思考指示 —— 并给出**显式**的停止入口：
-            此前只有输入框右侧一个无文字的方块图标，用户找不到"终止对话" */}
+        {/* 停止入口固定在输入区；这里只保留安静的运行状态，避免同一回合出现两套按钮。 */}
         {running && !trailingText && (
-          <div className="flex flex-wrap items-center gap-2">
-            <RunningClock startedAt={turn.createdAt} />
-            <StopActions onStop={onStop} onStopAndNewSession={onStopAndNewSession} />
-          </div>
+          <RunningClock startedAt={turn.createdAt} />
         )}
-
-        {/* 已经在吐字了也能停：贴在最后一轮内容下方 */}
-        {running && trailingText && <StopActions onStop={onStop} onStopAndNewSession={onStopAndNewSession} />}
 
         {/* 失败卡：错误事件或请求失败都走这里（原实现只有 toast，回合还一直转圈） */}
         {turn.status === "error" && (
@@ -649,23 +742,10 @@ function TurnViewInner({ turn, onOpenDocument, onConfirmDelete, onCancelDelete, 
 
         {/* 引用 chips：AI 读取/涉及的笔记 */}
         {turn.references.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 pt-0.5">
-            {turn.references.map((ref) => (
-              <button
-                key={ref.noteId}
-                type="button"
-                onClick={() => onOpenDocument(ref.noteId)}
-                className="inline-flex max-w-[240px] cursor-pointer items-center gap-1.5 rounded-control bg-[color-mix(in_srgb,var(--shell-accent)_12%,transparent)] px-2 py-0.5 text-ui-sm font-medium text-shell-accent transition-colors hover:bg-[color-mix(in_srgb,var(--shell-accent)_20%,transparent)]"
-              >
-                <span className="shrink-0" aria-hidden="true">📄</span>
-                <span className="truncate">{ref.title}</span>
-              </button>
-            ))}
-          </div>
+          <ReferenceTrail references={turn.references} onOpenDocument={onOpenDocument} />
         )}
 
-        {/* 回合 footer：ⓘ 披露运行详情（耗时 / tokens）+ 回合级操作。
-            失败回合由上方错误卡承载，这里不重复。 */}
+        {/* 回合 footer：所有次级操作统一收进一个菜单，正文后只留一个操作入口。 */}
         {turn.status === "done" && (
           <div className="flex flex-col gap-1 pt-0.5">
             {metaOpen && hasMeta && (
@@ -679,22 +759,7 @@ function TurnViewInner({ turn, onOpenDocument, onConfirmDelete, onCancelDelete, 
                 )}
               </p>
             )}
-            <div className="flex flex-wrap items-center gap-x-1 gap-y-1">
-              {hasMeta && (
-                <button
-                  type="button"
-                  onClick={() => setMetaOpen((v) => !v)}
-                  aria-expanded={metaOpen}
-                  aria-label={metaOpen ? "收起本次运行详情" : "查看本次运行详情（耗时与 token 用量）"}
-                  title={metaOpen ? "收起运行详情" : "运行详情（耗时 / tokens）"}
-                  className={cn(
-                    "flex size-7 flex-none cursor-pointer items-center justify-center rounded-control text-shell-label-caption transition-colors hover:bg-shell-row-hover hover:text-shell-label-secondary",
-                    metaOpen && "bg-shell-row-hover text-shell-label-secondary",
-                  )}
-                >
-                  <Info className="h-3.5 w-3.5" />
-                </button>
-              )}
+            <div>
               <TurnActions
                 turn={turn}
                 canInsertToDocument={canInsertToDocument}
@@ -704,6 +769,9 @@ function TurnViewInner({ turn, onOpenDocument, onConfirmDelete, onCancelDelete, 
                 onEditUser={onEditUser}
                 onInsertToDocument={onInsertToDocument}
                 onSaveAsNote={onSaveAsNote}
+                hasMeta={hasMeta}
+                metaOpen={metaOpen}
+                onToggleMeta={() => setMetaOpen((value) => !value)}
               />
             </div>
           </div>
