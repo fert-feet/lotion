@@ -157,6 +157,22 @@ describe("ConfirmModal（销毁类确认）", () => {
     expect(buttons.some((b) => b.textContent?.trim() === "取消")).toBe(true);
   });
 
+  it("危险确认使用紧凑弹窗、左对齐信息和独立操作栏", () => {
+    open(
+      <ConfirmModal onConfirm={() => {}}>
+        <button type="button">永久删除</button>
+      </ConfirmModal>,
+    );
+
+    const panel = document.querySelector<HTMLElement>('[role="alertdialog"]');
+    expect(panel?.className).toContain("max-w-sm");
+    expect(panel?.firstElementChild?.className).toContain("text-left");
+    expect(panel?.lastElementChild?.className).toContain("hairline-t");
+    for (const button of panel?.querySelectorAll("button") ?? []) {
+      expect(button.className).toContain("min-w-20");
+    }
+  });
+
   it("调用方可点名对象并改写后果说明", () => {
     open(
       <ConfirmModal

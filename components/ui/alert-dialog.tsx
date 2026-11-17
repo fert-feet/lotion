@@ -8,18 +8,44 @@ import { cn } from "@/lib/utils";
 import { Slot } from "./_primitives";
 import { useDialogFocus } from "./_focus";
 
-// titleId：AlertDialogTitle 挂 id，Content 用 aria-labelledby 指回来（读屏要念出「删除什么」）
-interface Ctx { open: boolean; setOpen: (v: boolean) => void; titleId: string; }
+// titleId / descriptionId：Content 用 aria-labelledby + aria-describedby 把标题与后果一起交给读屏。
+interface Ctx {
+  open: boolean;
+  setOpen: (v: boolean) => void;
+  titleId: string;
+  descriptionId: string;
+  hasDescription: boolean;
+  setHasDescription: (present: boolean) => void;
+}
 
 /** 对话框按钮基础样式（与 components/ui/button.tsx 的 Apple 按钮语言一致） */
 const btnBase =
   "inline-flex h-8 shrink-0 cursor-pointer select-none items-center justify-center gap-1.5 whitespace-nowrap rounded-control px-3.5 text-ui font-medium leading-none transition-[background-color,box-shadow,transform] duration-150 ease-[var(--ds-ease-out)] outline-none active:scale-[0.97] focus-visible:ring-[3px] focus-visible:ring-ring";
-const Ctx = createContext<Ctx>({ open: false, setOpen: () => {}, titleId: "" });
+const Ctx = createContext<Ctx>({
+  open: false,
+  setOpen: () => {},
+  titleId: "",
+  descriptionId: "",
+  hasDescription: false,
+  setHasDescription: () => {},
+});
 
 function AlertDialog({ open, onOpenChange, children }: { open?: boolean; onOpenChange?: (v: boolean) => void; children: ReactNode }) {
   const [inner, setInner] = useState(false);
+  const [hasDescription, setHasDescription] = useState(false);
   const titleId = useId();
-  const value = useMemo<Ctx>(() => ({ open: open ?? inner, setOpen: (v) => { if (open === undefined) setInner(v); onOpenChange?.(v); }, titleId }), [open, inner, onOpenChange, titleId]);
+  const descriptionId = useId();
+  const value = useMemo<Ctx>(() => ({
+    open: open ?? inner,
+    setOpen: (v) => {
+      if (open === undefined) setInner(v);
+      onOpenChange?.(v);
+    },
+    titleId,
+    descriptionId,
+    hasDescription,
+    setHasDescription,
+  }), [open, inner, onOpenChange, titleId, descriptionId, hasDescription]);
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 
@@ -34,7 +60,7 @@ function AlertDialogTrigger({ asChild = true, children, className, onClick, ...p
 }
 
 function AlertDialogContent({ className, children, ...props }: HTMLAttributes<HTMLDivElement> & { children: ReactNode }) {
-  const { open, setOpen, titleId } = useContext(Ctx);
+  const { open, setOpen, titleId, descriptionId, hasDescription } = useContext(Ctx);
   const panelRef = useRef<HTMLDivElement | null>(null);
   useDialogFocus(open, panelRef);
   useEffect(() => {
@@ -53,6 +79,7 @@ function AlertDialogContent({ className, children, ...props }: HTMLAttributes<HT
         role="alertdialog"
         aria-modal="true"
         aria-labelledby={titleId || undefined}
+        aria-describedby={hasDescription ? descriptionId : undefined}
         tabIndex={-1}
         className={cn(
           "material-popover relative z-10 w-full max-w-md rounded-sheet hairline border-shell-border-l2 p-6 shadow-elevation-3 outline-none",
@@ -73,7 +100,18 @@ function AlertDialogTitle({ className, children }: { className?: string; childre
   const { titleId } = useContext(Ctx);
   return <h2 id={titleId} className={cn("text-lead font-semibold leading-6 tracking-[-0.01em] text-shell-label-primary", className)}>{children}</h2>;
 }
-const AlertDialogDescription = ({ className, children }: { className?: string; children: ReactNode }) => <p className={cn("text-ui leading-5 text-shell-label-tertiary", className)}>{children}</p>;
+function AlertDialogDescription({ className, children }: { className?: string; children: ReactNode }) {
+  const { descriptionId, setHasDescription } = useContext(Ctx);
+  useEffect(() => {
+    setHasDescription(true);
+    return () => setHasDescription(false);
+  }, [setHasDescription]);
+  return (
+    <p id={descriptionId} className={cn("text-ui leading-5 text-shell-label-tertiary", className)}>
+      {children}
+    </p>
+  );
+}
 
 function AlertDialogAction({ asChild = true, children, className, variant = "default", onClick, ...props }: HTMLAttributes<HTMLButtonElement> & { asChild?: boolean; variant?: "default" | "destructive"; children: ReactNode }) {
   const { setOpen } = useContext(Ctx);

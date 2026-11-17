@@ -590,8 +590,9 @@ export const Sidebar = memo(function Sidebar({
             </span>
             <ConfirmModal
               onConfirm={batchDelete}
-              title={`删除这 ${selected.size} 篇笔记？`}
-              description="删除后无法恢复。"
+              title={`删除 ${selected.size} 篇笔记？`}
+              description={`所选 ${selected.size} 篇笔记会永久删除，且无法恢复。`}
+              confirmText={`删除 ${selected.size} 篇`}
             >
               <Button
                 size="sm"

@@ -19,6 +19,7 @@ import {
   AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
+  AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
@@ -104,6 +105,7 @@ describe("AlertDialog 语义", () => {
       <AlertDialog open>
         <AlertDialogContent>
           <AlertDialogTitle>永久删除这篇笔记？</AlertDialogTitle>
+          <AlertDialogDescription>删除后无法恢复。</AlertDialogDescription>
           <AlertDialogFooter>
             <AlertDialogCancel>取消</AlertDialogCancel>
             <AlertDialogAction variant="destructive">删除</AlertDialogAction>
@@ -117,6 +119,9 @@ describe("AlertDialog 语义", () => {
     expect(panel!.getAttribute("aria-modal")).toBe("true");
     const labelledBy = panel!.getAttribute("aria-labelledby");
     expect(panel!.querySelector(`#${labelledBy}`)?.textContent).toBe("永久删除这篇笔记？");
+    const describedBy = panel!.getAttribute("aria-describedby");
+    expect(panel!.querySelector(`#${describedBy}`)?.textContent).toBe("删除后无法恢复。");
+    expect(document.activeElement?.textContent?.trim(), "危险确认默认聚焦安全动作").toBe("取消");
   });
 });
 
