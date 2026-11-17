@@ -13,8 +13,7 @@ import { SidebarHeader } from "@/src/shell/sidebar/sidebar-header";
 import { useLayout } from "@/hooks/use-layout";
 import { UserProvider } from "@/hooks/use-user";
 import { KernelProvider } from "@/src/kernel/react";
-import { _resetClientKernelForTest, bootClientKernel } from "@/src/kernel/client";
-import { shellUiPlugins } from "@/src/shell/ui-plugins";
+import { _resetClientKernelForTest } from "@/src/kernel/client";
 import { routes } from "@/src/router";
 
 let container: HTMLDivElement;
@@ -23,8 +22,7 @@ let root: Root;
 beforeEach(() => {
   container = document.createElement("div");
   document.body.appendChild(container);
-  // 内核是进程级单例：每个用例都从干净的内核开始，否则上一个用例的
-  // 组合清单（是否带 ui-ai-panel）会污染“有没有 AI 入口/详情列”的判定。
+  // 内核是进程级单例：每个用例都从干净的内核开始。
   _resetClientKernelForTest();
   // 全新 store 状态：避免上一个用例把 details 打开（AI 按钮会变成 ai 底色）
   useLayout.setState({ sidebar: 264, details: 0, narrow: false, narrowExpanded: false });
@@ -93,8 +91,6 @@ describe("SidebarHeader 的插件市场按钮", () => {
   });
 
   it("一级操作保持搜索、更多、新建三项，AI 与市场收进更多菜单", async () => {
-    // 头部现在按插槽有无决定是否渲染 AI 入口，所以先把带 ui-ai-panel 的内核装好
-    await bootClientKernel({ extraPlugins: shellUiPlugins() }).ready;
     renderHeader();
     const header = container.querySelector("[data-sidebar-header]");
     expect(header, "头部根节点缺少 data-sidebar-header").not.toBeNull();
@@ -133,7 +129,7 @@ describe("外壳里的市场入口位置", () => {
     const router = createMemoryRouter(routes, { initialEntries: ["/documents/d1"] });
     await act(async () => {
       root.render(
-        <KernelProvider options={{ extraPlugins: shellUiPlugins() }}>
+        <KernelProvider>
           <UserProvider initialUser={null}>
             <RouterProvider router={router} />
           </UserProvider>

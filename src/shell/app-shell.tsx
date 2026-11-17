@@ -3,7 +3,7 @@
 // 三栏 shell（移植自 DSH packages/client/ui-layout/src/client/AppFrame.tsx 设计）：
 // grid 轨道（sidebar | center | details）、拖拽手柄（pointer capture + rAF 节流）、
 // 让步链（columns.ts）、窄屏自动折叠。sidebar 槽位按让步结果渲染（折叠时是 56px rail，
-// 保持挂载）；details 槽位保持挂载，0 宽时仅视觉关闭；窗口放不下三栏时降级为右侧浮层
+// 保持挂载）；内建 AI details 列保持挂载，0 宽时仅视觉关闭；窗口放不下三栏时降级为右侧浮层
 // （不是可选模式，而是让步链触发的兜底）。
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
@@ -22,8 +22,7 @@ import {
 import { useLayout } from "@/hooks/use-layout";
 import Sidebar from "./sidebar/sidebar";
 import Navbar from "./navbar";
-import { useHasSlot, useSlot } from "@/src/kernel/react";
-import { SLOT_DETAILS_PANEL } from "./ui-plugins";
+import { LazyAiPanel } from "./lazy-panels";
 import { useDialogFocus } from "@/components/ui/_focus";
 
 /** 中心列 grid item（会话主体构建块）。
@@ -41,12 +40,6 @@ function CenterColumn(props: { children?: ReactNode; inert?: boolean }) {
       {props.children}
     </div>
   );
-}
-
-/** 详情列内容：从 uiSlots 取（无插件贡献时渲染空列，而不是崩掉）。 */
-function DetailsPanel() {
-  const panel = useSlot(SLOT_DETAILS_PANEL);
-  return <>{panel ?? null}</>;
 }
 
 /** 详情列 grid item；宽度 0 时保持子树挂载（关闭不卸载）。
@@ -267,10 +260,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   const colsRef = useRef(cols);
   colsRef.current = cols;
   const sidebarColumnWidth = cols.sidebar;
-  // 详情列是否存在由插件决定：ui-ai-panel 被用户在设置里禁用时槽位无贡献者，
-  // 此时"打开"不成立——否则详情列会作为一块空白壳挂在右边（入口能点、打开没内容）。
-  const hasDetailsPanel = useHasSlot(SLOT_DETAILS_PANEL);
-  const detailsOpen = hasDetailsPanel && details > 0;
+  // AI 面板是 shell 的内建能力，不参与插件启停；details 宽度只控制显隐。
+  const detailsOpen = details > 0;
   /** 浮层：只有让步链把 details 压成 0（窗口放不下三栏）时才发生，不再是一个可切换的模式 */
   const detailsOverlay = detailsOpen && cols.details === 0;
   /** details 作为真实网格列时的宽度（浮层时占 0 列，但仍挂载） */
@@ -348,8 +339,6 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   // ⌘J / Ctrl+J：开合右侧 AI 面板（对齐 DSH 的 details 列快捷键）
   useEffect(() => {
-    // 没有详情列插件时快捷键不接管：⌘J 不应"打开一列空的"
-    if (!hasDetailsPanel) return;
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "j") {
         e.preventDefault();
@@ -358,7 +347,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [toggleDetails, hasDetailsPanel]);
+  }, [toggleDetails]);
 
   // 拖拽基准：抓取时定格当前渲染宽，整个手势期间冻结，dx 不叠加。
   const sidebarBase = useRef(0);
@@ -437,17 +426,14 @@ export function AppShell({ children }: { children: ReactNode }) {
         />
       )}
 
-      {/* 没有详情列插件时连列壳都不渲染：否则右侧会挂一块空白壳 */}
-      {hasDetailsPanel && (
-        <DetailsColumn
-          overlay={detailsOverlay}
-          inactive={!detailsOpen || sidebarOverlay}
-          onClose={closeDetails}
-        >
-          {/* 详情列内容由 UI 插件贡献（当前是 ui-ai-panel）；0 宽时仅视觉关闭、不卸载 */}
-          <DetailsPanel />
-        </DetailsColumn>
-      )}
+      <DetailsColumn
+        overlay={detailsOverlay}
+        inactive={!detailsOpen || sidebarOverlay}
+        onClose={closeDetails}
+      >
+        {/* AI 面板由 shell 直接拥有，但内部组件仍懒加载；0 宽时仅视觉关闭、不卸载 */}
+        <LazyAiPanel />
+      </DetailsColumn>
 
       {/* 抽屉遮罩与抽屉使用同一个显隐阶段，关闭时一起退场。 */}
       {sidebarDrawerVisible && (

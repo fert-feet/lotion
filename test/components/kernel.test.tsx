@@ -4,6 +4,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { act, useEffect, useState, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
+import fs from "node:fs";
+import path from "node:path";
 import type { Context as KernelContext, PluginEntry } from "@/lib/kernel";
 import { requireUiSlots } from "@/lib/seams/ui-slots";
 import type { UiDocStore } from "@/lib/seams/doc-store";
@@ -143,32 +145,26 @@ describe("src/kernel 客户端内核", () => {
   });
 });
 
-describe("src/shell/ui-plugins 内置 UI 插件清单", () => {
-  it("shellUiPlugins 把 AI 面板注册进 details.panel 插槽（AppShell 不再硬编码面板）", async () => {
-    const { shellUiPlugins, SLOT_DETAILS_PANEL } = await import("@/src/shell/ui-plugins");
-    const { bootClientKernel, _resetClientKernelForTest: reset } = await import("@/src/kernel/client");
-    reset();
-
-    const kernel = bootClientKernel({ extraPlugins: shellUiPlugins() });
-    await kernel.ready;
-
-    expect(kernel.load.mounted.map((m) => m.id)).toContain("ui-ai-panel");
-    expect(kernel.uiSlots.get(SLOT_DETAILS_PANEL)).toBeDefined();
-    // 注意：不要对整个 entries() 做 toEqual（Vitest 的 pretty-format 会遍历 React 元素，
-    // 触及 Cordis 的严格属性访问而抛错）——只取 id 比较
-    expect(kernel.uiSlots.entries().map((entry) => entry.id)).toEqual(["ai-panel"]);
-    reset();
+describe("UI 插槽与内建 AI 面板的边界", () => {
+  it("AI 面板由 AppShell 直接拥有，不再有内置 UI 插件清单", async () => {
+    const root = path.resolve(import.meta.dirname, "../..");
+    const shell = fs.readFileSync(path.join(root, "src/shell/app-shell.tsx"), "utf8");
+    const slots = fs.readFileSync(path.join(root, "src/shell/ui-plugins.tsx"), "utf8");
+    expect(shell).toContain("<LazyAiPanel />");
+    expect(shell).not.toContain("useHasSlot");
+    expect(shell).not.toContain("SLOT_DETAILS_PANEL");
+    expect(slots).not.toContain("shellUiPlugins");
+    expect(slots).not.toContain("ai-panel");
   });
 
   it("没有 UI 插件时插槽为空（渲染方不需要知道有哪些插件）", async () => {
     const { bootClientKernel, _resetClientKernelForTest: reset } = await import("@/src/kernel/client");
-    const { SLOT_DETAILS_PANEL } = await import("@/src/shell/ui-plugins");
     reset();
 
     const kernel = bootClientKernel();
     await kernel.ready;
 
-    expect(kernel.uiSlots.get(SLOT_DETAILS_PANEL)).toBeUndefined();
+    expect(kernel.uiSlots.get("details.panel")).toBeUndefined();
     reset();
   });
 });

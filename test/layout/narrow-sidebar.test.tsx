@@ -8,7 +8,6 @@ import { UserProvider } from "@/hooks/use-user";
 import { useLayout } from "@/hooks/use-layout";
 import { KernelProvider } from "@/src/kernel/react";
 import { _resetClientKernelForTest } from "@/src/kernel/client";
-import { shellUiPlugins } from "@/src/shell/ui-plugins";
 import { routes } from "@/src/router";
 
 let container: HTMLDivElement;
@@ -44,7 +43,7 @@ async function mountShell() {
   const router = createMemoryRouter(routes, { initialEntries: ["/documents"] });
   await act(async () => {
     root.render(
-      <KernelProvider options={{ extraPlugins: shellUiPlugins() }}>
+      <KernelProvider>
         <UserProvider initialUser={null}>
           <RouterProvider router={router} />
         </UserProvider>

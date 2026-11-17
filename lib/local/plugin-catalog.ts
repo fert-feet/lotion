@@ -24,7 +24,8 @@ export interface PluginCatalogEntry {
   configFields?: readonly PluginConfigField[];
 }
 
-/** 内置插件清单（顺序 = 设置界面展示顺序：核心 → 功能 → 路由 → UI） */
+/** 内置插件清单（顺序 = 设置界面展示顺序：核心 → 功能 → 路由）。
+ *  AI 助手是产品内建能力，不属于可启停插件。 */
 export const PLUGIN_CATALOG: readonly PluginCatalogEntry[] = [
   {
     id: "http-routes",
@@ -170,15 +171,6 @@ export const PLUGIN_CATALOG: readonly PluginCatalogEntry[] = [
     version: BUILTIN_PLUGIN_VERSION,
     core: false,
     capabilities: ["httpRoutes"],
-  },
-  {
-    id: "ui-ai-panel",
-    title: "AI 助手面板",
-    description: "详情栏的 AI 对话面板（禁用后 AI 入口与详情列一并消失）。",
-    scope: "ui",
-    version: BUILTIN_PLUGIN_VERSION,
-    core: false,
-    capabilities: ["uiSlots"],
   },
 ];
 

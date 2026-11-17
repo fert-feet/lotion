@@ -18,7 +18,6 @@ import { createRoot, type Root } from "react-dom/client";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { UserProvider } from "@/hooks/use-user";
 import { KernelProvider } from "@/src/kernel/react";
-import { shellUiPlugins } from "@/src/shell/ui-plugins";
 import { routes } from "@/src/router";
 
 const ROOT = path.resolve(import.meta.dirname, "../..");
@@ -83,9 +82,9 @@ describe("三栏外壳的滚动结构", () => {
   async function mountShell(): Promise<HTMLDivElement> {
     const router = createMemoryRouter(routes, { initialEntries: ["/documents/d1"] });
     await act(async () => {
-      // 与 src/app.tsx 相同的装配：内核 + 内置 UI 插件（详情栏面板由插件贡献）
+      // 与 src/app.tsx 相同的装配：AI 面板是 shell 内建能力，不需要 UI 插件。
       root.render(
-        <KernelProvider options={{ extraPlugins: shellUiPlugins() }}>
+        <KernelProvider>
           <UserProvider initialUser={null}>
             <RouterProvider router={router} />
           </UserProvider>

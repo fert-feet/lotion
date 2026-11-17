@@ -1,7 +1,7 @@
-// 带重试的 fetch：只用于**启动期**的只读请求（health / me / client-config）。
+// 带重试的 fetch：只用于**启动期**的只读请求（health / me）。
 //
 // 背景：`pnpm dev` 下 Vite 比 API 先就绪，浏览器会在 API ready 前发请求；一次失败就
-// 永久停在未登录态（/api/me）或默认全启用（client-config）。这里对网络错误与 5xx
+// 永久停在未登录态。这里对网络错误与 5xx
 // 做短退避重试；401/403/404 等业务响应立即返回，不重试。
 export interface FetchRetryOptions {
   fetchImpl?: typeof fetch;

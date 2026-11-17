@@ -73,7 +73,7 @@ describe("GET /api/plugins", () => {
     expect(other.status).toBe(200);
     expect((await other.json()).plugins.length).toBeGreaterThan(0);
 
-    const patched = await patch("/api/plugins/ui-ai-panel", { enabled: false }, otherToken);
+    const patched = await patch("/api/plugins/route-health", { enabled: false }, otherToken);
     expect(patched.status).toBe(200);
     expect((await patched.json()).enabled).toBe(false);
   });
@@ -83,7 +83,7 @@ describe("GET /api/plugins", () => {
     expect(res.status).toBe(200);
     const body = (await res.json()) as { plugins: PluginInfo[] };
 
-    expect(body.plugins.some((item) => item.id === "ui-ai-panel")).toBe(true);
+    expect(body.plugins.some((item) => item.id === "ui-ai-panel")).toBe(false);
     expect(body.plugins.find((item) => item.id === "dynamic-plugins")).toMatchObject({
       enabled: false,
       core: false,
@@ -101,16 +101,12 @@ describe("GET /api/plugins", () => {
 });
 
 describe("PATCH /api/plugins/:id", () => {
-  it("禁用 UI 插件后 client-config 公开可见", async () => {
-    const res = await patch("/api/plugins/ui-ai-panel", { enabled: false }, ownerToken);
-    expect(res.status).toBe(200);
-    expect((await res.json()).enabled).toBe(false);
-    expect(settings.snapshot()["ui-ai-panel"]).toEqual({ disabled: true });
+  it("AI 面板不是可启停插件，client-config 不会下发它", async () => {
+    expect((await patch("/api/plugins/ui-ai-panel", { enabled: false }, ownerToken)).status).toBe(404);
 
-    // client-config 不需要登录（启动期 UI 插件过滤用）
     const config = await get("/api/plugins/client-config");
     expect(config.status).toBe(200);
-    expect((await config.json()).disabledUi).toContain("ui-ai-panel");
+    expect((await config.json()).disabledUi).toEqual([]);
   });
 
   it("写入配置并持久到 settings patch", async () => {
@@ -126,8 +122,8 @@ describe("PATCH /api/plugins/:id", () => {
     expect((await core.json()).code).toBe("CORE_PLUGIN");
 
     expect((await patch("/api/plugins/ghost", { enabled: true }, ownerToken)).status).toBe(404);
-    expect((await patch("/api/plugins/ui-ai-panel", {}, ownerToken)).status).toBe(400);
-    expect((await patch("/api/plugins/ui-ai-panel", { enabled: "no" }, ownerToken)).status).toBe(400);
+    expect((await patch("/api/plugins/route-auth", {}, ownerToken)).status).toBe(400);
+    expect((await patch("/api/plugins/route-auth", { enabled: "no" }, ownerToken)).status).toBe(400);
   });
 });
 

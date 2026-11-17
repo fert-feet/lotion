@@ -48,7 +48,7 @@
   启动与每日维护会 `VACUUM INTO` 做一次数据库快照（保留 7 份，24h 节流）
 - **全文搜索** — FTS5 + trigram（中文 ≥3 字走索引，更短回落 LIKE），触发器与文档表同步
 - **加固** — 登录/注册每 IP 每分钟 10 次限流；scrypt N=2^17（s2 前缀，旧哈希登录时自动升级）
-- **常驻 AI 面板** — 关闭不丢状态，⌘J / Ctrl+J 开合；占一列挤压正文，窗口放不下三栏时自动降级为右侧浮层
+- **内建常驻 AI 面板** — 不属于可启停插件；关闭不丢状态，⌘J / Ctrl+J 开合；占一列挤压正文，窗口放不下三栏时自动降级为右侧浮层
 - **回合快照** — 每轮的工具卡 / 副作用卡 / 引用 / 待办 / 提问 / 耗时随 assistant 消息落库
   （`chat_messages.metadata`），刷新或切换会话后时间线完整重建（不再只剩一段纯文本）
 - **AI 改动可撤销** — 写类工具执行前先拍文档快照（`ai_changes` 表），回合操作条的
@@ -62,10 +62,10 @@
 
 **插件系统**
 
-- **设置 → 插件** — 内置能力也按插件装配：核心 / 内置 / 已安装 / AI 动态分组，开关、状态、配置、
-  源码预览；所有登录账号权限一致
+- **设置 → 插件** — 宿主能力、第三方包与 AI 动态插件按插件装配；内建 AI 面板不进入插件目录。
+  设置页支持开关、状态、配置、源码预览，所有登录账号权限一致
 - **实时启停** — 路由注册表可逆 + 请求级实时分发：启停静态/已安装插件的 tools 与 httpRoutes 立即生效；
-  UI 插件（AI 面板）需刷新页面
+  第三方 UI 插件需刷新页面
 - **第三方插件包** — `data/plugins/installed/<id>/plugin.json`（manifest + host/client 代码），
   设置页可配置、审批、卸载；格式与 API 见 [docs/插件开发.md](docs/插件开发.md)，模板在 `templates/plugin/`
 - **侧边栏顶部入口** — 「插件市场」是侧边栏头部图标组里的一枚按钮（与 AI 助手 / 新建同排，`/market` 独立页），
@@ -191,9 +191,9 @@ src/
 ├── shell/                        # 认证区外壳
 │   ├── main-layout.tsx           # 会话守卫 + AppShell
 │   ├── app-shell.tsx             # DSH 风格三栏 shell（sidebar|center|details + 拖拽手柄）
-│   ├── ui-plugins.tsx            # 内置 UI 插件清单（AI 面板由插槽贡献）
+│   ├── ui-plugins.tsx            # 第三方 UI 插槽常量（内置 UI 插件当前为空）
 │   ├── sidebar/                  # 侧边栏：header 搜索胶囊 / 文档树 / footer / rail
-│   ├── ai-panel.tsx              # AI 面板（details 插槽常驻，SSE 流式渲染）
+│   ├── ai-panel.tsx              # 内建 AI 面板（shell 直接拥有，SSE 流式渲染）
 │   ├── ai/                       # turn-reducer（事件→turn，纯逻辑，单测覆盖）/ note-card / session-menu
 │   │                             #   / tool-card / attachments（文本附件读取与校验）
 │   ├── editor.tsx                # BlockNote 入口（schema / 斜杠菜单 / @提及 / 图片上传）
@@ -219,7 +219,7 @@ hooks/                            # use-layout / use-user / use-refresh / ...
 lib/
 ├── kernel/                       # ⚠️ 环境无关纯 TS：cordis.ts（唯一适配层）/ cordis-loader.ts
 ├── seams/                        # 8 条接缝契约：doc-store / settings / http-routes / ui-slots / tools / remote / dynamic / plugins
-├── client/                       # ⚠️ 浏览器专用：doc-store-rest / remote-rest / plugin-admin-rest / plugin-boot
+├── client/                       # ⚠️ 浏览器专用：doc-store-rest / remote-rest / plugin-admin-rest
 ├── dynamic/                      # ⚠️ 服务端专用：node:vm 沙箱 + plugin_* 自指工具（默认关闭）
 ├── db.ts                         # 客户端数据访问入口（全部 fetch REST；UI 层走 docStore 接缝）
 ├── local/                        # ⚠️ 服务端专用：sqlite / migrations / db / auth / request-user / uploads
@@ -241,7 +241,7 @@ lib/
 public/plugin-market/             # 本地市场 registry + 示例 bundle
 templates/plugin/                 # 第三方插件最小模板
 docs/                             # 插件化架构 / 本地数据库版 / 插件开发
-test/                             # Vitest 单测（与 lib/、server/ 同构，898 个用例）
+test/                             # Vitest 单测（与 lib/、server/ 同构，891 个用例）
 ```
 
 ## 数据模型（SQLite 6 张表）
@@ -274,7 +274,7 @@ pnpm build        # vite 构建客户端到 dist/
 pnpm start        # 运行 Hono（托管 dist/ + API，单机自托管）
 pnpm typecheck    # tsc --noEmit
 pnpm lint         # ESLint
-pnpm test         # Vitest 单测（898 个用例，内存 SQLite + Hono app.request）
+pnpm test         # Vitest 单测（891 个用例，内存 SQLite + Hono app.request）
 pnpm test:watch   # Vitest 监听模式
 ```
 

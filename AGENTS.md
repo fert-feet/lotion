@@ -82,14 +82,14 @@ Hono（server/，Node 进程）
 
 ```
 src/
-├── main.tsx                # 客户端入口（先读 disabled UI 插件 → 内核装配 → App）
+├── main.tsx                # 客户端入口（内核装配 → App）
 ├── app.tsx                 # 全局 Provider（Theme / Toaster / Modal / User）+ KernelProvider
 ├── router.tsx              # 路由表（导出 routes 供测试用 createMemoryRouter 复用）
 ├── kernel/                 # 客户端内核装配：client.ts（bootClientKernel）+ react.tsx（useDocStore/useSlot/usePluginAdmin）
 ├── dynamic/                # 动态插件客户端半边（宿主关闭时为空操作）
 ├── pages/                  # 页面：marketing / login / register / documents / document / market / 404 / error
 ├── shell/                  # 认证区外壳：app-shell / main-layout(守卫) / sidebar / ai-panel / editor / ...
-│   └── ui-plugins.tsx       # 内置 UI 插件清单（AI 面板由插槽贡献，AppShell 只渲染 slot）
+│   └── ui-plugins.tsx       # 第三方 UI 插槽常量；内置 UI 插件当前为空，AI 面板直接归 shell
 ├── marketing/              # 着陆页组件
 └── styles/                 # globals.css（Tailwind 4 + 设计 token）+ fonts.css（@fontsource）
 server/
@@ -107,7 +107,7 @@ lib/
 │   ├── cordis-loader.ts     # 装配层（稳定 id / patch 整块替换 / 单条失败不掀桌 / 逆序卸载）
 │   └── index.ts             # 出口
 ├── seams/                  # 8 条接缝的契约（doc-store / settings / http-routes / ui-slots / tools / remote / dynamic / plugins）
-├── client/                 # ⚠️ 浏览器专用：doc-store-rest + remote-rest + plugin-admin-rest + plugin-boot
+├── client/                 # ⚠️ 浏览器专用：doc-store-rest + remote-rest + plugin-admin-rest
 ├── dynamic/                # ⚠️ 服务端专用：node:vm 沙箱 + 生命周期 + plugin_* 自指工具（默认关闭）
 ├── db.ts                   # 客户端数据访问入口：全部走 fetch REST（⚠️ 仅浏览器；UI 层禁止直接 import，走 docStore 接缝）
 ├── local/                  # ⚠️ 服务端专用（禁止客户端导入）
@@ -156,7 +156,8 @@ test/                       # Vitest 单测（lib/ / api/ / components/ / seams/
   （每次启动自动迁移，当前 7 个迁移；chat_messages.metadata=回合快照，chat_sessions.documentId=会话绑定文档）
 - `documents` 自引用（`parentDocument`）支持嵌套；多用户隔离靠**应用层显式 userId 过滤**（无 RLS）
 - AI 面板在 `src/shell/ai-panel.tsx`（纯逻辑在 `src/shell/ai/turn-reducer.ts`，有单测），
-  流式渲染；**只有一种布局** = 三栏停靠（占一列挤压正文），⌘J / Ctrl+J 开合，宽度是
+  是 **shell 内建功能，不是可启停插件**；流式渲染；**只有一种布局** = 三栏停靠（占一列挤压正文），
+  ⌘J / Ctrl+J 开合，宽度是
   `useLayout.details` 的拖拽偏好；窗口放不下三栏时让步链把列压成 0 → 降级为右侧浮层 +
   遮罩点击关闭（同一个 React 位置，不重挂载）。**不要**再引入 `docked/overlay/fullscreen`
   这样的呈现模式**或 ⌘⇧J 循环**：同一功能三套行为、用户无法预期，已删除
@@ -226,11 +227,12 @@ AI 面板的语义色另由 `test/components/ai/design-tokens.test.ts` 守卫。
   不在组件里直接写 SQL 或 fetch —— 由 `test/boundary.test.ts` 守卫
 - **内核必须环境无关**：`lib/kernel/` 禁止 `node:*`、React、服务端模块（两个进程共用同一份）
 - **插件化约定**：新增能力 = 写本体 +（要贡献接口才）在 `lib/seams/` 加契约
-  + 在 `server/composition.ts`（宿主）或 `src/shell/ui-plugins.tsx`（UI）加**一行带稳定 id 的清单**
-  + 补单测。路由走 `server/routes/index.ts`，AI 工具走 `registerTool(ctx, requireTools(ctx), {...})`，
-  UI 走 `requireUiSlots(ctx).register({ id, slot, kind: "single" | "list", component })`；
-  **入口/容器归插件所有**：shell 里的按钮、快捷键、列容器要用 `useHasSlot(slot)` 门控，
-  否则“禁用插件”只会变成“内容为空”（AI 面板曾因此留下一个空白详情列）
+  + 在 `server/composition.ts`（宿主）加**一行带稳定 id 的清单** + 补单测。路由走
+  `server/routes/index.ts`，AI 工具走 `registerTool(ctx, requireTools(ctx), {...})`；
+  第三方 UI 走 `requireUiSlots(ctx).register({ id, slot, kind: "single" | "list", component })`。
+  **第三方插件的入口/容器归插件所有**：shell 里的按钮、快捷键、列容器要用 `useHasSlot(slot)` 门控，
+  否则“禁用插件”只会变成“内容为空”。AI 面板例外：它是内建功能，由 AppShell 直接渲染，
+  不要重新改成插件或用 `details.panel` 插槽门控。
 - **插件管理**：管理写操作走 `pluginAdmin` 接缝（`usePluginAdmin()`），不要在组件里直接 fetch；
   新增路由贡献用 `registerRoute`（`ctx.effect` 配对注销），否则热切换会留下孤儿路由；
   插件权限对所有登录账号一致（`isOwner` 仅展示，不再参与鉴权）

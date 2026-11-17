@@ -32,11 +32,13 @@ function plugin(overrides: Partial<PluginInfo> & Pick<PluginInfo, "id" | "title"
 }
 
 const corePlugin = plugin({ id: "tools-registry", title: "AI 工具注册表", core: true });
-const aiPanel = plugin({
-  id: "ui-ai-panel",
-  title: "AI 助手面板",
+const uiQuote = plugin({
+  id: "ui-daily-quote",
+  title: "今日一句",
   scope: "ui",
-  status: "active",
+  source: "installed",
+  restartRequired: false,
+  capabilities: ["uiSlots"],
 });
 const routeAuth = plugin({
   id: "route-auth",
@@ -173,30 +175,30 @@ afterEach(async () => {
 
 describe("PluginSettings", () => {
   it("渲染插件列表，核心插件开关禁用", async () => {
-    const admin = makeAdmin([corePlugin, aiPanel, routeAuth]);
+    const admin = makeAdmin([corePlugin, uiQuote, routeAuth]);
     await mount(admin);
 
     expect(container.textContent).toContain("AI 工具注册表");
-    expect(container.textContent).toContain("AI 助手面板");
+    expect(container.textContent).toContain("今日一句");
     const coreSwitch = container.querySelector<HTMLButtonElement>(
       '[aria-label="AI 工具注册表 启用状态"]',
     );
     expect(coreSwitch?.disabled).toBe(true);
   });
 
-  it("切换 UI 插件后调用 setEnabled 并提示刷新", async () => {
-    const admin = makeAdmin([corePlugin, aiPanel, routeAuth]);
+  it("切换第三方 UI 插件后调用 setEnabled 并提示生效方式", async () => {
+    const admin = makeAdmin([corePlugin, uiQuote, routeAuth]);
     await mount(admin);
 
-    const toggle = container.querySelector<HTMLButtonElement>('[aria-label="AI 助手面板 启用状态"]');
+    const toggle = container.querySelector<HTMLButtonElement>('[aria-label="今日一句 启用状态"]');
     expect(toggle?.getAttribute("aria-checked")).toBe("true");
     await act(async () => {
       toggle?.click();
       await new Promise((resolve) => setTimeout(resolve, 10));
     });
 
-    expect(admin.setEnabled).toHaveBeenCalledWith("ui-ai-panel", false);
-    expect(container.textContent).toContain("刷新页面后生效");
+    expect(admin.setEnabled).toHaveBeenCalledWith("ui-daily-quote", false);
+    expect(container.textContent).toContain("即时生效");
   });
 
   it("配置弹窗按字段生成表单并保存对象", async () => {

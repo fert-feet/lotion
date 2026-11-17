@@ -18,11 +18,11 @@ let container: HTMLDivElement;
 let root: Root;
 
 const pluginInfo: PluginInfo = {
-  id: "ui-ai-panel",
-  title: "AI 助手面板",
-  description: "详情栏面板",
+  id: "ui-daily-quote",
+  title: "今日一句",
+  description: "第三方 UI 插件",
   scope: "ui",
-  source: "builtin",
+  source: "installed",
   version: "0.1.0",
   enabled: true,
   approved: true,
@@ -117,7 +117,7 @@ describe("SettingsModal", () => {
     });
 
     expect(admin.list).toHaveBeenCalled();
-    expect(document.body.textContent).toContain("AI 助手面板");
+    expect(document.body.textContent).toContain("今日一句");
   });
 
   it("关闭按钮是真按钮、锚在右上角，导航里没有「设置」小标题", async () => {

@@ -17,7 +17,6 @@ import { UserProvider } from "@/hooks/use-user";
 import { routes } from "@/src/router";
 import { useLayout } from "@/hooks/use-layout";
 import { KernelProvider } from "@/src/kernel/react";
-import { shellUiPlugins } from "@/src/shell/ui-plugins";
 import { getClientKernel } from "@/src/kernel/client";
 
 let container: HTMLDivElement;
@@ -123,7 +122,7 @@ async function mountPanel() {
     root.render(
       <ThemeProvider attribute="class" defaultTheme="light" storageKey="t">
         {/* 与 src/app.tsx 同构：内核 + 内置 UI 插件（details 面板由 ui-slots 贡献） */}
-        <KernelProvider options={{ extraPlugins: shellUiPlugins() }}>
+        <KernelProvider>
           <UserProvider initialUser={null}>
             <RouterProvider router={router} />
           </UserProvider>

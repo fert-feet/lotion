@@ -210,14 +210,13 @@ function fakeRuntime() {
 }
 
 describe("插件管理器（静态）", () => {
-  it("合并目录与默认状态：动态通道默认关闭，UI 插件默认开启", async () => {
+  it("合并目录与默认状态：动态通道默认关闭，AI 面板不在插件目录", async () => {
     const { manager } = createManager();
     const list = await manager.list();
     const dynamic = list.find((item) => item.id === "dynamic-plugins");
-    const ui = list.find((item) => item.id === "ui-ai-panel");
 
     expect(dynamic).toMatchObject({ enabled: false, status: "disabled", core: false });
-    expect(ui).toMatchObject({ enabled: true, status: "active", scope: "ui", restartRequired: true });
+    expect(list.find((item) => item.id === "ui-ai-panel")).toBeUndefined();
     expect(list.filter((item) => item.core).every((item) => item.enabled)).toBe(true);
   });
 
@@ -236,19 +235,19 @@ describe("插件管理器（静态）", () => {
   it("配置写入按 id 合并，不影响其它 patch", async () => {
     const { manager, settings } = createManager();
     await manager.setConfig("route-auth", { note: "只读演示" });
-    await manager.setEnabled("ui-ai-panel", false);
+    await manager.setEnabled("route-health", false);
 
     expect(settings.snapshot()).toMatchObject({
       "route-auth": { config: { note: "只读演示" } },
-      "ui-ai-panel": { disabled: true },
+      "route-health": { disabled: true },
     });
   });
 
-  it("client-config 只回 disabled 的 UI 插件 id", async () => {
+  it("没有内置 UI 插件时 client-config 始终为空", async () => {
     const { manager } = createManager();
     expect(await manager.clientConfig()).toEqual({ disabledUi: [] });
-    await manager.setEnabled("ui-ai-panel", false);
-    expect(await manager.clientConfig()).toEqual({ disabledUi: ["ui-ai-panel"] });
+    await manager.setEnabled("route-health", false);
+    expect(await manager.clientConfig()).toEqual({ disabledUi: [] });
   });
 
   it("未知 id 抛 NOT_FOUND；内置插件不能卸载", async () => {
@@ -265,8 +264,7 @@ describe("插件管理器（静态）", () => {
     expect(controller.calls.enable).toEqual([{ id: "dynamic-plugins", config: undefined }]);
     expect(enabled).toMatchObject({ enabled: true, status: "active", restartRequired: false });
 
-    const ui = (await manager.list()).find((item) => item.id === "ui-ai-panel");
-    expect(ui?.restartRequired).toBe(true); // UI 插件仍要刷新页面
+    expect((await manager.list()).some((item) => item.scope === "ui" && item.source === "builtin")).toBe(false);
   });
 
   it("改静态插件配置会热重挂并传入新 config", async () => {

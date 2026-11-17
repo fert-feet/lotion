@@ -27,11 +27,11 @@ function json(data: unknown, status = 200): Response {
 }
 
 const sample: PluginInfo = {
-  id: "ui-ai-panel",
-  title: "AI 助手面板",
-  description: "详情栏面板",
+  id: "ui-daily-quote",
+  title: "今日一句",
+  description: "第三方 UI 插件",
   scope: "ui",
-  source: "builtin",
+  source: "installed",
   version: "0.1.0",
   enabled: true,
   approved: true,
@@ -47,12 +47,12 @@ describe("createRestPluginAdmin", () => {
   it("list 解包 plugins；clientConfig 走公开端点", async () => {
     const { impl, calls } = makeFetch([
       json({ plugins: [sample] }),
-      json({ disabledUi: ["ui-ai-panel"] }),
+      json({ disabledUi: ["ui-daily-quote"] }),
     ]);
     const admin = createRestPluginAdmin(impl);
 
     expect(await admin.list()).toEqual([sample]);
-    expect(await admin.clientConfig()).toEqual({ disabledUi: ["ui-ai-panel"] });
+    expect(await admin.clientConfig()).toEqual({ disabledUi: ["ui-daily-quote"] });
     expect(calls.map((call) => call.url)).toEqual([
       "/api/plugins",
       "/api/plugins/client-config",
@@ -67,15 +67,15 @@ describe("createRestPluginAdmin", () => {
     ]);
     const admin = createRestPluginAdmin(impl);
 
-    await admin.setEnabled("ui-ai-panel", false);
-    await admin.setConfig("ui-ai-panel", { density: "compact" });
-    await admin.approve("ui-ai-panel");
+    await admin.setEnabled("ui-daily-quote", false);
+    await admin.setConfig("ui-daily-quote", { density: "compact" });
+    await admin.approve("ui-daily-quote");
 
-    expect(calls[0]).toMatchObject({ url: "/api/plugins/ui-ai-panel", init: { method: "PATCH" } });
+    expect(calls[0]).toMatchObject({ url: "/api/plugins/ui-daily-quote", init: { method: "PATCH" } });
     expect(calls[0].init?.body).toBe(JSON.stringify({ enabled: false }));
     expect(calls[1].init?.body).toBe(JSON.stringify({ config: { density: "compact" } }));
     expect(calls[2]).toMatchObject({
-      url: "/api/plugins/ui-ai-panel/approve",
+      url: "/api/plugins/ui-daily-quote/approve",
       init: { method: "POST" },
     });
   });

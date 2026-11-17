@@ -9,8 +9,6 @@
 import { useEffect, useRef, useState } from "react";
 import { ListChecks, MoreHorizontal, Plus, Search, Sparkles, Store, X } from "@/components/icons";
 import { useLayout } from "@/hooks/use-layout";
-import { useHasSlot } from "@/src/kernel/react";
-import { SLOT_DETAILS_PANEL } from "../ui-plugins";
 import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
@@ -57,8 +55,6 @@ export function SidebarHeader({
   const [moreOpen, setMoreOpen] = useState(false);
   const detailsOpen = useLayout((s) => s.details > 0);
   const toggleDetails = useLayout((s) => s.toggleDetails);
-  // 入口跟着插件走：ui-ai-panel 被禁用时这里不能还留一个能点的 AI 按钮
-  const hasAiPanel = useHasSlot(SLOT_DETAILS_PANEL);
 
   useEffect(() => {
     if (expanded && active) inputRef.current?.focus({ preventScroll: true });
@@ -178,20 +174,18 @@ export function SidebarHeader({
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-44">
-            {hasAiPanel && (
-              <DropdownMenuItem
-                aria-label="AI 助手"
-                onClick={() => {
-                  setMoreOpen(false);
-                  toggleDetails();
-                  onCollapse?.();
-                }}
-                className="cursor-pointer"
-              >
-                <Sparkles className={cn("mr-2 h-4 w-4", detailsOpen && "text-shell-accent")} />
-                {detailsOpen ? "关闭 AI 助手" : "打开 AI 助手"}
-              </DropdownMenuItem>
-            )}
+            <DropdownMenuItem
+              aria-label="AI 助手"
+              onClick={() => {
+                setMoreOpen(false);
+                toggleDetails();
+                onCollapse?.();
+              }}
+              className="cursor-pointer"
+            >
+              <Sparkles className={cn("mr-2 h-4 w-4", detailsOpen && "text-shell-accent")} />
+              {detailsOpen ? "关闭 AI 助手" : "打开 AI 助手"}
+            </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
               aria-label="插件市场"
